@@ -5,6 +5,7 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "alembic>=1.15.2",
     "apache-libcloud>=3.8.0",
     "bootstrap-flask>=2.4.2",
     "celery>=5.4.0",

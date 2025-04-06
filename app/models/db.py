@@ -75,7 +75,7 @@ class Video(Base):
     title: Mapped[str] = mapped_column(String(250))
     video_type: Mapped[str] = mapped_column(Enum(VideoType))
     duration: Mapped[float] = mapped_column(Float())
-    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)
     channel: Mapped["Channels"] = relationship()
     last_updated: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now())
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
@@ -92,7 +92,7 @@ class Video(Base):
 class Transcription(Base):
     __tablename__: str = "transcriptions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    video_id: Mapped[int] = mapped_column(ForeignKey("video.id"), unique=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("video.id"), index=True)
     video: Mapped["Video"] = relationship()
     language: Mapped[str] = mapped_column(String(250))
     last_updated: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now())
@@ -125,14 +125,18 @@ class Segments(Base):
     text: Mapped[str] = mapped_column(String(500), nullable=False)
     start: Mapped[int] = mapped_column(Integer, nullable=False)
     end: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    transcription_id: Mapped[int] = mapped_column(ForeignKey("transcriptions.id"))
+    transcription_id: Mapped[int] = mapped_column(
+        ForeignKey("transcriptions.id"), index=True
+    )
     transcription: Mapped["Transcription"] = relationship()
 
 
 class WordMaps(Base):
     __tablename__: str = "wordmaps"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    word: Mapped[str] = mapped_column(String(50))
+    word: Mapped[str] = mapped_column(String(50), index=True)
     segments: Mapped[list[int]] = mapped_column(ARRAY(Integer))
-    transcription_id: Mapped[int] = mapped_column(ForeignKey("transcriptions.id"))
+    transcription_id: Mapped[int] = mapped_column(
+        ForeignKey("transcriptions.id"), index=True
+    )
     transcription: Mapped["Transcription"] = relationship()

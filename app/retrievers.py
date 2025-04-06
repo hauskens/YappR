@@ -160,9 +160,12 @@ def fetch_transcription(video_id: int):
 def fetch_audio(video_id: int):
     video = get_video(video_id)
     video_url = video.get_url()
-    if video_url is not None:
-        logger.info(f"fetching audio for {video_url}")
-        audio = get_yt_audio(video_url)
-        logger.info(f"adding audio on {video_id}..")
-        video.audio = open(audio, "rb")
-        db.session.commit()
+    if video.audio is None:
+        if video_url is not None:
+            logger.info(f"fetching audio for {video_url}")
+            audio = get_yt_audio(video_url)
+            logger.info(f"adding audio on {video_id}..")
+            video.audio = open(audio, "rb")
+            db.session.commit()
+    else:
+        logger.info(f"skipped audio for {video_url}, already exists.")

@@ -1,13 +1,13 @@
 import yt_dlp
 from models.yt import VideoData, SubtitleData, Thumbnail
 from models.config import Config
-from os import path
 import logging
+import os
 import requests
 
 
 logger = logging.getLogger(__name__)
-storage_directory = path.abspath(Config().cache_location)
+storage_directory = os.path.abspath(Config().cache_location)
 config = Config()
 
 
@@ -23,10 +23,11 @@ def get_largest_thumbnail(video: VideoData) -> Thumbnail | None:
 
 def save_thumbnail(thumbnail: Thumbnail, path: str):
     logger.debug(f"Fetching thumbnail, {thumbnail['url']}")
-    response = requests.get(thumbnail["url"])
-    if response.status_code == 200:
-        with open(path, "wb") as f:
-            _ = f.write(response.content)
+    if not os.path.exists(path):
+        response = requests.get(thumbnail["url"])
+        if response.status_code == 200:
+            with open(path, "wb") as f:
+                _ = f.write(response.content)
 
 
 def save_largest_thumbnail(video: VideoData) -> str | None:
@@ -108,5 +109,19 @@ def get_yt_video_subtitles(video_url: str) -> list[SubtitleData]:
     return subtitles
 
 
-# if __name__ == "__main__":
-#     get_yt_video_subtitles("https://www.youtube.com/watch?v=leRys8FOYd0", "./test")
+def get_yt_audio(video_url: str) -> str:
+    download_path: str = f"{storage_directory}/{video_url.split('=')[-1]}s.webm"
+
+    yt_opts = {
+        "extract_audio": True,
+        "format": "bestaudio[ext=webm]",
+        "outtmpl": download_path,
+    }
+    with yt_dlp.YoutubeDL(yt_opts) as ydl:
+        logger.info(f"Fetching audio for video: {video_url}")
+        _ = ydl.extract_info(video_url)
+        return download_path
+
+
+if __name__ == "__main__":
+    get_yt_audio("https://www.youtube.com/watch?v=leRys8FOYd0")

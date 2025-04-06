@@ -23,13 +23,14 @@ def get_sec(time_str: str) -> int:
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 
-def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, id: int):
-    logger.info(f"Processing transcription: {id}")
-    processed_transcription = ProcessedTranscription(transcription_id=id)
+def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, transcription_id: int):
+    logger.info(f"Processing transcription: {transcription_id}")
+    # savepoint = db.session.begin_nested()
+    processed_transcription = ProcessedTranscription(transcription_id=transcription_id)
     db.session.add(processed_transcription)
     db.session.flush()
     logger.info(
-        f"Processing transcription: {id} - added PT {processed_transcription.id}"
+        f"Processing transcription: {transcription_id} - added PT {processed_transcription.id}"
     )
     segments: list[Segments] = []
     word_map: list[WordMaps] = []
@@ -76,3 +77,4 @@ def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, id: int):
                 )
     db.session.add_all(word_map)
     db.session.commit()
+    logger.info(f"Done processing transcription: {transcription_id}")

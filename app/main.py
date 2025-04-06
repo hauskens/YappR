@@ -210,7 +210,6 @@ logging.basicConfig(level=config.log_level)
 init_storage()
 container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
 StorageManager.add_storage("default", container)
-# nav.init_app(app)
 db.init_app(app)
 with app.app_context():
     db.create_all()
@@ -411,7 +410,9 @@ def task_parse_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     if transcription is not None:
         content = transcription.file.file.read()
-        _ = parse_vtt(db=db, vtt_buffer=io.BytesIO(content), id=transcription_id)
+        _ = parse_vtt(
+            db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription_id
+        )
 
 
 # todo: send some confirmation to user that task is queued and prevent new queue from getting started
@@ -427,12 +428,15 @@ def channel_fetch_transcriptions(id: int):
 @app.route("/channel/<int:id>/parse_transcriptions")
 def channel_parse_transcriptions(id: int):
     videos = get_video_by_channel(id)
-    # logger.info(f"Parsing all transcriptions for {channel.name}")
     if videos is not None:
         for video in videos:
             if len(video.transcriptions) > 0:
-                tran = video.transcriptions.pop()
-                _ = task_parse_transcription.delay(tran.id)
+                # todo: ensure only YT transcriptions are processed
+                for tran in video.transcriptions:
+                    protran = get_processed_transcription_by_transcription(tran.id)
+                    if protran is None:
+                        # print(f"pretending to process {tran.id} - {protran}")
+                        _ = task_parse_transcription.delay(tran.id)
     return redirect(url_for("channel_get_videos", id=id))
 
 
@@ -448,6 +452,19 @@ def video_get_transcriptions(id: int):
         "video_edit.html",
         transcriptions=get_transcriptions_by_video(id),
         video=get_video(id),
+    )
+
+
+@app.route("/video/<int:video_id>/parse_transcriptions")
+def video_parse_transcriptions(video_id: int):
+    tran = get_transcriptions_by_video(video_id)
+    if tran is not None:
+        for t in tran:
+            _ = task_parse_transcription.delay(t.id)
+    return render_template(
+        "video_edit.html",
+        transcriptions=get_transcriptions_by_video(video_id),
+        video=get_video(video_id),
     )
 
 
@@ -469,7 +486,7 @@ def parse_transcription(id: int):
     transcription = get_transcription(id)
     if transcription is not None:
         content = transcription.file.file.read()
-        _ = parse_vtt(db=db, vtt_buffer=io.BytesIO(content), id=id)
+        _ = parse_vtt(db=db, vtt_buffer=io.BytesIO(content), transcription_id=id)
     return "buh"
 
 

@@ -29,7 +29,10 @@
           <td><a href="{{ video.get_url() }}">Link</a></td>
           <td>{{ video.transcriptions|length }}</td>
           <td>{{ video.last_updated }}</td>
-          <td><a href="{{ url_for('video_get_transcriptions', id=video.id) }}">Edit Video</a></td>
+          <td>
+            <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', id=video.id) }}">Edit Video</a>
+            <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', id=video.id) }}">Fetch transcriptions</a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

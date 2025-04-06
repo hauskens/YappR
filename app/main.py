@@ -100,7 +100,7 @@ def search_wordmaps_by_transcription(
     return (
         db.session.execute(
             select(WordMaps).filter_by(
-                transcription_id=transcription.id, word=search_term
+                transcription_id=transcription.id, word=search_term.lower()
             )
         )
         .scalars()

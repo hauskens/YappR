@@ -1,0 +1,18 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Flask App</title>
+  </head>
+  <body>
+    <h2>Welcome to VodMeta</h2>
+    <nav class="navbar">
+      <ul>
+        <li><a href="{{ url_for('index') }}">Home</a></li>
+        <li><a href="{{ url_for('broadcasters') }}">Broadcasters</a></li>
+      </ul>
+    </nav>
+    {% block body %}
+    <p>Deez nuts</p>
+    {% endblock %}
+  </body>
+</html>

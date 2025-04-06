@@ -1,0 +1,24 @@
+{% extends 'base.html' %} {% block body %}
+
+<!-- Main Content -->
+<h1>Broadcasters</h1>
+<ul>
+  {% for broadcaster in broadcasters %}
+  <li>{{ broadcaster.id }} - {{ broadcaster.name }}</li>
+  {% endfor %}
+</ul>
+{% with messages = get_flashed_messages() %} {% if messages %}
+<ul>
+  {% for message in messages %}
+  <li>{{ message }}</li>
+  {% endfor %}
+</ul>
+{% endif %} {% endwith %}
+<h2>Add Broadcaster</h2>
+<form action="{{ url_for('broadcaster_create') }}" method="post">
+  <label for="name">Broadcaster Name:</label>
+  <input type="text" id="name" name="name" /><br /><br />
+  <button type="submit">Add Broadcaster</button>
+</form>
+
+{% endblock %}

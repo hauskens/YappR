@@ -14,6 +14,7 @@ dependencies = [
     "flask-nav>=0.6",
     "flask-sqlalchemy>=3.1.1",
     "nltk>=3.9.1",
+    "psycopg[binary]>=3.2.6",
     "redis>=5.2.1",
     "sqlalchemy>=2.0.40",
     "sqlalchemy-file>=0.6.0",

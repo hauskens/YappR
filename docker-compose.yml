@@ -2,33 +2,72 @@ services:
   db:
     image: postgres:17-alpine
     restart: always
+    hostname: postgres-db
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 60s
+      start_interval: 1s
+      timeout: 10s
+      retries: 5
+      start_period: 80s
     networks: 
       - internal
     environment:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=secret
-    ports:
-      - "5432:5432"
     volumes:
      - db:/var/lib/postgresql/data
   cache:
     image: redis:6.2-alpine
     restart: always
+    hostname: redis-cache
+    healthcheck:
+      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      interval: 60s
+      start_interval: 1s
+      timeout: 3s
+      retries: 10
+      start_period: 15s
+    networks: 
+      - internal
+  app:
+    image: vodmeta
+    build:
+      context: .
     networks: 
       - internal
     ports:
-      - "6379:6379"
-    volumes: 
-      - cache:/data
-  app:
-    image: vodmeta
-    networks: 
-      - internal
-    build:
-      context: .
+      - "5000:5000"
+    environment:
+      DB_URI: "postgresql+psycopg://root:secret@postgres-db:5432/postgres"
+      REDIS_URI: "redis://redis-cache:6379/0"
+      STORAGE_LOCATION: "/var/lib/vodmeta/data"
+    volumes:
+     - app:/var/lib/vodmeta/data
+    depends_on:
+      cache:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./app/
+          target: /src/app/
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./uv.lock
+  worker:
+    extends: app
+    ports: !reset []
+    entrypoint: ["uv", "run", "celery"]
+    command: !override ["--app","main", "--workdir", "app", "worker", "--loglevel=info"]
+    depends_on:
+      - app
 volumes:
   db: 
-  cache:
+  app:
 networks:
   internal:
     driver: bridge

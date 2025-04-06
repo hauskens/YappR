@@ -33,9 +33,9 @@ services:
     networks:
       - internal
   app:
-    image: vodmeta
     build:
       context: .
+      target: app
     networks:
       - internal
     ports:
@@ -63,17 +63,8 @@ services:
   worker:
     extends: app
     ports: !reset []
-    entrypoint: ["celery"]
-    command:
-      !override [
-        "--app",
-        "main.celery",
-        "--workdir",
-        "app",
-        "worker",
-        "--loglevel=info",
-        "--concurrency=1",
-      ]
+    build:
+      target: worker
     depends_on:
       - app
 volumes:

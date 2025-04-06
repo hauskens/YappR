@@ -1,4 +1,5 @@
 .venv
+test_cache
 cli_to_api.py
 test
 test_storage

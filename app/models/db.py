@@ -80,6 +80,7 @@ class Video(Base):
     last_updated: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now())
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
     thumbnail: Mapped[File | None] = mapped_column(FileField())
+    audio: Mapped[File | None] = mapped_column(FileField())
     transcriptions: Mapped[list["Transcription"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
     )

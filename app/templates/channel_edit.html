@@ -6,6 +6,7 @@
     <h2>Videos</h2>
 
     <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_videos', id=channel.id) }}';">Fetch videos on this channel</button>
+    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', id=channel.id) }}';">Fetch audio on all videos</button>
     <!-- <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', id=channel.id) }}';">Fetch all transcriptions</button> -->
     <!-- <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', id=channel.id) }}';">Process ALL transcriptions</button> -->
     <p>Count of videos: {{ videos|length }}</p>
@@ -14,10 +15,12 @@
       <thead>
         <tr>
           <th scope="col">Video ID</th>
+          <th scope="col">Thumbnail</th>
           <th scope="col">Title</th>
           <th scope="col">Video Type</th>
           <th scope="col">Video Link</th>
           <th scope="col">Transcriptions</th>
+          <th scope="col">Attached audio</th>
           <th scope="col">Last updated</th>
           <th scope="col">Actions</th>
         </tr>
@@ -26,10 +29,16 @@
         {% for video in videos %}
         <tr>
           <td>{{ video.id }}</td>
+          <td>
+            {% if loop.index <= 50 %}
+                  <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
+            {% endif %} 
+          </td>
           <td>{{ video.title }}</td>
           <td>{{ video.video_type.name }}</td>
           <td><a href="{{ video.get_url() }}">Link</a></td>
           <td>{{ video.transcriptions|length }}</td>
+          <td>{{ video.audio.filename }}</td>
           <td>{{ video.last_updated }}</td>
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', id=video.id) }}">Edit Video</a>

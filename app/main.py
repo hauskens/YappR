@@ -24,7 +24,12 @@ from parse import parse_vtt
 from datetime import datetime
 import logging
 from os import makedirs
-from tasks import get_yt_videos, get_yt_video_subtitles, save_largest_thumbnail
+from tasks import (
+    get_yt_videos,
+    get_yt_video_subtitles,
+    save_largest_thumbnail,
+    get_yt_audio,
+)
 import io
 
 
@@ -148,6 +153,17 @@ def fetch_transcription(video_id: int):
         db.session.commit()
 
 
+def fetch_audio(video_id: int):
+    video = get_video(video_id)
+    video_url = video.get_url()
+    if video_url is not None:
+        logger.info(f"fetching audio for {video_url}")
+        audio = get_yt_audio(video_url)
+        logger.info(f"adding audio on {video_id}..")
+        video.audio = open(audio, "rb")
+        db.session.commit()
+
+
 def init_storage(container: str = "transcriptions"):
     makedirs(
         config.storage_location + "/" + container, 0o777, exist_ok=True
@@ -232,12 +248,15 @@ def search_page():
     return render_template("search.html", broadcasters=broadcasters)
 
 
-@app.route("/search_word", methods=["POST"])
+@app.route("/search", methods=["POST"])
 def search_word():
     logger.info("Loaded search_word.html")
     search_term = request.form["search"]
     broadcaster_id = request.form["broadcaster"]
     broadcaster = get_broadcaster(int(broadcaster_id))
+    if broadcaster is None:
+        raise ValueError("Broadcaster not found")
+    logger.info(f"Searching for '{search_term}' on {broadcaster.name}")
     channels = get_broadcaster_channels(int(broadcaster_id))
     transcriptions: list[Transcription] = []
     video_result: list[Video] = []
@@ -420,6 +439,12 @@ def task_fetch_transcription(video_id: int):
 
 
 @celery.task
+def task_audio(video_id: int):
+    logger.info(f"Task queued, fetching audio for {video_id}")
+    fetch_audio(video_id)
+
+
+@celery.task
 def task_parse_transcription(transcription_id: int):
     tran = get_transcription(transcription_id)
     if tran is not None:
@@ -428,6 +453,15 @@ def task_parse_transcription(transcription_id: int):
         _ = parse_vtt(
             db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription_id
         )
+
+
+@app.route("/channel/<int:id>/fetch_audio")
+def channel_fetch_audio(id: int):
+    channel = get_channel(id)
+    logger.info(f"Fetching all audio for {channel.name}")
+    for video in channel.videos:
+        _ = task_audio.delay(video.id)
+    return redirect(url_for("channel_get_videos", id=id))
 
 
 # todo: send some confirmation to user that task is queued and prevent new queue from getting started

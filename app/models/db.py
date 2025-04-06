@@ -7,6 +7,7 @@ from sqlalchemy import (
     Float,
     DateTime,
 )
+from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy_file import FileField
@@ -142,3 +143,6 @@ class WordMaps(Base):
         ForeignKey("transcriptions.id"), index=True
     )
     transcription: Mapped["Transcription"] = relationship()
+
+
+db = SQLAlchemy(model_class=Base)

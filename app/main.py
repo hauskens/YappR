@@ -1,14 +1,10 @@
-from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy_file.storage import StorageManager
-from sqlalchemy.orm import Session
 from libcloud.storage.drivers.local import LocalStorageDriver
 from flask import Flask, flash, render_template, request, redirect, url_for, send_file
-from flask_sqlalchemy import SQLAlchemy
 from celery import Celery, Task
 from flask_bootstrap import Bootstrap5
 from models.db import (
-    Base,
     Broadcaster,
     Platforms,
     Segments,
@@ -17,151 +13,32 @@ from models.db import (
     Channels,
     Video,
     Transcription,
-    TranscriptionSource,
+    db,
 )
 from models.config import Config
 from parse import parse_vtt
-from datetime import datetime
 import logging
 from os import makedirs
 from tasks import (
     get_yt_videos,
-    get_yt_video_subtitles,
     save_largest_thumbnail,
-    get_yt_audio,
 )
 import io
-
-
-def get_broadcasters() -> Sequence[Broadcaster]:
-    return (
-        db.session.execute(select(Broadcaster).order_by(Broadcaster.id)).scalars().all()
-    )
-
-
-def get_broadcaster(broadcaster_id: int) -> Broadcaster | None:
-    return (
-        db.session.execute(select(Broadcaster).filter_by(id=broadcaster_id))
-        .scalars()
-        .one_or_none()
-    )
-
-
-def get_platforms() -> Sequence[Platforms] | None:
-    return db.session.execute(select(Platforms)).scalars().all()
-
-
-def get_broadcaster_channels(broadcaster_id: int) -> Sequence[Channels] | None:
-    return (
-        db.session.execute(select(Channels).filter_by(broadcaster_id=broadcaster_id))
-        .scalars()
-        .all()
-    )
-
-
-def get_channel(channel_id: int) -> Channels:
-    return db.session.execute(select(Channels).filter_by(id=channel_id)).scalars().one()
-
-
-def get_video(video_id: int) -> Video:
-    return db.session.execute(select(Video).filter_by(id=video_id)).scalars().one()
-
-
-def get_video_by_channel(channel_id: int) -> Sequence[Video] | None:
-    return (
-        db.session.execute(select(Video).filter_by(channel_id=channel_id))
-        .scalars()
-        .all()
-    )
-
-
-def get_video_by_ref(video_platform_ref: str) -> Video | None:
-    return (
-        db.session.execute(select(Video).filter_by(platform_ref=video_platform_ref))
-        .scalars()
-        .one_or_none()
-    )
-
-
-def get_transcriptions_by_video(video_id: int) -> Sequence[Transcription] | None:
-    return (
-        db.session.execute(select(Transcription).filter_by(video_id=video_id))
-        .scalars()
-        .all()
-    )
-
-
-def get_transcription(transcription_id: int) -> Transcription | None:
-    return (
-        db.session.execute(select(Transcription).filter_by(id=transcription_id))
-        .scalars()
-        .one_or_none()
-    )
-
-
-def search_wordmaps_by_transcription(
-    search_term: str, transcription: Transcription
-) -> Sequence[WordMaps]:
-    return (
-        db.session.execute(
-            select(WordMaps).filter_by(
-                transcription_id=transcription.id, word=search_term.lower()
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-
-def get_segments_by_wordmap(wordmap: WordMaps) -> Sequence[Segments]:
-    return db.session.query(Segments).filter(Segments.id.in_(wordmap.segments)).all()
-
-
-def fetch_transcription(video_id: int):
-    video = get_video(video_id)
-    video_url = video.get_url()
-    if video_url is not None:
-        logger.info(f"fetching transcription for {video_url}")
-        subtitles = get_yt_video_subtitles(video_url)
-        for sub in subtitles:
-            logger.info(
-                f"checking if transcriptions exists on {video_id}, {len(video.transcriptions)}"
-            )
-            if len(video.transcriptions) == 0:
-                logger.info(f"transcriptions not found on {video_id}, adding new..")
-                db.session.add(
-                    Transcription(
-                        video_id=video_id,
-                        language=sub.language,
-                        file_extention=sub.extention,
-                        file=open(sub.path, "rb"),
-                        source=TranscriptionSource.YouTube,
-                    )
-                )
-            else:
-                logger.info(f"transcriptions found on {video_id}, updating existing..")
-                for t in video.transcriptions:
-                    logger.info(
-                        f"transcriptions found on {video_id} with platform {t.source}"
-                    )
-                    if t.source == TranscriptionSource.YouTube:
-                        t.file = open(sub.path, "rb")
-                        t.file_extention = sub.extention
-                        t.language = sub.language
-                        t.last_updated = datetime.now()
-
-        db.session.commit()
-
-
-def fetch_audio(video_id: int):
-    video = get_video(video_id)
-    video_url = video.get_url()
-    if video_url is not None:
-        logger.info(f"fetching audio for {video_url}")
-        audio = get_yt_audio(video_url)
-        logger.info(f"adding audio on {video_id}..")
-        video.audio = open(audio, "rb")
-        db.session.commit()
+from retrievers import (
+    get_broadcasters,
+    get_platforms,
+    get_broadcaster_channels,
+    get_channel,
+    get_video,
+    get_video_by_channel,
+    get_video_by_ref,
+    get_transcriptions_by_video,
+    get_transcription,
+    search_wordmaps_by_transcription,
+    get_segments_by_wordmap,
+    fetch_transcription,
+    fetch_audio,
+)
 
 
 def init_storage(container: str = "transcriptions"):
@@ -201,7 +78,8 @@ app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
 app.config["CELERY"] = dict(
     broker_url=config.redis_uri, backend=config.database_uri, task_ignore_result=True
 )
-db = SQLAlchemy(app, model_class=Base)
+# db = SQLAlchemy(app, model_class=Base)
+db.init_app(app)
 celery = celery_init_app(app)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
@@ -267,15 +145,15 @@ def search_word():
     for channel in channels:
         for video in channel.videos:
             transcriptions += video.transcriptions
+    search_words = search_term.lower().split()
     for t in transcriptions:
-        search_result = search_wordmaps_by_transcription(search_term, t)
+        search_result = search_wordmaps_by_transcription(search_words[0], t)
         for wordmap in search_result:
             wordmap_result.append(wordmap)
             video_result.append(wordmap.transcription.video)
 
     for wordmap in wordmap_result:
         segment_result += get_segments_by_wordmap(wordmap)
-    # video_sorted = sorted(video_result, key=lambda x: x["."], reverse=True)
     logger.info(f"Search found {len(video_result)}")
     return render_template(
         "result.html",

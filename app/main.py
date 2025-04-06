@@ -35,6 +35,14 @@ def get_broadcasters() -> Sequence[Broadcaster]:
     )
 
 
+def get_broadcaster(broadcaster_id: int) -> Broadcaster | None:
+    return (
+        db.session.execute(select(Broadcaster).filter_by(id=broadcaster_id))
+        .scalars()
+        .one_or_none()
+    )
+
+
 def get_platforms() -> Sequence[Platforms] | None:
     return db.session.execute(select(Platforms)).scalars().all()
 
@@ -175,7 +183,9 @@ bootstrap = Bootstrap5(app)
 config = Config()
 app.secret_key = config.app_secret
 app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
-app.config["CELERY"] = dict(broker_url=config.redis_uri, task_ignore_result=True)
+app.config["CELERY"] = dict(
+    broker_url=config.redis_uri, backend=config.database_uri, task_ignore_result=True
+)
 db = SQLAlchemy(app, model_class=Base)
 celery = celery_init_app(app)
 logger = logging.getLogger(__name__)
@@ -227,24 +237,32 @@ def search_word():
     logger.info("Loaded search_word.html")
     search_term = request.form["search"]
     broadcaster_id = request.form["broadcaster"]
+    broadcaster = get_broadcaster(int(broadcaster_id))
     channels = get_broadcaster_channels(int(broadcaster_id))
     transcriptions: list[Transcription] = []
+    video_result: list[Video] = []
+    wordmap_result: list[WordMaps] = []
+    segment_result: list[Segments] = []
     if channels is None:
         return "Channels not found, i have not implemented proper error sorry.."
     for channel in channels:
         for video in channel.videos:
             transcriptions += video.transcriptions
-    wordmap_result: list[WordMaps] = []
     for t in transcriptions:
         search_result = search_wordmaps_by_transcription(search_term, t)
         for wordmap in search_result:
             wordmap_result.append(wordmap)
+            video_result.append(wordmap.transcription.video)
 
-    segment_result: list[Segments] = []
     for wordmap in wordmap_result:
         segment_result += get_segments_by_wordmap(wordmap)
+    logger.info(f"Search found {len(video_result)}")
     return render_template(
-        "chart.html", channel=channels.pop(), segment_list=segment_result
+        "result.html",
+        search_word=search_term,
+        broadcaster=broadcaster,
+        video_result=video_result,
+        segment_result=segment_result,
     )
 
 

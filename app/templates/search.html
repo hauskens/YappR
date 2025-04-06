@@ -3,7 +3,7 @@
   <h1>MetaVOD</h1>
 
   <form action="{{ url_for('search_word') }}" method="post">
-    <label for="broadcaster">Channel Type</label>
+    <label for="broadcaster">Broadcaster</label>
     <select id="broadcaster" name="broadcaster" class="form-select">
       {% for broadcaster in broadcasters %}
       <option value="{{ broadcaster.id }}">{{ broadcaster.name }}</option>
@@ -11,7 +11,7 @@
     ><br /><br />
     <div class="mb-3">
       <label for="search" class="form-label">Search for a word:</label>
-      <input type="search" id="search" name="search" class="form-control" />
+      <input type="search" id="search" name="search" class="form-control" pattern="[A-Za-z][A-Za-z]*" required placeholder="Search..." required title="single word without spaces" />
     </div>
 
     <button type="submit" class="btn btn-primary">Search</button>

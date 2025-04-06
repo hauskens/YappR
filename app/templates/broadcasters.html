@@ -15,7 +15,7 @@
     <form action="{{ url_for('broadcaster_create') }}" method="post">
       <div class="mb-3">
         <label for="name" class="form-label">Broadcaster Name:</label>
-        <input type="text" id="name" name="name" class="form-control">
+        <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9][A-Za-z0-9 ]*" required placeholder="Mike Hunt" required title="Only A-Z or numbers allowed">
       </div>
 
       <button type="submit" class="btn btn-primary">Add Broadcaster</button>

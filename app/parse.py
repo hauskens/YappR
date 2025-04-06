@@ -2,16 +2,15 @@
 # Mozilla Public License Version 2.0 -> https://github.com/lawrencehook/SqueexVodSearch/blob/main/LICENSE
 
 import logging
-from models.db import WordMaps, Segments, ProcessedTranscription
+from models.db import WordMaps, Segments
 from flask_sqlalchemy import SQLAlchemy
 from io import BytesIO
 import webvtt
 import re
-
 import nltk
+from nltk.corpus import stopwords
 
 _ = nltk.download("stopwords")
-from nltk.corpus import stopwords
 
 sw = stopwords.words("english")
 logger = logging.getLogger(__name__)
@@ -26,12 +25,6 @@ def get_sec(time_str: str) -> int:
 def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, transcription_id: int):
     logger.info(f"Processing transcription: {transcription_id}")
     # savepoint = db.session.begin_nested()
-    processed_transcription = ProcessedTranscription(transcription_id=transcription_id)
-    db.session.add(processed_transcription)
-    db.session.flush()
-    logger.info(
-        f"Processing transcription: {transcription_id} - added PT {processed_transcription.id}"
-    )
     segments: list[Segments] = []
     word_map: list[WordMaps] = []
     previous = None
@@ -49,9 +42,9 @@ def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, transcription_id: int):
 
         segment = Segments(
             text=text,
-            time=start,
-            processed_transcription_id=processed_transcription.id,
-            # end=get_sec(caption.end) # todo: add
+            start=start,
+            transcription_id=transcription_id,
+            end=get_sec(caption.end),
         )
         db.session.add(segment)
         db.session.flush()
@@ -72,7 +65,7 @@ def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, transcription_id: int):
                     WordMaps(
                         word=word,
                         segments=[segment.id],
-                        processed_transcription_id=processed_transcription.id,
+                        transcription_id=transcription_id,
                     )
                 )
     db.session.add_all(word_map)

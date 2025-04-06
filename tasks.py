@@ -1,5 +1,3 @@
-from ast import Sub
-from re import sub
 import yt_dlp
 from os import path
 from models.yt import VideoData, SubtitleData

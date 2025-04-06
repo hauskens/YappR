@@ -1,9 +1,10 @@
 import enum
+from collections.abc import Sequence
 from sqlalchemy import Engine, ForeignKey, String, Integer, Enum, create_engine, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
-from flask import Flask
+from flask import Flask, flash, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 
 
@@ -54,64 +55,52 @@ class Video(Base):
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
 
 
-# def init() -> Engine:
-#     engine = create_engine("sqlite:///testdb.sqlite", echo=True)
-#     Base.metadata.create_all(engine)
-#     return engine
+def get_broadcasters() -> Sequence[Broadcaster]:
+    return (
+        db.session.execute(select(Broadcaster).order_by(Broadcaster.name))
+        .scalars()
+        .all()
+    )
 
 
 db = SQLAlchemy(model_class=Base)
-app = Flask(__name__)
+app = Flask(__name__, static_url_path="")
+app.secret_key = "omgtesties"
 app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
 db.init_app(app)
 with app.app_context():
     db.create_all()
 
 
+@app.route("/")
+def index():
+    return render_template("index.html")
+
+
 @app.route("/broadcasters")
-def broadcaster_list():
-    broadcasters = db.session.execute(
-        select(Broadcaster).order_by(Broadcaster.name)
-    ).first()
-    # return f"{broadcasters.}"
-    return "uhh"
+def broadcasters():
+    broadcasters = get_broadcasters()
+    return render_template("broadcasters.html", broadcasters=broadcasters)
 
 
-@app.route("/broadcaster/<name>")
-def check(name: str):
-    # return "Flask is working"
-    # broadcasters = db.session.execute(db.select(Broadcaster)).scalars()
-    broadcaster = db.get_or_404(Broadcaster, name)
-
-    return broadcaster
-
-
-@app.route("/create/<name>")
-def create_broadcaster(name: str):
+@app.route("/broadcaster_create", methods=["POST"])
+def broadcaster_create():
+    name = request.form["name"]
+    existing_broadcasters = get_broadcasters()
+    for broadcaster in existing_broadcasters:
+        if broadcaster.name.lower() == name.lower():
+            flash("This broadcaster already exists", "error")
+            return render_template(
+                "broadcasters.html",
+                form=request.form,
+                broadcasters=existing_broadcasters,
+            )
     db.session.add(Broadcaster(name=name))
     db.session.commit()
-    return name
+    return redirect(url_for("broadcasters"))
 
 
 # engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
 
-# with Session(engine) as session:
-#     testBroadcaster = Broadcaster(name="testies")
-#     session.add(testBroadcaster)
-#     session.commit()
-
-# session = Session(engine)
-# test = select(Broadcaster).where(Broadcaster.name.in_(["testies"]))
-#
-# bc = session.scalars(test).one_or_none()
-# if bc:
-#     bc.name = "buhh"
-#     # session.commit()
-#
-# test2 = select(Broadcaster)
-# for t in session.scalars(test2):
-#     print(f"hello {t.name}")
-
-# print(CreateTable(Video.__table__).compile(dialect=postgresql.dialect()))
 if __name__ == "__main__":
-    app.run()
+    app.run(debug=True)

@@ -1,11 +1,15 @@
 # modified version of https://github.com/lawrencehook/SqueexVodSearch/blob/main/preprocessing/scripts/parse.py
 # Mozilla Public License Version 2.0 -> https://github.com/lawrencehook/SqueexVodSearch/blob/main/LICENSE
 
+import logging
+from cgi import print_environ_usage
+from dataclasses import dataclass
+from collections import defaultdict
+from models.db import WordMaps, Segments, ProcessedTranscription, Broadcaster
+from flask_sqlalchemy import SQLAlchemy
 from io import BytesIO
-import sys
 import webvtt
 import re
-import json
 
 import nltk
 
@@ -13,31 +17,7 @@ _ = nltk.download("stopwords")
 from nltk.corpus import stopwords
 
 sw = stopwords.words("english")
-
-"""
-Notes
-
-output:
-    - id: the video ID
-    - segments: a list of segments as they appear in the vtt file.
-        - segment: [startTime, text]
-    - word_map: a dictionary that maps a word to a list of indexes in which it appears in the segments list
-    - upload_date
-
-    extended:
-        - full_text
-        - TODO: Map an index in the full_text string to a time.
-            - string index
-            - word index
-            - I have the time of each word, I think
-
-            To test: what info can i reliably retrieve? a la <c></c>
-
-
-
-segment object:
-    [start time, text]
-"""
+logger = logging.getLogger(__name__)
 
 
 def get_sec(time_str: str) -> int:
@@ -46,94 +26,54 @@ def get_sec(time_str: str) -> int:
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 
-# if __name__ == "__main__":
+def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, id: int):
+    logger.info(f"Processing transcription: {id}")
+    processed_transcription = ProcessedTranscription(transcription_id=id)
+    db.session.add(processed_transcription)
+    db.session.flush()
+    logger.info(
+        f"Processing transcription: {id} - added PT {processed_transcription.id}"
+    )
+    segments: list[Segments] = []
+    word_map: list[WordMaps] = []
+    previous = None
+    for caption in webvtt.from_buffer(vtt_buffer):
+        start = get_sec(caption.start)
+        # remove annotations, such as [music]
+        text = re.sub(r"\[.*?\]", "", caption.text).strip().lower()
 
-# if len(sys.argv) < 2:
-#     print("Expected 1 command line paramter (vtt file path). Exiting...")
-#     sys.exit(1)
-#
-# # Get all upload dates by video id.
-# dates = {}
-# with open("data/dates.txt") as dates_file:
-#     for line in dates_file.readlines():
-#         vid, date = line.strip().split(":")
-#         dates[vid] = int(date)
+        if "\n" in text:
+            continue
+        if text == "":
+            continue
+        if text == previous:
+            continue
 
-
-# # Get video ID from filename.
-# p = re.compile(r"\[([^\[]*?)\]\.en\.vtt")
-# vtt_filename = sys.argv[1]
-# vid = p.search(vtt_filename).group(1)
-# upload_date = dates[vid]
-def parse_vtt(vtt_buffer: BytesIO):
-    for capture in webvtt.from_buffer(vtt_buffer):
-        print(capture.start)
-    # # Parse vtt file
-    # segments = []
-    # word_map = {}
-    # full_text = ""
-    # idx_to_time = {}
-    # seen_starts = set()
-    # for caption in webvtt.read(vtt_filename):
-    #
-    #     start = get_sec(caption.start)
-    #     text = re.sub(r"\[.*?\]", "", caption.text).strip().lower()
-    #
-    #     if "\n" in text:
-    #         continue
-    #     if text == "":
-    #         continue
-    #     if start in seen_starts:
-    #         continue
-    #     if len(segments) > 0 and text == segments[-1][1]:
-    #         continue
-    #
-    #     seen_starts.add(start)
-    #     segments.append([start, text])
-    #
-    #     idx = len(segments) - 1
-    #     words = text.split()
-    #     for word in words:
-    #         if word in sw:
-    #             continue
-    #         if word in word_map:
-    #             word_map[word].add(idx)
-    #         else:
-    #             word_map[word] = {idx}
-    #
-    #     full_text += " " + text
-    #     idx_to_time[len(full_text)] = get_sec(caption.end)
-    #
-    # # print(full_text)
-    # # print(idx_to_time)
-    #
-    # # import re
-    # # query = 'everyone in the chat'
-    # # indices = [i.start() for i in re.finditer(pattern=query, string=full_text)]
-    # # for i in indices:
-    # #     print(i)
-    # #     dec = 0
-    # #     while (i-dec) not in idx_to_time:
-    # #         dec += 1
-    # #     print('start: ' + idx_to_time[i-dec])
-    # #     print(full_text[i-dec:i+len(query)])
-    # # sys.exit(1)
-    #
-    # # Convert sets to lists, for the json export
-    # for word, idxs in word_map.items():
-    #     word_map[word] = list(idxs)
-    #
-    # # Export parsed data to json
-    # print(
-    #     json.dumps(
-    #         {
-    #             "id": vid,
-    #             "segments": segments,
-    #             "word_map": word_map,
-    #             "full_text": full_text,
-    #             "idx_to_time": idx_to_time,
-    #             "upload_date": upload_date,
-    #         }
-    #     )
-    # )
-    # # }, indent=2))
+        segment = Segments(
+            text=text,
+            time=start,
+            processed_transcription_id=processed_transcription.id,
+            # end=get_sec(caption.end) # todo: add
+        )
+        db.session.add(segment)
+        db.session.flush()
+        logger.info(f"Processing transcription: {id} - Added segment{segment.id}")
+        previous = text
+        segments.append(segment)
+        words = text.split()
+        for word in words:
+            if word in sw:
+                continue
+            for wm in word_map:
+                if wm.word == word:
+                    wm.segments.append(segment.id)
+                    continue
+            word_map.append(
+                WordMaps(
+                    word=word,
+                    segments=[segment.id],
+                    processed_transcription_id=processed_transcription.id,
+                )
+            )
+    db.session.add_all(word_map)
+    db.session.commit()

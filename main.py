@@ -4,11 +4,13 @@ from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
 from flask import Flask, flash, render_template, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
-from celery import Celery
+from celery import Celery, Task
 from models.db import (
     Base,
     Broadcaster,
     Platforms,
+    ProcessedTranscription,
+    Segments,
     VideoType,
     Channels,
     Video,
@@ -83,6 +85,14 @@ def get_transcription(id: int) -> Transcription | None:
     )
 
 
+def get_processed_transcription(id: int) -> ProcessedTranscription | None:
+    return (
+        db.session.execute(select(ProcessedTranscription).filter_by(id=id))
+        .scalars()
+        .one_or_none()
+    )
+
+
 def fetch_transcription(video_id: int):
     tmpdir = tempfile.mkdtemp()
     video = get_video(video_id)
@@ -134,9 +144,6 @@ def init_platforms():
         db.session.commit()
 
 
-from celery import Task
-
-
 def celery_init_app(app: Flask) -> Celery:
     # todo: getting a type error here
     class FlaskTask(Task):
@@ -168,11 +175,13 @@ StorageManager.add_storage("default", container)
 db.init_app(app)
 with app.app_context():
     db.create_all()
-    # pf = get_platforms()
-    # yt = Platforms(name="YouTube", url="https://youtube.com")
-    # twitch = Platforms(name="Twitch", url="https://twitch.tv")
-    # db.session.add_all([yt, twitch])
-    # db.session.commit()
+    pf = get_platforms()
+    if pf is not None:
+        if len(pf) == 0:
+            yt = Platforms(name="YouTube", url="https://youtube.com")
+            twitch = Platforms(name="Twitch", url="https://twitch.tv")
+            db.session.add_all([yt, twitch])
+            db.session.commit()
 
 
 @app.route("/")
@@ -241,7 +250,8 @@ def platform_create():
                     form=request.form,
                     broadcasters=existing_platforms,
                 )
-    db.session.add(Platforms(name=name, url=url))
+    abt = Platforms(name=name, url=url)
+    db.session.add(abt)
     db.session.commit()
     return redirect(url_for("platforms"))
 
@@ -346,20 +356,22 @@ def download_transcription(id: int):
             mimetype="text/plain",
             download_name=f"{transcription.id}.{transcription.file_extention}",
         )
+    return "file not found!", 404
 
 
-# @app.route("/transcription/<int:id>/parse")
-# def parse_transcription(id: int):
-#     transcription = get_transcription(id)
-#     if transcription is not None:
-#         content = transcription.file.file.read()
-#         test = parse_vtt(io.BytesIO(content))
-#         # return send_file(
-#         #     io.BytesIO(content),
-#         #     mimetype="text/plain",
-#         #     download_name=f"{transcription.id}.{transcription.file_extention}",
-#         # )
-#     return "buh"
+@app.route("/transcription/<int:id>/parse")
+def parse_transcription(id: int):
+    transcription = get_transcription(id)
+    if transcription is not None:
+        content = transcription.file.file.read()
+        _ = parse_vtt(db=db, vtt_buffer=io.BytesIO(content), id=id)
+    return "buh"
+
+
+@app.route("/transcription/<int:id>/view")
+def view_transcription(id: int):
+    tran = get_transcription(id)
+    return f"{tran.processed_transcription.word_maps.pop().id}"
 
 
 if __name__ == "__main__":

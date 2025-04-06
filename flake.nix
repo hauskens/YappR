@@ -15,7 +15,9 @@
         forAllSystems (system: nixpkgs.legacyPackages.${system}.alejandra);
       devShells.x86_64-linux.default = let arch = "x86_64-linux";
       in with nixpkgs.legacyPackages.${arch};
-      mkShell { buildInputs = with pkgs; [ uv python3 ]; };
+      mkShell {
+        buildInputs = with pkgs; [ uv python3 python3Packages.psycopg2 ];
+      };
 
     };
 }

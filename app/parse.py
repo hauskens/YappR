@@ -1,5 +1,4 @@
-# modified version of https://github.com/lawrencehook/SqueexVodSearch/blob/main/preprocessing/scripts/parse.py
-# Mozilla Public License Version 2.0 -> https://github.com/lawrencehook/SqueexVodSearch/blob/main/LICENSE
+# originally inspired by https://github.com/lawrencehook/SqueexVodSearch/blob/main/preprocessing/scripts/parse.py
 
 import logging
 from models.db import WordMaps, Segments
@@ -22,6 +21,7 @@ ps = PorterStemmer()
 logger = logging.getLogger(__name__)
 
 
+# This function is used by both parsing and searching to ensure we are getting good search results.
 def sanitize_sentence(sentence: str) -> list[str]:
     words = pos_tag(word_tokenize(sentence))
     result: list[str] = []

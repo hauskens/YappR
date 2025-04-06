@@ -26,6 +26,7 @@ from tasks import (
 import io
 from retrievers import (
     get_broadcasters,
+    get_broadcaster,
     get_platforms,
     get_broadcaster_channels,
     get_channel,
@@ -45,14 +46,6 @@ def init_storage(container: str = "transcriptions"):
     makedirs(
         config.storage_location + "/" + container, 0o777, exist_ok=True
     )  # Ensure storage folder exists
-
-
-def init_platforms():
-    if get_platforms() is None:
-        yt = Platforms(name="YouTube", url="https://youtube.com")
-        twitch = Platforms(name="Twitch", url="https://twitch.tv")
-        db.session.add_all([yt, twitch])
-        db.session.commit()
 
 
 def celery_init_app(app: Flask) -> Celery:
@@ -78,7 +71,6 @@ app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
 app.config["CELERY"] = dict(
     broker_url=config.redis_uri, backend=config.database_uri, task_ignore_result=True
 )
-# db = SQLAlchemy(app, model_class=Base)
 db.init_app(app)
 celery = celery_init_app(app)
 logger = logging.getLogger(__name__)
@@ -88,7 +80,6 @@ container = LocalStorageDriver(config.storage_location).get_container("transcrip
 StorageManager.add_storage("default", container)
 
 with app.app_context():
-    db.create_all()
     pf = get_platforms()
     if pf is not None:
         if len(pf) == 0:

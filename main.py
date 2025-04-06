@@ -52,3 +52,9 @@ class Video(Base):
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
 
 
+engine = create_engine("sqlite:///testdb.sqlite", echo=True)
+
+Base.metadata.create_all(engine)
+# engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
+
+# print(CreateTable(Video.__table__).compile(dialect=postgresql.dialect()))

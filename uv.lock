@@ -180,6 +180,15 @@ wheels = [
 ]
 
 [[package]]
+name = "dominate"
+version = "2.9.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fb/f3/1c8088ff19a0fcd9c3234802a0ee47006ea64bd8852f1019194f0e3583ff/dominate-2.9.1.tar.gz", hash = "sha256:558284687d9b8aae1904e3d6051ad132dd4a8c0cf551b37ea4e7e42a31d19dc4", size = 37715 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/58/19/0380af745f151a1648657bbcef0fb49ac28bf09083d94498163ffd9b32dc/dominate-2.9.1-py2.py3-none-any.whl", hash = "sha256:cb7b6b79d33b15ae0a6e87856b984879927c7c2ebb29522df4c75b28ffd9b989", size = 29976 },
+]
+
+[[package]]
 name = "fasteners"
 version = "0.19"
 source = { registry = "https://pypi.org/simple" }
@@ -203,6 +212,28 @@ sdist = { url = "https://files.pythonhosted.org/packages/89/50/dff6380f1c7f84135
 wheels = [
     { url = "https://files.pythonhosted.org/packages/af/47/93213ee66ef8fae3b93b3e29206f6b251e65c97bd91d8e1c5596ef15af0a/flask-3.1.0-py3-none-any.whl", hash = "sha256:d667207822eb83f1c4b50949b1623c8fc8d51f2341d65f72e1a1815397551136", size = 102979 },
 ]
+
+[[package]]
+name = "flask-bootstrap"
+version = "3.3.7.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dominate" },
+    { name = "flask" },
+    { name = "visitor" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/88/53/958ce7c2aa26280b7fd7f3eecbf13053f1302ee2acb1db58ef32e1c23c2a/Flask-Bootstrap-3.3.7.1.tar.gz", hash = "sha256:cb08ed940183f6343a64e465e83b3a3f13c53e1baabb8d72b5da4545ef123ac8", size = 456359 }
+
+[[package]]
+name = "flask-nav"
+version = "0.6"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "dominate" },
+    { name = "flask" },
+    { name = "visitor" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/09/54/0c454eef2e8cf8dd5bc88b1b9490d1e3ecbe365c07458ab4e794ba64231d/flask-nav-0.6.tar.gz", hash = "sha256:44e40b755380a1e68ab521a2f9174de259a2c94ddcdaabf36b3aca2e110a33f4", size = 5373 }
 
 [[package]]
 name = "flask-sqlalchemy"
@@ -574,6 +605,10 @@ sdist = { url = "https://files.pythonhosted.org/packages/bd/e4/d07b5f29d283596b9
 wheels = [
     { url = "https://files.pythonhosted.org/packages/03/ff/7c0c86c43b3cbb927e0ccc0255cb4057ceba4799cd44ae95174ce8e8b5b2/vine-5.1.0-py3-none-any.whl", hash = "sha256:40fdf3c48b2cfe1c38a49e9ae2da6fda88e4794c810050a728bd7413811fb1dc", size = 9636 },
 ]
+name = "visitor"
+version = "0.1.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/58/785fcd6de4210049da5fafe62301b197f044f3835393594be368547142b0/visitor-0.1.3.tar.gz", hash = "sha256:2c737903b2b6864ebc6167eef7cf3b997126f1aa94bdf590f90f1436d23e480a", size = 3260 }
 
 [[package]]
 name = "vodmeta"
@@ -585,6 +620,8 @@ dependencies = [
     { name = "celery-stubs" },
     { name = "fasteners" },
     { name = "flask" },
+    { name = "flask-bootstrap" },
+    { name = "flask-nav" },
     { name = "flask-sqlalchemy" },
     { name = "nltk" },
     { name = "redis" },
@@ -601,6 +638,8 @@ requires-dist = [
     { name = "celery-stubs", specifier = ">=0.1.3" },
     { name = "fasteners", specifier = ">=0.19" },
     { name = "flask", specifier = ">=3.1.0" },
+    { name = "flask-bootstrap", specifier = ">=3.3.7.1" },
+    { name = "flask-nav", specifier = ">=0.6" },
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
     { name = "nltk", specifier = ">=3.9.1" },
     { name = "redis", specifier = ">=5.2.1" },

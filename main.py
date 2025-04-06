@@ -5,6 +5,7 @@ from libcloud.storage.drivers.local import LocalStorageDriver
 from flask import Flask, flash, render_template, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
 from celery import Celery, Task
+from flask_bootstrap import Bootstrap
 from models.db import (
     Base,
     Broadcaster,
@@ -161,6 +162,7 @@ def celery_init_app(app: Flask) -> Celery:
 # holy... need to clean up this..
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
+Bootstrap(app)
 config = Config()
 app.secret_key = config.app_secret
 app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
@@ -188,6 +190,11 @@ with app.app_context():
 def index():
     logger.info("Loaded index.html")
     return render_template("index.html")
+
+
+@app.route("/static/<path:path>")
+def send_static(path: str):
+    return send_from_directory("static", path)
 
 
 @app.route("/broadcasters")

@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block body %}
+{% block content %}
   <div class="container">
     <h1>{{ video.title }}</h1>
     <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', id=video.id) }}';">Fetch transcriptions for this video</button>

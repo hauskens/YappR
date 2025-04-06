@@ -15,6 +15,7 @@ from models.db import (
     TranscriptionSource,
 )
 from models.config import Config
+from parse import parse_vtt
 import logging
 from os import makedirs
 from tasks import get_yt_videos, get_yt_video_subtitles
@@ -267,6 +268,20 @@ def download_transcription(id: int):
             mimetype="text/plain",
             download_name=f"{transcription.id}.{transcription.file_extention}",
         )
+
+
+@app.route("/transcription/<int:id>/parse")
+def parse_transcription(id: int):
+    transcription = get_transcription(id)
+    if transcription is not None:
+        content = transcription.file.file.read()
+        test = parse_vtt(io.BytesIO(content))
+        # return send_file(
+        #     io.BytesIO(content),
+        #     mimetype="text/plain",
+        #     download_name=f"{transcription.id}.{transcription.file_extention}",
+        # )
+    return "buh"
 
 
 if __name__ == "__main__":

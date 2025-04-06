@@ -1,59 +1,9 @@
-import enum
 from collections.abc import Sequence
-from sqlalchemy import Engine, ForeignKey, String, Integer, Enum, create_engine, select
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, Session
-from sqlalchemy.dialects import postgresql
-from sqlalchemy.schema import CreateTable
+from sqlalchemy import select
 from flask import Flask, flash, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-class Broadcaster(Base):
-    __tablename__: str = "broadcaster"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(250), unique=True)
-
-
-class Platforms(Base):
-    __tablename__: str = "platforms"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(250), unique=True)
-    url: Mapped[str] = mapped_column(String(1000), unique=True)
-
-
-class VideoType(enum.Enum):
-    Unknown = "unknown"
-    VOD = "vod"
-    Clip = "clip"
-    Edit = "edit"
-
-
-class Channels(Base):
-    __tablename__: str = "channels"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    name: Mapped[str] = mapped_column(String(250))
-    broadcaster_id: Mapped[str] = mapped_column(ForeignKey("broadcaster.id"))
-    broadcaster: Mapped["Broadcaster"] = relationship()
-    platform_id: Mapped[int] = mapped_column(ForeignKey("platforms.id"))
-    platform: Mapped["Platforms"] = relationship()
-    platform_ref: Mapped[str] = mapped_column(String(), unique=True)
-    main_video_type: Mapped[str] = mapped_column(
-        Enum(VideoType), default=VideoType.Unknown
-    )
-
-
-class Video(Base):
-    __tablename__: str = "video"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    title: Mapped[str] = mapped_column(String(250))
-    video_type: Mapped[str] = mapped_column(Enum(VideoType))
-    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
-    channel: Mapped["Channels"] = relationship()
-    platform_ref: Mapped[str] = mapped_column(String(), unique=True)
+from models.db import Base, Broadcaster, Platforms, VideoType, Channels, Video
+from models.config import Config
 
 
 def get_broadcasters() -> Sequence[Broadcaster]:
@@ -75,9 +25,11 @@ def get_broadcaster_channels(broadcaster_id: int) -> Sequence[Channels] | None:
 
 
 db = SQLAlchemy(model_class=Base)
-app = Flask(__name__, static_url_path="")
-app.secret_key = "omgtesties"
-app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///project.db"
+app = Flask(__name__)
+config = Config()
+app.secret_key = config.app_secret
+app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
+
 db.init_app(app)
 with app.app_context():
     db.create_all()

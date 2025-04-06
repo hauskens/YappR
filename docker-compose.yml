@@ -10,31 +10,31 @@ services:
       timeout: 10s
       retries: 5
       start_period: 80s
-    networks: 
+    networks:
       - internal
     environment:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=secret
     volumes:
-     - db:/var/lib/postgresql/data
+      - db:/var/lib/postgresql/data
   cache:
     image: redis:6.2-alpine
     restart: always
     hostname: redis-cache
     healthcheck:
-      test: [ "CMD", "redis-cli", "--raw", "incr", "ping" ]
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 60s
       start_interval: 1s
       timeout: 3s
       retries: 10
       start_period: 15s
-    networks: 
+    networks:
       - internal
   app:
     image: vodmeta
     build:
       context: .
-    networks: 
+    networks:
       - internal
     ports:
       - "5000:5000"
@@ -43,7 +43,7 @@ services:
       REDIS_URI: "redis://redis-cache:6379/0"
       STORAGE_LOCATION: "/var/lib/vodmeta/data"
     volumes:
-     - app:/var/lib/vodmeta/data
+      - app:/var/lib/vodmeta/data
     depends_on:
       cache:
         condition: service_healthy
@@ -61,14 +61,21 @@ services:
   worker:
     extends: app
     ports: !reset []
-    entrypoint: ["uv", "run", "celery"]
-    command: !override ["--app","main", "--workdir", "app", "worker", "--loglevel=info"]
+    entrypoint: ["celery"]
+    command:
+      !override [
+        "--app",
+        "main.celery",
+        "--workdir",
+        "app",
+        "worker",
+        "--loglevel=info",
+      ]
     depends_on:
       - app
 volumes:
-  db: 
+  db:
   app:
 networks:
   internal:
     driver: bridge
-

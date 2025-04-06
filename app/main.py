@@ -194,15 +194,15 @@ init_storage()
 container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
 StorageManager.add_storage("default", container)
 
-with app.app_context():
-    db.create_all()
-    pf = get_platforms()
-    if pf is not None:
-        if len(pf) == 0:
-            yt = Platforms(name="YouTube", url="https://youtube.com")
-            twitch = Platforms(name="Twitch", url="https://twitch.tv")
-            db.session.add_all([yt, twitch])
-            db.session.commit()
+# with app.app_context():
+#     db.create_all()
+#     pf = get_platforms()
+#     if pf is not None:
+#         if len(pf) == 0:
+#             yt = Platforms(name="YouTube", url="https://youtube.com")
+#             twitch = Platforms(name="Twitch", url="https://twitch.tv")
+#             db.session.add_all([yt, twitch])
+#             db.session.commit()
 
 
 @app.route("/")

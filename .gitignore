@@ -1,5 +1,6 @@
 cli_to_api.py
 test
+test_storage
 project.db
 .env
 # Byte-compiled / optimized / DLL files

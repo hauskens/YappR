@@ -1,5 +1,5 @@
 import enum
-from sqlalchemy import ForeignKey, String, Integer, Enum, Float
+from sqlalchemy import ForeignKey, String, Integer, Enum, Float, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy_file import FileField
 from sqlalchemy_file import File
@@ -13,6 +13,9 @@ class Broadcaster(Base):
     __tablename__: str = "broadcaster"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(250), unique=True)
+    channels: Mapped[list["Channels"]] = relationship(
+        back_populates="broadcaster", cascade="all, delete-orphan"
+    )
 
 
 class Platforms(Base):
@@ -46,6 +49,9 @@ class Channels(Base):
     main_video_type: Mapped[str] = mapped_column(
         Enum(VideoType), default=VideoType.Unknown
     )
+    videos: Mapped[list["Video"]] = relationship(
+        back_populates="channel", cascade="all, delete-orphan"
+    )
 
     def get_url(self) -> str | None:
         url = self.platform.url.rstrip("/")
@@ -62,6 +68,9 @@ class Video(Base):
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
     channel: Mapped["Channels"] = relationship()
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
+    transcriptions: Mapped[list["Transcription"]] = relationship(
+        back_populates="video", cascade="all, delete-orphan"
+    )
 
     def get_url(self) -> str | None:
         url = self.channel.platform.url.rstrip("/")
@@ -71,6 +80,9 @@ class Video(Base):
 
 class Transcription(Base):
     __tablename__: str = "transcriptions"
+    __table_args__ = tuple(
+        UniqueConstraint("video_id", "source", name="unique_video_source")
+    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     video_id: Mapped[int] = mapped_column(ForeignKey("video.id"))
     video: Mapped["Video"] = relationship()

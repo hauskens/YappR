@@ -89,6 +89,16 @@ def get_transcription(transcription_id: int) -> Transcription | None:
     )
 
 
+def get_transcriptions_on_channels(
+    channels: Sequence[Channels],
+) -> Sequence[Transcription]:
+    transcriptions: list[Transcription] = []
+    for channel in channels:
+        for video in channel.videos:
+            transcriptions += video.transcriptions
+    return transcriptions
+
+
 def search_wordmaps_by_transcription(
     search_term: str, transcription: Transcription
 ) -> Sequence[WordMaps]:
@@ -105,6 +115,10 @@ def search_wordmaps_by_transcription(
 
 def get_segments_by_wordmap(wordmap: WordMaps) -> Sequence[Segments]:
     return db.session.query(Segments).filter(Segments.id.in_(wordmap.segments)).all()
+
+
+def get_segment_by_id(segment_id: int) -> Segments:
+    return db.session.query(Segments).filter_by(id=segment_id).one()
 
 
 def fetch_transcription(video_id: int):

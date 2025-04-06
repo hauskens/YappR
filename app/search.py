@@ -12,12 +12,23 @@ from retrievers import (
     get_segments_by_wordmap,
     get_segment_by_id,
 )
+from parse import sanitize_sentence
+import nltk
+from nltk.corpus import stopwords
+
+_ = nltk.download("stopwords")
+
+sw = stopwords.words("english")
 
 logger = logging.getLogger(__name__)
 
 
 def search_words_present_in_sentence(sentence: list[str], search_words: list[str]):
     return all(word in sentence for word in search_words)
+
+
+def sanitize_search_query(search: list[str]) -> list[str]:
+    return [word for word in search if word not in sw]
 
 
 def search(
@@ -33,13 +44,14 @@ def search(
     if channels is None:
         raise ValueError(f"No channels found on Broadcaster '{broadcaster.name}")
     transcriptions = get_transcriptions_on_channels(channels)
-    search_words = search_term.lower().split()
+    search_words = sanitize_sentence(search_term)
+    logger.info(f"Searching for '{search_words}' on {broadcaster.name}")
     for t in transcriptions:
         search_result = search_wordmaps_by_transcription(search_words[0], t)
         for wordmap in search_result:
             segments = get_segments_by_wordmap(wordmap)
             for segment in segments:
-                current_sentence: list[str] = segment.text.split()
+                current_sentence: list[str] = sanitize_sentence(segment.text)
                 all_segments: list[Segments] = [segment]
                 # If the word is first or last part of a segment, we need to include the adjasent Segment
                 word_index = current_sentence.index(search_words[0])

@@ -25,6 +25,7 @@ from tasks import (
 )
 import io
 from retrievers import (
+    delete_wordmaps_on_transcription,
     get_broadcasters,
     get_broadcaster,
     get_platforms,
@@ -35,8 +36,7 @@ from retrievers import (
     get_video_by_ref,
     get_transcriptions_by_video,
     get_transcription,
-    search_wordmaps_by_transcription,
-    get_segments_by_wordmap,
+    delete_channel,
     fetch_transcription,
     fetch_audio,
 )
@@ -236,6 +236,13 @@ def channel_create():
     )
 
 
+@app.route("/channel/<int:channel_id>/delete")
+def channel_delete(channel_id: int):
+    _ = delete_channel(channel_id)
+    db.session.commit()
+    return "ok"
+
+
 @app.route("/channel/<int:id>/get_videos")
 def channel_get_videos(id: int):
     videos = get_video_by_channel(channel_id=id)
@@ -301,12 +308,15 @@ def task_audio(video_id: int):
 @celery.task
 def task_parse_transcription(transcription_id: int):
     tran = get_transcription(transcription_id)
-    if tran is not None:
-        logger.info(f"Task queued, parsing transcription for {transcription_id}")
-        content = tran.file.file.read()
-        _ = parse_vtt(
-            db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription_id
-        )
+    logger.info(f"Task queued, parsing transcription for {transcription_id}")
+    if tran.word_maps is not None:
+        logger.debug(f"wordmaps already found, deleting {id}")
+        _ = delete_wordmaps_on_transcription(transcription_id)
+        db.session.flush()
+    content = tran.file.file.read()
+    _ = parse_vtt(
+        db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription_id
+    )
 
 
 @app.route("/channel/<int:id>/fetch_audio")
@@ -363,7 +373,10 @@ def video_parse_transcriptions(video_id: int):
     tran = get_transcriptions_by_video(video_id)
     if tran is not None:
         for t in tran:
-            _ = task_parse_transcription.delay(t.id)
+            if t.word_maps is not None:
+                logger.debug(f"wordmaps already found, deleting {id}")
+                _ = delete_wordmaps_on_transcription(t.id)
+                db.session.flush()
     return render_template(
         "video_edit.html",
         transcriptions=get_transcriptions_by_video(video_id),
@@ -374,23 +387,34 @@ def video_parse_transcriptions(video_id: int):
 @app.route("/transcription/<int:id>/download")
 def download_transcription(id: int):
     transcription = get_transcription(id)
-    if transcription is not None:
-        content = transcription.file.file.read()
-        return send_file(
-            io.BytesIO(content),
-            mimetype="text/plain",
-            download_name=f"{transcription.id}.{transcription.file_extention}",
-        )
-    return "file not found!", 404
+    content = transcription.file.file.read()
+    return send_file(
+        io.BytesIO(content),
+        mimetype="text/plain",
+        download_name=f"{transcription.id}.{transcription.file_extention}",
+    )
 
 
-@app.route("/transcription/<int:id>/parse")
-def parse_transcription(id: int):
-    transcription = get_transcription(id)
-    if transcription is not None:
-        content = transcription.file.file.read()
-        _ = parse_vtt(db=db, vtt_buffer=io.BytesIO(content), transcription_id=id)
-    return "buh"
+@app.route("/transcription/<int:transcription_id>/parse")
+def parse_transcription(transcription_id: int):
+    transcription = get_transcription(transcription_id)
+    if transcription.word_maps is not None:
+        logger.debug(f"wordmaps already found, deleting {id}")
+        _ = delete_wordmaps_on_transcription(transcription_id)
+        db.session.flush()
+    content = transcription.file.file.read()
+    _ = parse_vtt(
+        db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription_id
+    )
+    return redirect(url_for("video_get_transcriptions", id=transcription.video_id))
+
+
+@app.route("/transcription/<int:transcription_id>/delete_wordmaps")
+def delete_wordmaps_transcription(transcription_id: int):
+    transcription = get_transcription(transcription_id)
+    _ = delete_wordmaps_on_transcription(transcription_id)
+    db.session.commit()
+    return redirect(url_for("video_get_transcriptions", id=transcription.video_id))
 
 
 if __name__ == "__main__":

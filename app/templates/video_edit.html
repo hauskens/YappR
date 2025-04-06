@@ -3,6 +3,7 @@
 {% block content %}
   <div class="container">
     <h1>{{ video.title }}</h1>
+    <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', id=video.channel.id) }}">Back to Channel</a>
     <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', id=video.id) }}';">Fetch transcriptions for this video</button>
     <p>Video ID: {{ video.id }}</p>
 
@@ -14,7 +15,9 @@
           <th scope="col">Type</th>
           <th scope="col">Source</th>
           <th scope="col">Last Updated</th>
+          <th scope="col">Processed words</th>
           <th scope="col">File</th>
+          <th scope="col">Actions</th>
         </tr>
       </thead>
       <tbody>
@@ -24,8 +27,14 @@
           <td>{{ t.file_extention }}</td>
           <td>{{ t.source.name }}</td>
           <td>{{ t.last_updated }}</td>
+          <td>{{ t.word_maps|length }}</td>
           <td>
         <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', id=t.id) }}" download="{{ t.file_extention }}">Download</a>
+          </td>
+          <td>
+
+    <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('delete_wordmaps_transcription', transcription_id=t.id) }}';"> Delete wordmaps</button>
+    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('parse_transcription', transcription_id=t.id) }}';"> Process transcription</button>
           </td>
         </tr>
         {% endfor %}

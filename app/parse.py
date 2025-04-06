@@ -9,11 +9,27 @@ import webvtt
 import re
 import nltk
 from nltk.corpus import stopwords
+from nltk.tag import pos_tag
+from nltk.tokenize import word_tokenize
+from nltk.stem import PorterStemmer
 
 _ = nltk.download("stopwords")
+_ = nltk.download("averaged_perceptron_tagger_eng")
+_ = nltk.download("punkt_tab")
 
 sw = stopwords.words("english")
+ps = PorterStemmer()
 logger = logging.getLogger(__name__)
+
+
+def sanitize_sentence(sentence: str) -> list[str]:
+    words = pos_tag(word_tokenize(sentence))
+    result: list[str] = []
+    for word in words:
+        if word[0] not in sw:
+            word = ps.stem(word[0])
+            result.append(word)
+    return result
 
 
 def get_sec(time_str: str) -> int:
@@ -50,11 +66,11 @@ def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, transcription_id: int):
         db.session.flush()
         previous = text
         segments.append(segment)
-        words = text.split()
+        # words = pos_tag(word_tokenize(text))
+        words = sanitize_sentence(text)
+        # words = text.split()
         for word in words:
             found_existing_word = False
-            if word in sw:
-                continue
             for wm in word_map:
                 if wm.word == word:
                     wm.segments.append(segment.id)

@@ -57,10 +57,12 @@ class Video(Base):
 
 def get_broadcasters() -> Sequence[Broadcaster]:
     return (
-        db.session.execute(select(Broadcaster).order_by(Broadcaster.name))
-        .scalars()
-        .all()
+        db.session.execute(select(Broadcaster).order_by(Broadcaster.id)).scalars().all()
     )
+
+
+def get_platforms() -> Sequence[Platforms] | None:
+    return db.session.execute(select(Platforms)).scalars().all()
 
 
 db = SQLAlchemy(model_class=Base)
@@ -83,6 +85,12 @@ def broadcasters():
     return render_template("broadcasters.html", broadcasters=broadcasters)
 
 
+@app.route("/platforms")
+def platforms():
+    platforms = get_platforms()
+    return render_template("platforms.html", platforms=platforms)
+
+
 @app.route("/broadcaster_create", methods=["POST"])
 def broadcaster_create():
     name = request.form["name"]
@@ -98,6 +106,25 @@ def broadcaster_create():
     db.session.add(Broadcaster(name=name))
     db.session.commit()
     return redirect(url_for("broadcasters"))
+
+
+@app.route("/platform_create", methods=["POST"])
+def platform_create():
+    name = request.form["name"]
+    url = request.form["url"]
+    existing_platforms = get_platforms()
+    if existing_platforms is not None:
+        for platform in existing_platforms:
+            if platform.name.lower() == name.lower():
+                flash("This platform already exists", "error")
+                return render_template(
+                    "platforms.html",
+                    form=request.form,
+                    broadcasters=existing_platforms,
+                )
+    db.session.add(Platforms(name=name, url=url))
+    db.session.commit()
+    return redirect(url_for("platforms"))
 
 
 # engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)

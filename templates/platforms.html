@@ -1,0 +1,26 @@
+{% extends 'base.html' %} {% block body %}
+
+<!-- Main Content -->
+<h1>Platforms</h1>
+<ul>
+  {% for platform in platforms %}
+  <li>{{ platform.name }} - {{ platform.url }}</li>
+  {% endfor %}
+</ul>
+{% with messages = get_flashed_messages() %} {% if messages %}
+<ul>
+  {% for message in messages %}
+  <li>{{ message }}</li>
+  {% endfor %}
+</ul>
+{% endif %} {% endwith %}
+<h2>Add Platform</h2>
+<form action="{{ url_for('platform_create') }}" method="post">
+  <label for="name">Platform Name:</label>
+  <input type="text" id="name" name="name" /><br /><br />
+  <label for="url">Platform URL:</label>
+  <input type="text" id="url" name="url" /><br /><br />
+  <button type="submit">Add Platform</button>
+</form>
+
+{% endblock %}

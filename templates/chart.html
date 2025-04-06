@@ -1,0 +1,79 @@
+{% extends 'base.html' %} {% block content %}
+<div>
+  <p>results from search: {{segment_list|length}}</p>
+  <div class="container px-2 text-center">
+    <div class="row gx-2">
+      {% for segment in segment_list %}
+      <div class="col">
+        <div class="card" style="width: 325px">
+          <!-- Disable iframes if result is large -->
+          {% if segment_list|length < 20 %}
+          <iframe width="320" id="{{segment.processed_transcription.transcription.video.platform_ref}}" src="https://www.youtube-nocookie.com/embed/{{segment.processed_transcription.transcription.video.platform_ref}}?start={{ (segment.time - 3) if segment.time - 3 >= 0 else 0 }}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+          {% endif %} 
+          <div class="card-body">
+            <h5 class="card-title">
+              {{segment.processed_transcription.transcription.video.title}}
+            </h5>
+            <p class="card-text">{{ segment.time }} - {{ segment.text }}</p>
+            <a
+              href="{{segment.processed_transcription.transcription.video.get_url()}}&t={{ (segment.time - 3) if segment.time - 3 >= 0 else 0 }}"
+              class="btn btn-primary"
+              >Go to video</a
+            >
+            <a
+              onclick="playVideo({{segment.processed_transcription.transcription.video.platform_ref}})"
+              class="btn btn-primary"
+              >Pleh</a
+            >
+          </div>
+        </div>
+      </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!--   </div> -->
+    <!--   <canvas id="myChart"></canvas> -->
+    <!-- </div> -->
+    {% endblock %} {% block scripts %} {{ bootstrap.load_js() }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+      function playVideo(playerName) {
+        $(`.${playerName}`).each(function(){
+          this.contentWindow.postMessage('{"event":"command","func":"stopVideo","args":""}', '*')
+        });
+      }
+      const ctx = document.getElementById("myChart");
+
+      var chart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: [
+            {% for video in channel.videos %}
+              "{{ video.title }}",
+            {% endfor %}
+          ],
+          datasets: [
+            {
+              label: "# of Votes",
+              data: [
+                {% for video in channel.videos %}
+                  "{{ video.id }}",
+                {% endfor %}
+              ],
+              borderWidth: 1,
+            },
+          ],
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+            },
+          },
+        },
+      });
+    </script>
+    {% endblock %}
+  </div>
+</div>

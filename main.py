@@ -1,10 +1,10 @@
 from collections.abc import Sequence
-from sysconfig import get_platform
 from sqlalchemy import select
 from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
 from flask import Flask, flash, render_template, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
+from celery import Celery
 from models.db import (
     Base,
     Broadcaster,
@@ -83,6 +83,43 @@ def get_transcription(id: int) -> Transcription | None:
     )
 
 
+def fetch_transcription(video_id: int):
+    tmpdir = tempfile.mkdtemp()
+    video = get_video(video_id)
+    video_url = video.get_url()
+    if video_url is not None:
+        logger.info(f"fetching transcription for {video_id}")
+        subtitles = get_yt_video_subtitles(video_url, tmpdir)
+        for sub in subtitles:
+            logger.info(
+                f"checking if transcriptions exists on {video_id}, {len(video.transcriptions)}"
+            )
+            if len(video.transcriptions) == 0:
+                logger.info(f"transcriptions not found on {video_id}, adding new..")
+                db.session.add(
+                    Transcription(
+                        video_id=video_id,
+                        language=sub.language,
+                        file_extention=sub.extention,
+                        file=open(sub.path, "rb"),
+                        source=TranscriptionSource.YouTube,
+                    )
+                )
+            else:
+                logger.info(f"transcriptions found on {video_id}, updating existing..")
+                for t in video.transcriptions:
+                    logger.info(
+                        f"transcriptions found on {video_id} with platform {t.source}"
+                    )
+                    if t.source == TranscriptionSource.YouTube:
+                        t.file = open(sub.path, "rb")
+                        t.file_extention = sub.extention
+                        t.language = sub.language
+                        t.last_updated = datetime.now()
+
+        db.session.commit()
+
+
 def init_storage(container: str = "transcriptions"):
     makedirs(
         config.storage_location + "/" + container, 0o777, exist_ok=True
@@ -97,11 +134,31 @@ def init_platforms():
         db.session.commit()
 
 
+from celery import Task
+
+
+def celery_init_app(app: Flask) -> Celery:
+    # todo: getting a type error here
+    class FlaskTask(Task):
+        def __call__(self, *args: object, **kwargs: object) -> object:
+            with app.app_context():
+                return self.run(*args, **kwargs)
+
+    celery_app = Celery(app.name, task_cls=FlaskTask)
+    celery_app.config_from_object(app.config["CELERY"])
+    celery_app.set_default()
+    app.extensions["celery"] = celery_app
+    return celery_app
+
+
+# holy... need to clean up this..
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 config = Config()
 app.secret_key = config.app_secret
 app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
+app.config["CELERY"] = dict(broker_url=config.redis_uri, task_ignore_result=True)
+celery = celery_init_app(app)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
 init_storage()
@@ -248,43 +305,25 @@ def channel_fetch_videos(id: int):
     return redirect(url_for("channel_get_videos", id=id))
 
 
+@celery.task
+def task_fetch_transcription(video_id: int):
+    logger.info(f"Task queued, fetching transaction for {video_id}")
+    fetch_transcription(video_id)
+
+
+# todo: send some confirmation to user that task is queued and prevent new queue from getting started
+@app.route("/channel/<int:id>/fetch_transcriptions")
+def channel_fetch_transcriptions(id: int):
+    channel = get_channel(id)
+    logger.info(f"Fetching all transcriptions for {channel.name}")
+    for video in channel.videos:
+        _ = task_fetch_transcription.delay(video.id)
+    return redirect(url_for("channel_get_videos", id=id))
+
+
 @app.route("/video/<int:id>/fetch_transcriptions")
 def video_fetch_transcriptions(id: int):
-    tmpdir = tempfile.mkdtemp()
-    video = get_video(id)
-    video_url = video.get_url()
-    if video_url is not None:
-        logger.info(f"fetching transcription for {video.id}")
-        subtitles = get_yt_video_subtitles(video_url, tmpdir)
-        for sub in subtitles:
-            logger.info(
-                f"checking if transcriptions exists on {video.id}, {len(video.transcriptions)}"
-            )
-            if len(video.transcriptions) == 0:
-                logger.info(f"transcriptions not found on {video.id}, adding new..")
-                db.session.add(
-                    Transcription(
-                        video_id=id,
-                        language=sub.language,
-                        file_extention=sub.extention,
-                        file=open(sub.path, "rb"),
-                        source=TranscriptionSource.YouTube,
-                    )
-                )
-            else:
-                logger.info(f"transcriptions found on {video.id}, updating existing..")
-                for t in video.transcriptions:
-                    logger.info(
-                        f"transcriptions found on {video.id} with platform {t.source}"
-                    )
-                    if t.source == TranscriptionSource.YouTube:
-                        transcription = get_transcription(t.id)
-                        transcription.file = open(sub.path, "rb")
-                        transcription.file_extention = sub.extention
-                        transcription.language = sub.language
-                        transcription.last_updated = datetime.now()
-
-        db.session.commit()
+    fetch_transcription(id)
     return redirect(url_for("video_get_transcriptions", id=id))
 
 
@@ -309,18 +348,18 @@ def download_transcription(id: int):
         )
 
 
-@app.route("/transcription/<int:id>/parse")
-def parse_transcription(id: int):
-    transcription = get_transcription(id)
-    if transcription is not None:
-        content = transcription.file.file.read()
-        test = parse_vtt(io.BytesIO(content))
-        # return send_file(
-        #     io.BytesIO(content),
-        #     mimetype="text/plain",
-        #     download_name=f"{transcription.id}.{transcription.file_extention}",
-        # )
-    return "buh"
+# @app.route("/transcription/<int:id>/parse")
+# def parse_transcription(id: int):
+#     transcription = get_transcription(id)
+#     if transcription is not None:
+#         content = transcription.file.file.read()
+#         test = parse_vtt(io.BytesIO(content))
+#         # return send_file(
+#         #     io.BytesIO(content),
+#         #     mimetype="text/plain",
+#         #     download_name=f"{transcription.id}.{transcription.file_extention}",
+#         # )
+#     return "buh"
 
 
 if __name__ == "__main__":

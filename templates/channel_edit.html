@@ -6,6 +6,7 @@
     <h2>Videos</h2>
 
     <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_videos', id=channel.id) }}';">Fetch videos on this channel</button>
+    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', id=channel.id) }}';">Fetch ALL transcriptions on this channel</button>
     <p>Count of videos: {{ videos|length }}</p>
 
     <table class="table table-striped">

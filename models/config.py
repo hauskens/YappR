@@ -10,3 +10,4 @@ class Config:
         self.storage_location: str = os.environ.get(
             "STORAGE_LOCATION", "./test_storage"
         )
+        self.redis_uri: str = os.environ.get("REDIS_URI", "redis://localhost:6379/0")

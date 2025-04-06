@@ -13,6 +13,7 @@
           <th scope="col">Transcription ID</th>
           <th scope="col">Type</th>
           <th scope="col">Source</th>
+          <th scope="col">Last Updated</th>
           <th scope="col">File</th>
         </tr>
       </thead>
@@ -22,6 +23,7 @@
           <td>{{ t.id }}</td>
           <td>{{ t.file_extention }}</td>
           <td>{{ t.source.name }}</td>
+          <td>{{ t.last_updated }}</td>
           <td>
         <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', id=t.id) }}" download="{{ t.file_extention }}">Download</a>
           </td>

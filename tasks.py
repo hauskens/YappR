@@ -43,16 +43,17 @@ def get_yt_video_subtitles(
     with yt_dlp.YoutubeDL(yt_opts) as ydl:
         logger.info(f"Fetching subtitles for video: {video_url}")
         data = ydl.extract_info(video_url)
-        for subtitle in data["requested_subtitles"]:
-            sub = data["requested_subtitles"][subtitle]
-            subtitles.append(
-                SubtitleData(
-                    video_id=str(data["id"]),
-                    extention=sub["ext"],
-                    path=sub["filepath"],
-                    language=sub["name"],
+        if data["requested_subtitles"] is not None:
+            for subtitle in data["requested_subtitles"]:
+                sub = data["requested_subtitles"][subtitle]
+                subtitles.append(
+                    SubtitleData(
+                        video_id=str(data["id"]),
+                        extention=sub["ext"],
+                        path=sub["filepath"],
+                        language=sub["name"],
+                    )
                 )
-            )
     return subtitles
 
 

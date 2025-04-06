@@ -6,7 +6,7 @@
     <ul>
       {% for broadcaster in broadcasters %}
         <li>
-          <a href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}" class="text-secondary">{{ broadcaster.name }}</a>
+          <a href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}" class="text-primary">{{ broadcaster.name }}</a>
         </li>
       {% endfor %}
     </ul>

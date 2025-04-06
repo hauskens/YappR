@@ -1,7 +1,7 @@
 [project]
-name = "vodmeta"
+name = "YappR"
 version = "0.1.0"
-description = "Add your description here"
+description = "A self-hosted, open-source project for searching through transcriptions on YouTube channels"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

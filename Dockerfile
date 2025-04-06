@@ -24,5 +24,5 @@ CMD ["--app","main.celery","--workdir","app","worker","--loglevel=info","--concu
 
 FROM base AS app
 EXPOSE 5000
-ENTRYPOINT ["python"]
-CMD [ "app/main.py" ]
+ENTRYPOINT ["/src/entrypoint.sh"]
+# CMD [ "app/main.py" ]

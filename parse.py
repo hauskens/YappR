@@ -57,7 +57,6 @@ def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, id: int):
         )
         db.session.add(segment)
         db.session.flush()
-        logger.info(f"Processing transcription: {id} - Added segment{segment.id}")
         previous = text
         segments.append(segment)
         words = text.split()

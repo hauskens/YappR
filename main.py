@@ -22,7 +22,7 @@ class Platforms(Base):
     __tablename__: str = "platforms"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(250), unique=True)
-    url: Mapped[str] = mapped_column(String(1000))
+    url: Mapped[str] = mapped_column(String(1000), unique=True)
 
 
 class VideoType(enum.Enum):
@@ -40,6 +40,7 @@ class Channels(Base):
     broadcaster: Mapped["Broadcaster"] = relationship()
     platform_id: Mapped[int] = mapped_column(ForeignKey("platforms.id"))
     platform: Mapped["Platforms"] = relationship()
+    platform_ref: Mapped[str] = mapped_column(String(), unique=True)
     main_video_type: Mapped[str] = mapped_column(
         Enum(VideoType), default=VideoType.Unknown
     )
@@ -63,6 +64,14 @@ def get_broadcasters() -> Sequence[Broadcaster]:
 
 def get_platforms() -> Sequence[Platforms] | None:
     return db.session.execute(select(Platforms)).scalars().all()
+
+
+def get_broadcaster_channels(broadcaster_id: int) -> Sequence[Channels] | None:
+    return (
+        db.session.execute(select(Channels).filter_by(broadcaster_id=broadcaster_id))
+        .scalars()
+        .all()
+    )
 
 
 db = SQLAlchemy(model_class=Base)
@@ -91,7 +100,7 @@ def platforms():
     return render_template("platforms.html", platforms=platforms)
 
 
-@app.route("/broadcaster_create", methods=["POST"])
+@app.route("/broadcaster/create", methods=["POST"])
 def broadcaster_create():
     name = request.form["name"]
     existing_broadcasters = get_broadcasters()
@@ -108,7 +117,21 @@ def broadcaster_create():
     return redirect(url_for("broadcasters"))
 
 
-@app.route("/platform_create", methods=["POST"])
+@app.route("/broadcaster/edit/<int:id>", methods=["GET"])
+def broadcaster_edit(id: int):
+    broadcaster = (
+        db.session.execute(select(Broadcaster).filter_by(id=id)).scalars().one()
+    )
+    channels = get_broadcaster_channels(id)
+    return render_template(
+        "broadcaster_edit.html",
+        broadcaster=broadcaster,
+        channels=channels,
+        platforms=get_platforms(),
+    )
+
+
+@app.route("/platform/create", methods=["POST"])
 def platform_create():
     name = request.form["name"]
     url = request.form["url"]
@@ -125,6 +148,30 @@ def platform_create():
     db.session.add(Platforms(name=name, url=url))
     db.session.commit()
     return redirect(url_for("platforms"))
+
+
+@app.route("/channel/create", methods=["POST"])
+def channel_create():
+    name = request.form["name"]
+    broadcaster_id = int(request.form["broadcaster_id"])
+    platform_id = int(request.form["platform_id"])
+    platform_ref = request.form["platform_ref"]
+    existing_channels = get_broadcaster_channels(broadcaster_id)
+    db.session.add(
+        Channels(
+            name=name,
+            broadcaster_id=broadcaster_id,
+            platform_id=platform_id,
+            platform_ref=platform_ref,
+        )
+    )
+    db.session.commit()
+    return render_template(
+        "broadcaster_edit.html",
+        broadcaster=broadcaster_id,
+        channels=existing_channels,
+        platforms=get_platforms(),
+    )
 
 
 # engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)

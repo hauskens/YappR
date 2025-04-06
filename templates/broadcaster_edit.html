@@ -1,0 +1,48 @@
+{% extends 'base.html' %} {% block body %}
+<h1>Profile: {{ broadcaster.name }}</h1>
+<h2>Channels</h2>
+<ul>
+  <table border="1">
+    <tr>
+      <th>Display Name</th>
+      <th>Platform</th>
+      <th>ID</th>
+    </tr>
+
+    {% for channel in channels %}
+    <tr>
+      <td>{{ channel.name }}</td>
+      <td>{{ channel.platform.name }}</td>
+      <td>{{ channel.platform_ref }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</ul>
+{% with messages = get_flashed_messages() %} {% if messages %}
+<ul>
+  {% for message in messages %}
+  <li>{{ message }}</li>
+  {% endfor %}
+</ul>
+{% endif %} {% endwith %}
+<h2>Add Channel</h2>
+<form action="{{ url_for('channel_create') }}" method="post">
+  <label for="platform_id">Platform:</label>
+  <select id="platform_id" name="platform_id">
+    {% for platform in platforms %}
+    <option value="{{ platform.id }}">{{ platform.name }}</option>
+    {% endfor %}</select
+  ><br /><br />
+  <label for="name">Display Name:</label>
+  <input type="text" id="name" name="name" /><br /><br />
+  <label for="platform_ref">Channel ID in platform</label>
+  <input type="text" id="platform_ref" name="platform_ref" /><br /><br />
+  <input
+    type="hidden"
+    id="broadcaster_id"
+    name="broadcaster_id"
+    value="{{ broadcaster.id }}"
+  /><br /><br />
+  <button type="submit">Add Channel</button>
+</form>
+{% endblock %}

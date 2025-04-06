@@ -4,7 +4,12 @@
 <h1>Broadcasters</h1>
 <ul>
   {% for broadcaster in broadcasters %}
-  <li>{{ broadcaster.id }} - {{ broadcaster.name }}</li>
+  <li>
+    <a href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}"
+      >{{ broadcaster.id }}</a
+    >
+    - {{ broadcaster.name }}
+  </li>
   {% endfor %}
 </ul>
 {% with messages = get_flashed_messages() %} {% if messages %}

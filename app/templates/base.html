@@ -17,7 +17,7 @@
         {% endblock %}
     </head>
     <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <nav class="navbar navbar-expand-sm navbar-light bg-light">
   <a class="navbar-brand" href="#">MetaVOD</a>
   <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
     <span class="navbar-toggler-icon"></span>
@@ -26,14 +26,14 @@
   <div class="collapse navbar-collapse" id="navbarSupportedContent">
     <ul class="navbar-nav mr-auto">
       <li class="nav-item active">
-            {{ render_nav_item('chart', 'index') }}
+            {{ render_nav_item('index', 'index') }}
       </li>
       <li class="nav-item">
             {{ render_nav_item('broadcasters', 'Broadcasters') }}
       </li>
-      <li class="nav-item">
-            {{ render_nav_item('platforms', 'Platforms') }}
-      </li>
+      <!-- <li class="nav-item"> -->
+      <!--       {{ render_nav_item('platforms', 'Platforms') }} -->
+      <!-- </li> -->
       <li class="nav-item">
             {{ render_nav_item('search_page', 'Search') }}
       </li>

@@ -24,7 +24,7 @@ class VideoData:
     uploader_id: str | None
     uploader_url: str | None
     thumbnails: list[Thumbnail] | None
-    timestamp: str | None
+    timestamp: str
     release_timestamp: str | None
     availability: str | None
     view_count: int

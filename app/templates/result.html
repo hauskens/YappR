@@ -7,12 +7,14 @@
       {% for video in video_result %}
         <div class="col">
           <div class="card mb-3" style="width: 325px;">
+                        <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
+
             <!-- Disable iframes if result is large -->
-            {% if loop.index <= 9 %}
-              <iframe width="320" id="{{ video.platform_ref}}" src="https://www.youtube-nocookie.com/embed/{{ video.platform_ref}}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-            {% else %}
-              <p> --YT embed disabled because of large result-- </p>
-            {% endif %}
+            <!-- {% if loop.index <= 9 %} -->
+            <!--   <iframe width="320" id="{{ video.platform_ref}}" src="https://www.youtube-nocookie.com/embed/{{ video.platform_ref}}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe> -->
+            <!-- {% else %} -->
+            <!--   <p> --YT embed disabled because of large result-- </p> -->
+            <!-- {% endif %} -->
             <div class="card-body">
               <h5 class="card-title">
                 {{video.title}}
@@ -20,7 +22,8 @@
               <div style="max-height: 400px; overflow-y: auto">
                 {% for segment in segment_result %}
                   {% if segment.transcription.video_id == video.id %}
-                    <a class="card-text link-secondary" href="{{segment.transcription.video.get_url()}}&t={{ (segment.start - 5) if segment.start - 5 >= 0 else 0 }}">{{ segment.start }}s</a> <a>- {{ segment.text }}</a>
+                    <a class="card-text link-primary" href="#" onclick="window.open('{{segment.transcription.video.get_url()}}&t={{ (segment.start - 5) if segment.start - 5 >= 0 else 0 }}', '_blank');"> {{ segment.start }}s </a> 
+<a>- {{ segment.text }}</a>
                     <br></br>
                   {% endif %}
                 {% endfor %}

@@ -1,11 +1,43 @@
 import yt_dlp
-from models.yt import VideoData, SubtitleData
+from models.yt import VideoData, SubtitleData, Thumbnail
 from models.config import Config
 from os import path
 import logging
+import requests
+
 
 logger = logging.getLogger(__name__)
 storage_directory = path.abspath(Config().cache_location)
+config = Config()
+
+
+def get_largest_thumbnail(video: VideoData) -> Thumbnail | None:
+    if video.thumbnails:
+        if len(video.thumbnails) > 0:
+            result = video.thumbnails.pop()
+            logger.debug(f"Found thumbnail, {result}")
+            return result
+    else:
+        raise ValueError("Video has no thumbnails")
+
+
+def save_thumbnail(thumbnail: Thumbnail, path: str):
+    logger.debug(f"Fetching thumbnail, {thumbnail['url']}")
+    response = requests.get(thumbnail["url"])
+    if response.status_code == 200:
+        with open(path, "wb") as f:
+            _ = f.write(response.content)
+
+
+def save_largest_thumbnail(video: VideoData) -> str | None:
+    logger.debug(f"Fetching thumbnails for {video.url}")
+    thumbnail = get_largest_thumbnail(video)
+    if thumbnail is None:
+        return None
+    path = config.cache_location + video.id
+    save_thumbnail(thumbnail, path)
+    logger.info(f"Thumbnail saved {path}")
+    return path
 
 
 def get_yt_videos(channel_url: str) -> list[VideoData] | None:

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
-from flask import Flask, flash, render_template, request, redirect, url_for
+from flask import Flask, flash, render_template, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
 from models.db import (
     Base,
@@ -18,6 +18,7 @@ import logging
 from os import makedirs
 from tasks import get_yt_videos, get_yt_video_subtitles
 import tempfile
+import io
 
 
 def get_broadcasters() -> Sequence[Broadcaster]:
@@ -67,6 +68,14 @@ def get_transcriptions_by_video(video_id: int) -> Sequence[Transcription] | None
         db.session.execute(select(Transcription).filter_by(video_id=video_id))
         .scalars()
         .all()
+    )
+
+
+def get_transcription(id: int) -> Transcription | None:
+    return (
+        db.session.execute(select(Transcription).filter_by(id=id))
+        .scalars()
+        .one_or_none()
     )
 
 
@@ -250,6 +259,18 @@ def video_get_transcriptions(id: int):
         transcriptions=get_transcriptions_by_video(id),
         video=get_video(id),
     )
+
+
+@app.route("/transcription/<int:id>/download")
+def download_transcription(id: int):
+    transcription = get_transcription(id)
+    if transcription is not None:
+        content = transcription.file.file.read()
+        return send_file(
+            io.BytesIO(content),
+            mimetype="text/plain",
+            download_name=f"{transcription.id}.{transcription.file_extention}",
+        )
 
 
 if __name__ == "__main__":

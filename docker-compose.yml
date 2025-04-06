@@ -46,6 +46,7 @@ services:
       STORAGE_LOCATION: "/var/lib/vodmeta/data"
     volumes:
       - app:/var/lib/vodmeta/data
+      - app-cache:/var/lib/vodmeta/cache
     depends_on:
       cache:
         condition: service_healthy
@@ -70,6 +71,7 @@ services:
 volumes:
   db:
   app:
+  app-cache:
 networks:
   internal:
     driver: bridge

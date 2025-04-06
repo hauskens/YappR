@@ -24,8 +24,7 @@ from parse import parse_vtt
 from datetime import datetime
 import logging
 from os import makedirs
-from tasks import get_yt_videos, get_yt_video_subtitles
-import tempfile
+from tasks import get_yt_videos, get_yt_video_subtitles, save_largest_thumbnail
 import io
 
 
@@ -194,21 +193,22 @@ init_storage()
 container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
 StorageManager.add_storage("default", container)
 
-# with app.app_context():
-#     db.create_all()
-#     pf = get_platforms()
-#     if pf is not None:
-#         if len(pf) == 0:
-#             yt = Platforms(name="YouTube", url="https://youtube.com")
-#             twitch = Platforms(name="Twitch", url="https://twitch.tv")
-#             db.session.add_all([yt, twitch])
-#             db.session.commit()
+with app.app_context():
+    db.create_all()
+    pf = get_platforms()
+    if pf is not None:
+        if len(pf) == 0:
+            yt = Platforms(name="YouTube", url="https://youtube.com")
+            twitch = Platforms(name="Twitch", url="https://twitch.tv")
+            db.session.add_all([yt, twitch])
+            db.session.commit()
 
 
 @app.route("/")
 def index():
-    logger.info("Loaded index.html")
-    return render_template("index.html")
+    broadcasters = get_broadcasters()
+    logger.info("Loaded search.html")
+    return render_template("search.html", broadcasters=broadcasters)
 
 
 @app.route("/chart")
@@ -256,6 +256,7 @@ def search_word():
 
     for wordmap in wordmap_result:
         segment_result += get_segments_by_wordmap(wordmap)
+    # video_sorted = sorted(video_result, key=lambda x: x["."], reverse=True)
     logger.info(f"Search found {len(video_result)}")
     return render_template(
         "result.html",
@@ -263,6 +264,17 @@ def search_word():
         broadcaster=broadcaster,
         video_result=video_result,
         segment_result=segment_result,
+    )
+
+
+@app.route("/thumbnails/<int:video_id>")
+def serve_thumbnails(video_id: int):
+    video = get_video(video_id)
+    content = video.thumbnail.file.read()
+    return send_file(
+        io.BytesIO(content),
+        mimetype="image/jpeg",
+        download_name=f"{video.id}.jpg",
     )
 
 
@@ -366,20 +378,37 @@ def channel_fetch_videos(id: int):
         channel_videos = get_yt_videos(channel_url=url)
         if channel_videos is not None:
             for video in channel_videos:
+                thumbnail = save_largest_thumbnail(video)
                 existing_video = get_video_by_ref(video.id)
                 if existing_video is None:
-                    db.session.add(
-                        Video(
-                            title=video.title,
-                            video_type=VideoType.VOD,
-                            channel_id=channel.id,
-                            platform_ref=video.id,
-                            duration=video.duration,
+                    if thumbnail is not None:
+                        db.session.add(
+                            Video(
+                                title=video.title,
+                                video_type=VideoType.VOD,
+                                channel_id=channel.id,
+                                platform_ref=video.id,
+                                duration=video.duration,
+                                thumbnail=open(thumbnail, "rb"),
+                            )
                         )
-                    )
+                    else:
+                        # this is reduntant, can be done much more pretty i guess, but im lazy rn
+                        db.session.add(
+                            Video(
+                                title=video.title,
+                                video_type=VideoType.VOD,
+                                channel_id=channel.id,
+                                platform_ref=video.id,
+                                duration=video.duration,
+                            )
+                        )
+
                 else:
                     existing_video.title = video.title
                     existing_video.duration = video.duration
+                    if thumbnail is not None:
+                        existing_video.thumbnail = open(thumbnail, "rb")
         db.session.commit()
     return redirect(url_for("channel_get_videos", id=id))
 

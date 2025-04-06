@@ -33,6 +33,7 @@ services:
     networks:
       - internal
   app:
+    image: ${REGISTRY-}vodmeta-app
     build:
       context: .
       target: app
@@ -44,6 +45,7 @@ services:
       DB_URI: "postgresql+psycopg://root:secret@postgres-db:5432/postgres"
       REDIS_URI: "redis://redis-cache:6379/0"
       STORAGE_LOCATION: "/var/lib/vodmeta/data"
+      CACHE_LOCATION: "/var/lib/vodmeta/cache"
     volumes:
       - app:/var/lib/vodmeta/data
       - app-cache:/var/lib/vodmeta/cache
@@ -63,11 +65,14 @@ services:
           path: ./uv.lock
   worker:
     extends: app
+    image: ${REGISTRY-}vodmeta-worker
     ports: !reset []
     build:
       target: worker
     depends_on:
       - app
+    deploy:
+      replicas: 1 # number up = more brrr
 volumes:
   db:
   app:

@@ -2,13 +2,18 @@
 
 {% block body %}
   <div class="container">
-    <h1>Video: {{ video.title }}</h1>
+    <h1>{{ video.title }}</h1>
+    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', id=video.id) }}';">Fetch transcriptions for this video</button>
+    <p>Video ID: {{ video.id }}</p>
+
 
     <table class="table table-striped">
       <thead>
         <tr>
-          <th scope="col">ID</th>
-          <th scope="col">Transcription type</th>
+          <th scope="col">Transcription ID</th>
+          <th scope="col">Type</th>
+          <th scope="col">Source</th>
+          <th scope="col">File</th>
         </tr>
       </thead>
       <tbody>
@@ -16,6 +21,10 @@
         <tr>
           <td>{{ t.id }}</td>
           <td>{{ t.file_extention }}</td>
+          <td>{{ t.source.name }}</td>
+          <td>
+        <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', id=t.id) }}" download="{{ t.file_extention }}">Download</a>
+          </td>
         </tr>
         {% endfor %}
       </tbody>

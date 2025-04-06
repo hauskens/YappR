@@ -12,6 +12,7 @@ from models.db import (
     Channels,
     Video,
     Transcription,
+    TranscriptionSource,
 )
 from models.config import Config
 import logging
@@ -224,9 +225,7 @@ def channel_fetch_videos(id: int):
                         )
                     )
         db.session.commit()
-    return render_template(
-        "channel_edit.html", videos=get_video_by_channel(id), channel=get_channel(id)
-    )
+    return redirect(url_for("channel_get_videos", id=id))
 
 
 @app.route("/video/<int:id>/fetch_transcriptions")
@@ -242,14 +241,11 @@ def video_fetch_transcriptions(id: int):
                     language=sub.language,
                     file_extention=sub.extention,
                     file=open(sub.path, "rb"),
+                    source=TranscriptionSource.YouTube,
                 )
             )
         db.session.commit()
-    return render_template(
-        "video_edit.html",
-        transcriptions=get_transcriptions_by_video(id),
-        video=get_video(id),
-    )
+    return redirect(url_for("video_get_transcriptions", id=id))
 
 
 @app.route("/video/<int:id>/get_transcriptions")

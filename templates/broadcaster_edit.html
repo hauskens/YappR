@@ -1,59 +1,75 @@
-{% extends 'base.html' %} {% block body %}
-<h1>Profile: {{ broadcaster.name }}</h1>
-<h2>Channels</h2>
-<ul>
-  <table border="1">
-    <tr>
-      <th>Channel ID</th>
-      <th>Display Name</th>
-      <th>Platform</th>
-      <th>ID</th>
-      <th>Channel Type</th>
-    </tr>
+{% extends 'base.html' %}
 
-    {% for channel in channels %}
-    <tr>
-      <td><a href="{{ url_for('channel_get_videos', id=channel.id) }}"
-             >{{ channel.id }}</a></td>
-      <td>{{ channel.name }}</td>
-      <td>{{ channel.platform.name }}</td>
-      <td>{{ channel.platform_ref }}</td>
-      <td>{{ channel.main_video_type.name }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-</ul>
-{% with messages = get_flashed_messages() %} {% if messages %}
-<ul>
-  {% for message in messages %}
-  <li>{{ message }}</li>
-  {% endfor %}
-</ul>
-{% endif %} {% endwith %}
-<h2>Add Channel</h2>
-<form action="{{ url_for('channel_create') }}" method="post">
-  <label for="platform_id">Platform:</label>
-  <select id="platform_id" name="platform_id">
-    {% for platform in platforms %}
-    <option value="{{ platform.id }}">{{ platform.name }}</option>
-    {% endfor %}</select
-  ><br /><br />
-  <label for="video_type">Channel Type</label>
-  <select id="channel_type" name="channel_type">
-    {% for video_type in video_types %}
-    <option value="{{ video_type.name }}">{{ video_type.name }}</option>
-    {% endfor %}</select
-  ><br /><br />
-  <label for="name">Display Name:</label>
-  <input type="text" id="name" name="name" /><br /><br />
-  <label for="platform_ref">Channel ID in platform</label>
-  <input type="text" id="platform_ref" name="platform_ref" /><br /><br />
-  <input
-    type="hidden"
-    id="broadcaster_id"
-    name="broadcaster_id"
-    value="{{ broadcaster.id }}"
-  /><br /><br />
-  <button type="submit">Add Channel</button>
-</form>
+{% block body %}
+  <div class="container">
+    <h1>Profile: {{ broadcaster.name }}</h1>
+    <h2>Channels</h2>
+
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th scope="col">Channel ID</th>
+          <th scope="col">Display Name</th>
+          <th scope="col">Platform</th>
+          <th scope="col">ID</th>
+          <th scope="col">Channel Type</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for channel in channels %}
+        <tr>
+          <td><a href="{{ url_for('channel_get_videos', id=channel.id) }}">{{ channel.id }}</a></td>
+          <td>{{ channel.name }}</td>
+          <td>{{ channel.platform.name }}</td>
+          <td>{{ channel.platform_ref }}</td>
+          <td>{{ channel.main_video_type.name }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-success" role="alert">
+          {% for message in messages %}
+            {{ message }}
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <h2>Add Channel</h2>
+
+    <form action="{{ url_for('channel_create') }}" method="post">
+      <label for="platform_id">Platform:</label>
+      <select id="platform_id" name="platform_id">
+        {% for platform in platforms %}
+          <option value="{{ platform.id }}">{{ platform.name }}</option>
+        {% endfor %}
+      </select><br /><br />
+
+      <label for="channel_type">Channel Type</label>
+      <select id="channel_type" name="channel_type" class="form-select">
+        {% for video_type in video_types %}
+          <option value="{{ video_type.name }}">{{ video_type.name }}</option>
+        {% endfor %}
+      </select><br /><br />
+
+      <label for="name">Display Name:</label>
+      <input type="text" id="name" name="name" class="form-control"><br /><br />
+
+      <label for="platform_ref">Channel ID in platform</label>
+      <input type="text" id="platform_ref" name="platform_ref" class="form-control"><br /><br />
+
+      <input
+        type="hidden"
+        id="broadcaster_id"
+        name="broadcaster_id"
+        value="{{ broadcaster.id }}"
+      ><br /><br />
+
+      <button type="submit" class="btn btn-primary">Add Channel</button>
+    </form>
+
+  </div>
 {% endblock %}

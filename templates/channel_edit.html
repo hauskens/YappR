@@ -1,37 +1,44 @@
-{% extends 'base.html' %} {% block body %}
-<h1>Channel: {{ channel.name }}</h1>
-<h2>Videos</h2>
-<ul>
-  <p>Count of videos: {{ videos|length }}</p>
-  <table border="1">
-    <tr>
-      <th>Video ID</th>
-      <th>Title</th>
-      <th>Video Type</th>
-      <th>Link</th>
-    </tr>
+{% extends 'base.html' %}
 
-    {% for video in videos %}
-    <tr>
-      <td>{{ video.id }}</td>
-      <td>{{ video.title }}</td>
-      <td>{{ video.video_type.name }}</td>
-      <td>{{ video.get_url() }}</td>
-    </tr>
-    {% endfor %}
-  </table>
-</ul>
-{% with messages = get_flashed_messages() %} {% if messages %}
-<ul>
-  {% for message in messages %}
-  <li>{{ message }}</li>
-  {% endfor %}
-</ul>
-{% endif %} {% endwith %}
-<button
-  type="button"
-  onclick="location.href = '{{ url_for('channel_fetch_videos', id=channel.id) }}';"
->
-  Click me!
-</button>
+{% block body %}
+  <div class="container">
+    <h1>Channel: {{ channel.name }}</h1>
+    <h2>Videos</h2>
+
+    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_videos', id=channel.id) }}';">Fetch videos on this channel</button>
+    <p>Count of videos: {{ videos|length }}</p>
+
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th scope="col">Video ID</th>
+          <th scope="col">Title</th>
+          <th scope="col">Video Type</th>
+          <th scope="col">Link</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for video in videos %}
+        <tr>
+          <td>{{ video.id }}</td>
+          <td>{{ video.title }}</td>
+          <td>{{ video.video_type.name }}</td>
+          <td><a href="{{ video.get_url() }}">Link</a></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-success" role="alert">
+          {% for message in messages %}
+            {{ message }}
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+
+  </div>
 {% endblock %}

@@ -488,4 +488,4 @@ def view_transcription(id: int):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host=config.app_host, port=config.app_port)

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from sysconfig import get_platform
 from sqlalchemy import select
 from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
@@ -16,6 +17,7 @@ from models.db import (
 )
 from models.config import Config
 from parse import parse_vtt
+from datetime import datetime
 import logging
 from os import makedirs
 from tasks import get_yt_videos, get_yt_video_subtitles
@@ -87,6 +89,14 @@ def init_storage(container: str = "transcriptions"):
     )  # Ensure storage folder exists
 
 
+def init_platforms():
+    if get_platforms() is None:
+        yt = Platforms(name="YouTube", url="https://youtube.com")
+        twitch = Platforms(name="Twitch", url="https://twitch.tv")
+        db.session.add_all([yt, twitch])
+        db.session.commit()
+
+
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 config = Config()
@@ -101,6 +111,11 @@ StorageManager.add_storage("default", container)
 db.init_app(app)
 with app.app_context():
     db.create_all()
+    # pf = get_platforms()
+    # yt = Platforms(name="YouTube", url="https://youtube.com")
+    # twitch = Platforms(name="Twitch", url="https://twitch.tv")
+    # db.session.add_all([yt, twitch])
+    # db.session.commit()
 
 
 @app.route("/")
@@ -215,7 +230,8 @@ def channel_fetch_videos(id: int):
         channel_videos = get_yt_videos(channel_url=url)
         if channel_videos is not None:
             for video in channel_videos:
-                if get_video_by_ref(video.id) is None:
+                existing_video = get_video_by_ref(video.id)
+                if existing_video is None:
                     db.session.add(
                         Video(
                             title=video.title,
@@ -225,6 +241,9 @@ def channel_fetch_videos(id: int):
                             duration=video.duration,
                         )
                     )
+                else:
+                    existing_video.title = video.title
+                    existing_video.duration = video.duration
         db.session.commit()
     return redirect(url_for("channel_get_videos", id=id))
 
@@ -232,19 +251,39 @@ def channel_fetch_videos(id: int):
 @app.route("/video/<int:id>/fetch_transcriptions")
 def video_fetch_transcriptions(id: int):
     tmpdir = tempfile.mkdtemp()
-    video_url = get_video(id).get_url()
+    video = get_video(id)
+    video_url = video.get_url()
     if video_url is not None:
+        logger.info(f"fetching transcription for {video.id}")
         subtitles = get_yt_video_subtitles(video_url, tmpdir)
         for sub in subtitles:
-            db.session.add(
-                Transcription(
-                    video_id=id,
-                    language=sub.language,
-                    file_extention=sub.extention,
-                    file=open(sub.path, "rb"),
-                    source=TranscriptionSource.YouTube,
-                )
+            logger.info(
+                f"checking if transcriptions exists on {video.id}, {len(video.transcriptions)}"
             )
+            if len(video.transcriptions) == 0:
+                logger.info(f"transcriptions not found on {video.id}, adding new..")
+                db.session.add(
+                    Transcription(
+                        video_id=id,
+                        language=sub.language,
+                        file_extention=sub.extention,
+                        file=open(sub.path, "rb"),
+                        source=TranscriptionSource.YouTube,
+                    )
+                )
+            else:
+                logger.info(f"transcriptions found on {video.id}, updating existing..")
+                for t in video.transcriptions:
+                    logger.info(
+                        f"transcriptions found on {video.id} with platform {t.source}"
+                    )
+                    if t.source == TranscriptionSource.YouTube:
+                        transcription = get_transcription(t.id)
+                        transcription.file = open(sub.path, "rb")
+                        transcription.file_extention = sub.extention
+                        transcription.language = sub.language
+                        transcription.last_updated = datetime.now()
+
         db.session.commit()
     return redirect(url_for("video_get_transcriptions", id=id))
 

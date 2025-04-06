@@ -127,7 +127,7 @@ class Segments(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     text: Mapped[str] = mapped_column(String(500), nullable=False)
     start: Mapped[int] = mapped_column(Integer, nullable=False)
-    end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    end: Mapped[int] = mapped_column(Integer, nullable=False)
     transcription_id: Mapped[int] = mapped_column(
         ForeignKey("transcriptions.id"), index=True
     )

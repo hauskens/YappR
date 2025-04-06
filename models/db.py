@@ -2,6 +2,7 @@ import enum
 from sqlalchemy import ForeignKey, String, Integer, Enum, Float
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy_file import FileField
+from sqlalchemy_file import File
 
 
 class Base(DeclarativeBase):
@@ -75,7 +76,7 @@ class Transcription(Base):
     video: Mapped["Video"] = relationship()
     language: Mapped[str] = mapped_column(String(250))
     file_extention: Mapped[str] = mapped_column(String(10))
-    file: Mapped[FileField] = mapped_column(FileField())
+    file: Mapped[File] = mapped_column(FileField())
     source: Mapped[str] = mapped_column(
         Enum(TranscriptionSource), default=TranscriptionSource.Unknown
     )

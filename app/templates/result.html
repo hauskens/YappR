@@ -17,9 +17,9 @@
               </h5>
               <div style="max-height: 400px; overflow-y: auto">
                 {% for segment in segment_result %}
-                  {% if segment.transcription.video_id == video.id %}
-                    <a class="card-text link-primary" href="#" onclick="window.open('{{segment.transcription.video.get_url()}}&t={{ (segment.start - 5) if segment.start - 5 >= 0 else 0 }}', '_blank');"> {{ segment.start }}s </a> 
-<a>- {{ segment.text }}</a>
+                  {% if segment.video.id == video.id %}
+                    <a class="card-text link-primary" href="#" onclick="window.open('{{segment.video.get_url()}}&t={{ (segment.start_time() - 5) if segment.start_time() - 5 >= 0 else 0 }}', '_blank');"> {{ segment.start_time() }}s </a> 
+<a>- {{ segment.get_sentences() }}</a>
                     <br></br>
                   {% endif %}
                 {% endfor %}

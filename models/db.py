@@ -40,6 +40,11 @@ class Channels(Base):
         Enum(VideoType), default=VideoType.Unknown
     )
 
+    def get_url(self) -> str | None:
+        url = self.platform.url.rstrip("/")
+        if self.platform.name.lower() == "youtube":
+            return f"{url}/@{self.platform_ref}"
+
 
 class Video(Base):
     __tablename__: str = "video"
@@ -49,3 +54,8 @@ class Video(Base):
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
     channel: Mapped["Channels"] = relationship()
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
+
+    def get_url(self) -> str | None:
+        url = self.channel.platform.url.rstrip("/")
+        if self.channel.platform.name.lower() == "youtube":
+            return f"{url}/watch?v={self.platform_ref}"

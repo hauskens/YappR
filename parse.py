@@ -2,10 +2,7 @@
 # Mozilla Public License Version 2.0 -> https://github.com/lawrencehook/SqueexVodSearch/blob/main/LICENSE
 
 import logging
-from cgi import print_environ_usage
-from dataclasses import dataclass
-from collections import defaultdict
-from models.db import WordMaps, Segments, ProcessedTranscription, Broadcaster
+from models.db import WordMaps, Segments, ProcessedTranscription
 from flask_sqlalchemy import SQLAlchemy
 from io import BytesIO
 import webvtt
@@ -61,18 +58,21 @@ def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, id: int):
         segments.append(segment)
         words = text.split()
         for word in words:
+            found_existing_word = False
             if word in sw:
                 continue
             for wm in word_map:
                 if wm.word == word:
                     wm.segments.append(segment.id)
-                    continue
-            word_map.append(
-                WordMaps(
-                    word=word,
-                    segments=[segment.id],
-                    processed_transcription_id=processed_transcription.id,
+                    found_existing_word = True
+                    break
+            if found_existing_word == False:
+                word_map.append(
+                    WordMaps(
+                        word=word,
+                        segments=[segment.id],
+                        processed_transcription_id=processed_transcription.id,
+                    )
                 )
-            )
     db.session.add_all(word_map)
     db.session.commit()

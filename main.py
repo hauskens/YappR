@@ -5,13 +5,14 @@ from libcloud.storage.drivers.local import LocalStorageDriver
 from flask import Flask, flash, render_template, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
 from celery import Celery, Task
-from flask_bootstrap import Bootstrap
+from flask_bootstrap import Bootstrap5
 from models.db import (
     Base,
     Broadcaster,
     Platforms,
     ProcessedTranscription,
     Segments,
+    WordMaps,
     VideoType,
     Channels,
     Video,
@@ -94,6 +95,41 @@ def get_processed_transcription(id: int) -> ProcessedTranscription | None:
     )
 
 
+def get_processed_transcription_by_transcription(
+    transcription_id: int,
+) -> ProcessedTranscription | None:
+    return (
+        db.session.execute(
+            select(ProcessedTranscription).filter_by(transcription_id=transcription_id)
+        )
+        .scalars()
+        .one_or_none()
+    )
+
+
+def search_wordmaps_by_transcription(
+    search_term: str, transcription_id: int
+) -> Sequence[WordMaps] | None:
+    transcription = get_transcription(id=transcription_id)
+    if transcription is not None:
+        ptrans = get_processed_transcription_by_transcription(transcription.id)
+        if ptrans is not None:
+            return (
+                db.session.execute(
+                    select(WordMaps).filter_by(
+                        word=search_term,
+                        processed_transcription_id=ptrans.id,
+                    )
+                )
+                .scalars()
+                .all()
+            )
+
+
+def get_segments_by_wordmap(wordmap: WordMaps) -> Sequence[Segments]:
+    return db.session.query(Segments).filter(Segments.id.in_(wordmap.segments)).all()
+
+
 def fetch_transcription(video_id: int):
     tmpdir = tempfile.mkdtemp()
     video = get_video(video_id)
@@ -161,8 +197,9 @@ def celery_init_app(app: Flask) -> Celery:
 
 # holy... need to clean up this..
 db = SQLAlchemy(model_class=Base)
+# nav = Nav()
 app = Flask(__name__)
-Bootstrap(app)
+bootstrap = Bootstrap5(app)
 config = Config()
 app.secret_key = config.app_secret
 app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
@@ -173,7 +210,7 @@ logging.basicConfig(level=config.log_level)
 init_storage()
 container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
 StorageManager.add_storage("default", container)
-
+# nav.init_app(app)
 db.init_app(app)
 with app.app_context():
     db.create_all()
@@ -192,6 +229,13 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/chart")
+def chart():
+    logger.info("Loaded chart.html")
+    channel = get_channel(2)
+    return render_template("chart.html", channel=channel)
+
+
 @app.route("/static/<path:path>")
 def send_static(path: str):
     return send_from_directory("static", path)
@@ -202,6 +246,40 @@ def broadcasters():
     broadcasters = get_broadcasters()
     logger.info("Loaded broadcasters.html")
     return render_template("broadcasters.html", broadcasters=broadcasters)
+
+
+@app.route("/search")
+def search_page():
+    broadcasters = get_broadcasters()
+    logger.info("Loaded search.html")
+    return render_template("search.html", broadcasters=broadcasters)
+
+
+@app.route("/search_word", methods=["POST"])
+def search_word():
+    logger.info("Loaded search_word.html")
+    search_term = request.form["search"]
+    broadcaster_id = request.form["broadcaster"]
+    channels = get_broadcaster_channels(int(broadcaster_id))
+    transcriptions: list[Transcription] = []
+    if channels is None:
+        return "Channels not found, i have not implemented proper error sorry.."
+    for channel in channels:
+        for video in channel.videos:
+            transcriptions += video.transcriptions
+    wordmap_result: list[WordMaps] = []
+    for t in transcriptions:
+        search_result = search_wordmaps_by_transcription(search_term, t.id)
+        if search_result is not None:
+            for wordmap in search_result:
+                wordmap_result.append(wordmap)
+
+    segment_result: list[Segments] = []
+    for wordmap in wordmap_result:
+        segment_result += get_segments_by_wordmap(wordmap)
+    return render_template(
+        "chart.html", channel=channels.pop(), segment_list=segment_result
+    )
 
 
 @app.route("/platforms")
@@ -398,7 +476,15 @@ def parse_transcription(id: int):
 @app.route("/transcription/<int:id>/view")
 def view_transcription(id: int):
     tran = get_transcription(id)
-    return f"{tran.processed_transcription.word_maps.pop().id}"
+    return f"{tran.processed_transcription.id}"
+
+
+# @nav.navigation()
+# def mynavbar():
+#     return Navbar(
+#         "mysite",
+#         View("Home", "index"),
+#     )
 
 
 if __name__ == "__main__":

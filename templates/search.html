@@ -1,0 +1,25 @@
+{% extends 'base.html' %} {% block content %}
+<div class="container">
+  <h1>MetaVOD</h1>
+
+  <form action="{{ url_for('search_word') }}" method="post">
+    <label for="broadcaster">Channel Type</label>
+    <select id="broadcaster" name="broadcaster" class="form-select">
+      {% for broadcaster in broadcasters %}
+      <option value="{{ broadcaster.id }}">{{ broadcaster.name }}</option>
+      {% endfor %}</select
+    ><br /><br />
+    <div class="mb-3">
+      <label for="search" class="form-label">Search for a word:</label>
+      <input type="search" id="search" name="search" class="form-control" />
+    </div>
+
+    <button type="submit" class="btn btn-primary">Add Broadcaster</button>
+  </form>
+  {% with messages = get_flashed_messages() %} {% if messages %}
+  <div class="alert alert-success" role="alert">
+    {% for message in messages %} {{ message }} {% endfor %}
+  </div>
+  {% endif %} {% endwith %}
+</div>
+{% endblock %}

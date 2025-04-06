@@ -1,0 +1,37 @@
+{% extends 'base.html' %} {% block body %}
+<h1>Channel: {{ channel.name }}</h1>
+<h2>Videos</h2>
+<ul>
+  <p>Count of videos: {{ videos|length }}</p>
+  <table border="1">
+    <tr>
+      <th>Video ID</th>
+      <th>Title</th>
+      <th>Video Type</th>
+      <th>Link</th>
+    </tr>
+
+    {% for video in videos %}
+    <tr>
+      <td>{{ video.platform_ref }}</td>
+      <td>{{ video.title }}</td>
+      <td>{{ video.video_type.name }}</td>
+      <td>{{ video.get_url() }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</ul>
+{% with messages = get_flashed_messages() %} {% if messages %}
+<ul>
+  {% for message in messages %}
+  <li>{{ message }}</li>
+  {% endfor %}
+</ul>
+{% endif %} {% endwith %}
+<button
+  type="button"
+  onclick="location.href = '{{ url_for('channel_fetch_videos', id=channel.id) }}';"
+>
+  Click me!
+</button>
+{% endblock %}

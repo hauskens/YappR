@@ -4,16 +4,21 @@
 <ul>
   <table border="1">
     <tr>
+      <th>Channel ID</th>
       <th>Display Name</th>
       <th>Platform</th>
       <th>ID</th>
+      <th>Channel Type</th>
     </tr>
 
     {% for channel in channels %}
     <tr>
+      <td><a href="{{ url_for('channel_fetch_videos', id=channel.id) }}"
+             >{{ channel.id }}</a></td>
       <td>{{ channel.name }}</td>
       <td>{{ channel.platform.name }}</td>
       <td>{{ channel.platform_ref }}</td>
+      <td>{{ channel.main_video_type.name }}</td>
     </tr>
     {% endfor %}
   </table>
@@ -31,6 +36,12 @@
   <select id="platform_id" name="platform_id">
     {% for platform in platforms %}
     <option value="{{ platform.id }}">{{ platform.name }}</option>
+    {% endfor %}</select
+  ><br /><br />
+  <label for="video_type">Channel Type</label>
+  <select id="channel_type" name="channel_type">
+    {% for video_type in video_types %}
+    <option value="{{ video_type.name }}">{{ video_type.name }}</option>
     {% endfor %}</select
   ><br /><br />
   <label for="name">Display Name:</label>

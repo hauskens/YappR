@@ -9,9 +9,10 @@ logger = logging.getLogger(__name__)
 def get_yt_videos(channel_url: str) -> list[VideoData] | None:
     yt_opts = {
         "extract_flat": "in_playlist",
-        "match_filter": yt_dlp.utils.match_filter_func(
-            ["original_url!*=/shorts/ & url!*=/shorts/"], None
-        ),
+        # "skip_download": True,
+        # "match_filter": yt_dlp.utils.match_filter_func(
+        #     ["original_url!*=/shorts/ & url!*=/shorts/"], None
+        # ),
         "noprogress": True,
         "quiet": True,
         "simulate": True,
@@ -26,6 +27,7 @@ def get_yt_videos(channel_url: str) -> list[VideoData] | None:
                 del i[
                     "__x_forwarded_for_ip"
                 ]  # Remove this because it cant be mapped to VideoData class with __
+                # logger.debug(f"Found {i} videos on URL: {channel_url}")
                 videos.append(VideoData(**i))
     return videos
 

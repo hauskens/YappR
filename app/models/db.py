@@ -66,7 +66,7 @@ class Channels(Base):
     )
 
     def get_url(self) -> str | None:
-        url = self.platform.url.rstrip("/")
+        url = self.platform.url
         if self.platform.name.lower() == "youtube":
             return f"{url}/@{self.platform_ref}"
 
@@ -146,7 +146,7 @@ class Segments(Base):
 class WordMaps(Base):
     __tablename__: str = "t_wordmaps"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    word: Mapped[str] = mapped_column(String(25))
+    word: Mapped[str] = mapped_column(String(50))
     segments: Mapped[list[int]] = mapped_column(ARRAY(Integer))
     processed_transcription_id: Mapped[int] = mapped_column(
         ForeignKey("t_processed.id")

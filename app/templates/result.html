@@ -2,6 +2,7 @@
 <div>
   <h1>{{broadcaster.name}}</h1>
   <p>search results from '{{ search_word }}': {{segment_result|length}} segments and {{video_result|length}} videos</p>
+  <p>behind the scenes, the search terms used: {{segment_result[0].search_words}} </p>
   <div class="container gx-3 text-start">
     <div class="row gx-1">
       {% for video in video_result %}

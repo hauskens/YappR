@@ -40,6 +40,7 @@ from retrievers import (
     fetch_transcription,
     fetch_audio,
 )
+from search import search
 
 
 def init_storage(container: str = "transcriptions"):
@@ -127,25 +128,9 @@ def search_word():
         raise ValueError("Broadcaster not found")
     logger.info(f"Searching for '{search_term}' on {broadcaster.name}")
     channels = get_broadcaster_channels(int(broadcaster_id))
-    transcriptions: list[Transcription] = []
-    video_result: list[Video] = []
-    wordmap_result: list[WordMaps] = []
-    segment_result: list[Segments] = []
     if channels is None:
         return "Channels not found, i have not implemented proper error sorry.."
-    for channel in channels:
-        for video in channel.videos:
-            transcriptions += video.transcriptions
-    search_words = search_term.lower().split()
-    for t in transcriptions:
-        search_result = search_wordmaps_by_transcription(search_words[0], t)
-        for wordmap in search_result:
-            wordmap_result.append(wordmap)
-            video_result.append(wordmap.transcription.video)
-
-    for wordmap in wordmap_result:
-        segment_result += get_segments_by_wordmap(wordmap)
-    logger.info(f"Search found {len(video_result)}")
+    segment_result, video_result = search(search_term, int(broadcaster_id))
     return render_template(
         "result.html",
         search_word=search_term,

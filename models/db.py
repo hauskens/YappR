@@ -1,8 +1,18 @@
 import enum
-from sqlalchemy import ForeignKey, String, Integer, Enum, Float, UniqueConstraint
+from sqlalchemy import (
+    ForeignKey,
+    String,
+    Integer,
+    Enum,
+    Float,
+    UniqueConstraint,
+    DateTime,
+    event,
+)
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy_file import FileField
 from sqlalchemy_file import File
+from datetime import datetime
 
 
 class Base(DeclarativeBase):
@@ -67,6 +77,7 @@ class Video(Base):
     duration: Mapped[float] = mapped_column(Float())
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
     channel: Mapped["Channels"] = relationship()
+    last_updated: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now())
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
     transcriptions: Mapped[list["Transcription"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
@@ -76,6 +87,17 @@ class Video(Base):
         url = self.channel.platform.url.rstrip("/")
         if self.channel.platform.name.lower() == "youtube":
             return f"{url}/watch?v={self.platform_ref}"
+
+
+# todo: test if this works..
+@event.listens_for(Video, "before_insert")
+def receive_before_insert(mapper, connection, target):
+    target.last_updated = datetime.now()
+
+
+@event.listens_for(Video, "before_update")
+def receive_before_insert(mapper, connection, target):
+    target.last_updated = datetime.now()
 
 
 class Transcription(Base):

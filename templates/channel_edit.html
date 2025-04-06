@@ -16,6 +16,7 @@
           <th scope="col">Video Type</th>
           <th scope="col">Video Link</th>
           <th scope="col">Transcriptions</th>
+          <th scope="col">Last updated</th>
           <th scope="col">Actions</th>
         </tr>
       </thead>
@@ -27,6 +28,7 @@
           <td>{{ video.video_type.name }}</td>
           <td><a href="{{ video.get_url() }}">Link</a></td>
           <td>{{ video.transcriptions|length }}</td>
+          <td>{{ video.last_updated }}</td>
           <td><a href="{{ url_for('video_get_transcriptions', id=video.id) }}">Edit Video</a></td>
         </tr>
         {% endfor %}

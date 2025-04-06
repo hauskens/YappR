@@ -8,7 +8,7 @@
     <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_videos', id=channel.id) }}';">Fetch videos on this channel</button>
     <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', id=channel.id) }}';">Fetch audio on all videos</button>
     <!-- <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', id=channel.id) }}';">Fetch all transcriptions</button> -->
-    <!-- <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', id=channel.id) }}';">Process ALL transcriptions</button> -->
+    <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('channel_parse_transcriptions', id=channel.id) }}';">Process ALL transcriptions</button>
     <p>Count of videos: {{ videos|length }}</p>
 
     <table class="table table-striped">
@@ -42,8 +42,8 @@
           <td>{{ video.last_updated }}</td>
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', id=video.id) }}">Edit Video</a>
-            <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', id=video.id) }}">Fetch transcriptions</a>
-            <a class="btn btn-primary" role="button" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Process transcriptions</a>
+            <!-- <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', id=video.id) }}">Fetch transcriptions</a> -->
+            <!-- <a class="btn btn-primary" role="button" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Process transcriptions</a> -->
           </td>
         </tr>
         {% endfor %}

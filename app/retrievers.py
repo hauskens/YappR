@@ -81,11 +81,11 @@ def get_transcriptions_by_video(video_id: int) -> Sequence[Transcription] | None
     )
 
 
-def get_transcription(transcription_id: int) -> Transcription | None:
+def get_transcription(transcription_id: int) -> Transcription:
     return (
         db.session.execute(select(Transcription).filter_by(id=transcription_id))
         .scalars()
-        .one_or_none()
+        .one()
     )
 
 
@@ -119,6 +119,22 @@ def get_segments_by_wordmap(wordmap: WordMaps) -> Sequence[Segments]:
 
 def get_segment_by_id(segment_id: int) -> Segments:
     return db.session.query(Segments).filter_by(id=segment_id).one()
+
+
+def delete_channel(channel_id: int):
+    return db.session.query(Channels).filter_by(id=channel_id).delete()
+
+
+def delete_broadcaster(broadcaster_id: int):
+    return db.session.query(Broadcaster).filter_by(id=broadcaster_id).delete()
+
+
+def delete_wordmaps_on_transcription(transcription_id: int):
+
+    logger.info(f"delete wordmaps on transcription id: {transcription_id}")
+    return (
+        db.session.query(WordMaps).filter_by(transcription_id=transcription_id).delete()
+    )
 
 
 def fetch_transcription(video_id: int):

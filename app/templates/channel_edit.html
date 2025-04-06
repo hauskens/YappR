@@ -18,7 +18,6 @@
           <th scope="col">Video Type</th>
           <th scope="col">Video Link</th>
           <th scope="col">Transcriptions</th>
-          <th scope="col">Processed</th>
           <th scope="col">Last updated</th>
           <th scope="col">Actions</th>
         </tr>
@@ -31,7 +30,6 @@
           <td>{{ video.video_type.name }}</td>
           <td><a href="{{ video.get_url() }}">Link</a></td>
           <td>{{ video.transcriptions|length }}</td>
-          <td>{{ video.transcriptions and video.transcriptions[0].processed_transcription.id | default('No processed data') }}</td>
           <td>{{ video.last_updated }}</td>
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', id=video.id) }}">Edit Video</a>

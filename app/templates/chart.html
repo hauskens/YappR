@@ -8,15 +8,15 @@
         <div class="card" style="width: 325px">
           <!-- Disable iframes if result is large -->
           {% if segment_list|length < 20 %}
-          <iframe width="320" id="{{segment.processed_transcription.transcription.video.platform_ref}}" src="https://www.youtube-nocookie.com/embed/{{segment.processed_transcription.transcription.video.platform_ref}}?start={{ (segment.time - 3) if segment.time - 3 >= 0 else 0 }}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
+          <iframe width="320" id="{{segment.transcription.video.platform_ref}}" src="https://www.youtube-nocookie.com/embed/{{segment.transcription.video.platform_ref}}?start={{ (segment.start - 3) if segment.start - 3 >= 0 else 0 }}" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
           {% endif %} 
           <div class="card-body">
             <h5 class="card-title">
-              {{segment.processed_transcription.transcription.video.title}}
+              {{segment.transcription.video.title}}
             </h5>
-            <p class="card-text">{{ segment.time }} - {{ segment.text }}</p>
+            <p class="card-text">{{ segment.start }} - {{ segment.text }}</p>
             <a
-              href="{{segment.processed_transcription.transcription.video.get_url()}}&t={{ (segment.time - 3) if segment.time - 3 >= 0 else 0 }}"
+              href="{{segment.transcription.video.get_url()}}&t={{ (segment.start - 3) if segment.start - 3 >= 0 else 0 }}"
               class="btn btn-primary"
               >Go to video</a
             >

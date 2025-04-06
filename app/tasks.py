@@ -1,17 +1,19 @@
 import yt_dlp
 from models.yt import VideoData, SubtitleData
+from models.config import Config
+from os import path
 import logging
 
 logger = logging.getLogger(__name__)
+storage_directory = path.abspath(Config().cache_location)
 
 
 def get_yt_videos(channel_url: str) -> list[VideoData] | None:
     yt_opts = {
         "extract_flat": "in_playlist",
-        # "skip_download": True,
-        # "match_filter": yt_dlp.utils.match_filter_func(
-        #     ["original_url!*=/shorts/ & url!*=/shorts/"], None
-        # ),
+        "match_filter": yt_dlp.utils.match_filter_func(
+            ["original_url!*=/shorts/ & url!*=/shorts/"], None
+        ),
         "noprogress": True,
         "quiet": True,
         "simulate": True,
@@ -22,23 +24,34 @@ def get_yt_videos(channel_url: str) -> list[VideoData] | None:
         info = ydl.extract_info(channel_url)
         if info is not None:
             logger.debug(f"Found {len(info["entries"])} videos on URL: {channel_url}")
-            for i in info["entries"]:
-                del i[
-                    "__x_forwarded_for_ip"
-                ]  # Remove this because it cant be mapped to VideoData class with __
-                try:
-                    videos.append(VideoData(**i))
-                except TypeError as e:
-                    logger.error(
-                        "Tried to map yt-dlp video info to VideoData type, got error: ",
-                        e,
-                    )
-    return videos
+            try:
+                for i in info["entries"]:
+                    try:
+                        if "shorts" not in i["webpage_url"]:
+                            del i[
+                                "__x_forwarded_for_ip"
+                            ]  # Remove this because it cant be mapped to VideoData class with __
+                            for y in i["entries"]:
+                                del y[
+                                    "__x_forwarded_for_ip"
+                                ]  # Remove this because it cant be mapped to VideoData class with __
+                                videos.append(VideoData(**y))
+                    except KeyError as e:
+                        del i[
+                            "__x_forwarded_for_ip"
+                        ]  # Remove this because it cant be mapped to VideoData class with __
+                        videos.append(VideoData(**i))
+            except Exception as e:
+                logger.warning(
+                    "Tried to map yt-dlp video info to VideoData type, got error: ",
+                    e,
+                )
+            finally:
+                logger.info(f"done fetching video info on URL: {channel_url}")
+                return videos
 
 
-def get_yt_video_subtitles(
-    video_url: str, storage_directory: str
-) -> list[SubtitleData]:
+def get_yt_video_subtitles(video_url: str) -> list[SubtitleData]:
     yt_opts = {
         "skip_download": True,
         "writeautomaticsub": True,
@@ -63,5 +76,5 @@ def get_yt_video_subtitles(
     return subtitles
 
 
-if __name__ == "__main__":
-    get_yt_video_subtitles("https://www.youtube.com/watch?v=leRys8FOYd0", "./test")
+# if __name__ == "__main__":
+#     get_yt_video_subtitles("https://www.youtube.com/watch?v=leRys8FOYd0", "./test")

@@ -23,7 +23,7 @@ def get_sec(time_str: str) -> int:
 
 
 def parse_vtt(db: SQLAlchemy, vtt_buffer: BytesIO, transcription_id: int):
-    logger.info(f"Processing transcription: {transcription_id}")
+    logger.info(f"Processing vtt transcription: {transcription_id}")
     # savepoint = db.session.begin_nested()
     segments: list[Segments] = []
     word_map: list[WordMaps] = []

@@ -1,0 +1,24 @@
+{% extends 'base.html' %} {% block body %}
+<h1>Video: {{ video.title }}</h1>
+<ul>
+  <table border="1">
+    <tr>
+      <th>Title</th>
+      <th>Transcription type</th>
+    </tr>
+
+    {% for t in transcriptions %}
+    <tr>
+      <td>{{ t.id }}</td>
+      <td>{{ t.file_extention }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+</ul>
+{% with messages = get_flashed_messages() %} {% if messages %}
+<ul>
+  {% for message in messages %}
+  <li>{{ message }}</li>
+  {% endfor %}
+</ul>
+{% endif %} {% endwith %} {% endblock %}

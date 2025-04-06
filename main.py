@@ -1,11 +1,23 @@
 from collections.abc import Sequence
 from sqlalchemy import select
+from sqlalchemy_file.storage import StorageManager
+from libcloud.storage.drivers.local import LocalStorageDriver
 from flask import Flask, flash, render_template, request, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from models.db import Base, Broadcaster, Platforms, VideoType, Channels, Video
+from models.db import (
+    Base,
+    Broadcaster,
+    Platforms,
+    VideoType,
+    Channels,
+    Video,
+    Transcription,
+)
 from models.config import Config
 import logging
-from tasks import get_yt_videos
+from os import makedirs
+from tasks import get_yt_videos, get_yt_video_subtitles
+import tempfile
 
 
 def get_broadcasters() -> Sequence[Broadcaster]:
@@ -50,6 +62,20 @@ def get_video_by_ref(video_platform_ref: str) -> Video | None:
     )
 
 
+def get_transcriptions_by_video(video_id: int) -> Sequence[Transcription] | None:
+    return (
+        db.session.execute(select(Transcription).filter_by(video_id=video_id))
+        .scalars()
+        .all()
+    )
+
+
+def init_storage(container: str = "transcriptions"):
+    makedirs(
+        config.storage_location + "/" + container, 0o777, exist_ok=True
+    )  # Ensure storage folder exists
+
+
 db = SQLAlchemy(model_class=Base)
 app = Flask(__name__)
 config = Config()
@@ -57,6 +83,9 @@ app.secret_key = config.app_secret
 app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
+init_storage()
+container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
+StorageManager.add_storage("default", container)
 
 db.init_app(app)
 with app.app_context():
@@ -182,6 +211,7 @@ def channel_fetch_videos(id: int):
                             video_type=channel.main_video_type,
                             channel_id=channel.id,
                             platform_ref=video.id,
+                            duration=video.duration,
                         )
                     )
         db.session.commit()
@@ -190,7 +220,37 @@ def channel_fetch_videos(id: int):
     )
 
 
-# engine = create_engine("sqlite+pysqlite:///:memory:", echo=True)
+@app.route("/video/<int:id>/fetch_transcriptions")
+def video_fetch_transcriptions(id: int):
+    tmpdir = tempfile.mkdtemp()
+    video_url = get_video(id).get_url()
+    if video_url is not None:
+        subtitles = get_yt_video_subtitles(video_url, tmpdir)
+        for sub in subtitles:
+            db.session.add(
+                Transcription(
+                    video_id=id,
+                    language=sub.language,
+                    file_extention=sub.extention,
+                    file=open(sub.path, "rb"),
+                )
+            )
+        db.session.commit()
+    return render_template(
+        "video_edit.html",
+        transcriptions=get_transcriptions_by_video(id),
+        video=get_video(id),
+    )
+
+
+@app.route("/video/<int:id>/get_transcriptions")
+def video_get_transcriptions(id: int):
+    return render_template(
+        "video_edit.html",
+        transcriptions=get_transcriptions_by_video(id),
+        video=get_video(id),
+    )
+
 
 if __name__ == "__main__":
     app.run(debug=True)

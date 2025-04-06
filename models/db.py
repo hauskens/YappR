@@ -7,9 +7,10 @@ from sqlalchemy import (
     Float,
     UniqueConstraint,
     DateTime,
-    event,
 )
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy_file import FileField
 from sqlalchemy_file import File
 from datetime import datetime
@@ -90,15 +91,15 @@ class Video(Base):
             return f"{url}/watch?v={self.platform_ref}"
 
 
-# todo: test if this works..
-@event.listens_for(Video, "before_insert")
-def receive_before_insert(mapper, connection, target):
-    target.last_updated = datetime.now()
-
-
-@event.listens_for(Video, "before_update")
-def receive_before_insert(mapper, connection, target):
-    target.last_updated = datetime.now()
+# # todo: test if this works..
+# @event.listens_for(Video, "before_insert")
+# def receive_before_insert(mapper, connection, target):
+#     target.last_updated = datetime.now()
+#
+#
+# @event.listens_for(Video, "before_update")
+# def receive_before_insert(mapper, connection, target):
+#     target.last_updated = datetime.now()
 
 
 class Transcription(Base):
@@ -116,13 +117,64 @@ class Transcription(Base):
     source: Mapped[TranscriptionSource] = mapped_column(
         Enum(TranscriptionSource), default=TranscriptionSource.Unknown
     )
+    processed_transcription: Mapped["ProcessedTranscription"] = relationship(
+        back_populates="transcription", cascade="all, delete-orphan"
+    )
 
 
-@event.listens_for(Transcription, "before_insert")
-def receive_before_insert(mapper, connection, target):
-    target.last_updated = datetime.now()
+# @event.listens_for(Transcription, "before_insert")
+# def receive_before_insert(mapper, connection, target):
+#     target.last_updated = datetime.now()
+#
+#
+# @event.listens_for(Transcription, "before_update")
+# def receive_before_insert(mapper, connection, target):
+#     target.last_updated = datetime.now()
 
 
-@event.listens_for(Transcription, "before_update")
-def receive_before_insert(mapper, connection, target):
-    target.last_updated = datetime.now()
+class Segments(Base):
+    __tablename__: str = "t_segments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(String(500), nullable=False)
+    time: Mapped[int] = mapped_column(Integer, nullable=False)
+    processed_transcription_id: Mapped[int] = mapped_column(
+        ForeignKey("t_processed.id")
+    )
+    processed_transcription: Mapped["ProcessedTranscription"] = relationship()
+
+
+class WordMaps(Base):
+    __tablename__: str = "t_wordmaps"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    word: Mapped[str] = mapped_column(String(25))
+    segments: Mapped[list[int]] = mapped_column(ARRAY(Integer))
+    processed_transcription_id: Mapped[int] = mapped_column(
+        ForeignKey("t_processed.id")
+    )
+    processed_transcription: Mapped["ProcessedTranscription"] = relationship()
+
+
+class ProcessedTranscription(Base):
+    __tablename__: str = "t_processed"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    transcription_id: Mapped[int] = mapped_column(
+        ForeignKey("transcriptions.id"), unique=True
+    )
+    transcription: Mapped["Transcription"] = relationship()
+    segments: Mapped[list["Segments"]] = relationship(
+        back_populates="processed_transcription", cascade="all, delete-orphan"
+    )
+    word_maps: Mapped[list["WordMaps"]] = relationship(
+        back_populates="processed_transcription", cascade="all, delete-orphan"
+    )
+
+    #
+    #
+    # {
+    #     "id": 123,
+    #     "segments": segments,
+    #     "word_map": word_map,
+    #     "full_text": full_text,
+    #     "idx_to_time": idx_to_time,
+    #     "upload_date": "todaylol",
+    # }

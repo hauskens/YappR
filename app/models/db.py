@@ -84,7 +84,7 @@ class Video(Base):
     )
 
     def get_url(self) -> str | None:
-        url = self.channel.platform.url.rstrip("/")
+        url = self.channel.platform.url
         if self.channel.platform.name.lower() == "youtube":
             return f"{url}/watch?v={self.platform_ref}"
 
@@ -120,7 +120,7 @@ class Transcription(Base):
 
 
 class Segments(Base):
-    __tablename__: str = "t_segments"
+    __tablename__: str = "segments"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     text: Mapped[str] = mapped_column(String(500), nullable=False)
     start: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -130,7 +130,7 @@ class Segments(Base):
 
 
 class WordMaps(Base):
-    __tablename__: str = "t_wordmaps"
+    __tablename__: str = "wordmaps"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     word: Mapped[str] = mapped_column(String(50))
     segments: Mapped[list[int]] = mapped_column(ARRAY(Integer))

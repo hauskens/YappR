@@ -106,12 +106,11 @@ def get_segments_by_wordmap(wordmap: WordMaps) -> Sequence[Segments]:
 
 
 def fetch_transcription(video_id: int):
-    tmpdir = tempfile.mkdtemp()
     video = get_video(video_id)
     video_url = video.get_url()
     if video_url is not None:
-        logger.info(f"fetching transcription for {video_id}")
-        subtitles = get_yt_video_subtitles(video_url, tmpdir)
+        logger.info(f"fetching transcription for {video_url}")
+        subtitles = get_yt_video_subtitles(video_url)
         for sub in subtitles:
             logger.info(
                 f"checking if transcriptions exists on {video_id}, {len(video.transcriptions)}"
@@ -354,7 +353,7 @@ def channel_fetch_videos(id: int):
                     db.session.add(
                         Video(
                             title=video.title,
-                            video_type=channel.main_video_type,
+                            video_type=VideoType.VOD,
                             channel_id=channel.id,
                             platform_ref=video.id,
                             duration=video.duration,
@@ -374,12 +373,14 @@ def task_fetch_transcription(video_id: int):
 
 
 @celery.task
-def task_parse_transcription(transcription: Transcription):
-    logger.info(f"Task queued, parsing transcription for {transcription.video.title}")
-    content = transcription.file.file.read()
-    _ = parse_vtt(
-        db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription.id
-    )
+def task_parse_transcription(transcription_id: int):
+    tran = get_transcription(transcription_id)
+    if tran is not None:
+        logger.info(f"Task queued, parsing transcription for {transcription_id}")
+        content = tran.file.file.read()
+        _ = parse_vtt(
+            db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription_id
+        )
 
 
 # todo: send some confirmation to user that task is queued and prevent new queue from getting started
@@ -397,15 +398,18 @@ def channel_parse_transcriptions(id: int):
     videos = get_video_by_channel(id)
     if videos is not None:
         for video in videos:
-            if len(video.transcriptions) > 0:
+            transcriptions = get_transcriptions_by_video(video.id)
+            if transcriptions is not None and len(transcriptions) > 0:
                 # todo: ensure only YT transcriptions are processed
-                for tran in video.transcriptions:
-                    _ = task_parse_transcription.delay(tran)
+                for tran in transcriptions:
+
+                    _ = task_parse_transcription.delay(tran.id)
     return redirect(url_for("channel_get_videos", id=id))
 
 
 @app.route("/video/<int:id>/fetch_transcriptions")
 def video_fetch_transcriptions(id: int):
+    logger.info(f"Fetching transcriptions for {id}")
     fetch_transcription(id)
     return redirect(url_for("video_get_transcriptions", id=id))
 
@@ -424,7 +428,7 @@ def video_parse_transcriptions(video_id: int):
     tran = get_transcriptions_by_video(video_id)
     if tran is not None:
         for t in tran:
-            _ = task_parse_transcription.delay(t)
+            _ = task_parse_transcription.delay(t.id)
     return render_template(
         "video_edit.html",
         transcriptions=get_transcriptions_by_video(video_id),

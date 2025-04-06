@@ -26,7 +26,7 @@
           <td>{{ channel.main_video_type.name }}</td>
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', id=channel.id) }}">Edit Channel</a>
-            <a class="btn btn-danger" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
+            <a class="btn btn-danger disabled" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
 
           </td>
         </tr>

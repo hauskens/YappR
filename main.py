@@ -321,6 +321,14 @@ def task_fetch_transcription(video_id: int):
     fetch_transcription(video_id)
 
 
+@celery.task
+def task_parse_transcription(transcription_id: int):
+    transcription = get_transcription(transcription_id)
+    if transcription is not None:
+        content = transcription.file.file.read()
+        _ = parse_vtt(db=db, vtt_buffer=io.BytesIO(content), id=transcription_id)
+
+
 # todo: send some confirmation to user that task is queued and prevent new queue from getting started
 @app.route("/channel/<int:id>/fetch_transcriptions")
 def channel_fetch_transcriptions(id: int):
@@ -328,6 +336,18 @@ def channel_fetch_transcriptions(id: int):
     logger.info(f"Fetching all transcriptions for {channel.name}")
     for video in channel.videos:
         _ = task_fetch_transcription.delay(video.id)
+    return redirect(url_for("channel_get_videos", id=id))
+
+
+@app.route("/channel/<int:id>/parse_transcriptions")
+def channel_parse_transcriptions(id: int):
+    videos = get_video_by_channel(id)
+    # logger.info(f"Parsing all transcriptions for {channel.name}")
+    if videos is not None:
+        for video in videos:
+            if len(video.transcriptions) > 0:
+                tran = video.transcriptions.pop()
+                _ = task_parse_transcription.delay(tran.id)
     return redirect(url_for("channel_get_videos", id=id))
 
 

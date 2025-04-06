@@ -53,7 +53,9 @@ def search(
                     current_sentence += adjasent_segment.text.split()
                 # Skip the first word as thats our baseline, search for other words in current sentence
                 if search_words_present_in_sentence(current_sentence, search_words[1:]):
-                    segment_result.append(SegmentsResult(all_segments, t.video))
+                    segment_result.append(
+                        SegmentsResult(all_segments, t.video, search_words)
+                    )
                     video_result.add(t.video)
 
     logger.info(

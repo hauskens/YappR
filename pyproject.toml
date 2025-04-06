@@ -5,8 +5,12 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
+    "apache-libcloud>=3.8.0",
+    "fasteners>=0.19",
     "flask>=3.1.0",
     "flask-sqlalchemy>=3.1.1",
     "sqlalchemy>=2.0.40",
+    "sqlalchemy-file>=0.6.0",
+    "webvtt-py>=0.5.1",
     "yt-dlp>=2025.3.27",
 ]

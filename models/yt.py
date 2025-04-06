@@ -23,10 +23,18 @@ class VideoData:
     uploader: str | None
     uploader_id: str | None
     uploader_url: str | None
-    thumbnails: list[Thumbnail]
+    thumbnails: list[Thumbnail] | None
     timestamp: str | None
     release_timestamp: str | None
     availability: str | None
     view_count: int
     live_status: str | None
     channel_is_verified: bool | None
+
+
+@dataclass
+class SubtitleData:
+    video_id: str
+    path: str
+    language: str
+    extention: str

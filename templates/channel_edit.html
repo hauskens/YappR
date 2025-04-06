@@ -13,7 +13,7 @@
 
     {% for video in videos %}
     <tr>
-      <td>{{ video.platform_ref }}</td>
+      <td>{{ video.id }}</td>
       <td>{{ video.title }}</td>
       <td>{{ video.video_type.name }}</td>
       <td>{{ video.get_url() }}</td>

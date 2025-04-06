@@ -13,7 +13,7 @@
 
     {% for channel in channels %}
     <tr>
-      <td><a href="{{ url_for('channel_fetch_videos', id=channel.id) }}"
+      <td><a href="{{ url_for('channel_get_videos', id=channel.id) }}"
              >{{ channel.id }}</a></td>
       <td>{{ channel.name }}</td>
       <td>{{ channel.platform.name }}</td>

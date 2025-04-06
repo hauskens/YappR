@@ -1,6 +1,7 @@
 import enum
-from sqlalchemy import ForeignKey, String, Integer, Enum
+from sqlalchemy import ForeignKey, String, Integer, Enum, Float
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy_file import FileField
 
 
 class Base(DeclarativeBase):
@@ -27,6 +28,11 @@ class VideoType(enum.Enum):
     Edit = "edit"
 
 
+class TranscriptionSource(enum.Enum):
+    Unknown = "unknown"
+    YouTube = "youtube"
+
+
 class Channels(Base):
     __tablename__: str = "channels"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -51,6 +57,7 @@ class Video(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(250))
     video_type: Mapped[str] = mapped_column(Enum(VideoType))
+    duration: Mapped[float] = mapped_column(Float())
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
     channel: Mapped["Channels"] = relationship()
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
@@ -59,3 +66,16 @@ class Video(Base):
         url = self.channel.platform.url.rstrip("/")
         if self.channel.platform.name.lower() == "youtube":
             return f"{url}/watch?v={self.platform_ref}"
+
+
+class Transcription(Base):
+    __tablename__: str = "transcriptions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    video_id: Mapped[int] = mapped_column(ForeignKey("video.id"))
+    video: Mapped["Video"] = relationship()
+    language: Mapped[str] = mapped_column(String(250))
+    file_extention: Mapped[str] = mapped_column(String(10))
+    file: Mapped[FileField] = mapped_column(FileField())
+    source: Mapped[str] = mapped_column(
+        Enum(TranscriptionSource), default=TranscriptionSource.Unknown
+    )

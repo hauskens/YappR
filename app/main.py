@@ -131,6 +131,13 @@ def search_word():
     if channels is None:
         return "Channels not found, i have not implemented proper error sorry.."
     segment_result, video_result = search(search_term, int(broadcaster_id))
+    if len(segment_result) == 0:
+        flash(
+            "Could not find any videos based on that search, try something else",
+            "error",
+        )
+        return render_template("search.html", broadcasters=get_broadcasters())
+
     return render_template(
         "result.html",
         search_word=search_term,

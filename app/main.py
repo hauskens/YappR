@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from sqlalchemy import select
 from sqlalchemy_file.storage import StorageManager
+from sqlalchemy.orm import Session
 from libcloud.storage.drivers.local import LocalStorageDriver
 from flask import Flask, flash, render_template, request, redirect, url_for, send_file
 from flask_sqlalchemy import SQLAlchemy
@@ -10,7 +11,6 @@ from models.db import (
     Base,
     Broadcaster,
     Platforms,
-    ProcessedTranscription,
     Segments,
     WordMaps,
     VideoType,
@@ -79,51 +79,26 @@ def get_transcriptions_by_video(video_id: int) -> Sequence[Transcription] | None
     )
 
 
-def get_transcription(id: int) -> Transcription | None:
+def get_transcription(transcription_id: int) -> Transcription | None:
     return (
-        db.session.execute(select(Transcription).filter_by(id=id))
-        .scalars()
-        .one_or_none()
-    )
-
-
-def get_processed_transcription(id: int) -> ProcessedTranscription | None:
-    return (
-        db.session.execute(select(ProcessedTranscription).filter_by(id=id))
-        .scalars()
-        .one_or_none()
-    )
-
-
-def get_processed_transcription_by_transcription(
-    transcription_id: int,
-) -> ProcessedTranscription | None:
-    return (
-        db.session.execute(
-            select(ProcessedTranscription).filter_by(transcription_id=transcription_id)
-        )
+        db.session.execute(select(Transcription).filter_by(id=transcription_id))
         .scalars()
         .one_or_none()
     )
 
 
 def search_wordmaps_by_transcription(
-    search_term: str, transcription_id: int
-) -> Sequence[WordMaps] | None:
-    transcription = get_transcription(id=transcription_id)
-    if transcription is not None:
-        ptrans = get_processed_transcription_by_transcription(transcription.id)
-        if ptrans is not None:
-            return (
-                db.session.execute(
-                    select(WordMaps).filter_by(
-                        word=search_term,
-                        processed_transcription_id=ptrans.id,
-                    )
-                )
-                .scalars()
-                .all()
+    search_term: str, transcription: Transcription
+) -> Sequence[WordMaps]:
+    return (
+        db.session.execute(
+            select(WordMaps).filter_by(
+                transcription_id=transcription.id, word=search_term
             )
+        )
+        .scalars()
+        .all()
+    )
 
 
 def get_segments_by_wordmap(wordmap: WordMaps) -> Sequence[Segments]:
@@ -196,21 +171,20 @@ def celery_init_app(app: Flask) -> Celery:
 
 
 # holy... need to clean up this..
-db = SQLAlchemy(model_class=Base)
-# nav = Nav()
 app = Flask(__name__)
 bootstrap = Bootstrap5(app)
 config = Config()
 app.secret_key = config.app_secret
 app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
 app.config["CELERY"] = dict(broker_url=config.redis_uri, task_ignore_result=True)
+db = SQLAlchemy(app, model_class=Base)
 celery = celery_init_app(app)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
 init_storage()
 container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
 StorageManager.add_storage("default", container)
-db.init_app(app)
+
 with app.app_context():
     db.create_all()
     pf = get_platforms()
@@ -233,11 +207,6 @@ def chart():
     logger.info("Loaded chart.html")
     channel = get_channel(2)
     return render_template("chart.html", channel=channel)
-
-
-@app.route("/static/<path:path>")
-def send_static(path: str):
-    return send_from_directory("static", path)
 
 
 @app.route("/broadcasters")
@@ -268,10 +237,9 @@ def search_word():
             transcriptions += video.transcriptions
     wordmap_result: list[WordMaps] = []
     for t in transcriptions:
-        search_result = search_wordmaps_by_transcription(search_term, t.id)
-        if search_result is not None:
-            for wordmap in search_result:
-                wordmap_result.append(wordmap)
+        search_result = search_wordmaps_by_transcription(search_term, t)
+        for wordmap in search_result:
+            wordmap_result.append(wordmap)
 
     segment_result: list[Segments] = []
     for wordmap in wordmap_result:
@@ -401,18 +369,17 @@ def channel_fetch_videos(id: int):
 
 @celery.task
 def task_fetch_transcription(video_id: int):
-    logger.info(f"Task queued, fetching transaction for {video_id}")
+    logger.info(f"Task queued, fetching transcription for {video_id}")
     fetch_transcription(video_id)
 
 
 @celery.task
-def task_parse_transcription(transcription_id: int):
-    transcription = get_transcription(transcription_id)
-    if transcription is not None:
-        content = transcription.file.file.read()
-        _ = parse_vtt(
-            db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription_id
-        )
+def task_parse_transcription(transcription: Transcription):
+    logger.info(f"Task queued, parsing transcription for {transcription.video.title}")
+    content = transcription.file.file.read()
+    _ = parse_vtt(
+        db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription.id
+    )
 
 
 # todo: send some confirmation to user that task is queued and prevent new queue from getting started
@@ -433,10 +400,7 @@ def channel_parse_transcriptions(id: int):
             if len(video.transcriptions) > 0:
                 # todo: ensure only YT transcriptions are processed
                 for tran in video.transcriptions:
-                    protran = get_processed_transcription_by_transcription(tran.id)
-                    if protran is None:
-                        # print(f"pretending to process {tran.id} - {protran}")
-                        _ = task_parse_transcription.delay(tran.id)
+                    _ = task_parse_transcription.delay(tran)
     return redirect(url_for("channel_get_videos", id=id))
 
 
@@ -460,7 +424,7 @@ def video_parse_transcriptions(video_id: int):
     tran = get_transcriptions_by_video(video_id)
     if tran is not None:
         for t in tran:
-            _ = task_parse_transcription.delay(t.id)
+            _ = task_parse_transcription.delay(t)
     return render_template(
         "video_edit.html",
         transcriptions=get_transcriptions_by_video(video_id),
@@ -488,20 +452,6 @@ def parse_transcription(id: int):
         content = transcription.file.file.read()
         _ = parse_vtt(db=db, vtt_buffer=io.BytesIO(content), transcription_id=id)
     return "buh"
-
-
-@app.route("/transcription/<int:id>/view")
-def view_transcription(id: int):
-    tran = get_transcription(id)
-    return f"{tran.processed_transcription.id}"
-
-
-# @nav.navigation()
-# def mynavbar():
-#     return Navbar(
-#         "mysite",
-#         View("Home", "index"),
-#     )
 
 
 if __name__ == "__main__":

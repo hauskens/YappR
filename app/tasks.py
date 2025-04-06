@@ -1,5 +1,4 @@
 import yt_dlp
-from os import path
 from models.yt import VideoData, SubtitleData
 import logging
 
@@ -27,8 +26,13 @@ def get_yt_videos(channel_url: str) -> list[VideoData] | None:
                 del i[
                     "__x_forwarded_for_ip"
                 ]  # Remove this because it cant be mapped to VideoData class with __
-                # logger.debug(f"Found {i} videos on URL: {channel_url}")
-                videos.append(VideoData(**i))
+                try:
+                    videos.append(VideoData(**i))
+                except TypeError as e:
+                    logger.error(
+                        "Tried to map yt-dlp video info to VideoData type, got error: ",
+                        e,
+                    )
     return videos
 
 

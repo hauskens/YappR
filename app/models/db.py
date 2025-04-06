@@ -5,12 +5,10 @@ from sqlalchemy import (
     Integer,
     Enum,
     Float,
-    UniqueConstraint,
     DateTime,
 )
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy.ext.mutable import MutableList
 from sqlalchemy_file import FileField
 from sqlalchemy_file import File
 from datetime import datetime
@@ -91,24 +89,10 @@ class Video(Base):
             return f"{url}/watch?v={self.platform_ref}"
 
 
-# # todo: test if this works..
-# @event.listens_for(Video, "before_insert")
-# def receive_before_insert(mapper, connection, target):
-#     target.last_updated = datetime.now()
-#
-#
-# @event.listens_for(Video, "before_update")
-# def receive_before_insert(mapper, connection, target):
-#     target.last_updated = datetime.now()
-
-
 class Transcription(Base):
     __tablename__: str = "transcriptions"
-    __table_args__ = tuple(
-        UniqueConstraint("video_id", "source", name="unique_video_source")
-    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    video_id: Mapped[int] = mapped_column(ForeignKey("video.id"))
+    video_id: Mapped[int] = mapped_column(ForeignKey("video.id"), unique=True)
     video: Mapped["Video"] = relationship()
     language: Mapped[str] = mapped_column(String(250))
     last_updated: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now())
@@ -117,7 +101,10 @@ class Transcription(Base):
     source: Mapped[TranscriptionSource] = mapped_column(
         Enum(TranscriptionSource), default=TranscriptionSource.Unknown
     )
-    processed_transcription: Mapped["ProcessedTranscription"] = relationship(
+    segments: Mapped[list["Segments"] | None] = relationship(
+        back_populates="transcription", cascade="all, delete-orphan"
+    )
+    word_maps: Mapped[list["WordMaps"] | None] = relationship(
         back_populates="transcription", cascade="all, delete-orphan"
     )
 
@@ -136,11 +123,10 @@ class Segments(Base):
     __tablename__: str = "t_segments"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     text: Mapped[str] = mapped_column(String(500), nullable=False)
-    time: Mapped[int] = mapped_column(Integer, nullable=False)
-    processed_transcription_id: Mapped[int] = mapped_column(
-        ForeignKey("t_processed.id")
-    )
-    processed_transcription: Mapped["ProcessedTranscription"] = relationship()
+    start: Mapped[int] = mapped_column(Integer, nullable=False)
+    end: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    transcription_id: Mapped[int] = mapped_column(ForeignKey("transcriptions.id"))
+    transcription: Mapped["Transcription"] = relationship()
 
 
 class WordMaps(Base):
@@ -148,33 +134,5 @@ class WordMaps(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     word: Mapped[str] = mapped_column(String(50))
     segments: Mapped[list[int]] = mapped_column(ARRAY(Integer))
-    processed_transcription_id: Mapped[int] = mapped_column(
-        ForeignKey("t_processed.id")
-    )
-    processed_transcription: Mapped["ProcessedTranscription"] = relationship()
-
-
-class ProcessedTranscription(Base):
-    __tablename__: str = "t_processed"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    transcription_id: Mapped[int] = mapped_column(
-        ForeignKey("transcriptions.id"), unique=True
-    )
+    transcription_id: Mapped[int] = mapped_column(ForeignKey("transcriptions.id"))
     transcription: Mapped["Transcription"] = relationship()
-    segments: Mapped[list["Segments"]] = relationship(
-        back_populates="processed_transcription", cascade="all, delete-orphan"
-    )
-    word_maps: Mapped[list["WordMaps"]] = relationship(
-        back_populates="processed_transcription", cascade="all, delete-orphan"
-    )
-
-    #
-    #
-    # {
-    #     "id": 123,
-    #     "segments": segments,
-    #     "word_map": word_map,
-    #     "full_text": full_text,
-    #     "idx_to_time": idx_to_time,
-    #     "upload_date": "todaylol",
-    # }

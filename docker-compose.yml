@@ -1,0 +1,35 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: always
+    networks: 
+      - internal
+    environment:
+      - POSTGRES_USER=root
+      - POSTGRES_PASSWORD=secret
+    ports:
+      - "5432:5432"
+    volumes:
+     - db:/var/lib/postgresql/data
+  cache:
+    image: redis:6.2-alpine
+    restart: always
+    networks: 
+      - internal
+    ports:
+      - "6379:6379"
+    volumes: 
+      - cache:/data
+  app:
+    image: vodmeta
+    networks: 
+      - internal
+    build:
+      context: .
+volumes:
+  db: 
+  cache:
+networks:
+  internal:
+    driver: bridge
+

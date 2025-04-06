@@ -33,6 +33,7 @@ class Platforms(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(250), unique=True)
     url: Mapped[str] = mapped_column(String(1000), unique=True)
+    logo_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
 
 class VideoType(enum.Enum):
@@ -109,8 +110,19 @@ class Transcription(Base):
     video_id: Mapped[int] = mapped_column(ForeignKey("video.id"))
     video: Mapped["Video"] = relationship()
     language: Mapped[str] = mapped_column(String(250))
+    last_updated: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now())
     file_extention: Mapped[str] = mapped_column(String(10))
     file: Mapped[File] = mapped_column(FileField())
-    source: Mapped[str] = mapped_column(
+    source: Mapped[TranscriptionSource] = mapped_column(
         Enum(TranscriptionSource), default=TranscriptionSource.Unknown
     )
+
+
+@event.listens_for(Transcription, "before_insert")
+def receive_before_insert(mapper, connection, target):
+    target.last_updated = datetime.now()
+
+
+@event.listens_for(Transcription, "before_update")
+def receive_before_insert(mapper, connection, target):
+    target.last_updated = datetime.now()

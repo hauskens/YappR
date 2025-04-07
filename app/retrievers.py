@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Sequence
 from sqlalchemy import select
-from models.db import (
+from .models.db import (
     Broadcaster,
     Platforms,
     Segments,
@@ -12,10 +12,8 @@ from models.db import (
     TranscriptionSource,
     db,
 )
-from tasks import (
-    get_yt_videos,
+from .tasks import (
     get_yt_video_subtitles,
-    save_largest_thumbnail,
     get_yt_audio,
 )
 from datetime import datetime

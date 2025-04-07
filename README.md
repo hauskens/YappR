@@ -33,7 +33,7 @@ All environment variables comes from `app/models/config.py`
 
 | **Environment Variable** | **Default Value**                                                          | **Description**                                   |
 | ------------------------ | -------------------------------------------------------------------------- | ------------------------------------------------- |
-| `APP_SECRET`             | `omgtesties`                                                               | Application secret key                            |
+| `APP_SECRET`             | `somethingrandom`                                                          | Application secret key                            |
 | `DB_URI`                 | `postgresql+psycopg://postgres:mysecretpassword@postgres-db:5432/postgres` | Database URI (PostgreSQL)                         |
 | `LOG_LEVEL`              | `logging.DEBUG`                                                            | Log level (debug, info, warning, error, critical) |
 | `STORAGE_LOCATION`       | `/var/lib/yappr/data`                                                      | Storage location for files or data                |

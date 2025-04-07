@@ -3,7 +3,16 @@
 {% block content %}
   <div class="container">
     <h1>Profile: {{ broadcaster.name }}</h1>
-    <h2>Channels</h2>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-success" role="alert">
+          {% for message in messages %}
+            {{ message }}
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    <h4>Channels</h4>
 
     <table class="table table-striped">
       <thead>
@@ -34,47 +43,54 @@
       </tbody>
     </table>
 
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="alert alert-success" role="alert">
-          {% for message in messages %}
-            {{ message }}
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
 
-    <h2>Add Channel</h2>
+    <h4>Add Channel</h4>
+    <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseAddChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
+      Add new channel
+    </a>
+
+    <div class="collapse" id="collapseAddChannel">
+    <hr>
 
     <form action="{{ url_for('channel_create') }}" method="post">
       <label for="platform_id">Platform:</label>
-      <select id="platform_id" name="platform_id">
+      <select id="platform_id" name="platform_id" class="form-select">
         {% for platform in platforms %}
           <option value="{{ platform.id }}">{{ platform.name }}</option>
         {% endfor %}
-      </select><br /><br />
+      </select>
 
       <label for="channel_type">Channel Type</label>
       <select id="channel_type" name="channel_type" class="form-select">
         {% for video_type in video_types %}
           <option value="{{ video_type.name }}">{{ video_type.name }}</option>
         {% endfor %}
-      </select><br /><br />
+      </select>
 
       <label for="name">Display Name:</label>
-      <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_ ]*" required placeholder="Testies VOD channel" required title="Only A-Z, _ and numbers allowed"><br /><br />
-
+      <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_ ]*" required placeholder="Testies VOD channel" required title="Only A-Z, _ and numbers allowed">
       <label for="platform_ref">Channel ID in platform</label>
-      <input type="text" id="platform_ref" name="platform_ref" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_]*" required placeholder="" required title="Only A-Z or numbers allowed, remove @ from youtube tag"><br /><br />
+      <input type="text" id="platform_ref" name="platform_ref" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_]*" required placeholder="" required title="Only A-Z or numbers allowed, remove @ from youtube tag">
 
       <input
         type="hidden"
         id="broadcaster_id"
         name="broadcaster_id"
         value="{{ broadcaster.id }}"
-      ><br /><br />
+      >
+      </br>
+      <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+  </div>
+    <hr>
+    <h4>Search in channel</h4>
+    <form action="{{ url_for('search_word') }}" method="post">
+      <input type="hidden" name="broadcaster" value="{{ broadcaster.id }}">
+      <div class="mb-3">
+        <input type="search" autocomplete="off" id="search" name="search" class="form-control" required placeholder="Search..." />
+      </div>
 
-      <button type="submit" class="btn btn-primary">Add Channel</button>
+      <button type="submit" class="btn btn-primary">Search</button>
     </form>
 
   </div>

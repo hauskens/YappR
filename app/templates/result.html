@@ -19,6 +19,7 @@
               <div style="max-height: 400px; overflow-y: auto">
                 {% for segment in segment_result %}
                   {% if segment.video.id == video.id %}
+                    <hr>
                     <!-- <form action="{{ url_for('download_video_clip', video_id=video.id) }}" method="post"> -->
                     <!--   <input type="hidden" name="start_time" value="{{ segment.start_time() - 30 }}"> -->
                     <!--   <input type="hidden" name="duration" value="{{ segment.end_time() + 30 }}"> -->
@@ -26,7 +27,6 @@
                     <!-- </form> -->
                     <a class="card-text link-primary" id="card-sentence-result" href="#" onclick="window.open('{{segment.video.get_url()}}&t={{ (segment.start_time() - 5) if segment.start_time() - 5 >= 0 else 0 }}', '_blank');"> {{ segment.start_time() }}s </a> 
                     <a>- {{ segment.get_sentences_formated()}}</a>
-                    <br></br>
                   {% endif %}
                 {% endfor %}
               </div>

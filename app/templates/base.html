@@ -4,48 +4,36 @@
 <html lang="en">
     <head>
         {% block head %}
-        <!-- Required meta tags -->
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 
         {% block styles %}
-            <!-- Bootstrap CSS -->
             {{ bootstrap.load_css() }}
         {% endblock %}
 
         <title>YappR</title>
         {% endblock %}
+      <script async defer src="https://buttons.github.io/buttons.js"></script>
     </head>
     <body>
-    <nav class="navbar navbar-expand-sm navbar-light bg-light">
-  <a class="navbar-brand" href="#">YappR</a>
-  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-    <span class="navbar-toggler-icon"></span>
-  </button>
-
-  <div class="collapse navbar-collapse" id="navbarSupportedContent">
-    <ul class="navbar-nav mr-auto">
-      <li class="nav-item active">
-            {{ render_nav_item('index', 'index') }}
-      </li>
-      <li class="nav-item">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+      <div class="container-fluid">
+        <a class="navbar-brand" href="#">YappR</a>
+        <div class="collapse navbar-collapse" id="navbarScroll">
+          <div class="navbar-nav mr-auto">
             {{ render_nav_item('broadcasters', 'Broadcasters') }}
-      </li>
-      <!-- <li class="nav-item"> -->
-      <!--       {{ render_nav_item('platforms', 'Platforms') }} -->
-      <!-- </li> -->
-      <li class="nav-item">
             {{ render_nav_item('search_page', 'Search') }}
-      </li>
-    </ul>
-  </div>
-</nav>
-        <!-- Your page content -->
-        {% block content %}{% endblock %}
-
-        {% block scripts %}
-            <!-- Optional JavaScript -->
-            {{ bootstrap.load_js() }}
-        {% endblock %}
+          </div>
+          <a class="github-button" href="https://github.com/hauskens/YappR" data-color-scheme="no-preference: light; light: light; dark: light;" data-icon="octicon-star" aria-label="Star buttons/github-buttons on GitHub">Star</a>
+        </div>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarScroll" aria-controls="navbarScroll" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+      </div>
+    </nav>
+    {% block content %}{% endblock %}
+    {% block scripts %}
+        {{ bootstrap.load_js() }}
+    {% endblock %}
     </body>
 </html>

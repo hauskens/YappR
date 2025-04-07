@@ -1,7 +1,7 @@
 import yt_dlp
 from yt_dlp.utils import download_range_func
-from models.yt import VideoData, SubtitleData, Thumbnail
-from models.config import Config
+from .models.yt import VideoData, SubtitleData, Thumbnail
+from .models.config import Config
 import logging
 import os
 import requests

@@ -1,10 +1,10 @@
 import logging
-from models.db import (
+from .models.db import (
     Segments,
     Video,
 )
-from models.search import SegmentsResult
-from retrievers import (
+from .models.search import SegmentsResult
+from .retrievers import (
     get_broadcaster,
     get_broadcaster_channels,
     get_transcriptions_on_channels,
@@ -12,7 +12,7 @@ from retrievers import (
     get_segments_by_wordmap,
     get_segment_by_id,
 )
-from parse import sanitize_sentence
+from .parse import sanitize_sentence
 import nltk
 from nltk.corpus import stopwords
 

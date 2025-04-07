@@ -1,7 +1,7 @@
 # originally inspired by https://github.com/lawrencehook/SqueexVodSearch/blob/main/preprocessing/scripts/parse.py
 
 import logging
-from models.db import WordMaps, Segments
+from .models.db import WordMaps, Segments
 from flask_sqlalchemy import SQLAlchemy
 from io import BytesIO
 import webvtt

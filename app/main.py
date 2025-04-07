@@ -3,8 +3,9 @@ from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
 from flask import Flask, flash, render_template, request, redirect, url_for, send_file
 from celery import Celery, Task
+from flask_dance.contrib.twitch import make_twitch_blueprint, twitch
 from flask_bootstrap import Bootstrap5
-from models.db import (
+from .models.db import (
     Broadcaster,
     Platforms,
     Segments,
@@ -15,17 +16,17 @@ from models.db import (
     Transcription,
     db,
 )
-from models.config import Config
-from parse import parse_vtt
+from .models.config import Config
+from .parse import parse_vtt
 import logging
 from os import makedirs
-from tasks import (
+from .tasks import (
     get_yt_segment,
     get_yt_videos,
     save_largest_thumbnail,
 )
 import io
-from retrievers import (
+from .retrievers import (
     delete_wordmaps_on_transcription,
     get_broadcasters,
     get_broadcaster,
@@ -41,7 +42,7 @@ from retrievers import (
     fetch_transcription,
     fetch_audio,
 )
-from search import search
+from .search import search
 
 
 def init_storage(container: str = "transcriptions"):
@@ -81,13 +82,19 @@ init_storage()
 container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
 StorageManager.add_storage("default", container)
 
+blueprint = make_twitch_blueprint(
+    client_id=config.twitch_client_id,
+    client_secret=config.twitch_client_secret,
+)
+app.register_blueprint(blueprint, url_prefix="/login")
+
 with app.app_context():
     pf = get_platforms()
     if pf is not None:
         if len(pf) == 0:
             yt = Platforms(name="YouTube", url="https://youtube.com")
-            twitch = Platforms(name="Twitch", url="https://twitch.tv")
-            db.session.add_all([yt, twitch])
+            tw = Platforms(name="Twitch", url="https://twitch.tv")
+            db.session.add_all([yt, tw])
             db.session.commit()
 
 
@@ -96,6 +103,18 @@ def index():
     broadcasters = get_broadcasters()
     logger.info("Loaded search.html")
     return render_template("search.html", broadcasters=broadcasters)
+
+
+@app.route("/login/twitch/authorized")
+def twitch_authorized():
+    return "you made it man"
+
+
+@app.route("/testies")
+def test():
+    if not twitch.authorized:
+        return redirect(url_for("twitch.login"))
+    return render_template("index.html")
 
 
 @app.route("/chart")
@@ -444,4 +463,4 @@ def delete_wordmaps_transcription(transcription_id: int):
 
 
 if __name__ == "__main__":
-    app.run(debug=True, host=config.app_host, port=config.app_port)
+    app.run(debug=config.debug, host=config.app_host, port=config.app_port)

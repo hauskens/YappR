@@ -44,6 +44,9 @@ services:
     environment:
       DB_URI: "postgresql+psycopg://root:secret@postgres-db:5432/postgres"
       REDIS_URI: "redis://redis-cache:6379/0"
+    env_file:
+      - path: .env
+        required: false
     volumes:
       - app:/var/lib/yappr/data
       - app-cache:/var/lib/yappr/cache #optional
@@ -70,7 +73,7 @@ services:
     depends_on:
       - app
     deploy:
-      replicas: 1 # number up = more brrr, over 4 will probably cause db pool issues
+      replicas: 0 # number up = more brrr, over 4 will probably cause db pool issues
 volumes:
   db:
   app:

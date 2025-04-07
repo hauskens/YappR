@@ -20,6 +20,7 @@ from parse import parse_vtt
 import logging
 from os import makedirs
 from tasks import (
+    get_yt_segment,
     get_yt_videos,
     save_largest_thumbnail,
 )
@@ -263,11 +264,12 @@ def channel_fetch_videos(id: int):
     logger.info(f"Fetching videos for {channel.name} using url: {url}")
     if channel.platform.name.lower() == "youtube" and url is not None:
         channel_videos = get_yt_videos(channel_url=url)
+        # todo: add try/catch and commit data
         if channel_videos is not None:
             for video in channel_videos:
-                thumbnail = save_largest_thumbnail(video)
                 existing_video = get_video_by_ref(video.id)
                 if existing_video is None:
+                    thumbnail = save_largest_thumbnail(video)
                     if thumbnail is not None:
                         db.session.add(
                             Video(
@@ -294,7 +296,8 @@ def channel_fetch_videos(id: int):
                 else:
                     existing_video.title = video.title
                     existing_video.duration = video.duration
-                    if thumbnail is not None:
+                    if existing_video.thumbnail is None:
+                        thumbnail = save_largest_thumbnail(video)
                         existing_video.thumbnail = open(thumbnail, "rb")
         db.session.commit()
     return redirect(url_for("channel_get_videos", id=id))
@@ -389,6 +392,22 @@ def video_parse_transcriptions(video_id: int):
         transcriptions=get_transcriptions_by_video(video_id),
         video=get_video(video_id),
     )
+
+
+@app.route("/video/<int:video_id>/download_clip", methods=["POST"])
+def download_video_clip(video_id: int):
+    start_time = int(request.form["start_time"])
+    duration = request.form["duration"]
+    video_url = get_video(video_id).get_url()
+    logger.info(f"Fetching clip for {int(start_time)}")
+    if video_url is not None:
+        clip = get_yt_segment(video_url, int(start_time), int(duration))
+        return send_file(
+            clip,
+            mimetype="video/mp4",
+            download_name=f"{video_id}.mp4",
+        )
+    return "something went wrong sorry no error handling glhf"
 
 
 @app.route("/transcription/<int:id>/download")

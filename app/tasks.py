@@ -1,4 +1,5 @@
 import yt_dlp
+from yt_dlp.utils import download_range_func
 from models.yt import VideoData, SubtitleData, Thumbnail
 from models.config import Config
 import logging
@@ -109,6 +110,31 @@ def get_yt_video_subtitles(video_url: str) -> list[SubtitleData]:
     return subtitles
 
 
+def get_yt_segment(video_url: str, start_time: int, duration: int) -> str:
+    storage_directory = "."
+    download_path: str = (
+        f"{storage_directory}/{video_url.split('=')[-1]}_{start_time}_{duration}_clip.%(ext)s"
+    )
+    yt_opts = {
+        "outtmpl": download_path,
+        "format": "best[ext=mp4]",
+        "force_keyframes_at_cuts": True,
+        "verbose": True,
+        "download_ranges": download_range_func(
+            None, [(start_time, start_time + duration)]
+        ),
+    }
+    with yt_dlp.YoutubeDL(yt_opts) as ydl:
+        logger.info(
+            f"Fetching clip for video: {video_url}, starting at {start_time}s and ending at {duration}s"
+        )
+        _ = ydl.extract_info(video_url)
+        logger.info(
+            f"Done: {video_url}, starting at {start_time}s and ending at {duration}s"
+        )
+        return download_path
+
+
 def get_yt_audio(video_url: str) -> str:
     download_path: str = f"{storage_directory}/{video_url.split('=')[-1]}s.webm"
 
@@ -119,9 +145,9 @@ def get_yt_audio(video_url: str) -> str:
     }
     with yt_dlp.YoutubeDL(yt_opts) as ydl:
         logger.info(f"Fetching audio for video: {video_url}")
-        _ = ydl.extract_info(video_url)
+        _ = ydl.download(video_url)
         return download_path
 
 
 if __name__ == "__main__":
-    get_yt_audio("https://www.youtube.com/watch?v=leRys8FOYd0")
+    get_yt_segment("", 30, 20)

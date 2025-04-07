@@ -15,8 +15,7 @@ and extensible framework for storing/processing transcription data.
 
 This project was originally inspired by and would not have happened without the
 project [SqueexVodSearch](https://github.com/lawrencehook/SqueexVodSearch) by
-[@lawrencehook](https://github.com/lawrencehook). We acknowledge their work as a
-starting point for our own development.
+[@lawrencehook](https://github.com/lawrencehook).
 
 ## Running the project
 

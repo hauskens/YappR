@@ -20,9 +20,8 @@ ENV PATH="/src/.venv/bin:$PATH"
 
 FROM base AS worker
 ENTRYPOINT ["celery"]
-CMD ["--app","main.celery","--workdir","app","worker","--loglevel=info","--concurrency=1"]
+CMD ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1"]
 
 FROM base AS app
 EXPOSE 5000
 ENTRYPOINT ["/src/entrypoint.sh"]
-# CMD [ "app/main.py" ]

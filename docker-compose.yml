@@ -73,7 +73,7 @@ services:
     depends_on:
       - app
     deploy:
-      replicas: 0 # number up = more brrr, over 4 will probably cause db pool issues
+      replicas: 1 # number up = more brrr, over 4 will probably cause db pool issues
 volumes:
   db:
   app:

@@ -1,9 +1,9 @@
 {% extends 'base.html' %} {% block content %}
 <div>
+  <div class="container gx-2">
   <h1>{{broadcaster.name}}</h1>
   <p>search results from '{{ search_word }}': {{segment_result|length}} segments and {{video_result|length}} videos</p>
   <p>behind the scenes, the search terms used: {{segment_result[0].search_words}} </p>
-  <div class="container gx-3 text-start">
     <div class="row gx-1">
       {% for video in video_result %}
         <div class="col">
@@ -19,6 +19,11 @@
               <div style="max-height: 400px; overflow-y: auto">
                 {% for segment in segment_result %}
                   {% if segment.video.id == video.id %}
+                    <!-- <form action="{{ url_for('download_video_clip', video_id=video.id) }}" method="post"> -->
+                    <!--   <input type="hidden" name="start_time" value="{{ segment.start_time() - 30 }}"> -->
+                    <!--   <input type="hidden" name="duration" value="{{ segment.end_time() + 30 }}"> -->
+                    <!--   <button type="submit">Download Clip</button> -->
+                    <!-- </form> -->
                     <a class="card-text link-primary" id="card-sentence-result" href="#" onclick="window.open('{{segment.video.get_url()}}&t={{ (segment.start_time() - 5) if segment.start_time() - 5 >= 0 else 0 }}', '_blank');"> {{ segment.start_time() }}s </a> 
                     <a>- {{ segment.get_sentences_formated()}}</a>
                     <br></br>

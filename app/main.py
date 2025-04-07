@@ -85,6 +85,7 @@ StorageManager.add_storage("default", container)
 blueprint = make_twitch_blueprint(
     client_id=config.twitch_client_id,
     client_secret=config.twitch_client_secret,
+    redirect_url=config.app_url + "/login/twitch/authorized",
 )
 app.register_blueprint(blueprint, url_prefix="/login")
 

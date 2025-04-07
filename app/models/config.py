@@ -5,6 +5,7 @@ import logging
 class Config:
     def __init__(self):
         self.app_secret: str = os.environ.get("APP_SECRET", "ajsdlfknsdkfjnsdafiouswe")
+        self.app_url: str = os.environ.get("APP_URL", "http://127.0.0.1:5000")
         self.database_uri: str = os.environ.get(
             "DB_URI",
             "postgresql+psycopg://postgres:mysecretpassword@postgres-db:5432/postgres",

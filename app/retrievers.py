@@ -141,12 +141,12 @@ def fetch_transcription(video_id: int):
     if video_url is not None:
         logger.info(f"fetching transcription for {video_url}")
         subtitles, parsedDate = get_yt_video_subtitles(video_url)
+        if parsedDate is not None:
+            video.uploaded = parsedDate
         for sub in subtitles:
             logger.info(
                 f"checking if transcriptions exists on {video_id}, {len(video.transcriptions)}"
             )
-            if parsedDate is not None:
-                video.uploaded = parsedDate
             if len(video.transcriptions) == 0:
                 logger.info(f"transcriptions not found on {video_id}, adding new..")
                 db.session.add(

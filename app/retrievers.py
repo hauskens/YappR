@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Sequence
-from sqlalchemy import DateTime, select
+from sqlalchemy import select, func
 from .models.db import (
     Broadcaster,
     Platforms,
@@ -100,6 +100,28 @@ def get_transcriptions_on_channels(
         for video in channel.videos:
             transcriptions += video.transcriptions
     return transcriptions
+
+
+def get_transcriptions_on_channels_daterange(
+    channels: Sequence[Channels], start_date: datetime, end_date: datetime
+) -> Sequence[Transcription]:
+    transcriptions: list[Transcription] = []
+    for channel in channels:
+        for video in channel.videos:
+            logger.debug(f"Checking DATE: {start_date} < {video.uploaded} < {end_date}")
+            if start_date <= video.uploaded <= end_date:
+                transcriptions += video.transcriptions
+                logger.debug("Found match!")
+    return transcriptions
+
+
+def get_valid_date(date_string: str) -> datetime | None:
+    try:
+        date = datetime.strptime(date_string, "%Y-%m-%d")
+        return date
+    except ValueError:
+        logger.warning(f"didnt match date on {date_string}")
+        return
 
 
 def search_wordmaps_by_transcription(

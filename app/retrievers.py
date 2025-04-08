@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Sequence
-from sqlalchemy import select
+from sqlalchemy import DateTime, select
 from .models.db import (
     Broadcaster,
     Platforms,
@@ -140,11 +140,13 @@ def fetch_transcription(video_id: int):
     video_url = video.get_url()
     if video_url is not None:
         logger.info(f"fetching transcription for {video_url}")
-        subtitles = get_yt_video_subtitles(video_url)
+        subtitles, parsedDate = get_yt_video_subtitles(video_url)
         for sub in subtitles:
             logger.info(
                 f"checking if transcriptions exists on {video_id}, {len(video.transcriptions)}"
             )
+            if parsedDate is not None:
+                video.uploaded = parsedDate
             if len(video.transcriptions) == 0:
                 logger.info(f"transcriptions not found on {video_id}, adding new..")
                 db.session.add(

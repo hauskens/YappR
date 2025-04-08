@@ -112,7 +112,11 @@ def get_yt_video_subtitles(
         "print_to_file": {"video": [("timestamp", metadata_location)]},
     }
     subtitles: list[SubtitleData] = []
-    os.remove(metadata_location)
+    try:
+        os.remove(metadata_location)
+    except OSError:
+        pass
+
     with yt_dlp.YoutubeDL(yt_opts) as ydl:
         logger.info(f"Fetching subtitles for video: {video_url}")
         data = ydl.extract_info(video_url)

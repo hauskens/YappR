@@ -2,8 +2,8 @@
 <div>
   <div class="container gx-2">
   <h1>{{broadcaster.name}}</h1>
-  <p>search results from '{{ search_word }}': {{segment_result|length}} segments and {{video_result|length}} videos</p>
-  <p>behind the scenes, the search terms used: {{segment_result[0].search_words}} </p>
+  <p>Search results from '{{ search_word }}': {{video_result|length}} videos with {{segment_result|length}} segments</p>
+  <p>Behind the scenes, the search terms used: {{segment_result[0].search_words}} </p>
     <div class="row gx-1">
       {% for video in video_result %}
         <div class="col">
@@ -16,6 +16,7 @@
               <h5 class="card-title">
                 {{video.title}}
               </h5>
+              <p>{{video.uploaded}}</p>
               <div style="max-height: 400px; overflow-y: auto">
                 {% for segment in segment_result %}
                   {% if segment.video.id == video.id %}

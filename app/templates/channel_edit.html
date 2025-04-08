@@ -2,15 +2,19 @@
 
 {% block content %}
   <div class="container">
-    <h1>Channel: {{ channel.name }}</h1>
-    <h2>Videos</h2>
-
-    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_videos', id=channel.id) }}';">Fetch videos on this channel</button>
-    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', id=channel.id) }}';">Fetch audio on all videos</button>
-    <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', id=channel.id) }}';">Fetch all transcriptions</button>
-    <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('channel_parse_transcriptions', id=channel.id) }}';">Process ALL transcriptions</button>
-    <p>Count of videos: {{ videos|length }}</p>
-
+    <h1>Videos on Channel: {{ channel.name }}</h1>
+    <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
+      Some admin buttons...
+    </a>
+    <div class="collapse" id="collapseManageChannel">
+      <hr>
+      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_videos', id=channel.id) }}';">Fetch videos on this channel</button>
+      <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('channel_fetch_audio', id=channel.id) }}';">Fetch audio on all videos</button>
+      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', id=channel.id) }}';">Fetch all transcriptions</button>
+      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', id=channel.id) }}';">Process ALL transcriptions</button>
+      <p>Count of videos: {{ videos|length }}</p>
+    </div>
+    <hr>
     <table class="table table-striped">
       <thead>
         <tr>

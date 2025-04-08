@@ -79,7 +79,9 @@ class Video(Base):
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)
     channel: Mapped["Channels"] = relationship()
     last_updated: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now())
-    uploaded: Mapped[DateTime] = mapped_column(DateTime, nullable=True)
+    uploaded: Mapped[DateTime] = mapped_column(
+        DateTime, nullable=False, default=datetime(1970, 1, 1)
+    )
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
     thumbnail: Mapped[File | None] = mapped_column(FileField())
     audio: Mapped[File | None] = mapped_column(FileField())

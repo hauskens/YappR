@@ -42,8 +42,9 @@ from .retrievers import (
     fetch_transcription,
     fetch_audio,
     add_log,
+    get_valid_date,
 )
-from .search import search
+from .search import search, search_date
 
 
 def init_storage(container: str = "transcriptions"):
@@ -145,6 +146,8 @@ def search_word():
     logger.info("Loaded search_word.html")
     search_term = request.form["search"]
     broadcaster_id = request.form["broadcaster"]
+    start_date = get_valid_date(request.form["start_date"])
+    end_date = get_valid_date(request.form["end_date"])
     broadcaster = get_broadcaster(int(broadcaster_id))
     if broadcaster is None:
         raise ValueError("Broadcaster not found")
@@ -152,7 +155,13 @@ def search_word():
     channels = get_broadcaster_channels(int(broadcaster_id))
     if channels is None:
         return "Channels not found, i have not implemented proper error sorry.."
-    segment_result, video_result = search(search_term, int(broadcaster_id))
+    if start_date is not None and end_date is not None:
+        logger.info(f"Found a date, start {start_date} end {end_date}")
+        segment_result, video_result = search_date(
+            search_term, int(broadcaster_id), start_date, end_date
+        )
+    else:
+        segment_result, video_result = search(search_term, int(broadcaster_id))
     if len(segment_result) == 0:
         flash(
             "Could not find any videos based on that search, try something else",

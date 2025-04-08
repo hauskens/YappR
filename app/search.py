@@ -15,7 +15,9 @@ from .retrievers import (
 from .parse import sanitize_sentence
 import nltk
 from nltk.corpus import stopwords
+from .models.config import config
 
+nltk.data.path.append(config.nltk_data)
 _ = nltk.download("stopwords")
 
 sw = stopwords.words("english")
@@ -73,4 +75,4 @@ def search(
     logger.info(
         f"Search found {len(video_result)} videos with {len(segment_result)} segments"
     )
-    return segment_result, video_result
+    return segment_result, sorted(video_result, key=lambda x: x.uploaded, reverse=True)

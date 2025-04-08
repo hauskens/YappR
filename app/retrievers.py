@@ -57,7 +57,11 @@ def get_video(video_id: int) -> Video:
 
 def get_video_by_channel(channel_id: int) -> Sequence[Video] | None:
     return (
-        db.session.execute(select(Video).filter_by(channel_id=channel_id))
+        db.session.execute(
+            select(Video)
+            .filter_by(channel_id=channel_id)
+            .order_by(Video.uploaded.desc())
+        )
         .scalars()
         .all()
     )

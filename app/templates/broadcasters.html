@@ -3,23 +3,40 @@
 {% block content %}
   <div class="container">
     <h1>Broadcasters</h1>
-    <ul>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th scope="col">Broadcaster</th>
+          <th scope="col">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
       {% for broadcaster in broadcasters %}
-        <li>
-          <a href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}" class="text-primary">{{ broadcaster.name }}</a>
-        </li>
+        <tr>
+        <td>
+          {{ broadcaster.name }}<a href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}" class="text-primary"></a>
+        </td>
+        <td>
+          <a class="btn btn-primary" role="button" href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}">Show</a>
+        </td>
+        </tr>
       {% endfor %}
-    </ul>
+      </tbody>
+    </table>
 
-    <h2>Add Broadcaster</h2>
-    <form action="{{ url_for('broadcaster_create') }}" method="post">
-      <div class="mb-3">
-        <label for="name" class="form-label">Broadcaster Name:</label>
-        <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_!][A-Za-z0-9_! ]*" required placeholder="Mike Hunt" required title="Only A-Z or numbers allowed">
-      </div>
+    <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
+      Add new Broadcaster..
+    </a>
+      <div class="collapse" id="collapseManageChannel">
+      <form action="{{ url_for('broadcaster_create') }}" method="post">
+        <div class="mb-3">
+          <label for="name" class="form-label">Broadcaster Name:</label>
+          <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_!][A-Za-z0-9_! ]*" required placeholder="Mike Hunt" required title="Only A-Z or numbers allowed">
+        </div>
 
-      <button type="submit" class="btn btn-primary">Add Broadcaster</button>
-    </form>
+        <button type="submit" class="btn btn-primary">Save Broadcaster</button>
+      </form>
+    </div>
   </div>
 
   {% with messages = get_flashed_messages() %}

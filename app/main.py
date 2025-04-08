@@ -41,6 +41,7 @@ from .retrievers import (
     delete_channel,
     fetch_transcription,
     fetch_audio,
+    add_log,
 )
 from .search import search
 
@@ -147,7 +148,7 @@ def search_word():
     broadcaster = get_broadcaster(int(broadcaster_id))
     if broadcaster is None:
         raise ValueError("Broadcaster not found")
-    logger.info(f"Searching for '{search_term}' on {broadcaster.name}")
+    add_log(f"Searching for '{search_term}' on {broadcaster.name}")
     channels = get_broadcaster_channels(int(broadcaster_id))
     if channels is None:
         return "Channels not found, i have not implemented proper error sorry.."

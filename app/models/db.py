@@ -78,8 +78,8 @@ class Video(Base):
     duration: Mapped[float] = mapped_column(Float())
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)
     channel: Mapped["Channels"] = relationship()
-    last_updated: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now())
-    uploaded: Mapped[DateTime] = mapped_column(
+    last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    uploaded: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime(1970, 1, 1)
     )
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
@@ -101,7 +101,7 @@ class Transcription(Base):
     video_id: Mapped[int] = mapped_column(ForeignKey("video.id"), index=True)
     video: Mapped["Video"] = relationship()
     language: Mapped[str] = mapped_column(String(250))
-    last_updated: Mapped[DateTime] = mapped_column(DateTime, default=datetime.now())
+    last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
     file_extention: Mapped[str] = mapped_column(String(10))
     file: Mapped[File] = mapped_column(FileField())
     source: Mapped[TranscriptionSource] = mapped_column(
@@ -115,14 +115,11 @@ class Transcription(Base):
     )
 
 
-# @event.listens_for(Transcription, "before_insert")
-# def receive_before_insert(mapper, connection, target):
-#     target.last_updated = datetime.now()
-#
-#
-# @event.listens_for(Transcription, "before_update")
-# def receive_before_insert(mapper, connection, target):
-#     target.last_updated = datetime.now()
+class Logs(Base):
+    __tablename__: str = "logs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(String(250))
+    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
 
 
 class Segments(Base):

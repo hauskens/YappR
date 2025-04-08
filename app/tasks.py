@@ -5,11 +5,26 @@ from .models.config import Config
 import logging
 import os
 import requests
+from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
 storage_directory = os.path.abspath(Config().cache_location)
 config = Config()
+
+
+def parse_metadata_file(path: str) -> datetime | None:
+    logger.debug(f"Parsing metadata on file: {path}")
+    with open(path) as file:
+        for line in file:
+            date_str = line.strip()  # Remove leading/trailing whitespace
+            try:
+                result = datetime.utcfromtimestamp(int(date_str))
+                if result is not None:
+                    logger.info(f"Found metadata on file: {path} - {result}")
+                    return result
+            except ValueError:  # Ignore invalid dates
+                pass
 
 
 def get_largest_thumbnail(video: VideoData) -> Thumbnail | None:
@@ -85,14 +100,19 @@ def get_yt_videos(channel_url: str) -> list[VideoData] | None:
                 return videos
 
 
-def get_yt_video_subtitles(video_url: str) -> list[SubtitleData]:
+def get_yt_video_subtitles(
+    video_url: str,
+) -> tuple[list[SubtitleData], datetime | None]:
+    metadata_location = f"{storage_directory}/{video_url.split('=')[-1]}s.meta"
     yt_opts = {
         "skip_download": True,
         "writeautomaticsub": True,
         "writesubtitles": True,
         "outtmpl": f"{storage_directory}/{video_url.split('=')[-1]}s.%(ext)s",
+        "print_to_file": {"video": [("timestamp", metadata_location)]},
     }
     subtitles: list[SubtitleData] = []
+    os.remove(metadata_location)
     with yt_dlp.YoutubeDL(yt_opts) as ydl:
         logger.info(f"Fetching subtitles for video: {video_url}")
         data = ydl.extract_info(video_url)
@@ -107,7 +127,8 @@ def get_yt_video_subtitles(video_url: str) -> list[SubtitleData]:
                         language=sub["name"],
                     )
                 )
-    return subtitles
+    parsedDate = parse_metadata_file(metadata_location)
+    return subtitles, parsedDate
 
 
 def get_yt_segment(video_url: str, start_time: int, duration: int) -> str:

@@ -1,14 +1,13 @@
 {% extends 'base.html' %} {% block content %}
 <div class="container">
-  <h1>YappR</h1>
-
+  <h1>Search:</h1>
   <form action="{{ url_for('search_word') }}" method="post">
     <label for="broadcaster">Broadcaster</label>
     <select id="broadcaster" name="broadcaster" class="form-select">
       {% for broadcaster in broadcasters %}
       <option value="{{ broadcaster.id }}">{{ broadcaster.name }}</option>
       {% endfor %}</select
-    ><br /><br />
+    >
     <div class="mb-3">
       <label for="search" class="form-label">Search for a word:</label>
       <input type="search" autocomplete="off" id="search" name="search" class="form-control" required placeholder="Search..." />

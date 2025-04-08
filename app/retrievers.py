@@ -10,6 +10,7 @@ from .models.db import (
     Video,
     Transcription,
     TranscriptionSource,
+    Logs,
     db,
 )
 from .tasks import (
@@ -137,6 +138,12 @@ def delete_wordmaps_on_transcription(transcription_id: int):
     return (
         db.session.query(WordMaps).filter_by(transcription_id=transcription_id).delete()
     )
+
+
+def add_log(log_text: str):
+    logger.info(log_text)
+    db.session.add(Logs(text=log_text))
+    db.session.commit()
 
 
 def fetch_transcription(video_id: int):

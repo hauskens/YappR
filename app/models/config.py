@@ -23,3 +23,7 @@ class Config:
         self.app_host: str = os.environ.get("HOST", "0.0.0.0")
         self.twitch_client_id: str | None = os.environ.get("TWITCH_CLIENT_ID")
         self.twitch_client_secret: str | None = os.environ.get("TWITCH_CLIENT_SECRET")
+        self.nltk_data: str = os.environ.get("NLTK_DATA", "/var/lib/yappr/nltk")
+
+
+config = Config()

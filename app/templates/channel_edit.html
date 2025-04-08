@@ -21,7 +21,7 @@
           <th scope="col">Video Link</th>
           <th scope="col">Transcriptions</th>
           <th scope="col">Attached audio</th>
-          <th scope="col">Last updated</th>
+          <th scope="col">Published</th>
           <th scope="col">Actions</th>
         </tr>
       </thead>
@@ -39,7 +39,7 @@
           <td><a href="{{ video.get_url() }}">Link</a></td>
           <td>{{ video.transcriptions|length }}</td>
           <td>{{ video.audio.filename }}</td>
-          <td>{{ video.last_updated }}</td>
+          <td>{{ video.uploaded }}</td>
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', id=video.id) }}">Edit Video</a>
             <!-- <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', id=video.id) }}">Fetch transcriptions</a> -->

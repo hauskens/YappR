@@ -206,6 +206,7 @@ def add_permissions(user: Users, permission_type: PermissionType):
     )
     if existing_permissions is None:
         db.session.add(Permissions(user_id=user.id, permission_type=permission_type))
+        logger.info(f"Granted {permission_type.name} {user.name}!")
         db.session.commit()
 
 

@@ -1,0 +1,13 @@
+{% extends 'base.html' %} {% block content %}
+<div class="container">
+  <h1>Stats</h1>
+  <p>Videos indexed: {{ video_count }}</p>
+  <p>Sentences mapped: {{ segment_count }}</p>
+  <p>Unique words mapped: {{ word_count }}</p>
+</div>
+
+{% with messages = get_flashed_messages() %} {% if messages %}
+<div class="alert alert-success" role="alert">
+  {% for message in messages %} {{ message }} {% endfor %}
+</div>
+{% endif %} {% endwith %} {% endblock %}

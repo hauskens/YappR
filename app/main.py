@@ -133,7 +133,7 @@ def users():
 
 @app.route("/login/")
 def login():
-    return discord.create_session()
+    return discord.create_session(["identify"])
 
 
 @app.route("/callback/")
@@ -147,6 +147,7 @@ def callback():
 
 @app.errorhandler(Unauthorized)
 def redirect_unauthorized(e):
+    return render_template("unauthorized.html", users=users)
     return redirect(url_for("login"))
 
 

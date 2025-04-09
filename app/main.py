@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
+from werkzeug.middleware.proxy_fix import ProxyFix
 from flask import (
     Flask,
     flash,
@@ -79,6 +80,9 @@ if config.debug:
 app.config["DISCORD_CLIENT_ID"] = config.discord_client_id
 app.config["DISCORD_CLIENT_SECRET"] = config.discord_client_secret
 app.config["DISCORD_REDIRECT_URI"] = config.discord_redirect_uri
+
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
 discord = DiscordOAuth2Session(app)
 
 celery = celery_init_app(app)

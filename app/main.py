@@ -80,7 +80,6 @@ if config.debug:
 app.config["DISCORD_CLIENT_ID"] = config.discord_client_id
 app.config["DISCORD_CLIENT_SECRET"] = config.discord_client_secret
 app.config["DISCORD_REDIRECT_URI"] = config.discord_redirect_uri
-
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 discord = DiscordOAuth2Session(app)
@@ -184,12 +183,16 @@ def redirect_unauthorized(e):
     return render_template("unauthorized.html")
 
 
-@app.route("/chart")
+@app.route("/stats")
 @requires_authorization
-def chart():
-    logger.info("Loaded chart.html")
-    channel = get_channel(2)
-    return render_template("chart.html", channel=channel)
+def stats():
+    logger.info("Loaded stats.html")
+    return render_template(
+        "stats.html",
+        video_count="{:,}".format(get_stats_videos()),
+        word_count="{:,}".format(get_stats_words()),
+        segment_count="{:,}".format(get_stats_segments()),
+    )
 
 
 @app.route("/broadcasters")

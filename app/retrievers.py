@@ -171,6 +171,18 @@ def get_users() -> list[Users]:
     return db.session.query(Users).all()
 
 
+def get_stats_videos() -> int:
+    return db.session.query(Video.id).count()
+
+
+def get_stats_words() -> int:
+    return db.session.query(WordMaps.word).count()
+
+
+def get_stats_segments() -> int:
+    return db.session.query(Segments.id).count()
+
+
 def get_user_permissions(user: Users) -> list[Permissions]:
     return db.session.query(Permissions).filter_by(user_id=user.id).all()
 

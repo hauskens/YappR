@@ -105,7 +105,7 @@ def handle_login():
 
 
 @app.route("/admin")
-def denied():
+def access_denied():
     return send_from_directory("static", "404.jpg")
 
 
@@ -153,8 +153,12 @@ def grant_permission(user_id: int, permission_name: str):
 
         user = get_user_by_id(user_id)
         _ = add_permissions(user, PermissionType[permission_name])
-    users = get_users()
-    return render_template("users.html", users=users, permission_types=PermissionType)
+        users = get_users()
+        return render_template(
+            "users.html", users=users, permission_types=PermissionType
+        )
+    else:
+        return access_denied()
 
 
 @app.route("/login/")

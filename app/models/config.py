@@ -27,6 +27,7 @@ class Config:
         self.discord_client_id: str | None = os.environ.get("DISCORD_CLIENT_ID")
         self.discord_client_secret: str | None = os.environ.get("DISCORD_CLIENT_SECRET")
         self.discord_redirect_uri: str | None = os.environ.get("DISCORD_REDIRECT_URI")
+        # write something about PREFERRED_URL_SCHEME=https
 
 
 config = Config()

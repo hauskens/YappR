@@ -1,7 +1,16 @@
 from sqlalchemy import select
 from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
-from flask import Flask, flash, render_template, request, redirect, url_for, send_file
+from flask import (
+    Flask,
+    flash,
+    render_template,
+    request,
+    redirect,
+    url_for,
+    send_file,
+    g,
+)
 from celery import Celery, Task
 from flask_discord import DiscordOAuth2Session, requires_authorization, Unauthorized
 from flask_bootstrap import Bootstrap5
@@ -110,6 +119,14 @@ def handle_login():
     add_user(user)
 
 
+@app.before_request
+def get_current_user():
+    if discord.authorized and "user" not in g:
+        d = discord.fetch_user()
+        g.username = d.username
+        g.avatar_url = d.avatar_url
+
+
 @app.route("/")
 @requires_authorization
 def index():
@@ -147,8 +164,7 @@ def callback():
 
 @app.errorhandler(Unauthorized)
 def redirect_unauthorized(e):
-    return render_template("unauthorized.html", users=users)
-    return redirect(url_for("login"))
+    return render_template("unauthorized.html")
 
 
 @app.route("/chart")

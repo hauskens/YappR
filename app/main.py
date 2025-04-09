@@ -54,6 +54,7 @@ from .retrievers import (
     add_user,
     get_users,
     has_permissions_by_ext,
+    get_user_by_ext,
 )
 from .search import search, search_date
 
@@ -123,6 +124,7 @@ def handle_login():
 def get_current_user():
     if discord.authorized and "user" not in g:
         d = discord.fetch_user()
+        g.user_object = get_user_by_ext(str(d.id))
         g.username = d.username
         g.avatar_url = d.avatar_url
 

@@ -9,10 +9,15 @@ from flask import (
     redirect,
     url_for,
     send_file,
+    send_from_directory,
     g,
 )
 from celery import Celery, Task
-from flask_discord import DiscordOAuth2Session, requires_authorization, Unauthorized
+from flask_discord import (
+    DiscordOAuth2Session,
+    requires_authorization,
+    Unauthorized,
+)
 from flask_bootstrap import Bootstrap5
 from .models.db import (
     Broadcaster,
@@ -34,28 +39,7 @@ from .tasks import (
 )
 import io
 import os
-from .retrievers import (
-    delete_wordmaps_on_transcription,
-    get_broadcasters,
-    get_broadcaster,
-    get_platforms,
-    get_broadcaster_channels,
-    get_channel,
-    get_video,
-    get_video_by_channel,
-    get_video_by_ref,
-    get_transcriptions_by_video,
-    get_transcription,
-    delete_channel,
-    fetch_transcription,
-    fetch_audio,
-    add_log,
-    get_valid_date,
-    add_user,
-    get_users,
-    has_permissions_by_ext,
-    get_user_by_ext,
-)
+from .retrievers import *
 from .search import search, search_date
 
 
@@ -120,6 +104,11 @@ def handle_login():
     add_user(user)
 
 
+@app.route("/admin")
+def denied():
+    return send_from_directory("static", "404.jpg")
+
+
 @app.before_request
 def get_current_user():
     if discord.authorized and "user" not in g:
@@ -145,9 +134,27 @@ def users():
     if has_permissions_by_ext(
         user_external_id=str(discord.user_id), permission_type=PermissionType.Admin
     ):
-        return render_template("users.html", users=users)
+        return render_template(
+            "users.html", users=users, permission_types=PermissionType
+        )
     else:
         return "You do not have access", 403
+
+
+@app.route("/permissions/<int:user_id>/<permission_name>")
+@requires_authorization
+def grant_permission(user_id: int, permission_name: str):
+    if has_permissions_by_ext(
+        user_external_id=str(discord.user_id), permission_type=PermissionType.Admin
+    ):
+        logger.info(
+            f"User {discord.user_id} is granting '{permission_name}' to {user_id}"
+        )
+
+        user = get_user_by_id(user_id)
+        _ = add_permissions(user, PermissionType[permission_name])
+    users = get_users()
+    return render_template("users.html", users=users, permission_types=PermissionType)
 
 
 @app.route("/login/")

@@ -19,9 +19,6 @@ import nltk
 from nltk.corpus import stopwords
 from .models.config import config
 
-nltk.data.path.append(config.nltk_data)
-_ = nltk.download("stopwords")
-
 sw = stopwords.words("english")
 
 logger = logging.getLogger(__name__)

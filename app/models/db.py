@@ -48,6 +48,39 @@ class TranscriptionSource(enum.Enum):
     YouTube = "youtube"
 
 
+class PermissionType(enum.Enum):
+    Admin = "admin"
+    Reader = "reader"
+
+
+class AccountSource(enum.Enum):
+    Discord = "discord"
+
+
+class Users(Base):
+    __tablename__: str = "users"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(500))
+    external_account_id: Mapped[str] = mapped_column(String(500), unique=True)
+    account_type: Mapped[str] = mapped_column(Enum(AccountSource))
+    first_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    last_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    permissions: Mapped[list["Permissions"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class Permissions(Base):
+    __tablename__: str = "permissions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user: Mapped["Users"] = relationship()
+    permission_type: Mapped[str] = mapped_column(
+        Enum(PermissionType), default=PermissionType.Reader
+    )
+    date_added: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+
+
 class Channels(Base):
     __tablename__: str = "channels"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

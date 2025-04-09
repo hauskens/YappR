@@ -3,17 +3,15 @@ from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
 from flask import Flask, flash, render_template, request, redirect, url_for, send_file
 from celery import Celery, Task
-from flask_dance.contrib.twitch import make_twitch_blueprint, twitch
+from flask_discord import DiscordOAuth2Session, requires_authorization, Unauthorized
 from flask_bootstrap import Bootstrap5
 from .models.db import (
     Broadcaster,
     Platforms,
-    Segments,
-    WordMaps,
     VideoType,
     Channels,
+    PermissionType,
     Video,
-    Transcription,
     db,
 )
 from .models.config import Config
@@ -26,6 +24,7 @@ from .tasks import (
     save_largest_thumbnail,
 )
 import io
+import os
 from .retrievers import (
     delete_wordmaps_on_transcription,
     get_broadcasters,
@@ -43,6 +42,9 @@ from .retrievers import (
     fetch_audio,
     add_log,
     get_valid_date,
+    add_user,
+    get_users,
+    has_permissions_by_ext,
 )
 from .search import search, search_date
 
@@ -77,6 +79,14 @@ app.config["CELERY"] = dict(
     broker_url=config.redis_uri, backend=config.database_uri, task_ignore_result=True
 )
 db.init_app(app)
+
+if config.debug:
+    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "true"
+app.config["DISCORD_CLIENT_ID"] = config.discord_client_id
+app.config["DISCORD_CLIENT_SECRET"] = config.discord_client_secret
+app.config["DISCORD_REDIRECT_URI"] = config.discord_redirect_uri
+discord = DiscordOAuth2Session(app)
+
 celery = celery_init_app(app)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
@@ -84,12 +94,6 @@ init_storage()
 container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
 StorageManager.add_storage("default", container)
 
-blueprint = make_twitch_blueprint(
-    client_id=config.twitch_client_id,
-    client_secret=config.twitch_client_secret,
-    redirect_url=config.app_url + "/login/twitch/authorized",
-)
-app.register_blueprint(blueprint, url_prefix="/login")
 
 with app.app_context():
     pf = get_platforms()
@@ -101,26 +105,53 @@ with app.app_context():
             db.session.commit()
 
 
+def handle_login():
+    user = discord.fetch_user()
+    add_user(user)
+
+
 @app.route("/")
+@requires_authorization
 def index():
     broadcasters = get_broadcasters()
     logger.info("Loaded search.html")
     return render_template("search.html", broadcasters=broadcasters)
 
 
-@app.route("/login/twitch/authorized")
-def twitch_authorized():
-    return "you made it man"
+@app.route("/users")
+@requires_authorization
+def users():
+    users = get_users()
+    logger.info("Loaded search.html")
+    if has_permissions_by_ext(
+        user_external_id=str(discord.user_id), permission_type=PermissionType.Admin
+    ):
+        return render_template("users.html", users=users)
+    else:
+        return "You do not have access", 403
 
 
-@app.route("/testies")
-def test():
-    if not twitch.authorized:
-        return redirect(url_for("twitch.login"))
-    return render_template("index.html")
+@app.route("/login/")
+def login():
+    return discord.create_session()
+
+
+@app.route("/callback/")
+def callback():
+    discord.callback()
+    user = discord.fetch_user()
+    handle_login()
+    logger.info(f"User logged in! {user.name}")
+    return redirect(url_for("index"))
+
+
+@app.errorhandler(Unauthorized)
+def redirect_unauthorized(e):
+    return redirect(url_for("login"))
 
 
 @app.route("/chart")
+@requires_authorization
 def chart():
     logger.info("Loaded chart.html")
     channel = get_channel(2)
@@ -128,6 +159,7 @@ def chart():
 
 
 @app.route("/broadcasters")
+@requires_authorization
 def broadcasters():
     broadcasters = get_broadcasters()
     logger.info("Loaded broadcasters.html")
@@ -135,6 +167,7 @@ def broadcasters():
 
 
 @app.route("/search")
+@requires_authorization
 def search_page():
     broadcasters = get_broadcasters()
     logger.info("Loaded search.html")
@@ -142,6 +175,7 @@ def search_page():
 
 
 @app.route("/search", methods=["POST"])
+@requires_authorization
 def search_word():
     logger.info("Loaded search_word.html")
     search_term = request.form["search"]
@@ -179,6 +213,7 @@ def search_word():
 
 
 @app.route("/thumbnails/<int:video_id>")
+@requires_authorization
 def serve_thumbnails(video_id: int):
     video = get_video(video_id)
     content = video.thumbnail.file.read()
@@ -190,6 +225,7 @@ def serve_thumbnails(video_id: int):
 
 
 @app.route("/platforms")
+@requires_authorization
 def platforms():
     platforms = get_platforms()
     logger.info("Loaded platforms.html")
@@ -197,6 +233,7 @@ def platforms():
 
 
 @app.route("/broadcaster/create", methods=["POST"])
+@requires_authorization
 def broadcaster_create():
     name = request.form["name"]
     existing_broadcasters = get_broadcasters()
@@ -214,6 +251,7 @@ def broadcaster_create():
 
 
 @app.route("/broadcaster/edit/<int:id>", methods=["GET"])
+@requires_authorization
 def broadcaster_edit(id: int):
     broadcaster = (
         db.session.execute(select(Broadcaster).filter_by(id=id)).scalars().one()
@@ -229,6 +267,7 @@ def broadcaster_edit(id: int):
 
 
 @app.route("/platform/create", methods=["POST"])
+@requires_authorization
 def platform_create():
     name = request.form["name"]
     url = request.form["url"]
@@ -249,6 +288,7 @@ def platform_create():
 
 
 @app.route("/channel/create", methods=["POST"])
+@requires_authorization
 def channel_create():
     name = request.form["name"]
     broadcaster_id = int(request.form["broadcaster_id"])
@@ -275,6 +315,7 @@ def channel_create():
 
 
 @app.route("/channel/<int:channel_id>/delete")
+@requires_authorization
 def channel_delete(channel_id: int):
     _ = delete_channel(channel_id)
     db.session.commit()
@@ -282,12 +323,14 @@ def channel_delete(channel_id: int):
 
 
 @app.route("/channel/<int:id>/get_videos")
+@requires_authorization
 def channel_get_videos(id: int):
     videos = get_video_by_channel(channel_id=id)
     return render_template("channel_edit.html", videos=videos, channel=get_channel(id))
 
 
 @app.route("/channel/<int:id>/fetch_videos")
+@requires_authorization
 def channel_fetch_videos(id: int):
     channel = get_channel(id)
     url = channel.get_url()
@@ -360,6 +403,7 @@ def task_parse_transcription(transcription_id: int):
 
 
 @app.route("/channel/<int:id>/fetch_audio")
+@requires_authorization
 def channel_fetch_audio(id: int):
     channel = get_channel(id)
     logger.info(f"Fetching all audio for {channel.name}")
@@ -370,6 +414,7 @@ def channel_fetch_audio(id: int):
 
 # todo: send some confirmation to user that task is queued and prevent new queue from getting started
 @app.route("/channel/<int:id>/fetch_transcriptions")
+@requires_authorization
 def channel_fetch_transcriptions(id: int):
     channel = get_channel(id)
     logger.info(f"Fetching all transcriptions for {channel.name}")
@@ -379,6 +424,7 @@ def channel_fetch_transcriptions(id: int):
 
 
 @app.route("/channel/<int:id>/parse_transcriptions")
+@requires_authorization
 def channel_parse_transcriptions(id: int):
     videos = get_video_by_channel(id)
     if videos is not None:
@@ -393,6 +439,7 @@ def channel_parse_transcriptions(id: int):
 
 
 @app.route("/video/<int:id>/fetch_transcriptions")
+@requires_authorization
 def video_fetch_transcriptions(id: int):
     logger.info(f"Fetching transcriptions for {id}")
     fetch_transcription(id)
@@ -400,6 +447,7 @@ def video_fetch_transcriptions(id: int):
 
 
 @app.route("/video/<int:id>/get_transcriptions")
+@requires_authorization
 def video_get_transcriptions(id: int):
     return render_template(
         "video_edit.html",
@@ -409,6 +457,7 @@ def video_get_transcriptions(id: int):
 
 
 @app.route("/video/<int:video_id>/parse_transcriptions")
+@requires_authorization
 def video_parse_transcriptions(video_id: int):
     tran = get_transcriptions_by_video(video_id)
     if tran is not None:
@@ -425,6 +474,7 @@ def video_parse_transcriptions(video_id: int):
 
 
 @app.route("/video/<int:video_id>/download_clip", methods=["POST"])
+@requires_authorization
 def download_video_clip(video_id: int):
     start_time = int(request.form["start_time"])
     duration = request.form["duration"]
@@ -441,6 +491,7 @@ def download_video_clip(video_id: int):
 
 
 @app.route("/transcription/<int:id>/download")
+@requires_authorization
 def download_transcription(id: int):
     transcription = get_transcription(id)
     content = transcription.file.file.read()
@@ -452,6 +503,7 @@ def download_transcription(id: int):
 
 
 @app.route("/transcription/<int:transcription_id>/parse")
+@requires_authorization
 def parse_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     if transcription.word_maps is not None:
@@ -466,6 +518,7 @@ def parse_transcription(transcription_id: int):
 
 
 @app.route("/transcription/<int:transcription_id>/delete_wordmaps")
+@requires_authorization
 def delete_wordmaps_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     _ = delete_wordmaps_on_transcription(transcription_id)

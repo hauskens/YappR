@@ -21,9 +21,12 @@ class Config:
         self.redis_uri: str = os.environ.get("REDIS_URI", "redis://redis-cache:6379/0")
         self.app_port: int = int(os.environ.get("PORT", 5000))
         self.app_host: str = os.environ.get("HOST", "0.0.0.0")
-        self.twitch_client_id: str | None = os.environ.get("TWITCH_CLIENT_ID")
-        self.twitch_client_secret: str | None = os.environ.get("TWITCH_CLIENT_SECRET")
-        self.nltk_data: str = os.environ.get("NLTK_DATA", "/var/lib/yappr/nltk")
+        self.nltk_data: str = os.environ.get(
+            "NLTK_DATA", "/var/lib/yappr/nltk"
+        )  # Todo: this does not do anything yet
+        self.discord_client_id: str | None = os.environ.get("DISCORD_CLIENT_ID")
+        self.discord_client_secret: str | None = os.environ.get("DISCORD_CLIENT_SECRET")
+        self.discord_redirect_uri: str | None = os.environ.get("DISCORD_REDIRECT_URI")
 
 
 config = Config()

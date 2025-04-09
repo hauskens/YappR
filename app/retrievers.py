@@ -1,8 +1,10 @@
 import logging
 from collections.abc import Sequence
 from sqlalchemy import select, func
+from flask_discord.models import User
 from .models.db import (
     Broadcaster,
+    Permissions,
     Platforms,
     Segments,
     WordMaps,
@@ -11,6 +13,9 @@ from .models.db import (
     Transcription,
     TranscriptionSource,
     Logs,
+    Users,
+    AccountSource,
+    PermissionType,
     db,
 )
 from .tasks import (
@@ -160,6 +165,64 @@ def delete_wordmaps_on_transcription(transcription_id: int):
     return (
         db.session.query(WordMaps).filter_by(transcription_id=transcription_id).delete()
     )
+
+
+def get_users() -> list[Users]:
+    return db.session.query(Users).all()
+
+
+def get_user_permissions(user: Users) -> list[Permissions]:
+    return db.session.query(Permissions).filter_by(user_id=user.id).all()
+
+
+def get_user_by_ext(user_external_id: str) -> Users:
+    return db.session.query(Users).filter_by(external_account_id=user_external_id).one()
+
+
+def get_user_by_id(user_id: int) -> Users:
+    return db.session.query(Users).filter_by(id=user_id).one()
+
+
+def get_permissions_by_ext(user_external_id: str) -> list[Permissions]:
+    user = get_user_by_ext(user_external_id)
+    return db.session.query(Permissions).filter_by(user_id=user.id).all()
+
+
+def has_permissions_by_ext(
+    user_external_id: str, permission_type: PermissionType
+) -> bool:
+    permissions = get_permissions_by_ext(user_external_id)
+    for p in permissions:
+        if p.permission_type == permission_type:
+            return True
+    return False
+
+
+def add_permissions(user: Users, permission_type: PermissionType):
+    existing_permissions = (
+        db.session.query(Permissions)
+        .filter_by(user_id=user.id, permission_type=permission_type)
+        .one_or_none()
+    )
+    if existing_permissions is None:
+        db.session.add(Permissions(user_id=user.id, permission_type=permission_type))
+        db.session.commit()
+
+
+def add_user(user: User):
+    existing_user = db.session.query(Users).filter_by(external_account_id=str(user.id))
+    if existing_user.one_or_none() is None:
+        db.session.add(
+            Users(
+                name=str(user.username),
+                external_account_id=str(user.id),
+                account_type=AccountSource.Discord,
+            )
+        )
+        logger.info(f"User created for {user.username}!")
+    else:
+        existing_user.one().last_login = datetime.now()
+    db.session.commit()
 
 
 def add_log(log_text: str):

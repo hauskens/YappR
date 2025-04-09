@@ -1,0 +1,50 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <div class="container">
+    <h1>Users</h1>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th scope="col">ID</th>
+          <th scope="col">Username</th>
+          <th scope="col">Roles</th>
+          <th scope="col">Created</th>
+          <th scope="col">LastLogin</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for user in users %}
+        <tr>
+        <td>
+          {{ user.id }}
+        </td>
+        <td>
+          {{ user.name }}
+        </td>
+        <td>
+          {{ user.permissions|length }}
+        </td>
+        <td>
+          {{ user.first_login }}
+        </td>
+        <td>
+          {{ user.last_login }}
+        </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <div class="alert alert-success" role="alert">
+        {% for message in messages %}
+          {{ message }}
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+{% endblock %}

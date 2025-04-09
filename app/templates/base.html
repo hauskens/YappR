@@ -31,6 +31,7 @@
           <div class="navbar-nav mr-auto">
             {{ render_nav_item('broadcasters', 'Broadcasters') }}
             {{ render_nav_item('search_page', 'Search') }}
+            {{ render_nav_item('users', 'Users') }}
           </div>
         </div>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarScroll" aria-controls="navbarScroll" aria-expanded="false" aria-label="Toggle navigation">
@@ -54,6 +55,10 @@
       </label>
       <input class="form-check-input" type="checkbox" id="lightSwitch" />
   </div>
+    <div class="user-info-container text-center">
+      <a>{{ user_name }}</a>
+       <img width="50" height="50" id="user-icon" src="{{ user_avatar_url }}"></img>
+    </div>
     </nav>
     {% block content %}{% endblock %}
     {% block scripts %}
@@ -118,7 +123,7 @@
         {{ bootstrap.load_js() }}
     {% endblock %}
       <footer class="footer mt-auto fixed-bottom text-center text-lg-start text-white bg-body-tertiary">
-        <div class="text-center p-2 bg-dark bg-opacity-25">
+        <div class="text-center p-1 bg-dark bg-opacity-25">
           <div class="text-white fs-6 lh-sm">Made by Hausken
             <a class="github-button" href="https://github.com/hauskens/YappR" data-color-scheme="no-preference: light; light: light; dark: light;" data-icon="octicon-star" aria-label="Star buttons/github-buttons on GitHub">Star</a>
           <div class="text-white fw-light fs-6 lh-sm">GitHub star go brrr</div>

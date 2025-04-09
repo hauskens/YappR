@@ -13,6 +13,7 @@ dependencies = [
     "fasteners>=0.19",
     "flask>=3.1.0",
     "flask-dance>=7.1.0",
+    "flask-discord>=0.1.69",
     "flask-nav>=0.6",
     "flask-sqlalchemy>=3.1.1",
     "gunicorn>=23.0.0",

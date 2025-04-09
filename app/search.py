@@ -15,9 +15,7 @@ from .retrievers import (
     get_segment_by_id,
 )
 from .parse import sanitize_sentence
-import nltk
 from nltk.corpus import stopwords
-from .models.config import config
 
 sw = stopwords.words("english")
 

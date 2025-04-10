@@ -111,7 +111,7 @@ class ChannelItem(BaseModel):
     statistics: Statistics | None = None
 
 
-class ChannelResourceListResponse(BaseModel):
+class ChannelResourceResponse(BaseModel):
     kind: str
     etag: str
     nextPageToken: str | None = None

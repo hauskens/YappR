@@ -2,6 +2,7 @@ from googleapiclient.discovery import build
 from models.config import config
 from models.youtube.channel import ChannelResourceResponse, ChannelItem
 from models.youtube.playlist import PlaylistResourceResponse, PlaylistItem
+from models.youtube.search import SearchResourceResponse, SearchResultItem
 
 if config.youtube_api_key is None:
     raise ValueError("YOUTUBE_API_KEY not configured!")
@@ -24,8 +25,18 @@ def get_youtube_playlist_details(channel_id: str) -> list[PlaylistItem]:
     return playlists.items
 
 
+def get_youtube_search(channel_id: str) -> list[SearchResultItem]:
+    request = youtube.search().list(
+        part="snippet", type="video", channelId=channel_id, maxResults=25
+    )
+    resp = request.execute()
+    videos = SearchResourceResponse.model_validate(resp)
+    return videos.items
+
+
 if __name__ == "__main__":
     # channel = get_youtube_channel_details("@HistoryoftheUniverse")
-    playlists = get_youtube_playlist_details("UCtRFmSyL4fSLQkn-wMqlmdA")
-    for p in playlists:
+    # playlists = get_youtube_playlist_details("UCtRFmSyL4fSLQkn-wMqlmdA")
+    videos = get_youtube_search("UCtRFmSyL4fSLQkn-wMqlmdA")
+    for p in videos:
         print(p.snippet.title)

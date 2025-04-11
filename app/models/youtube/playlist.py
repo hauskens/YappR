@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 
 
 class Thumbnail(BaseModel):
@@ -13,7 +14,7 @@ class LocalizedSnippet(BaseModel):
 
 
 class Snippet(BaseModel):
-    publishedAt: str
+    publishedAt: datetime
     channelId: str
     title: str
     description: str

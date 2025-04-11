@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 
 
 class Thumbnail(BaseModel):
@@ -77,7 +78,7 @@ class Statistics(BaseModel):
 class Snippet(BaseModel):
     title: str
     description: str
-    publishedAt: str
+    publishedAt: datetime
     thumbnails: dict[str, Thumbnail]
     defaultLanguage: str | None = None
     localized: Localized

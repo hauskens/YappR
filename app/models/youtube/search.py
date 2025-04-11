@@ -1,4 +1,5 @@
 from pydantic import BaseModel
+from datetime import datetime
 
 
 class Thumbnail(BaseModel):
@@ -9,13 +10,13 @@ class Thumbnail(BaseModel):
 
 class Id(BaseModel):
     kind: str
-    videoId: str | None = None  # make videoId optional
+    videoId: str | None = None
     channelId: str | None = None  # make channelId optional
     playlistId: str | None = None  # make playlistId optional
 
 
 class Snippet(BaseModel):
-    publishedAt: str
+    publishedAt: datetime
     channelId: str
     title: str
     description: str

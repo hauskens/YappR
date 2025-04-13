@@ -82,7 +82,7 @@ class Snippet(BaseModel):
     thumbnails: dict[str, Thumbnail]
     defaultLanguage: str | None = None
     localized: Localized
-    country: str
+    country: str | None = None
 
 
 class YoutubeChannel(BaseModel):

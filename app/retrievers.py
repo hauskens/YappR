@@ -53,10 +53,6 @@ def get_broadcaster_channels(broadcaster_id: int) -> Sequence[Channels] | None:
     )
 
 
-def get_channel(channel_id: int) -> Channels:
-    return db.session.execute(select(Channels).filter_by(id=channel_id)).scalars().one()
-
-
 def get_video(video_id: int) -> Video:
     return db.session.execute(select(Video).filter_by(id=video_id)).scalars().one()
 
@@ -149,10 +145,6 @@ def get_segments_by_wordmap(wordmap: WordMaps) -> Sequence[Segments]:
 
 def get_segment_by_id(segment_id: int) -> Segments:
     return db.session.query(Segments).filter_by(id=segment_id).one()
-
-
-def delete_channel(channel_id: int):
-    return db.session.query(Channels).filter_by(id=channel_id).delete()
 
 
 def delete_broadcaster(broadcaster_id: int):

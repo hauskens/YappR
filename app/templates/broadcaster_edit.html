@@ -18,6 +18,7 @@
       <thead>
         <tr>
           <th scope="col">Channel ID</th>
+          <th scope="col">Channel External ID</th>
           <th scope="col">Display Name</th>
           <th scope="col">Platform</th>
           <th scope="col">ID</th>
@@ -29,12 +30,14 @@
         {% for channel in channels %}
         <tr>
           <td>{{ channel.id }}</td>
+          <td>{{ channel.platform_channel_id }}</td>
           <td>{{ channel.name }}</td>
           <td>{{ channel.platform.name }}</td>
           <td>{{ channel.platform_ref }}</td>
           <td>{{ channel.main_video_type.name }}</td>
           <td>
-            <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', id=channel.id) }}">Edit Channel</a>
+            <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Edit Channel</a>
+            <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Fetch details</button>
             <a class="btn btn-danger disabled" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
           </td>
         </tr>

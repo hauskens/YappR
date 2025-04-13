@@ -29,6 +29,7 @@ from .models.db import (
     Video,
     db,
 )
+from .models.repository import Channel
 from .models.config import Config
 from .parse import parse_vtt
 import logging
@@ -127,6 +128,13 @@ def index():
     broadcasters = get_broadcasters()
     logger.info("Loaded search.html")
     return render_template("search.html", broadcasters=broadcasters)
+
+
+@app.route("/test")
+def test():
+    channel = Channel(channel_id=3)
+    # channel.update()
+    return f"{channel.db_ref.name} - {channel.db_ref.platform_channel_id}"
 
 
 @app.route("/users")
@@ -354,22 +362,38 @@ def channel_create():
 @app.route("/channel/<int:channel_id>/delete")
 @requires_authorization
 def channel_delete(channel_id: int):
-    _ = delete_channel(channel_id)
+    channel = Channel(channel_id)
+    _ = channel.delete()
     db.session.commit()
     return "ok"
 
 
-@app.route("/channel/<int:id>/get_videos")
+@app.route("/channel/<int:channel_id>/get_videos")
 @requires_authorization
-def channel_get_videos(id: int):
-    videos = get_video_by_channel(channel_id=id)
-    return render_template("channel_edit.html", videos=videos, channel=get_channel(id))
+def channel_get_videos(channel_id: int):
+    channel = Channel(channel_id).db_ref
+    videos = get_video_by_channel(channel_id=channel.id)
+    return render_template("channel_edit.html", videos=videos, channel=channel)
+
+
+@app.route("/channel/<int:channel_id>/fetch_details")
+@requires_authorization
+def channel_fetch_details(channel_id: int):
+    channel = Channel(channel_id)
+    channel.update()
+    return render_template(
+        "broadcaster_edit.html",
+        broadcaster=channel.db_ref.broadcaster_id,
+        channels=get_broadcaster_channels(broadcaster_id=channel.db_ref.broadcaster_id),
+        platforms=get_platforms(),
+        video_types=VideoType,
+    )
 
 
 @app.route("/channel/<int:id>/fetch_videos")
 @requires_authorization
 def channel_fetch_videos(id: int):
-    channel = get_channel(id)
+    channel = Channel(id).db_ref
     url = channel.get_url()
     logger.info(f"Fetching videos for {channel.name} using url: {url}")
     if channel.platform.name.lower() == "youtube" and url is not None:
@@ -410,7 +434,7 @@ def channel_fetch_videos(id: int):
                         thumbnail = save_largest_thumbnail(video)
                         existing_video.thumbnail = open(thumbnail, "rb")
         db.session.commit()
-    return redirect(url_for("channel_get_videos", id=id))
+    return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
 @celery.task
@@ -442,27 +466,28 @@ def task_parse_transcription(transcription_id: int):
 @app.route("/channel/<int:id>/fetch_audio")
 @requires_authorization
 def channel_fetch_audio(id: int):
-    channel = get_channel(id)
+    channel = Channel(id).db_ref
     logger.info(f"Fetching all audio for {channel.name}")
     for video in channel.videos:
         _ = task_audio.delay(video.id)
-    return redirect(url_for("channel_get_videos", id=id))
+    return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
 # todo: send some confirmation to user that task is queued and prevent new queue from getting started
 @app.route("/channel/<int:id>/fetch_transcriptions")
 @requires_authorization
 def channel_fetch_transcriptions(id: int):
-    channel = get_channel(id)
+    channel = Channel(id).db_ref
     logger.info(f"Fetching all transcriptions for {channel.name}")
     for video in channel.videos:
         _ = task_fetch_transcription.delay(video.id)
-    return redirect(url_for("channel_get_videos", id=id))
+    return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
 @app.route("/channel/<int:id>/parse_transcriptions")
 @requires_authorization
 def channel_parse_transcriptions(id: int):
+    channel = Channel(id).db_ref
     videos = get_video_by_channel(id)
     if videos is not None:
         for video in videos:
@@ -472,7 +497,7 @@ def channel_parse_transcriptions(id: int):
                 for tran in transcriptions:
 
                     _ = task_parse_transcription.delay(tran.id)
-    return redirect(url_for("channel_get_videos", id=id))
+    return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
 @app.route("/video/<int:id>/fetch_transcriptions")

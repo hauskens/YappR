@@ -85,11 +85,14 @@ class Channels(Base):
     __tablename__: str = "channels"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(250))
-    broadcaster_id: Mapped[str] = mapped_column(ForeignKey("broadcaster.id"))
+    broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
     broadcaster: Mapped["Broadcaster"] = relationship()
     platform_id: Mapped[int] = mapped_column(ForeignKey("platforms.id"))
     platform: Mapped["Platforms"] = relationship()
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
+    platform_channel_id: Mapped[str | None] = mapped_column(
+        String(), unique=True, nullable=True
+    )
     main_video_type: Mapped[str] = mapped_column(
         Enum(VideoType), default=VideoType.Unknown
     )

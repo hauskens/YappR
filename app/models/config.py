@@ -28,6 +28,12 @@ class Config:
         self.discord_client_secret: str | None = os.environ.get("DISCORD_CLIENT_SECRET")
         self.discord_redirect_uri: str | None = os.environ.get("DISCORD_REDIRECT_URI")
         self.youtube_api_key: str | None = os.environ.get("YOUTUBE_API_KEY")
+        self.webshare_proxy_username: str | None = os.environ.get(
+            "WEBSHARE_PROXY_USERNAME"
+        )
+        self.webshare_proxy_password: str | None = os.environ.get(
+            "WEBSHARE_PROXY_PASSWORD"
+        )
 
 
 config = Config()

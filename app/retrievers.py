@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Sequence
-from sqlalchemy import select, func
+from sqlalchemy import select
 from flask_discord.models import User
 from .models.db import (
     Broadcaster,

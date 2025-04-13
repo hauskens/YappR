@@ -10,7 +10,7 @@ class Thumbnail(BaseModel):
 
 class Id(BaseModel):
     kind: str
-    videoId: str | None = None
+    videoId: str
     channelId: str | None = None  # make channelId optional
     playlistId: str | None = None  # make playlistId optional
 

@@ -11,7 +11,6 @@ from .models.db import (
     Channels,
     Video,
     Transcription,
-    TranscriptionSource,
     Logs,
     Users,
     AccountSource,
@@ -19,7 +18,6 @@ from .models.db import (
     db,
 )
 from .tasks import (
-    get_yt_video_subtitles,
     get_yt_audio,
 )
 from datetime import datetime
@@ -234,44 +232,6 @@ def add_log(log_text: str):
     logger.info(log_text)
     db.session.add(Logs(text=log_text))
     db.session.commit()
-
-
-def fetch_transcription(video_id: int):
-    video = get_video(video_id)
-    video_url = video.get_url()
-    if video_url is not None:
-        logger.info(f"fetching transcription for {video_url}")
-        subtitles, parsedDate = get_yt_video_subtitles(video_url)
-        if parsedDate is not None:
-            video.uploaded = parsedDate
-        for sub in subtitles:
-            logger.info(
-                f"checking if transcriptions exists on {video_id}, {len(video.transcriptions)}"
-            )
-            if len(video.transcriptions) == 0:
-                logger.info(f"transcriptions not found on {video_id}, adding new..")
-                db.session.add(
-                    Transcription(
-                        video_id=video_id,
-                        language=sub.language,
-                        file_extention=sub.extention,
-                        file=open(sub.path, "rb"),
-                        source=TranscriptionSource.YouTube,
-                    )
-                )
-            else:
-                logger.info(f"transcriptions found on {video_id}, updating existing..")
-                for t in video.transcriptions:
-                    logger.info(
-                        f"transcriptions found on {video_id} with platform {t.source}"
-                    )
-                    if t.source == TranscriptionSource.YouTube:
-                        t.file = open(sub.path, "rb")
-                        t.file_extention = sub.extention
-                        t.language = sub.language
-                        t.last_updated = datetime.now()
-
-        db.session.commit()
 
 
 def fetch_audio(video_id: int):

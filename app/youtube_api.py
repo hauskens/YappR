@@ -1,4 +1,5 @@
 import logging
+import time
 from .models.config import config
 from googleapiclient.discovery import build
 
@@ -104,9 +105,12 @@ def get_all_videos_on_channel(channel_id: str) -> list[SearchResultItem]:
     return all_videos
 
 
-def get_videos(video_id: str) -> list[VideoDetails]:
+def get_videos(video_ids: list[str]) -> list[VideoDetails]:
+    logging.debug(f"get_videos: Fetching videos for ids: {",".join(video_ids)}")
     request = (
-        youtube.videos().list(part="snippet", id=video_id, maxResults=25).execute()
+        youtube.videos()
+        .list(part="snippet,contentDetails", id=",".join(video_ids), maxResults=25)
+        .execute()
     )
     videos = VideoResourceResponse.model_validate(request)
     return videos.items
@@ -118,17 +122,19 @@ def get_captions(video_id: str) -> CaptionResourceResponse:
     return caption
 
 
-def fetch_transcription(video_id: str, max_retries: int = 3) -> FetchedTranscript:
+def fetch_transcription(video_id: str, max_retries: int = 1) -> FetchedTranscript:
     logger.info(
         f"fetch_transcription: trying to fetch transcription for video {video_id}"
     )
     max_retries = max_retries
     backoff_delay = 0.5
     attempt = 1
+    exception = ""
     while max_retries > 0:
         try:
             return ytt_api.fetch(video_id)
         except Exception as e:
+            exception = e
             logging.warning(
                 f"Failed to fetch transcription for video {video_id} , (attempt {attempt}/{max_retries})"
             )
@@ -139,5 +145,5 @@ def fetch_transcription(video_id: str, max_retries: int = 3) -> FetchedTranscrip
             attempt += 1
             time.sleep(backoff_delay * 2 ** (max_retries - 1))
     raise Exception(
-        f"Failed to fetch transcription for video {video_id} after {max_retries} retries"
+        f"Failed to fetch transcription for video {video_id} after {attempt} retries with exception: {exception}"
     )

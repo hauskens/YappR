@@ -26,18 +26,15 @@ from .models.db import (
     VideoType,
     Channels,
     PermissionType,
-    Video,
     db,
 )
-from .models.repository import Channel
+from .repository import Channel, save_transcription
 from .models.config import Config
 from .parse import parse_vtt
 import logging
 from os import makedirs
 from .tasks import (
     get_yt_segment,
-    get_yt_videos,
-    save_largest_thumbnail,
 )
 import io
 import os
@@ -393,54 +390,16 @@ def channel_fetch_details(channel_id: int):
 @app.route("/channel/<int:id>/fetch_videos")
 @requires_authorization
 def channel_fetch_videos(id: int):
-    channel = Channel(id).db_ref
-    url = channel.get_url()
-    logger.info(f"Fetching videos for {channel.name} using url: {url}")
-    if channel.platform.name.lower() == "youtube" and url is not None:
-        channel_videos = get_yt_videos(channel_url=url)
-        # todo: add try/catch and commit data
-        if channel_videos is not None:
-            for video in channel_videos:
-                existing_video = get_video_by_ref(video.id)
-                if existing_video is None:
-                    thumbnail = save_largest_thumbnail(video)
-                    if thumbnail is not None:
-                        db.session.add(
-                            Video(
-                                title=video.title,
-                                video_type=VideoType.VOD,
-                                channel_id=channel.id,
-                                platform_ref=video.id,
-                                duration=video.duration,
-                                thumbnail=open(thumbnail, "rb"),
-                            )
-                        )
-                    else:
-                        # this is reduntant, can be done much more pretty i guess, but im lazy rn
-                        db.session.add(
-                            Video(
-                                title=video.title,
-                                video_type=VideoType.VOD,
-                                channel_id=channel.id,
-                                platform_ref=video.id,
-                                duration=video.duration,
-                            )
-                        )
-
-                else:
-                    existing_video.title = video.title
-                    existing_video.duration = video.duration
-                    if existing_video.thumbnail is None:
-                        thumbnail = save_largest_thumbnail(video)
-                        existing_video.thumbnail = open(thumbnail, "rb")
-        db.session.commit()
-    return redirect(url_for("channel_get_videos", channel_id=channel.id))
+    channel = Channel(id)
+    logger.info(f"Fetching videos for {channel.db_ref.name}")
+    channel.fetch_latest_videos()
+    return redirect(url_for("channel_get_videos", channel_id=channel.db_ref.id))
 
 
 @celery.task
 def task_fetch_transcription(video_id: int):
     logger.info(f"Task queued, fetching transcription for {video_id}")
-    fetch_transcription(video_id)
+    save_transcription(video_id)
 
 
 @celery.task
@@ -504,7 +463,7 @@ def channel_parse_transcriptions(id: int):
 @requires_authorization
 def video_fetch_transcriptions(id: int):
     logger.info(f"Fetching transcriptions for {id}")
-    fetch_transcription(id)
+    save_transcription(id)
     return redirect(url_for("video_get_transcriptions", id=id))
 
 

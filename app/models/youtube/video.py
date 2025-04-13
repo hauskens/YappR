@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 class Thumbnail(BaseModel):
@@ -28,7 +28,7 @@ class ThumbnailDetails(BaseModel):
 
 
 class ContentDetails(BaseModel):
-    duration: str
+    duration: timedelta
     definition: str
     caption: bool
     licensedContentId: str | None = None
@@ -163,7 +163,7 @@ class VideoDetails(BaseModel):
     snippet: Snippet
     statistics: Statistics | None = None
     status: StatusDetails | None = None
-    contentDetails: ContentDetails | None = None
+    contentDetails: ContentDetails
     paidProductPlacementDetails: PaidProductPlacementDetails | None = None
     player: PlayerDetails | None = None
     topicDetails: TopicDetails | None = None

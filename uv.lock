@@ -272,20 +272,38 @@ wheels = [
 ]
 
 [[package]]
-name = "flask-discord"
-version = "0.1.69"
+name = "flask-dance"
+version = "7.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "cachetools" },
     { name = "flask" },
     { name = "oauthlib" },
-    { name = "pyjwt" },
     { name = "requests" },
     { name = "requests-oauthlib" },
+    { name = "urlobject" },
+    { name = "werkzeug" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ed/43/a02d33b730d7fecdbdb496e40ec4262adf6b09791689e9e08cdf91c3c889/Flask-Discord-0.1.69.tar.gz", hash = "sha256:1029a26a57a1edcd78fc1243d8cf39385adad27cbbfd01d3c59cb5ceb8834645", size = 19399 }
+sdist = { url = "https://files.pythonhosted.org/packages/d7/b3/38aff96fbafe850f7f4186dc06e96ebc29625d68d1427ad65c9d41c4ec9e/flask_dance-7.1.0.tar.gz", hash = "sha256:6d0510e284f3d6ff05af918849791b17ef93a008628ec33f3a80578a44b51674", size = 140993 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/3f/d5/ac83a8d20c34e55a7bfb1215d94a37e6edf574f8a4d9b0f84da79d298442/Flask_Discord-0.1.69-py3-none-any.whl", hash = "sha256:d48fc6c2975f876b9c1476f285d98966039be396b9d9585402e01350cf1d39fb", size = 25376 },
+    { url = "https://files.pythonhosted.org/packages/75/8c/4125e9f1196e5ab9675d38ff445ae4abd7085aba7551335980ac19196389/flask_dance-7.1.0-py3-none-any.whl", hash = "sha256:81599328a2b3604fd4332b3d41a901cf36980c2067e5e38c44ce3b85c4e1ae9c", size = 62176 },
+]
+
+[package.optional-dependencies]
+sqla = [
+    { name = "sqlalchemy" },
+]
+
+[[package]]
+name = "flask-login"
+version = "0.6.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "flask" },
+    { name = "werkzeug" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c3/6e/2f4e13e373bb49e68c02c51ceadd22d172715a06716f9299d9df01b6ddb2/Flask-Login-0.6.3.tar.gz", hash = "sha256:5e23d14a607ef12806c699590b89d0f0e0d67baeec599d75947bf9c147330333", size = 48834 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/59/f5/67e9cc5c2036f58115f9fe0f00d203cf6780c3ff8ae0e705e7a9d9e8ff9e/Flask_Login-0.6.3-py3-none-any.whl", hash = "sha256:849b25b82a436bf830a054e74214074af59097171562ab10bfa999e6b78aae5d", size = 17303 },
 ]
 
 [[package]]
@@ -788,15 +806,6 @@ wheels = [
 ]
 
 [[package]]
-name = "pyjwt"
-version = "2.10.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/e7/46/bd74733ff231675599650d3e47f361794b22ef3e3770998dda30d3b63726/pyjwt-2.10.1.tar.gz", hash = "sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953", size = 87785 }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/61/ad/689f02752eeec26aed679477e80e632ef1b682313be70793d798c1d5fc8f/PyJWT-2.10.1-py3-none-any.whl", hash = "sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb", size = 22997 },
-]
-
-[[package]]
 name = "pyparsing"
 version = "3.2.3"
 source = { registry = "https://pypi.org/simple" }
@@ -1025,6 +1034,12 @@ wheels = [
 ]
 
 [[package]]
+name = "urlobject"
+version = "2.4.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/e2/b8/1d0a916f4b34c4618846e6da0e4eeaa8fcb4a2f39e006434fe38acb74b34/URLObject-2.4.3.tar.gz", hash = "sha256:47b2e20e6ab9c8366b2f4a3566b6ff4053025dad311c4bb71279bbcfa2430caa", size = 27878 }
+
+[[package]]
 name = "vine"
 version = "5.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1093,7 +1108,8 @@ dependencies = [
     { name = "celery-stubs" },
     { name = "fasteners" },
     { name = "flask" },
-    { name = "flask-discord" },
+    { name = "flask-dance", extra = ["sqla"] },
+    { name = "flask-login" },
     { name = "flask-nav" },
     { name = "flask-sqlalchemy" },
     { name = "google-api-python-client" },
@@ -1119,7 +1135,8 @@ requires-dist = [
     { name = "celery-stubs", specifier = ">=0.1.3" },
     { name = "fasteners", specifier = ">=0.19" },
     { name = "flask", specifier = ">=3.1.0" },
-    { name = "flask-discord", specifier = ">=0.1.69" },
+    { name = "flask-dance", extras = ["sqla"], specifier = ">=7.1.0" },
+    { name = "flask-login", specifier = ">=0.6.3" },
     { name = "flask-nav", specifier = ">=0.6" },
     { name = "flask-sqlalchemy", specifier = ">=3.1.1" },
     { name = "google-api-python-client", specifier = ">=2.166.0" },

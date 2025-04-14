@@ -9,14 +9,19 @@ from sqlalchemy import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, query
 from sqlalchemy_file import FileField
 from sqlalchemy_file import File
 from datetime import datetime
+from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
+from flask_login import LoginManager, UserMixin
 
 
 class Base(DeclarativeBase):
     pass
+
+
+db = SQLAlchemy(model_class=Base)
 
 
 class Broadcaster(Base):
@@ -57,14 +62,17 @@ class AccountSource(enum.Enum):
     Discord = "discord"
 
 
-class Users(Base):
+class Users(Base, UserMixin):
     __tablename__: str = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(500))
-    external_account_id: Mapped[str] = mapped_column(String(500), unique=True)
+    external_account_id: Mapped[str | None] = mapped_column(
+        String(500), unique=True, nullable=True
+    )
     account_type: Mapped[str] = mapped_column(Enum(AccountSource))
     first_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
     last_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     permissions: Mapped[list["Permissions"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
@@ -181,4 +189,13 @@ class WordMaps(Base):
     transcription: Mapped["Transcription"] = relationship()
 
 
-db = SQLAlchemy(model_class=Base)
+class OAuth(OAuthConsumerMixin, Base):
+    provider_user_id: Mapped[str] = mapped_column(
+        String(256), unique=True, nullable=False
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user: Mapped["Users"] = relationship()
+
+
+login_manager = LoginManager()
+login_manager.login_view = "discord.login"

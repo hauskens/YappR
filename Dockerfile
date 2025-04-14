@@ -3,7 +3,7 @@ WORKDIR /src
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 
-RUN apt update && apt install -y ffmpeg
+RUN apt update && apt install -y  --no-install-recommends ffmpeg
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN --mount=type=cache,target=/root/.cache/uv \

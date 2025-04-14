@@ -16,7 +16,13 @@
       devShells.x86_64-linux.default = let arch = "x86_64-linux";
       in with nixpkgs.legacyPackages.${arch};
       mkShell {
-        buildInputs = with pkgs; [ uv python3 ffmpeg python3Packages.alembic ];
+        buildInputs = with pkgs; [
+          uv
+          python3
+          ffmpeg
+          python3Packages.alembic
+          python3Packages.openai-whisper
+        ];
       };
 
     };

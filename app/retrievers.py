@@ -1,7 +1,6 @@
 import logging
 from collections.abc import Sequence
 from sqlalchemy import select
-from flask_discord.models import User
 from .models.db import (
     Broadcaster,
     Permissions,
@@ -210,22 +209,6 @@ def add_permissions(user: Users, permission_type: PermissionType):
         db.session.add(Permissions(user_id=user.id, permission_type=permission_type))
         logger.info(f"Granted {permission_type.name} {user.name}!")
         db.session.commit()
-
-
-def add_user(user: User):
-    existing_user = db.session.query(Users).filter_by(external_account_id=str(user.id))
-    if existing_user.one_or_none() is None:
-        db.session.add(
-            Users(
-                name=str(user.username),
-                external_account_id=str(user.id),
-                account_type=AccountSource.Discord,
-            )
-        )
-        logger.info(f"User created for {user.username}!")
-    else:
-        existing_user.one().last_login = datetime.now()
-    db.session.commit()
 
 
 def add_log(log_text: str):

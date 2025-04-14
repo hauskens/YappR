@@ -77,6 +77,9 @@ class Users(Base, UserMixin):
         back_populates="user", cascade="all, delete-orphan"
     )
 
+    def has_permission(self, permission_type: PermissionType) -> bool:
+        return any(p.permission_type == permission_type for p in self.permissions)
+
 
 class Permissions(Base):
     __tablename__: str = "permissions"

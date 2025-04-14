@@ -32,7 +32,9 @@
           <div class="navbar-nav mr-auto">
             {{ render_nav_item('broadcasters', 'Broadcasters') }}
             {{ render_nav_item('search_page', 'Search') }}
-            {{ render_nav_item('users', 'Users') }}
+            {% if g.user_object.permissions is defined %}
+              {{ render_nav_item('users', 'Users') }}
+            {% endif %}
             {{ render_nav_item('stats', 'Stats') }}
           </div>
         </div>

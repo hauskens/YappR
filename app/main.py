@@ -179,20 +179,12 @@ def index():
     return render_template("search.html", broadcasters=broadcasters)
 
 
-@app.route("/test")
-def test():
-    channel = Channel(channel_id=3)
-    # channel.update()
-    return f"{channel.db_ref.name} - {channel.db_ref.platform_channel_id}"
-
-
 @app.route("/users")
+@login_required
 def users():
     users = get_users()
-    logger.info("Loaded search.html")
-    if has_permissions_by_ext(
-        user_external_id=str(discord.user_id), permission_type=PermissionType.Admin
-    ):
+    logger.info("Loaded users.html")
+    if current_user.has_permission(PermissionType.Admin):
         return render_template(
             "users.html", users=users, permission_types=PermissionType
         )
@@ -201,12 +193,11 @@ def users():
 
 
 @app.route("/permissions/<int:user_id>/<permission_name>")
+@login_required
 def grant_permission(user_id: int, permission_name: str):
-    if has_permissions_by_ext(
-        user_external_id=str(discord.user_id), permission_type=PermissionType.Admin
-    ):
+    if current_user.has_permission(PermissionType.Admin):
         logger.info(
-            f"User {discord.user_id} is granting '{permission_name}' to {user_id}"
+            f"User {current_user.user_id} is granting '{permission_name}' to {user_id}"
         )
 
         user = get_user_by_id(user_id)
@@ -219,13 +210,13 @@ def grant_permission(user_id: int, permission_name: str):
         return access_denied()
 
 
-# @app.errorhandler(Unauthorized)
-# def redirect_unauthorized(e):
-#     return render_template("unauthorized.html")
-#
+@login_manager.unauthorized_handler
+def redirect_unauthorized():
+    return render_template("unauthorized.html")
 
 
 @app.route("/stats")
+@login_required
 def stats():
     logger.info("Loaded stats.html")
     return render_template(
@@ -237,6 +228,7 @@ def stats():
 
 
 @app.route("/broadcasters")
+@login_required
 def broadcasters():
     broadcasters = get_broadcasters()
     logger.info("Loaded broadcasters.html")
@@ -244,6 +236,7 @@ def broadcasters():
 
 
 @app.route("/search")
+@login_required
 def search_page():
     broadcasters = get_broadcasters()
     logger.info("Loaded search.html")
@@ -251,6 +244,7 @@ def search_page():
 
 
 @app.route("/search", methods=["POST"])
+@login_required
 def search_word():
     logger.info("Loaded search_word.html")
     search_term = request.form["search"]
@@ -288,6 +282,7 @@ def search_word():
 
 
 @app.route("/thumbnails/<int:video_id>")
+@login_required
 def serve_thumbnails(video_id: int):
     video = get_video(video_id)
     content = video.thumbnail.file.read()
@@ -299,6 +294,7 @@ def serve_thumbnails(video_id: int):
 
 
 @app.route("/platforms")
+@login_required
 def platforms():
     platforms = get_platforms()
     logger.info("Loaded platforms.html")
@@ -306,6 +302,7 @@ def platforms():
 
 
 @app.route("/broadcaster/create", methods=["POST"])
+@login_required
 def broadcaster_create():
     name = request.form["name"]
     existing_broadcasters = get_broadcasters()
@@ -323,6 +320,7 @@ def broadcaster_create():
 
 
 @app.route("/broadcaster/edit/<int:id>", methods=["GET"])
+@login_required
 def broadcaster_edit(id: int):
     broadcaster = (
         db.session.execute(select(Broadcaster).filter_by(id=id)).scalars().one()
@@ -338,6 +336,7 @@ def broadcaster_edit(id: int):
 
 
 @app.route("/platform/create", methods=["POST"])
+@login_required
 def platform_create():
     name = request.form["name"]
     url = request.form["url"]
@@ -358,6 +357,7 @@ def platform_create():
 
 
 @app.route("/channel/create", methods=["POST"])
+@login_required
 def channel_create():
     name = request.form["name"]
     broadcaster_id = int(request.form["broadcaster_id"])
@@ -384,6 +384,7 @@ def channel_create():
 
 
 @app.route("/channel/<int:channel_id>/delete")
+@login_required
 def channel_delete(channel_id: int):
     channel = Channel(channel_id)
     _ = channel.delete()
@@ -392,6 +393,7 @@ def channel_delete(channel_id: int):
 
 
 @app.route("/channel/<int:channel_id>/get_videos")
+@login_required
 def channel_get_videos(channel_id: int):
     channel = Channel(channel_id).db_ref
     videos = get_video_by_channel(channel_id=channel.id)
@@ -399,6 +401,7 @@ def channel_get_videos(channel_id: int):
 
 
 @app.route("/channel/<int:channel_id>/fetch_details")
+@login_required
 def channel_fetch_details(channel_id: int):
     channel = Channel(channel_id)
     channel.update()
@@ -412,6 +415,7 @@ def channel_fetch_details(channel_id: int):
 
 
 @app.route("/channel/<int:id>/fetch_videos")
+@login_required
 def channel_fetch_videos(id: int):
     channel = Channel(id)
     logger.info(f"Fetching videos for {channel.db_ref.name}")
@@ -446,6 +450,7 @@ def task_parse_transcription(transcription_id: int):
 
 
 @app.route("/channel/<int:id>/fetch_audio")
+@login_required
 def channel_fetch_audio(id: int):
     channel = Channel(id).db_ref
     logger.info(f"Fetching all audio for {channel.name}")
@@ -456,6 +461,7 @@ def channel_fetch_audio(id: int):
 
 # todo: send some confirmation to user that task is queued and prevent new queue from getting started
 @app.route("/channel/<int:id>/fetch_transcriptions")
+@login_required
 def channel_fetch_transcriptions(id: int):
     channel = Channel(id).db_ref
     logger.info(f"Fetching all transcriptions for {channel.name}")
@@ -465,6 +471,7 @@ def channel_fetch_transcriptions(id: int):
 
 
 @app.route("/channel/<int:id>/parse_transcriptions")
+@login_required
 def channel_parse_transcriptions(id: int):
     channel = Channel(id).db_ref
     videos = get_video_by_channel(id)
@@ -474,12 +481,12 @@ def channel_parse_transcriptions(id: int):
             if transcriptions is not None and len(transcriptions) > 0:
                 # todo: ensure only YT transcriptions are processed
                 for tran in transcriptions:
-
                     _ = task_parse_transcription.delay(tran.id)
     return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
 @app.route("/video/<int:id>/fetch_transcriptions")
+@login_required
 def video_fetch_transcriptions(id: int):
     logger.info(f"Fetching transcriptions for {id}")
     save_transcription(id)
@@ -487,6 +494,7 @@ def video_fetch_transcriptions(id: int):
 
 
 @app.route("/video/<int:id>/get_transcriptions")
+@login_required
 def video_get_transcriptions(id: int):
     return render_template(
         "video_edit.html",
@@ -496,6 +504,7 @@ def video_get_transcriptions(id: int):
 
 
 @app.route("/video/<int:video_id>/parse_transcriptions")
+@login_required
 def video_parse_transcriptions(video_id: int):
     tran = get_transcriptions_by_video(video_id)
     if tran is not None:
@@ -512,6 +521,7 @@ def video_parse_transcriptions(video_id: int):
 
 
 @app.route("/video/<int:video_id>/download_clip", methods=["POST"])
+@login_required
 def download_video_clip(video_id: int):
     start_time = int(request.form["start_time"])
     duration = request.form["duration"]
@@ -528,6 +538,7 @@ def download_video_clip(video_id: int):
 
 
 @app.route("/transcription/<int:id>/download")
+@login_required
 def download_transcription(id: int):
     transcription = get_transcription(id)
     content = transcription.file.file.read()
@@ -539,6 +550,7 @@ def download_transcription(id: int):
 
 
 @app.route("/transcription/<int:transcription_id>/parse")
+@login_required
 def parse_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     if transcription.word_maps is not None:
@@ -553,6 +565,7 @@ def parse_transcription(transcription_id: int):
 
 
 @app.route("/transcription/<int:transcription_id>/delete_wordmaps")
+@login_required
 def delete_wordmaps_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     _ = delete_wordmaps_on_transcription(transcription_id)

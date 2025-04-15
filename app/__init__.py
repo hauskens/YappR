@@ -11,7 +11,7 @@ from sqlalchemy.exc import NoResultFound
 from libcloud.storage.drivers.local import LocalStorageDriver
 from os import makedirs, environ
 from .models.config import config
-from .models.db import db, OAuth
+from .models.db import db, OAuth, Users, AccountSource
 
 logger = logging.getLogger(__name__)
 

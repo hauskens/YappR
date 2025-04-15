@@ -55,17 +55,20 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
 
 
-# @app.route("/admin")
-# def access_denied():
-#     return send_from_directory("static", "404.jpg")
+@app.route("/admin")
+def access_denied():
+    return send_from_directory("static", "404.jpg")
 
 
 @app.before_request
 def get_current_user():
-    if current_user.is_authenticated and "username" not in g:
-        g.user_object = current_user
-        g.username = current_user.name
-        g.avatar_url = current_user.avatar_url
+    try:
+        if current_user.is_authenticated and "username" not in g:
+            g.user_object = current_user
+            g.username = current_user.name
+            g.avatar_url = current_user.avatar_url
+    except:
+        logger.info("get_current_user: failed")
 
 
 @app.route("/")

@@ -72,6 +72,7 @@ bootstrap = Bootstrap5(app)
 config = Config()
 app.secret_key = config.app_secret
 app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
 app.config["CELERY"] = dict(
     broker_url=config.redis_uri, backend=config.database_uri, task_ignore_result=True
 )
@@ -108,11 +109,6 @@ with app.app_context():
             tw = Platforms(name="Twitch", url="https://twitch.tv")
             db.session.add_all([yt, tw])
             db.session.commit()
-
-
-@login_manager.user_loader
-def load_user(oauth_id: int):
-    return db.session.query(OAuth).filter_by(user_id=int(oauth_id)).one().user
 
 
 @oauth_authorized.connect_via(blueprint)

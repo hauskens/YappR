@@ -202,3 +202,8 @@ class OAuth(OAuthConsumerMixin, Base):
 
 login_manager = LoginManager()
 login_manager.login_view = "discord.login"
+
+
+@login_manager.user_loader
+def load_user(oauth_id: int):
+    return db.session.query(OAuth).filter_by(user_id=int(oauth_id)).one().user

@@ -1,6 +1,7 @@
+import logging
 from flask import Flask
 from flask_bootstrap import Bootstrap5
-from flask_login import LoginManager, current_user
+from flask_login import LoginManager, current_user, login_user
 from flask_dance.consumer import oauth_authorized
 from flask_dance.contrib.discord import make_discord_blueprint
 from flask_dance.consumer.storage.sqla import SQLAlchemyStorage
@@ -10,6 +11,8 @@ from libcloud.storage.drivers.local import LocalStorageDriver
 from os import makedirs, environ
 from .models.config import config
 from .models.db import db, OAuth
+
+logger = logging.getLogger(__name__)
 
 
 def init_storage(container: str = "transcriptions"):

@@ -1,12 +1,5 @@
 from sqlalchemy import select
-from sqlalchemy_file.storage import StorageManager
-from libcloud.storage.drivers.local import LocalStorageDriver
-from werkzeug.middleware.proxy_fix import ProxyFix
-from flask_dance.contrib.discord import make_discord_blueprint, discord
-from flask_dance.consumer.storage.sqla import SQLAlchemyStorage
-from flask_login import current_user, login_user, login_required
-from flask_dance.consumer import oauth_authorized, oauth_error
-from sqlalchemy.orm.exc import NoResultFound
+from flask_login import current_user, login_required
 from flask import (
     Flask,
     flash,
@@ -18,38 +11,27 @@ from flask import (
     send_from_directory,
     g,
 )
+
 from celery import Celery, Task
-from flask_bootstrap import Bootstrap5
 from .models.db import (
     Broadcaster,
     Platforms,
     VideoType,
     Channels,
     PermissionType,
-    AccountSource,
     db,
-    OAuth,
-    Users,
-    login_manager,
 )
 from .repository import Channel, save_transcription
-from .models.config import Config
+from .models.config import config
 from .parse import parse_vtt
 import logging
-from os import makedirs
 from .tasks import (
     get_yt_segment,
 )
 import io
-import os
 from .retrievers import *
 from .search import search, search_date
-
-
-def init_storage(container: str = "transcriptions"):
-    makedirs(
-        config.storage_location + "/" + container, 0o777, exist_ok=True
-    )  # Ensure storage folder exists
+from . import create_app, login_manager
 
 
 def celery_init_app(app: Flask) -> Celery:
@@ -66,96 +48,16 @@ def celery_init_app(app: Flask) -> Celery:
     return celery_app
 
 
-# holy... need to clean up this..
-app = Flask(__name__)
-bootstrap = Bootstrap5(app)
-config = Config()
-app.secret_key = config.app_secret
-app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
-app.config["CELERY"] = dict(
-    broker_url=config.redis_uri, backend=config.database_uri, task_ignore_result=True
-)
-db.init_app(app)
-login_manager.init_app(app)
-
-os.environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
-if config.debug:
-    os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "true"
-app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-
-blueprint = make_discord_blueprint(
-    client_id=config.discord_client_id,
-    client_secret=config.discord_client_secret,
-    scope=["identify"],
-)
-blueprint.storage = SQLAlchemyStorage(OAuth, db.session, user=current_user)
-
-app.register_blueprint(blueprint, url_prefix="/login")
+app = create_app()
 
 celery = celery_init_app(app)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
-init_storage()
-container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
-StorageManager.add_storage("default", container)
 
 
-with app.app_context():
-    pf = get_platforms()
-    if pf is not None:
-        if len(pf) == 0:
-            yt = Platforms(name="YouTube", url="https://youtube.com")
-            tw = Platforms(name="Twitch", url="https://twitch.tv")
-            db.session.add_all([yt, tw])
-            db.session.commit()
-
-
-@oauth_authorized.connect_via(blueprint)
-def handle_login(blueprint, token):
-    if not token:
-        # flash("Failed to log in.", ="error")
-        return False
-    resp = blueprint.session.get("/api/users/@me")
-    if not resp.ok:
-        # msg = "Failed to fetch user info."
-        # flash(msg, category="error")
-        return False
-    info = resp.json()
-    logger.info(info)
-    user_id = info["id"]
-    query = db.session.query(OAuth).filter_by(
-        provider=blueprint.name, provider_user_id=user_id
-    )
-    try:
-        oauth = query.one()
-    except NoResultFound:
-        oauth = OAuth(provider=blueprint.name, provider_user_id=user_id, token=token)
-
-    if oauth.user:
-        logger.info("sadasd")
-        _ = login_user(oauth.user)
-        # flash("Successfully signed in.")
-    else:
-
-        u = Users(
-            name=info["global_name"],
-            external_account_id=str(info["id"]),
-            account_type=AccountSource.Discord,
-            avatar_url=f"https://cdn.discordapp.com/avatars/{info["id"]}/{info["avatar"]}.png",
-        )
-        oauth.user = u
-        db.session.add_all([u, oauth])
-
-        db.session.commit()
-        _ = login_user(u)
-    # Disable Flask-Dance's default behavior for saving the OAuth token
-    return False
-
-
-@app.route("/admin")
-def access_denied():
-    return send_from_directory("static", "404.jpg")
+# @app.route("/admin")
+# def access_denied():
+#     return send_from_directory("static", "404.jpg")
 
 
 @app.before_request
@@ -169,7 +71,6 @@ def get_current_user():
 @app.route("/")
 @login_required
 def index():
-
     broadcasters = get_broadcasters()
     logger.info("Loaded search.html")
     return render_template("search.html", broadcasters=broadcasters)

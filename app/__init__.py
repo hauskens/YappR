@@ -7,6 +7,7 @@ from flask_dance.contrib.discord import make_discord_blueprint
 from flask_dance.consumer.storage.sqla import SQLAlchemyStorage
 from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy_file.storage import StorageManager
+from sqlalchemy.exc import NoResultFound
 from libcloud.storage.drivers.local import LocalStorageDriver
 from os import makedirs, environ
 from .models.config import config

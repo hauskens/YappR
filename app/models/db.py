@@ -14,7 +14,7 @@ from sqlalchemy_file import FileField
 from sqlalchemy_file import File
 from datetime import datetime
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
-from flask_login import LoginManager, UserMixin
+from flask_login import UserMixin
 
 
 class Base(DeclarativeBase):
@@ -198,12 +198,3 @@ class OAuth(OAuthConsumerMixin, Base):
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["Users"] = relationship()
-
-
-login_manager = LoginManager()
-login_manager.login_view = "discord.login"
-
-
-@login_manager.user_loader
-def load_user(oauth_id: int):
-    return db.session.query(OAuth).filter_by(user_id=int(oauth_id)).one().user

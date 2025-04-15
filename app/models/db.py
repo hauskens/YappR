@@ -13,8 +13,11 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship,
 from sqlalchemy_file import FileField
 from sqlalchemy_file import File
 from datetime import datetime
+import logging
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
 from flask_login import UserMixin
+
+logger = logging.getLogger(__name__)
 
 
 class Base(DeclarativeBase):
@@ -79,6 +82,14 @@ class Users(Base, UserMixin):
 
     def has_permission(self, permission_type: PermissionType) -> bool:
         return any(p.permission_type == permission_type for p in self.permissions)
+
+    def add_permissions(self, permission_type: PermissionType):
+        if not self.has_permission(permission_type):
+            db.session.add(
+                Permissions(user_id=self.id, permission_type=permission_type)
+            )
+            db.session.commit()
+            logger.info(f"Granted {permission_type.name} to {self.name}!")
 
 
 class Permissions(Base):

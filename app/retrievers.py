@@ -184,33 +184,6 @@ def get_user_by_id(user_id: int) -> Users:
     return db.session.query(Users).filter_by(id=user_id).one()
 
 
-def get_permissions_by_ext(user_external_id: str) -> list[Permissions]:
-    user = get_user_by_ext(user_external_id)
-    return db.session.query(Permissions).filter_by(user_id=user.id).all()
-
-
-def has_permissions_by_ext(
-    user_external_id: str, permission_type: PermissionType
-) -> bool:
-    permissions = get_permissions_by_ext(user_external_id)
-    for p in permissions:
-        if p.permission_type == permission_type:
-            return True
-    return False
-
-
-def add_permissions(user: Users, permission_type: PermissionType):
-    existing_permissions = (
-        db.session.query(Permissions)
-        .filter_by(user_id=user.id, permission_type=permission_type)
-        .one_or_none()
-    )
-    if existing_permissions is None:
-        db.session.add(Permissions(user_id=user.id, permission_type=permission_type))
-        logger.info(f"Granted {permission_type.name} {user.name}!")
-        db.session.commit()
-
-
 def add_log(log_text: str):
     logger.info(log_text)
     db.session.add(Logs(text=log_text))

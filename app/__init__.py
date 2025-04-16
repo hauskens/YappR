@@ -6,9 +6,7 @@ from flask_dance.consumer import oauth_authorized
 from flask_dance.contrib.discord import make_discord_blueprint
 from flask_dance.consumer.storage.sqla import SQLAlchemyStorage
 from werkzeug.middleware.proxy_fix import ProxyFix
-from sqlalchemy_file.storage import StorageManager
 from sqlalchemy.exc import NoResultFound
-from libcloud.storage.drivers.local import LocalStorageDriver
 from os import makedirs, environ
 from .models.config import config
 from .models.db import db, OAuth, Users, AccountSource
@@ -33,9 +31,6 @@ blueprint = make_discord_blueprint(
     scope=["identify"],
 )
 blueprint.storage = SQLAlchemyStorage(OAuth, db.session, user=current_user)
-
-container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
-StorageManager.add_storage("default", container)
 
 
 @login_manager.user_loader
@@ -106,3 +101,6 @@ def create_app():
 
     app.register_blueprint(blueprint, url_prefix="/login")
     return app
+
+
+app = create_app()

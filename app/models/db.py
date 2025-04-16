@@ -1,5 +1,6 @@
 import enum
 from sqlalchemy import (
+    Boolean,
     ForeignKey,
     String,
     Integer,
@@ -9,15 +10,26 @@ from sqlalchemy import (
 )
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy.dialects.postgresql import ARRAY
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, query
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy_file import FileField
 from sqlalchemy_file import File
 from datetime import datetime
+from io import BytesIO
 import logging
+import webvtt
+import re
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
 from flask_login import UserMixin
+from sqlalchemy_file.storage import StorageManager
+from libcloud.storage.drivers.local import LocalStorageDriver
+from .config import config
+from ..utils import get_sec, sanitize_sentence
 
 logger = logging.getLogger(__name__)
+
+
+container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
+StorageManager.add_storage("default", container)
 
 
 class Base(DeclarativeBase):
@@ -165,12 +177,86 @@ class Transcription(Base):
     source: Mapped[TranscriptionSource] = mapped_column(
         Enum(TranscriptionSource), default=TranscriptionSource.Unknown
     )
-    segments: Mapped[list["Segments"] | None] = relationship(
+    processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    segments: Mapped[list["Segments"]] = relationship(
         back_populates="transcription", cascade="all, delete-orphan"
     )
-    word_maps: Mapped[list["WordMaps"] | None] = relationship(
+    word_maps: Mapped[list["WordMaps"]] = relationship(
         back_populates="transcription", cascade="all, delete-orphan"
     )
+
+    def delete_attached_wordmaps(self):
+        _ = db.session.query(WordMaps).filter_by(transcription_id=self.id).delete()
+        self.processed = False
+        db.session.commit()
+
+    def process_transcription(self, force: bool = False):
+        logger.info(f"Task queued, parsing transcription for {self.id}")
+        if self.processed:
+            logger.info(f"Transcription {self.id}, already processed.. skipping")
+            return
+        if len(self.word_maps) > 0:
+            logger.debug(f"wordmaps already found on {self.id}")
+            if force:
+                self.delete_attached_wordmaps()
+            else:
+                self.processed = True
+                db.session.commit()
+                return
+            db.session.flush()
+        _ = self.parse_vtt()
+        self.processed = True
+        db.session.commit()
+
+    def parse_vtt(self):
+        logger.info(f"Processing vtt transcription: {self.id}")
+        segments: list[Segments] = []
+        word_map: list[WordMaps] = []
+        content = BytesIO(self.file.file.read())
+        previous = None
+        for caption in webvtt.from_buffer(content):
+            start = get_sec(caption.start)
+            # remove annotations, such as [music]
+            text = re.sub(r"\[.*?\]", "", caption.text).strip().lower()
+
+            if "\n" in text:
+                continue
+            if text == "":
+                continue
+            if text == previous:
+                continue
+
+            segment = Segments(
+                text=text,
+                start=start,
+                transcription_id=self.id,
+                end=get_sec(caption.end),
+            )
+            db.session.add(segment)
+            db.session.flush()
+            previous = text
+            segments.append(segment)
+            # words = pos_tag(word_tokenize(text))
+            words = sanitize_sentence(text)
+            # words = text.split()
+            for word in words:
+                found_existing_word = False
+                for wm in word_map:
+                    if wm.word == word:
+                        wm.segments.append(segment.id)
+                        found_existing_word = True
+                        break
+                if found_existing_word == False:
+                    word_map.append(
+                        WordMaps(
+                            word=word,
+                            segments=[segment.id],
+                            transcription_id=self.id,
+                        )
+                    )
+        db.session.add_all(word_map)
+        db.session.commit()
+        logger.info(f"Done processing transcription: {self.id}")
 
 
 class Logs(Base):

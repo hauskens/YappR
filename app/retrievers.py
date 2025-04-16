@@ -148,14 +148,6 @@ def delete_broadcaster(broadcaster_id: int):
     return db.session.query(Broadcaster).filter_by(id=broadcaster_id).delete()
 
 
-def delete_wordmaps_on_transcription(transcription_id: int):
-
-    logger.info(f"delete wordmaps on transcription id: {transcription_id}")
-    return (
-        db.session.query(WordMaps).filter_by(transcription_id=transcription_id).delete()
-    )
-
-
 def get_users() -> list[Users]:
     return db.session.query(Users).all()
 

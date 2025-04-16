@@ -3,6 +3,7 @@
 {% block content %}
   <div class="container">
     <h1>Videos on Channel: {{ channel.name }}</h1>
+    {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
     <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
       Some admin buttons...
     </a>
@@ -12,9 +13,10 @@
       <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('channel_fetch_audio', id=channel.id) }}';">Fetch audio on all videos</button>
       <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', id=channel.id) }}';">Fetch all transcriptions</button>
       <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', id=channel.id) }}';">Process ALL transcriptions</button>
-      <p>Count of videos: {{ videos|length }}</p>
     </div>
     <hr>
+    {% endif %}{% endfor %}
+    <p>Videos on channel: {{ videos|length }}</p>
     <table class="table table-striped">
       <thead>
         <tr>
@@ -41,13 +43,15 @@
           <td>{{ video.title }}</td>
           <td>{{ video.video_type.name }}</td>
           <td><a href="{{ video.get_url() }}">Link</a></td>
-          <td>{{ video.transcriptions|length }}</td>
+          <td> {{ 'No transcriptions' if video.transcriptions|length == 0 }} {% for t in video.transcriptions %}
+                {{ 'Processed' if t.processed else 'Not processed' }}
+                {% endfor %}</td>
           <td>{{ video.audio.filename }}</td>
           <td>{{ video.uploaded }}</td>
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', id=video.id) }}">Edit Video</a>
-            <!-- <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', id=video.id) }}">Fetch transcriptions</a> -->
-            <!-- <a class="btn btn-primary" role="button" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Process transcriptions</a> -->
+            <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', id=video.id) }}">Download transcriptions</a>
+            <a class="btn btn-primary" role="button" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Process transcriptions</a>
           </td>
         </tr>
         {% endfor %}

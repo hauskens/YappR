@@ -1,16 +1,14 @@
 import yt_dlp
 from yt_dlp.utils import download_range_func
-from .models.yt import VideoData, SubtitleData, Thumbnail
-from .models.config import Config
+from .models.yt import VideoData, Thumbnail
 import logging
 import os
-import requests
+from .models.config import config
 from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
-storage_directory = os.path.abspath(Config().cache_location)
-config = Config()
+storage_directory = os.path.abspath(config.cache_location)
 
 
 def parse_metadata_file(path: str) -> datetime | None:

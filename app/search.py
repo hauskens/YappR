@@ -14,10 +14,8 @@ from .retrievers import (
     get_segments_by_wordmap,
     get_segment_by_id,
 )
-from .parse import sanitize_sentence
-from nltk.corpus import stopwords
+from .utils import sanitize_sentence, sw
 
-sw = stopwords.words("english")
 
 logger = logging.getLogger(__name__)
 

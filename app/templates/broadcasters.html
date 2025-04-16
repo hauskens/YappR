@@ -24,6 +24,7 @@
       </tbody>
     </table>
 
+    {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
     <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
       Add new Broadcaster..
     </a>
@@ -48,4 +49,5 @@
       </div>
     {% endif %}
   {% endwith %}
+  {% endif %}{% endfor %}
 {% endblock %}

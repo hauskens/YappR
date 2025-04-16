@@ -23,7 +23,6 @@ from .models.db import (
 )
 from .repository import Channel, save_transcription
 from .models.config import config
-from .parse import parse_vtt
 import logging
 from .tasks import (
     get_yt_segment,
@@ -31,7 +30,7 @@ from .tasks import (
 import io
 from .retrievers import *
 from .search import search, search_date
-from . import create_app, login_manager
+from . import app, login_manager
 
 
 def celery_init_app(app: Flask) -> Celery:
@@ -47,8 +46,6 @@ def celery_init_app(app: Flask) -> Celery:
     app.extensions["celery"] = celery_app
     return celery_app
 
-
-app = create_app()
 
 celery = celery_init_app(app)
 logger = logging.getLogger(__name__)
@@ -101,7 +98,7 @@ def grant_permission(user_id: int, permission_name: str):
         )
 
         user = get_user_by_id(user_id)
-        _ = add_permissions(user, PermissionType[permission_name])
+        _ = user.add_permissions(PermissionType[permission_name])
         users = get_users()
         return render_template(
             "users.html", users=users, permission_types=PermissionType
@@ -336,17 +333,9 @@ def task_audio(video_id: int):
 
 
 @celery.task
-def task_parse_transcription(transcription_id: int):
-    tran = get_transcription(transcription_id)
-    logger.info(f"Task queued, parsing transcription for {transcription_id}")
-    if tran.word_maps is not None:
-        logger.debug(f"wordmaps already found, deleting {id}")
-        _ = delete_wordmaps_on_transcription(transcription_id)
-        db.session.flush()
-    content = tran.file.file.read()
-    _ = parse_vtt(
-        db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription_id
-    )
+def task_parse_transcription(transcription_id: int, force: bool = False):
+    trans = get_transcription(transcription_id)
+    trans.process_transcription(force)
 
 
 @app.route("/channel/<int:id>/fetch_audio")
@@ -381,7 +370,7 @@ def channel_parse_transcriptions(id: int):
             if transcriptions is not None and len(transcriptions) > 0:
                 # todo: ensure only YT transcriptions are processed
                 for tran in transcriptions:
-                    _ = task_parse_transcription.delay(tran.id)
+                    tran.process_transcription()
     return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
@@ -409,15 +398,8 @@ def video_parse_transcriptions(video_id: int):
     tran = get_transcriptions_by_video(video_id)
     if tran is not None:
         for t in tran:
-            if t.word_maps is not None:
-                logger.debug(f"wordmaps already found, deleting {id}")
-                _ = delete_wordmaps_on_transcription(t.id)
-                db.session.flush()
-    return render_template(
-        "video_edit.html",
-        transcriptions=get_transcriptions_by_video(video_id),
-        video=get_video(video_id),
-    )
+            t.process_transcription()
+    return redirect(request.referrer)
 
 
 @app.route("/video/<int:video_id>/download_clip", methods=["POST"])
@@ -453,14 +435,7 @@ def download_transcription(id: int):
 @login_required
 def parse_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
-    if transcription.word_maps is not None:
-        logger.debug(f"wordmaps already found, deleting {id}")
-        _ = delete_wordmaps_on_transcription(transcription_id)
-        db.session.flush()
-    content = transcription.file.file.read()
-    _ = parse_vtt(
-        db=db, vtt_buffer=io.BytesIO(content), transcription_id=transcription_id
-    )
+    transcription.process_transcription()
     return redirect(url_for("video_get_transcriptions", id=transcription.video_id))
 
 
@@ -468,8 +443,7 @@ def parse_transcription(transcription_id: int):
 @login_required
 def delete_wordmaps_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
-    _ = delete_wordmaps_on_transcription(transcription_id)
-    db.session.commit()
+    transcription.delete_attached_wordmaps()
     return redirect(url_for("video_get_transcriptions", id=transcription.video_id))
 
 

@@ -37,8 +37,11 @@
           <td>{{ channel.main_video_type.name }}</td>
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Edit Channel</a>
+
+            {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
             <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Fetch details</button>
             <a class="btn btn-danger disabled" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
+            {% endif %}{% endfor %}
           </td>
         </tr>
         {% endfor %}
@@ -46,6 +49,7 @@
     </table>
 
 
+    {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
     <h4>Add Channel</h4>
     <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseAddChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
       Add new channel
@@ -84,6 +88,7 @@
       <button type="submit" class="btn btn-primary">Save</button>
     </form>
   </div>
+            {% endif %}{% endfor %}
     <hr>
     <h4>Search in channel</h4>
     <form action="{{ url_for('search_word') }}" method="post">

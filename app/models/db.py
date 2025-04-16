@@ -212,7 +212,22 @@ class Video(Base):
         if self.channel.platform.name.lower() == "youtube":
             return f"{url}/watch?v={self.platform_ref}"
 
-    def save_transcription(self):
+    def fetch_details(self):
+        result = get_videos([self.platform_ref])[0]
+        self.duration = result.contentDetails.duration.total_seconds()
+        self.title = result.snippet.title
+        self.uploaded = result.snippet.publishedAt
+        if self.thumbnail is None:
+            tn = save_thumbnail(result)
+            self.thumbnail = open(tn, "rb")
+        db.session.commit()
+
+    def save_transcription(self, force: bool = False):
+        if force:
+            for t in self.transcriptions:
+                logger.info(f"transcriptions found {self.platform_ref}, forcing delete")
+                db.session.delete(t)
+            db.session.commit()
         if len(self.transcriptions) == 0:
             logger.info(
                 f"transcriptions not found on {self.platform_ref}, adding new.."

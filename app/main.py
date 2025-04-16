@@ -366,12 +366,21 @@ def channel_parse_transcriptions(channel_id: int):
     return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
+@app.route("/video/<int:video_id>/fecth_details")
+@login_required
+def video_fetch_details(video_id: int):
+    logger.info(f"Fetching details for {video_id}")
+    video = get_video(video_id)
+    video.fetch_details()
+    return redirect(request.referrer)
+
+
 @app.route("/video/<int:video_id>/fetch_transcriptions")
 @login_required
 def video_fetch_transcriptions(video_id: int):
     logger.info(f"Fetching transcriptions for {video_id}")
     video = get_video(video_id)
-    video.save_transcription()
+    video.save_transcription(force=True)
     return redirect(url_for("video_get_transcriptions", video_id=video_id))
 
 

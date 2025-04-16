@@ -317,9 +317,10 @@ def channel_fetch_videos(channel_id: int):
 
 
 @celery.task
-def task_fetch_transcription(video: Video):
+def task_fetch_transcription(video_id: int):
+    video = get_video(video_id)
     logger.info(f"Task queued, fetching transcription for {video.title}")
-    video.save_transcription()
+    _ = video.save_transcription()
 
 
 @celery.task
@@ -352,7 +353,7 @@ def channel_fetch_transcriptions(channel_id: int):
     channel = get_channel(channel_id)
     logger.info(f"Fetching all transcriptions for {channel.name}")
     for video in channel.videos:
-        _ = task_fetch_transcription.delay(video)
+        _ = task_fetch_transcription.delay(video.id)
     return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 

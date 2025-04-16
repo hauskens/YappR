@@ -8,6 +8,7 @@
     <hr>
     <div class="container">
       <h1>{{ video.title }}</h1>
+      <a href="{{ video.get_url() }}" >Link to youtube</a>
       <p>Video ID: {{ video.id }}</p>
       <p>Uploaded: {{ video.uploaded }}</p>
       <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">

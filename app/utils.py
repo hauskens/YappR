@@ -3,10 +3,14 @@
 import logging
 import re
 import nltk
+import os
+import requests
 from nltk.corpus import stopwords
 from nltk.tag import pos_tag
 from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
+from .models.youtube.video import VideoDetails
+from .models.config import config
 
 _ = nltk.download("stopwords")
 _ = nltk.download("averaged_perceptron_tagger_eng")
@@ -32,3 +36,19 @@ def get_sec(time_str: str) -> int:
     """Get seconds from time."""
     h, m, s = re.sub(r"\..*$", "", time_str).split(":")
     return int(h) * 3600 + int(m) * 60 + int(s)
+
+
+def save_thumbnail(video: VideoDetails) -> str:
+    path = config.cache_location + video.id
+    thumbnail = video.snippet.thumbnails.get("high")
+    if thumbnail is None:
+        thumbnail = video.snippet.thumbnails.get("default")
+    if thumbnail is not None:
+        logger.debug(f"Fetching thumbnail, {thumbnail.url}")
+        if not os.path.exists(path):
+            response = requests.get(thumbnail.url)
+            if response.status_code == 200:
+                with open(path, "wb") as f:
+                    _ = f.write(response.content)
+                return path
+    raise (ValueError(f"Failed to download thumbnail for video {video.id}"))

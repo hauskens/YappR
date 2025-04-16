@@ -21,7 +21,6 @@ from .models.db import (
     PermissionType,
     db,
 )
-from .repository import Channel, save_transcription
 from .models.config import config
 import logging
 from .tasks import (
@@ -145,23 +144,23 @@ def search_page():
 def search_word():
     logger.info("Loaded search_word.html")
     search_term = request.form["search"]
-    broadcaster_id = request.form["broadcaster"]
+    broadcaster_id = int(request.form["broadcaster"])
     start_date = get_valid_date(request.form["start_date"])
     end_date = get_valid_date(request.form["end_date"])
-    broadcaster = get_broadcaster(int(broadcaster_id))
+    broadcaster = get_broadcaster(broadcaster_id)
     if broadcaster is None:
         raise ValueError("Broadcaster not found")
     add_log(f"Searching for '{search_term}' on {broadcaster.name}")
-    channels = get_broadcaster_channels(int(broadcaster_id))
+    channels = get_broadcaster_channels(broadcaster_id)
     if channels is None:
         return "Channels not found, i have not implemented proper error sorry.."
     if start_date is not None and end_date is not None:
         logger.info(f"Found a date, start {start_date} end {end_date}")
         segment_result, video_result = search_date(
-            search_term, int(broadcaster_id), start_date, end_date
+            search_term, broadcaster_id, start_date, end_date
         )
     else:
-        segment_result, video_result = search(search_term, int(broadcaster_id))
+        segment_result, video_result = search(search_term, broadcaster_id)
     if len(segment_result) == 0:
         flash(
             "Could not find any videos based on that search, try something else",
@@ -222,11 +221,10 @@ def broadcaster_edit(id: int):
     broadcaster = (
         db.session.execute(select(Broadcaster).filter_by(id=id)).scalars().one()
     )
-    channels = get_broadcaster_channels(id)
     return render_template(
         "broadcaster_edit.html",
         broadcaster=broadcaster,
-        channels=channels,
+        channels=broadcaster.channels,
         platforms=get_platforms(),
         video_types=VideoType,
     )
@@ -283,47 +281,45 @@ def channel_create():
 @app.route("/channel/<int:channel_id>/delete")
 @login_required
 def channel_delete(channel_id: int):
-    channel = Channel(channel_id)
-    _ = channel.delete()
-    db.session.commit()
+    channel = get_channel(channel_id)
+    channel.delete()
     return "ok"
 
 
 @app.route("/channel/<int:channel_id>/get_videos")
 @login_required
 def channel_get_videos(channel_id: int):
-    channel = Channel(channel_id).db_ref
-    videos = get_video_by_channel(channel_id=channel.id)
-    return render_template("channel_edit.html", videos=videos, channel=channel)
+    channel = get_channel(channel_id)
+    return render_template("channel_edit.html", videos=channel.videos, channel=channel)
 
 
 @app.route("/channel/<int:channel_id>/fetch_details")
 @login_required
 def channel_fetch_details(channel_id: int):
-    channel = Channel(channel_id)
+    channel = get_channel(channel_id)
     channel.update()
     return render_template(
         "broadcaster_edit.html",
-        broadcaster=channel.db_ref.broadcaster_id,
-        channels=get_broadcaster_channels(broadcaster_id=channel.db_ref.broadcaster_id),
+        broadcaster=channel.broadcaster_id,
+        channels=get_broadcaster_channels(broadcaster_id=channel.broadcaster_id),
         platforms=get_platforms(),
         video_types=VideoType,
     )
 
 
-@app.route("/channel/<int:id>/fetch_videos")
+@app.route("/channel/<int:channel_id>/fetch_videos")
 @login_required
-def channel_fetch_videos(id: int):
-    channel = Channel(id)
-    logger.info(f"Fetching videos for {channel.db_ref.name}")
+def channel_fetch_videos(channel_id: int):
+    channel = get_channel(channel_id)
+    logger.info(f"Fetching videos for {channel.name}")
     channel.fetch_latest_videos()
-    return redirect(url_for("channel_get_videos", channel_id=channel.db_ref.id))
+    return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
 @celery.task
-def task_fetch_transcription(video_id: int):
-    logger.info(f"Task queued, fetching transcription for {video_id}")
-    save_transcription(video_id)
+def task_fetch_transcription(video: Video):
+    logger.info(f"Task queued, fetching transcription for {video.title}")
+    video.save_transcription()
 
 
 @celery.task
@@ -338,57 +334,55 @@ def task_parse_transcription(transcription_id: int, force: bool = False):
     trans.process_transcription(force)
 
 
-@app.route("/channel/<int:id>/fetch_audio")
-@login_required
-def channel_fetch_audio(id: int):
-    channel = Channel(id).db_ref
-    logger.info(f"Fetching all audio for {channel.name}")
-    for video in channel.videos:
-        _ = task_audio.delay(video.id)
-    return redirect(url_for("channel_get_videos", channel_id=channel.id))
+# temp disabled, cant have this accidentaly run as it eats up api rate limit
+# @app.route("/channel/<int:channel_id>/fetch_audio")
+# @login_required
+# def channel_fetch_audio(channel_id: int):
+#     channel = get_channel(channel_id)
+#     logger.info(f"Fetching all audio for {channel.name}")
+#     for video in channel.videos:
+#         _ = task_audio.delay(video.id)
+#     return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
 # todo: send some confirmation to user that task is queued and prevent new queue from getting started
-@app.route("/channel/<int:id>/fetch_transcriptions")
+@app.route("/channel/<int:channel_id>/fetch_transcriptions")
 @login_required
-def channel_fetch_transcriptions(id: int):
-    channel = Channel(id).db_ref
+def channel_fetch_transcriptions(channel_id: int):
+    channel = get_channel(channel_id)
     logger.info(f"Fetching all transcriptions for {channel.name}")
     for video in channel.videos:
-        _ = task_fetch_transcription.delay(video.id)
+        _ = task_fetch_transcription.delay(video)
     return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
-@app.route("/channel/<int:id>/parse_transcriptions")
+@app.route("/channel/<int:channel_id>/parse_transcriptions")
 @login_required
-def channel_parse_transcriptions(id: int):
-    channel = Channel(id).db_ref
-    videos = get_video_by_channel(id)
-    if videos is not None:
-        for video in videos:
-            transcriptions = get_transcriptions_by_video(video.id)
-            if transcriptions is not None and len(transcriptions) > 0:
-                # todo: ensure only YT transcriptions are processed
-                for tran in transcriptions:
-                    tran.process_transcription()
+def channel_parse_transcriptions(channel_id: int):
+    channel = get_channel(channel_id)
+    for video in channel.videos:
+        for tran in video.transcriptions:
+            tran.process_transcription()
     return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
-@app.route("/video/<int:id>/fetch_transcriptions")
+@app.route("/video/<int:video_id>/fetch_transcriptions")
 @login_required
-def video_fetch_transcriptions(id: int):
-    logger.info(f"Fetching transcriptions for {id}")
-    save_transcription(id)
-    return redirect(url_for("video_get_transcriptions", id=id))
+def video_fetch_transcriptions(video_id: int):
+    logger.info(f"Fetching transcriptions for {video_id}")
+    video = get_video(video_id)
+    video.save_transcription()
+    return redirect(url_for("video_get_transcriptions", video_id=video_id))
 
 
-@app.route("/video/<int:id>/get_transcriptions")
+@app.route("/video/<int:video_id>/get_transcriptions")
 @login_required
-def video_get_transcriptions(id: int):
+def video_get_transcriptions(video_id: int):
+    video = get_video(video_id)
     return render_template(
         "video_edit.html",
-        transcriptions=get_transcriptions_by_video(id),
-        video=get_video(id),
+        transcriptions=video.transcriptions,
+        video=video,
     )
 
 
@@ -419,10 +413,10 @@ def download_video_clip(video_id: int):
     return "something went wrong sorry no error handling glhf"
 
 
-@app.route("/transcription/<int:id>/download")
+@app.route("/transcription/<int:transcription_id>/download")
 @login_required
-def download_transcription(id: int):
-    transcription = get_transcription(id)
+def download_transcription(transcription_id: int):
+    transcription = get_transcription(transcription_id)
     content = transcription.file.file.read()
     return send_file(
         io.BytesIO(content),
@@ -436,7 +430,9 @@ def download_transcription(id: int):
 def parse_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     transcription.process_transcription()
-    return redirect(url_for("video_get_transcriptions", id=transcription.video_id))
+    return redirect(
+        url_for("video_get_transcriptions", video_id=transcription.video_id)
+    )
 
 
 @app.route("/transcription/<int:transcription_id>/delete_wordmaps")
@@ -444,7 +440,9 @@ def parse_transcription(transcription_id: int):
 def delete_wordmaps_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     transcription.delete_attached_wordmaps()
-    return redirect(url_for("video_get_transcriptions", id=transcription.video_id))
+    return redirect(
+        url_for("video_get_transcriptions", video_id=transcription.video_id)
+    )
 
 
 if __name__ == "__main__":

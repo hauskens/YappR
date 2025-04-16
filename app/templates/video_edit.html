@@ -4,7 +4,7 @@
   <div class="container">
     <h1>{{ video.title }}</h1>
     <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
-    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', id=video.id) }}';">Fetch transcriptions for this video</button>
+    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', video_id=video.id) }}';">Fetch transcriptions for this video</button>
     <p>Video ID: {{ video.id }}</p>
 
 
@@ -31,7 +31,7 @@
           <td>{{ t.processed }}</td>
           <td>{{ t.word_maps|length }}</td>
           <td>
-        <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', id=t.id) }}" download="{{ t.file_extention }}">Download</a>
+        <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
           </td>
           <td>
 

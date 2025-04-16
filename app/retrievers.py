@@ -12,8 +12,6 @@ from .models.db import (
     Transcription,
     Logs,
     Users,
-    AccountSource,
-    PermissionType,
     db,
 )
 from .tasks import (
@@ -36,6 +34,10 @@ def get_broadcaster(broadcaster_id: int) -> Broadcaster | None:
         .scalars()
         .one_or_none()
     )
+
+
+def get_channel(channel_id: int) -> Channels:
+    return db.session.execute(select(Channels).filter_by(id=channel_id)).scalars().one()
 
 
 def get_platforms() -> Sequence[Platforms] | None:

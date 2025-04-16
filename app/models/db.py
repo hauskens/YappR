@@ -9,21 +9,28 @@ from sqlalchemy import (
     DateTime,
 )
 from flask_sqlalchemy import SQLAlchemy
+from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
+from flask_login import UserMixin
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy_file import FileField
-from sqlalchemy_file import File
+from sqlalchemy_file import FileField, File
+from sqlalchemy_file.storage import StorageManager
 from datetime import datetime
 from io import BytesIO
 import logging
 import webvtt
 import re
-from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
-from flask_login import UserMixin
-from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
 from .config import config
-from ..utils import get_sec, sanitize_sentence
+from ..utils import get_sec, sanitize_sentence, save_thumbnail
+from ..youtube_api import (
+    get_youtube_channel_details,
+    get_videos_on_channel,
+    get_videos,
+    fetch_transcription,
+)
+from .youtube.search import SearchResultItem
+from youtube_transcript_api.formatters import WebVTTFormatter
 
 logger = logging.getLogger(__name__)
 
@@ -139,6 +146,47 @@ class Channels(Base):
         if self.platform.name.lower() == "youtube":
             return f"{url}/@{self.platform_ref}"
 
+    def update(self):
+        result = get_youtube_channel_details(self.platform_ref)
+        self.platform_channel_id = result.id
+        db.session.commit()
+
+    def delete(self):
+        _ = db.session.query(Channels).filter_by(id=self.id).delete()
+        db.session.commit()
+
+    def fetch_latest_videos(self):
+        if (
+            self.platform.name.lower() == "youtube"
+            and self.platform_channel_id is not None
+        ):
+            latest_videos = get_videos_on_channel(self.platform_channel_id)
+            videos_result: list[SearchResultItem] = []
+            for search_result in latest_videos.items:
+                existing_video = (
+                    db.session.query(Video)
+                    .filter_by(platform_ref=search_result.id.videoId)
+                    .one_or_none()
+                )
+                if existing_video is None:
+                    videos_result.append(search_result)
+
+            videos_details = get_videos([item.id.videoId for item in videos_result])
+            for video in videos_details:
+                tn = save_thumbnail(video)
+                db.session.add(
+                    Video(
+                        title=video.snippet.title,
+                        video_type=VideoType.VOD,
+                        channel_id=self.id,
+                        platform_ref=video.id,
+                        duration=video.contentDetails.duration.total_seconds(),
+                        uploaded=video.snippet.publishedAt,
+                        thumbnail=open(tn, "rb"),
+                    )
+                )
+        db.session.commit()
+
 
 class Video(Base):
     __tablename__: str = "video"
@@ -163,6 +211,28 @@ class Video(Base):
         url = self.channel.platform.url
         if self.channel.platform.name.lower() == "youtube":
             return f"{url}/watch?v={self.platform_ref}"
+
+    def save_transcription(self):
+        if len(self.transcriptions) == 0:
+            logger.info(
+                f"transcriptions not found on {self.platform_ref}, adding new.."
+            )
+            formatter = WebVTTFormatter()
+            path = config.cache_location + self.platform_ref + ".vtt"
+            transcription = fetch_transcription(self.platform_ref)
+            t_formatted = formatter.format_transcript(transcription)
+            with open(path, "w", encoding="utf-8") as vtt_file:
+                _ = vtt_file.write(t_formatted)
+            db.session.add(
+                Transcription(
+                    video_id=self.id,
+                    language=transcription.language,
+                    file_extention="vtt",
+                    file=open(path, "rb"),
+                    source=TranscriptionSource.YouTube,
+                )
+            )
+            db.session.commit()
 
 
 class Transcription(Base):

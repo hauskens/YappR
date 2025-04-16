@@ -51,4 +51,5 @@ def save_thumbnail(video: VideoDetails) -> str:
                 with open(path, "wb") as f:
                     _ = f.write(response.content)
                 return path
+        return path
     raise (ValueError(f"Failed to download thumbnail for video {video.id}"))

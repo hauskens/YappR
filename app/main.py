@@ -350,21 +350,24 @@ def task_parse_transcription(transcription_id: int, force: bool = False):
 @app.route("/channel/<int:channel_id>/fetch_transcriptions")
 @login_required
 def channel_fetch_transcriptions(channel_id: int):
-    channel = get_channel(channel_id)
-    logger.info(f"Fetching all transcriptions for {channel.name}")
-    for video in channel.videos:
-        _ = task_fetch_transcription.delay(video.id)
-    return redirect(url_for("channel_get_videos", channel_id=channel.id))
+    if current_user.has_permission(PermissionType.Admin):
+        channel = get_channel(channel_id)
+        logger.info(f"Fetching all transcriptions for {channel.name}")
+        for video in channel.videos:
+            _ = task_fetch_transcription.delay(video.id)
+    return redirect(request.referrer)
 
 
 @app.route("/channel/<int:channel_id>/parse_transcriptions")
 @login_required
 def channel_parse_transcriptions(channel_id: int):
-    channel = get_channel(channel_id)
-    for video in channel.videos:
-        for tran in video.transcriptions:
-            tran.process_transcription()
-    return redirect(url_for("channel_get_videos", channel_id=channel.id))
+    if current_user.has_permission(PermissionType.Admin):
+        channel = get_channel(channel_id)
+        for video in channel.videos:
+            for tran in video.transcriptions:
+                tran.process_transcription()
+                _ = task_parse_transcription.delay(video.id)
+    return redirect(request.referrer)
 
 
 @app.route("/video/<int:video_id>/fecth_details")

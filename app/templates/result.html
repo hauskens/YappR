@@ -21,7 +21,7 @@
                 {% for segment in segment_result %}
                   {% if segment.video.id == video.id %}
                     <hr>
-                    <a class="card-text link-primary" id="card-sentence-result" href="{{segment.video.get_url()}}&t={{ (segment.start_time() - 5) if segment.start_time() - 5 >= 0 else 0 }}" onclick="window.open('{{segment.video.get_url()}}&t={{ (segment.start_time() - 5) if segment.start_time() - 5 >= 0 else 0 }}', '_blank');"> {{ segment.start_time() }}s </a> 
+                    <a class="card-text link-primary" id="card-sentence-result" href="{{segment.video.get_url()}}&t={{ (segment.start_time() - 5) if segment.start_time() - 5 >= 0 else 0 }}"> {{ segment.start_time() }}s </a> 
                     <a>- {{ segment.get_sentences_formated()}}</a>
                   {% endif %}
                 {% endfor %}

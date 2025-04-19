@@ -275,6 +275,11 @@ class Transcription(Base):
         self.processed = False
         db.session.commit()
 
+    def delete_attached_segments(self):
+        _ = db.session.query(Segments).filter_by(transcription_id=self.id).delete()
+        self.processed = False
+        db.session.commit()
+
     def process_transcription(self, force: bool = False):
         logger.info(f"Task queued, parsing transcription for {self.id}")
         if self.processed:
@@ -284,6 +289,7 @@ class Transcription(Base):
             logger.debug(f"wordmaps already found on {self.id}")
             if force:
                 self.delete_attached_wordmaps()
+                self.delete_attached_segments()
             else:
                 self.processed = True
                 db.session.commit()

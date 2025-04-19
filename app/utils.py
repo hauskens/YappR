@@ -5,6 +5,7 @@ import re
 import nltk
 import os
 import requests
+from datetime import datetime
 from nltk.corpus import stopwords
 from nltk.tag import pos_tag
 from nltk.tokenize import word_tokenize
@@ -32,6 +33,15 @@ def sanitize_sentence(sentence: str) -> list[str]:
     return result
 
 
+def loosely_sanitize_sentence(sentence: str) -> list[str]:
+    result: list[str] = []
+    words = word_tokenize(sentence)
+    for word in words:
+        if word not in sw:
+            result.append(word)
+    return result
+
+
 def get_sec(time_str: str) -> int:
     """Get seconds from time."""
     h, m, s = re.sub(r"\..*$", "", time_str).split(":")
@@ -53,3 +63,12 @@ def save_thumbnail(video: VideoDetails) -> str:
                 return path
         return path
     raise (ValueError(f"Failed to download thumbnail for video {video.id}"))
+
+
+def get_valid_date(date_string: str) -> datetime | None:
+    try:
+        date = datetime.strptime(date_string, "%Y-%m-%d")
+        return date
+    except ValueError:
+        logger.warning(f"didnt match date on {date_string}")
+        return

@@ -28,11 +28,11 @@ def get_broadcasters() -> Sequence[Broadcaster]:
     )
 
 
-def get_broadcaster(broadcaster_id: int) -> Broadcaster | None:
+def get_broadcaster(broadcaster_id: int) -> Broadcaster:
     return (
         db.session.execute(select(Broadcaster).filter_by(id=broadcaster_id))
         .scalars()
-        .one_or_none()
+        .one()
     )
 
 
@@ -115,15 +115,6 @@ def get_transcriptions_on_channels_daterange(
     return transcriptions
 
 
-def get_valid_date(date_string: str) -> datetime | None:
-    try:
-        date = datetime.strptime(date_string, "%Y-%m-%d")
-        return date
-    except ValueError:
-        logger.warning(f"didnt match date on {date_string}")
-        return
-
-
 def search_wordmaps_by_transcription(
     search_term: str, transcription: Transcription
 ) -> Sequence[WordMaps]:
@@ -131,6 +122,21 @@ def search_wordmaps_by_transcription(
         db.session.execute(
             select(WordMaps).filter_by(
                 transcription_id=transcription.id, word=search_term
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+def search_wordmaps_by_transcriptions(
+    search_term: str, transcriptions: Sequence[Transcription]
+) -> Sequence[WordMaps]:
+    return (
+        db.session.execute(
+            select(WordMaps).filter(
+                WordMaps.transcription_id.in_([t.id for t in transcriptions]),
+                WordMaps.word == search_term,
             )
         )
         .scalars()

@@ -12,6 +12,7 @@ from nltk.tokenize import word_tokenize
 from nltk.stem import PorterStemmer
 from .models.youtube.video import VideoDetails
 from .models.config import config
+from twitchAPI.twitch import Video
 
 _ = nltk.download("stopwords")
 _ = nltk.download("averaged_perceptron_tagger_eng")
@@ -48,7 +49,7 @@ def get_sec(time_str: str) -> int:
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 
-def save_thumbnail(video: VideoDetails) -> str:
+def save_yt_thumbnail(video: VideoDetails) -> str:
     path = config.cache_location + video.id
     thumbnail = video.snippet.thumbnails.get("high")
     if thumbnail is None:
@@ -63,6 +64,22 @@ def save_thumbnail(video: VideoDetails) -> str:
                 return path
         return path
     raise (ValueError(f"Failed to download thumbnail for video {video.id}"))
+
+
+def save_twitch_thumbnail(video: Video) -> str:
+    path = config.cache_location + video.id
+    thumbnail = video.thumbnail_url
+    thumbnail_url = thumbnail.replace("%{width}", str(320)).replace(
+        "%{height}", str(180)
+    )
+    logger.debug(f"Fetching thumbnail, {thumbnail_url}")
+    if not os.path.exists(path):
+        response = requests.get(thumbnail_url)
+        if response.status_code == 200:
+            with open(path, "wb") as f:
+                _ = f.write(response.content)
+            return path
+    return path
 
 
 def get_valid_date(date_string: str) -> datetime | None:

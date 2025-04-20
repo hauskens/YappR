@@ -12,6 +12,7 @@ from flask import (
 )
 from flask_login import current_user, login_required
 from io import BytesIO
+import asyncio
 from . import app
 from .tasks import get_yt_segment
 from .retrievers import (
@@ -336,6 +337,15 @@ def video_parse_transcriptions(video_id: int):
     if tran is not None:
         for t in tran:
             t.process_transcription()
+    return redirect(request.referrer)
+
+
+@app.route("/video/<int:video_id>/fecth_audio")
+@login_required
+def video_fetch_audio(video_id: int):
+    logger.info(f"Fetching audio for {video_id}")
+    video = get_video(video_id)
+    video.save_audio()
     return redirect(request.referrer)
 
 

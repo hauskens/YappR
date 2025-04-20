@@ -1,0 +1,27 @@
+<form action="{{ url_for('search_word') }}" method="post">
+  <label for="broadcaster"{% if broadcasters|length == 0 %} hidden {% endif %} >Broadcaster</label>
+  <select id="broadcaster" name="broadcaster" {% if broadcasters|length == 0 %} hidden {% endif %} class="form-select">
+    {% if broadcasters|length > 0 %}
+      {% for broadcaster in broadcasters %}
+      <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
+      {% endfor %}</select>
+    {% else %}
+      <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
+    {% endif %}
+  <div class="collapse" id="collapseSearch">
+  <hr>
+  <label for="start_date">Start date</label>
+  <input name="start_date" id="start_date" class="form-control" type="date"> </input>
+  <label for="end_date">End date</label>
+  <input name="end_date" id="end_date" class="form-control" type="date"> </input>
+  </div>
+  <hr>
+  <div class="mb-3">
+    <input type="search" autocomplete="off" id="search" name="search" class="form-control" required placeholder="Search..." />
+  </div>
+  <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseSearch" role="button" aria-expanded="false" aria-controls="collapseSearch">
+    Filters 
+  </a>
+
+  <button type="submit" class="btn btn-primary">Search</button>
+</form>

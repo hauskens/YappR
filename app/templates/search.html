@@ -1,30 +1,7 @@
 {% extends 'base.html' %} {% block content %}
 <div class="container">
   <h1>Search:</h1>
-  <form action="{{ url_for('search_word') }}" method="post">
-    <label for="broadcaster">Broadcaster</label>
-    <select id="broadcaster" name="broadcaster" class="form-select">
-      {% for broadcaster in broadcasters %}
-      <option value="{{ broadcaster.id }}">{{ broadcaster.name }}</option>
-      {% endfor %}</select
-    >
-    <div class="collapse" id="collapseSearch">
-    <hr>
-    <label for="start_date">Start date</label>
-    <input name="start_date" id="start_date" class="form-control" type="date"> </input>
-    <label for="end_date">End date</label>
-    <input name="end_date" id="end_date" class="form-control" type="date"> </input>
-    </div>
-    <hr>
-    <div class="mb-3">
-      <input type="search" autocomplete="off" id="search" name="search" class="form-control" required placeholder="Search..." />
-    </div>
-    <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseSearch" role="button" aria-expanded="false" aria-controls="collapseSearch">
-      Filters 
-    </a>
-
-    <button type="submit" class="btn btn-primary">Search</button>
-  </form>
+  {% include "search_module.html" %}
 </div>
   {% with messages = get_flashed_messages() %}
     {% if messages %}

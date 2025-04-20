@@ -7,12 +7,17 @@ from sqlalchemy import (
     Enum,
     Float,
     DateTime,
+    Text,
+    Index,
+    Computed,
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
 from flask_login import UserMixin
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy_utils.types.ts_vector import TSVectorType
+from sqlalchemy.sql import func
 from sqlalchemy_file import FileField, File
 from datetime import datetime
 from io import BytesIO
@@ -361,7 +366,12 @@ class Logs(Base):
 class Segments(Base):
     __tablename__: str = "segments"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    text: Mapped[str] = mapped_column(String(500), nullable=False)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    text_tsv: Mapped[TSVectorType] = mapped_column(
+        TSVectorType("text", regconfig="simple"),
+        Computed("to_tsvector('simple', \"text\")", persisted=True),
+        index=True,
+    )
     start: Mapped[int] = mapped_column(Integer, nullable=False)
     end: Mapped[int] = mapped_column(Integer, nullable=False)
     previous_segment_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -370,6 +380,15 @@ class Segments(Base):
         ForeignKey("transcriptions.id"), index=True
     )
     transcription: Mapped["Transcription"] = relationship()
+    # __table_args__ = (
+    #     # Indexing the TSVector column
+    #     Index("idx_text_tsv", text_tsv, postgresql_using="gin"),
+    # )
+    # __table_args__ = (
+    #     Index(
+    #         "ix_segments_tsv", func.to_tsvector("simple", text), postgresql_using="gin"
+    #     ),
+    # )
 
 
 class WordMaps(Base):

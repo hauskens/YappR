@@ -87,12 +87,15 @@ def search(
             # TODO: need to query for nearest segment, this does sometimes fail
             try:
                 word_index = current_sentence.index(search_words[0])
-                if word_index == 0:
-                    adjasent_segment = get_segment_by_id(segment.id - 1)
+                if word_index == 0 and segment.previous_segment_id is not None:
+                    adjasent_segment = get_segment_by_id(segment.previous_segment_id)
                     all_segments = [adjasent_segment] + all_segments
                     current_sentence = adjasent_segment.text.split() + current_sentence
-                elif word_index == len(current_sentence):
-                    adjasent_segment = get_segment_by_id(segment.id + 1)
+                elif (
+                    word_index == len(current_sentence)
+                    and segment.next_segment_id is not None
+                ):
+                    adjasent_segment = get_segment_by_id(segment.next_segment_id)
                     all_segments.append(adjasent_segment)
                     current_sentence += adjasent_segment.text.split()
             except:

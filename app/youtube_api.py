@@ -14,12 +14,12 @@ from .models.youtube.captions import CaptionResourceResponse
 
 logger = logging.getLogger(__name__)
 
-if config.youtube_api_key is None:
-    error_message = "YOUTUBE API_KEY not configured!"
-    logger.error(error_message)
-    raise ValueError(error_message)
 
-youtube = build("youtube", "v3", developerKey=config.youtube_api_key)
+youtube = (
+    build("youtube", "v3", developerKey=config.youtube_api_key)
+    if config.youtube_api_key
+    else None
+)
 
 ytt_api = YouTubeTranscriptApi(
     proxy_config=(

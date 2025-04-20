@@ -10,6 +10,8 @@ from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from .models.config import config
 from .models.db import db, OAuth, Users, AccountSource
+from sqlalchemy_file.storage import StorageManager
+from libcloud.storage.drivers.local import LocalStorageDriver
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +33,9 @@ blueprint = make_discord_blueprint(
     scope=["identify"],
 )
 blueprint.storage = SQLAlchemyStorage(OAuth, db.session, user=current_user)
+
+container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
+StorageManager.add_storage("default", container)
 
 
 @login_manager.user_loader

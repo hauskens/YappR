@@ -14,13 +14,12 @@ from flask_login import UserMixin
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy_file import FileField, File
-from sqlalchemy_file.storage import StorageManager
 from datetime import datetime
 from io import BytesIO
 import logging
 import webvtt
 import re
-from libcloud.storage.drivers.local import LocalStorageDriver
+
 from .config import config
 from ..utils import get_sec, sanitize_sentence, save_thumbnail
 from ..youtube_api import (
@@ -33,10 +32,6 @@ from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
 
 logger = logging.getLogger(__name__)
-
-
-container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
-StorageManager.add_storage("default", container)
 
 
 class Base(DeclarativeBase):
@@ -281,8 +276,8 @@ class Transcription(Base):
         db.session.commit()
 
     def process_transcription(self, force: bool = False):
-        logger.info(f"Task queued, parsing transcription for {self.id}")
-        if self.processed:
+        logger.info(f"Task queued, parsing transcription for {self.id}, - {force}")
+        if self.processed and force == False:
             logger.info(f"Transcription {self.id}, already processed.. skipping")
             return
         if len(self.word_maps) > 0:
@@ -305,6 +300,7 @@ class Transcription(Base):
         word_map: list[WordMaps] = []
         content = BytesIO(self.file.file.read())
         previous = None
+        previous_segment: Segments | None = None
         for caption in webvtt.from_buffer(content):
             start = get_sec(caption.start)
             # remove annotations, such as [music]
@@ -322,14 +318,19 @@ class Transcription(Base):
                 start=start,
                 transcription_id=self.id,
                 end=get_sec(caption.end),
+                previous_segment_id=(
+                    previous_segment.id if previous_segment is not None else None
+                ),
             )
             db.session.add(segment)
             db.session.flush()
+            if previous_segment is not None:
+                previous_segment.next_segment_id = segment.id
+            else:
+                previous_segment = segment
             previous = text
             segments.append(segment)
-            # words = pos_tag(word_tokenize(text))
             words = sanitize_sentence(text)
-            # words = text.split()
             for word in words:
                 found_existing_word = False
                 for wm in word_map:
@@ -363,6 +364,8 @@ class Segments(Base):
     text: Mapped[str] = mapped_column(String(500), nullable=False)
     start: Mapped[int] = mapped_column(Integer, nullable=False)
     end: Mapped[int] = mapped_column(Integer, nullable=False)
+    previous_segment_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    next_segment_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     transcription_id: Mapped[int] = mapped_column(
         ForeignKey("transcriptions.id"), index=True
     )

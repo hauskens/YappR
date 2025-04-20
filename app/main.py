@@ -91,7 +91,6 @@ def channel_parse_transcriptions(channel_id: int):
         channel = get_channel(channel_id)
         for video in channel.videos:
             for tran in video.transcriptions:
-                tran.process_transcription()
                 _ = task_parse_transcription.delay(video.id)
     return redirect(request.referrer)
 

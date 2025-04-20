@@ -965,6 +965,18 @@ wheels = [
 ]
 
 [[package]]
+name = "sqlalchemy-utils"
+version = "0.41.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sqlalchemy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/4d/bf/abfd5474cdd89ddd36dbbde9c6efba16bfa7f5448913eba946fed14729da/SQLAlchemy-Utils-0.41.2.tar.gz", hash = "sha256:bc599c8c3b3319e53ce6c5c3c471120bd325d0071fb6f38a10e924e3d07b9990", size = 138017 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/d5/f0/dc4757b83ac1ab853cf222df8535ed73973e0c203d983982ba7b8bc60508/SQLAlchemy_Utils-0.41.2-py3-none-any.whl", hash = "sha256:85cf3842da2bf060760f955f8467b87983fb2e30f1764fd0e24a48307dc8ec6e", size = 93083 },
+]
+
+[[package]]
 name = "tqdm"
 version = "4.67.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1121,6 +1133,7 @@ dependencies = [
     { name = "redis" },
     { name = "sqlalchemy" },
     { name = "sqlalchemy-file" },
+    { name = "sqlalchemy-utils" },
     { name = "webvtt-py" },
     { name = "youtube-transcript-api" },
     { name = "yt-dlp" },
@@ -1148,6 +1161,7 @@ requires-dist = [
     { name = "redis", specifier = ">=5.2.1" },
     { name = "sqlalchemy", specifier = ">=2.0.40" },
     { name = "sqlalchemy-file", specifier = ">=0.6.0" },
+    { name = "sqlalchemy-utils", specifier = ">=0.41.2" },
     { name = "webvtt-py", specifier = ">=0.5.1" },
     { name = "youtube-transcript-api", specifier = ">=1.0.3" },
     { name = "yt-dlp", specifier = ">=2025.3.27" },

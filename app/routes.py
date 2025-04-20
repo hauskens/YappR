@@ -8,6 +8,7 @@ from flask import (
     send_file,
     url_for,
     abort,
+    session,
 )
 from flask_login import current_user, login_required
 from io import BytesIO
@@ -38,7 +39,7 @@ from .models.db import (
     PermissionType,
     db,
 )
-from .search import search
+from .search import search, search_v2
 from .utils import get_valid_date
 
 logger = logging.getLogger(__name__)
@@ -104,7 +105,7 @@ def stats():
 @login_required
 def search_page():
     broadcasters = get_broadcasters()
-    logger.info("Loaded search.html")
+    logger.info(f"Loaded search.html")
     return render_template("search.html", broadcasters=broadcasters)
 
 
@@ -114,11 +115,12 @@ def search_word():
     logger.info("Loaded search_word.html")
     search_term = request.form["search"]
     broadcaster_id = int(request.form["broadcaster"])
+    session["last_selected_broadcaster"] = broadcaster_id
     start_date = get_valid_date(request.form["start_date"])
     end_date = get_valid_date(request.form["end_date"])
     broadcaster = get_broadcaster(broadcaster_id)
     add_log(f"Searching for '{search_term}' on {broadcaster.name}")
-    segment_result, video_result = search(
+    segment_result, video_result = search_v2(
         search_term, broadcaster.channels, start_date, end_date
     )
     if len(segment_result) == 0:

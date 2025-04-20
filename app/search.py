@@ -1,10 +1,12 @@
 from datetime import datetime
 from collections.abc import Sequence
+from sqlalchemy import select
 import logging
 from .models.db import (
     Segments,
     Video,
     Channels,
+    db,
 )
 from .models.search import SegmentsResult
 from .retrievers import (
@@ -30,17 +32,112 @@ def search_words_present_in_sentence_strict(
 ) -> bool:
     try:
         index = sentence.index(search_words[0])
+        if len(search_words) == 1:
+            return True
         word_index = 0
         for word in search_words[1:]:
             word_index = sentence.index(word, index)
             if word_index != index and word_index == (index + 1):
                 index = word_index
-        logger.info(
-            f"Looking for potential word: {sentence} = {search_words} - w{word_index} - i{index} = {word_index == index}"
-        )
         return word_index == index
     except ValueError:
         return False
+
+
+def search_v2(
+    search_term: str,
+    channels: Sequence[Channels],
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+) -> tuple[list[SegmentsResult], list[Video]]:
+
+    logger.info(f"Searching for '{search_term}'")
+    video_result: set[Video] = set()
+    segment_result: list[SegmentsResult] = []
+    transcriptions = None
+    strict_search = search_term.startswith('"') and search_term.endswith('"')
+    logger.info(f"strict search: {strict_search}")
+
+    # If dates are found, limit the transcriptions based on dates
+    if start_date is None and end_date is None:
+        transcriptions = get_transcriptions_on_channels(channels)
+    if start_date is not None and end_date is not None:
+        transcriptions = get_transcriptions_on_channels_daterange(
+            channels, start_date, end_date
+        )
+    if transcriptions is None:
+        raise ValueError("No transcriptions found on channel / daterange")
+
+    search_result = (
+        (
+            db.session.execute(
+                select(Segments).where(
+                    Segments.text_tsv.match(search_term, postgresql_regconfig="simple"),
+                    Segments.transcription_id.in_([t.id for t in transcriptions]),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    # Just search for the first word, based on that we will narrow down the result
+
+    for segment in search_result:
+        # sanitize the users search query with the same function used to sanitize db
+        search_words = (
+            loosely_sanitize_sentence(search_term.strip('"'))
+            if strict_search
+            else sanitize_sentence(search_term.strip('"'))
+        )
+        current_sentence: list[str] = (
+            loosely_sanitize_sentence(segment.text)
+            if strict_search
+            else sanitize_sentence(segment.text)
+        )
+        all_segments: list[Segments] = [segment]
+
+        # If the word is first or last part of a segment, we need to include the adjasent Segment
+        # TODO: need to query for nearest segment, this does sometimes fail
+        try:
+            word_index = current_sentence.index(search_words[0])
+            if word_index == 0 and segment.previous_segment_id is not None:
+                adjasent_segment = get_segment_by_id(segment.previous_segment_id)
+                all_segments = [adjasent_segment] + all_segments
+                current_sentence = adjasent_segment.text.split() + current_sentence
+            elif (
+                word_index == len(current_sentence)
+                and segment.next_segment_id is not None
+            ):
+                adjasent_segment = get_segment_by_id(segment.next_segment_id)
+                all_segments.append(adjasent_segment)
+                current_sentence += adjasent_segment.text.split()
+        except:
+            logger.debug(f"Could not find adjasent segment on segment id {segment.id}")
+        if strict_search:
+            if search_words_present_in_sentence_strict(current_sentence, search_words):
+                logger.debug(f"Found match!, {search_words} -- {segment.text}")
+                segment_result.append(
+                    SegmentsResult(
+                        all_segments, segment.transcription.video, search_words
+                    )
+                )
+                video_result.add(segment.transcription.video)
+
+        # Skip the first word as thats our baseline, search for other words in current sentence
+        elif strict_search is False:
+            if search_words_present_in_sentence(current_sentence, search_words[1:]):
+                segment_result.append(
+                    SegmentsResult(
+                        all_segments, segment.transcription.video, search_words
+                    )
+                )
+                video_result.add(segment.transcription.video)
+
+    logger.info(
+        f"Search found {len(video_result)} videos with {len(segment_result)} segments"
+    )
+    return segment_result, sorted(video_result, key=lambda x: x.uploaded, reverse=True)
 
 
 def search(
@@ -66,6 +163,19 @@ def search(
         )
     if transcriptions is None:
         raise ValueError("No transcriptions found on channel / daterange")
+
+    search_result = (
+        (
+            db.session.execute(
+                select(Segments).where(
+                    Segments.text_tsv.match(search_term, postgresql_regconfig="simple"),
+                    Segments.transcription_id.in_([t.id for t in transcriptions]),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
 
     # sanitize the users search query with the same function used to sanitize db
     search_words = sanitize_sentence(search_term.strip('"'))

@@ -25,6 +25,7 @@ dependencies = [
     "redis>=5.2.1",
     "sqlalchemy>=2.0.40",
     "sqlalchemy-file>=0.6.0",
+    "sqlalchemy-utils>=0.41.2",
     "webvtt-py>=0.5.1",
     "youtube-transcript-api>=1.0.3",
     "yt-dlp>=2025.3.27",

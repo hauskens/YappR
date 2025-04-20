@@ -17,6 +17,9 @@ This project was originally inspired by and would not have happened without the
 project [SqueexVodSearch](https://github.com/lawrencehook/SqueexVodSearch) by
 [@lawrencehook](https://github.com/lawrencehook).
 
+Also thanks to [NLQotes](https://github.com/irinelul/NLQuotes) for inspiration
+to use `tsvector` in PostgreSQL
+
 ## Running the project
 
 To run the project with Docker, simply clone this project and run:

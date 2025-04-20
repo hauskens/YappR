@@ -4,13 +4,15 @@
   <div class="container">
     <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
     <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_details', video_id=video.id) }}">Fetch video details from platform</a>
+    <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from platform</a>
     <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', video_id=video.id) }}';">Fetch transcriptions for this video</button>
     <hr>
     <div class="container">
       <h1>{{ video.title }}</h1>
-      <a href="{{ video.get_url() }}" >Link to youtube</a>
+      <a href="{{ video.get_url() }}" >Link to video on {{ video.channel.platform.name }}</a>
       <p>Video ID: {{ video.id }}</p>
       <p>Uploaded: {{ video.uploaded }}</p>
+      <p>Audio file: {{ video.audio }}</p>
       <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
     </div>
     <hr>

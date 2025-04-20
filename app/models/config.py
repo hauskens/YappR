@@ -1,5 +1,6 @@
 import os
 import logging
+from dotenv import load_dotenv
 
 
 class Config:
@@ -34,6 +35,9 @@ class Config:
         self.webshare_proxy_password: str | None = os.environ.get(
             "WEBSHARE_PROXY_PASSWORD"
         )
+        self.twitch_client_id: str | None = os.environ.get("TWITCH_CLIENT_ID")
+        self.twitch_client_secret: str | None = os.environ.get("TWITCH_CLIENT_SECRET")
 
 
+load_dotenv()
 config = Config()

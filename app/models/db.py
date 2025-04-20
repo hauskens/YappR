@@ -8,7 +8,6 @@ from sqlalchemy import (
     Float,
     DateTime,
     Text,
-    Index,
     Computed,
 )
 from flask_sqlalchemy import SQLAlchemy
@@ -17,22 +16,26 @@ from flask_login import UserMixin
 from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy_utils.types.ts_vector import TSVectorType
-from sqlalchemy.sql import func
 from sqlalchemy_file import FileField, File
+import twitchAPI.twitch as tapi
 from datetime import datetime
 from io import BytesIO
 import logging
 import webvtt
 import re
+import asyncio
 
 from .config import config
-from ..utils import get_sec, sanitize_sentence, save_thumbnail
+from ..utils import get_sec, sanitize_sentence, save_yt_thumbnail, save_twitch_thumbnail
 from ..youtube_api import (
     get_youtube_channel_details,
     get_videos_on_channel,
     get_videos,
     fetch_transcription,
 )
+from ..tasks import get_twitch_audio
+from ..twitch_api import get_twitch_user, get_latest_broadcasts, parse_time
+
 from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
 
@@ -145,10 +148,16 @@ class Channels(Base):
         url = self.platform.url
         if self.platform.name.lower() == "youtube":
             return f"{url}/@{self.platform_ref}"
+        elif self.platform.name.lower() == "twitch":
+            return f"{url}/{self.platform_ref}"
 
     def update(self):
-        result = get_youtube_channel_details(self.platform_ref)
-        self.platform_channel_id = result.id
+        if self.platform.name.lower() == "youtube":
+            result = get_youtube_channel_details(self.platform_ref)
+            self.platform_channel_id = result.id
+        elif self.platform.name.lower() == "twitch":
+            result = asyncio.run(get_twitch_user(self.platform_ref))
+            self.platform_channel_id = result.id
         db.session.commit()
 
     def delete(self):
@@ -173,7 +182,7 @@ class Channels(Base):
 
             videos_details = get_videos([item.id.videoId for item in videos_result])
             for video in videos_details:
-                tn = save_thumbnail(video)
+                tn = save_yt_thumbnail(video)
                 db.session.add(
                     Video(
                         title=video.snippet.title,
@@ -185,7 +194,33 @@ class Channels(Base):
                         thumbnail=open(tn, "rb"),
                     )
                 )
-        db.session.commit()
+            db.session.commit()
+        elif (
+            self.platform.name.lower() == "twitch"
+            and self.platform_channel_id is not None
+        ):
+            twitch_latest_videos = asyncio.run(
+                get_latest_broadcasts(self.platform_channel_id)
+            )
+            for video in twitch_latest_videos:
+                existing_video = (
+                    db.session.query(Video)
+                    .filter_by(platform_ref=video.id)
+                    .one_or_none()
+                )
+                if existing_video is None:
+                    tn = save_twitch_thumbnail(video)
+                    video = Video(
+                        title=video.title,
+                        video_type=VideoType.VOD,
+                        channel_id=self.id,
+                        platform_ref=video.id,
+                        duration=parse_time(video.duration),
+                        uploaded=video.created_at,
+                        thumbnail=open(tn, "rb"),
+                    )
+                    db.session.add(video)
+            db.session.commit()
 
 
 class Video(Base):
@@ -211,6 +246,8 @@ class Video(Base):
         url = self.channel.platform.url
         if self.channel.platform.name.lower() == "youtube":
             return f"{url}/watch?v={self.platform_ref}"
+        elif self.channel.platform.name.lower() == "twitch":
+            return f"{url}/videos/{self.platform_ref}"
 
     def fetch_details(self):
         result = get_videos([self.platform_ref])[0]
@@ -247,6 +284,15 @@ class Video(Base):
                     source=TranscriptionSource.YouTube,
                 )
             )
+            db.session.commit()
+
+    def save_audio(self, force: bool = False):
+        if (
+            self.channel.platform.name.lower() == "twitch"
+            and self.get_url() is not None
+        ):
+            audio = get_twitch_audio(self.get_url())
+            self.audio = open(audio, "rb")
             db.session.commit()
 
 
@@ -380,15 +426,6 @@ class Segments(Base):
         ForeignKey("transcriptions.id"), index=True
     )
     transcription: Mapped["Transcription"] = relationship()
-    # __table_args__ = (
-    #     # Indexing the TSVector column
-    #     Index("idx_text_tsv", text_tsv, postgresql_using="gin"),
-    # )
-    # __table_args__ = (
-    #     Index(
-    #         "ix_segments_tsv", func.to_tsvector("simple", text), postgresql_using="gin"
-    #     ),
-    # )
 
 
 class WordMaps(Base):

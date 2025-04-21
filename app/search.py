@@ -2,6 +2,7 @@ from datetime import datetime
 from collections.abc import Sequence
 from sqlalchemy import select
 import logging
+from flask import flash
 from .models.db import (
     Segments,
     Video,
@@ -71,10 +72,13 @@ def search_v2(
     search_result = (
         (
             db.session.execute(
-                select(Segments).where(
+                select(Segments)
+                .where(
                     Segments.text_tsv.match(search_term, postgresql_regconfig="simple"),
                     Segments.transcription_id.in_([t.id for t in transcriptions]),
                 )
+                .order_by(Segments.transcription_id)
+                .limit(1000)
             )
         )
         .scalars()
@@ -96,9 +100,10 @@ def search_v2(
             else sanitize_sentence(segment.text)
         )
         all_segments: list[Segments] = [segment]
+        if len(search_words) == 0:
+            raise ValueError("Search was too short and didnt have any useful words")
 
         # If the word is first or last part of a segment, we need to include the adjasent Segment
-        # TODO: need to query for nearest segment, this does sometimes fail
         try:
             word_index = current_sentence.index(search_words[0])
             if word_index == 0 and segment.previous_segment_id is not None:

@@ -39,5 +39,5 @@ class Config:
         self.twitch_client_secret: str | None = os.environ.get("TWITCH_CLIENT_SECRET")
 
 
-load_dotenv()
+_ = load_dotenv()
 config = Config()

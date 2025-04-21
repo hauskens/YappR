@@ -24,7 +24,11 @@ import logging
 import webvtt
 import re
 import asyncio
+import json
+import ast
 
+from .transcription import TranscriptionResult
+from ..transcribe import transcribe
 from .config import config
 from ..utils import get_sec, sanitize_sentence, save_yt_thumbnail, save_twitch_thumbnail
 from ..youtube_api import (
@@ -249,13 +253,31 @@ class Video(Base):
         elif self.channel.platform.name.lower() == "twitch":
             return f"{url}/videos/{self.platform_ref}"
 
+    def process_audio(self):
+        file_path = f"{config.cache_location}/{self.id}.json"
+        if self.audio is not None:
+            at = transcribe(self.audio.file.get_cdn_url())
+            with open(file_path, "w") as f:
+                json.dump(at, f)
+            logger.info(f"transcriptions generated: {at}")
+            db.session.add(
+                Transcription(
+                    video_id=self.id,
+                    language="english",  # todo
+                    file_extention="json",
+                    file=open(file_path, "rb"),
+                    source=TranscriptionSource.Unknown,  # todo
+                )
+            )
+            db.session.commit()
+
     def fetch_details(self):
         result = get_videos([self.platform_ref])[0]
         self.duration = result.contentDetails.duration.total_seconds()
         self.title = result.snippet.title
         self.uploaded = result.snippet.publishedAt
         if self.thumbnail is None:
-            tn = save_thumbnail(result)
+            tn = save_yt_thumbnail(result)
             self.thumbnail = open(tn, "rb")
         db.session.commit()
 
@@ -341,9 +363,68 @@ class Transcription(Base):
                 db.session.commit()
                 return
             db.session.flush()
-        _ = self.parse_vtt()
+        if self.file_extention == "vtt":
+            _ = self.parse_vtt()
+        elif self.file_extention == "json":
+            _ = self.parse_json()
         self.processed = True
         db.session.commit()
+
+    def parse_json(self):
+        logger.info(f"Processing json transcription: {self.id}")
+        segments: list[Segments] = []
+        word_map: list[WordMaps] = []
+        content = TranscriptionResult.model_validate_json(
+            self.file.file.read().decode()
+        )
+
+        previous = None
+        previous_segment: Segments | None = None
+        logger.info(f"Processing json transcription: {self.id}")
+        for caption in content.segments:
+            logger.info(f"Processing testieees transcription: {caption}")
+            start = int(caption.start)
+            if caption.text == "":
+                continue
+            if caption.text == previous:
+                continue
+
+            segment = Segments(
+                text=caption.text,
+                start=start,
+                transcription_id=self.id,
+                end=int(caption.end),
+                previous_segment_id=(
+                    previous_segment.id if previous_segment is not None else None
+                ),
+            )
+            db.session.add(segment)
+            db.session.flush()
+            if previous_segment is not None:
+                previous_segment.next_segment_id = segment.id
+            else:
+                previous_segment = segment
+            previous = caption.text
+            segments.append(segment)
+            words = sanitize_sentence(caption.text)
+            for word in words:
+                found_existing_word = False
+                for wm in word_map:
+                    if wm.word == word:
+                        wm.segments.append(segment.id)
+                        found_existing_word = True
+                        break
+                if found_existing_word == False:
+                    word_map.append(
+                        WordMaps(
+                            word=word,
+                            segments=[segment.id],
+                            transcription_id=self.id,
+                        )
+                    )
+        db.session.add_all(word_map)
+        db.session.commit()
+        logger.info(f"Done processing transcription: {self.id}")
 
     def parse_vtt(self):
         logger.info(f"Processing vtt transcription: {self.id}")
@@ -426,6 +507,17 @@ class Segments(Base):
         ForeignKey("transcriptions.id"), index=True
     )
     transcription: Mapped["Transcription"] = relationship()
+
+    def get_url_timestamped(self) -> str:
+        if self.transcription.video.channel.platform.name.lower() == "twitch":
+            hours = self.start // 3600
+            minutes = (self.start % 3600) // 60
+            seconds = self.start % 60
+            return f"{self.transcription.video.get_url()}?t={hours:02d}h{minutes:02d}m{seconds:02d}s"
+
+        elif self.transcription.video.channel.platform.name.lower() == "youtube":
+            return f"{self.transcription.video.get_url()}?t={self.start}"
+        raise ValueError("Could not generate url with timestamp")
 
 
 class WordMaps(Base):

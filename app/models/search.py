@@ -25,3 +25,6 @@ class SegmentsResult:
 
     def end_time(self) -> int:
         return max(self.segments, key=lambda x: x.end).end
+
+    def get_url(self) -> str:
+        return min(self.segments, key=lambda x: x.start).get_url_timestamped()

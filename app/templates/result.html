@@ -3,7 +3,7 @@
   <div class="container gx-2">
   <h1>{{broadcaster.name}}</h1>
   <p>Search results from '{{ search_word }}': {{video_result|length}} videos with {{segment_result|length}} segments</p>
-  <p>Behind the scenes, the search terms used: {{segment_result[0].search_words}} </p>
+  <!-- <p>Behind the scenes, the search terms used: {{segment_result[0].search_words}} </p> -->
     <div class="row gx-1">
       {% for video in video_result %}
         <div class="col">
@@ -16,12 +16,12 @@
               <h5 class="card-title">
                 {{video.title}}
               </h5>
-              <p>{{video.uploaded}}</p>
+              <p>{{video.channel.platform.name}} - {{video.uploaded}}</p>
               <div style="max-height: 400px; overflow-y: auto">
                 {% for segment in segment_result %}
                   {% if segment.video.id == video.id %}
                     <hr>
-                    <a class="card-text link-primary" id="card-sentence-result" href="{{segment.video.get_url()}}&t={{ (segment.start_time() - 5) if segment.start_time() - 5 >= 0 else 0 }}"> {{ segment.start_time() }}s </a> 
+                    <a class="card-text link-primary" id="card-sentence-result" target="_blank" href="{{ segment.get_url() }}"> {{ segment.start_time() }}s </a> 
                     <a>- {{ segment.get_sentences_formated()}}</a>
                   {% endif %}
                 {% endfor %}

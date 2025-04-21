@@ -12,7 +12,6 @@ from flask import (
 )
 from flask_login import current_user, login_required
 from io import BytesIO
-import asyncio
 from . import app
 from .tasks import get_yt_segment
 from .retrievers import (
@@ -119,10 +118,17 @@ def search_word():
     session["last_selected_broadcaster"] = broadcaster_id
     start_date = get_valid_date(request.form["start_date"])
     end_date = get_valid_date(request.form["end_date"])
+    channel_type = request.form["channel_type"]
     broadcaster = get_broadcaster(broadcaster_id)
+    channels = [
+        channel
+        for channel in broadcaster.channels
+        if channel.platform.name.lower() == channel_type or channel_type == "all"
+    ]
+    logger.info(f"channels: {len(channels)}")
     add_log(f"Searching for '{search_term}' on {broadcaster.name}")
     segment_result, video_result = search_v2(
-        search_term, broadcaster.channels, start_date, end_date
+        search_term, channels, start_date, end_date
     )
     if len(segment_result) == 0:
         flash(

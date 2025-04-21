@@ -53,6 +53,14 @@ def redirect_unauthorized():
     return render_template("unauthorized.html")
 
 
+@app.route("/video/<int:video_id>/process_audio")
+@login_required
+def video_process_audio(video_id: int):
+    logger.info(f"Processing audio for {video_id}")
+    _ = task_transcribe_audio(video_id)
+    return redirect(request.referrer)
+
+
 @celery.task
 def task_fetch_transcription(video_id: int):
     video = get_video(video_id)
@@ -64,6 +72,14 @@ def task_fetch_transcription(video_id: int):
 def task_audio(video_id: int):
     logger.info(f"Task queued, fetching audio for {video_id}")
     fetch_audio(video_id)
+
+
+@celery.task
+def task_transcribe_audio(video_id: int, force: bool = False):
+    video = get_video(video_id)
+    logger.info(f"Task queued, processing audio for {video_id}")
+    if video.audio is not None:
+        video.process_audio()
 
 
 @celery.task

@@ -1,5 +1,4 @@
 import whisperx
-import gc
 import logging
 
 from whisperx.types import TranscriptionResult
@@ -11,21 +10,18 @@ logger = logging.getLogger(__name__)
 
 def transcribe(path: str) -> TranscriptionResult:
     logger.info(f"Got path: {path}")
-    device = "cpu"  # cuda
+    device = config.transcription_device  # cuda
     batch_size = 8  # reduce if low on GPU mem
-    compute_type = "int8"  # change to "int8" if low on GPU mem (may reduce accuracy)
+    compute_type = config.transcription_compute_type
+    load_model = config.transcription_model
 
-    # 1. Transcribe with original whisper (batched)
     model_dir = f"{config.cache_location}/models/"
     model = whisperx.load_model(
-        "large-v2", device, compute_type=compute_type, download_root=model_dir
+        load_model, device, compute_type=compute_type, download_root=model_dir
     )
 
-    # save model to local path (optional)
-    # model = whisperx.load_model("large-v2", device, compute_type=compute_type, download_root=model_dir)
-
     audio = whisperx.load_audio(path)
-    return model.transcribe(audio, batch_size=batch_size, chunk_size=10)
+    return model.transcribe(audio, batch_size=batch_size, chunk_size=10, language="en")
 
     # delete model if low on GPU resources
     # import gc; gc.collect(); torch.cuda.empty_cache(); del model

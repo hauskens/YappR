@@ -3,8 +3,9 @@ WORKDIR /src
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 
-RUN apt update && apt install -y  --no-install-recommends ffmpeg
-RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+ADD https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb  ./
+RUN dpkg -i cuda-keyring_1.0-1_all.deb  && apt update && apt install -y libcudnn8 libcudnn8-dev ffmpeg \
+  && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
@@ -17,6 +18,10 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 ENV PATH="/src/.venv/bin:$PATH"
 
+
+FROM base AS worker-gpu
+ENTRYPOINT ["celery"]
+CMD ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1", "-Q", "gpu-queue"]
 
 FROM base AS worker
 ENTRYPOINT ["celery"]

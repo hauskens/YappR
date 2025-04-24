@@ -50,6 +50,7 @@ services:
     volumes:
       - app:/var/lib/yappr/data
       - app-cache:/var/lib/yappr/cache #optional
+      - app-nltk:/root/nltk_data
     depends_on:
       cache:
         condition: service_healthy
@@ -64,6 +65,16 @@ services:
           path: ./pyproject.toml
         - action: rebuild
           path: ./uv.lock
+  worker-gpu:
+    extends: app
+    image: ${REGISTRY-}yappr-worker-gpu${VERSION-}
+    ports: !reset []
+    build:
+      target: worker-gpu
+    depends_on:
+      - app
+    deploy:
+      replicas: 1 # number up = more brrr, over 4 will probably cause db pool issues
   worker:
     extends: app
     image: ${REGISTRY-}yappr-worker${VERSION-}
@@ -78,6 +89,7 @@ volumes:
   db:
   app:
   app-cache:
+  app-nltk:
 networks:
   internal:
     driver: bridge

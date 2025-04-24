@@ -37,6 +37,16 @@ class Config:
         )
         self.twitch_client_id: str | None = os.environ.get("TWITCH_CLIENT_ID")
         self.twitch_client_secret: str | None = os.environ.get("TWITCH_CLIENT_SECRET")
+        self.twitch_dl_gql_client_id: str | None = os.environ.get(
+            "TWITCH_DL_GQL_CLIENT_ID"
+        )
+        self.transcription_device: str = os.environ.get("TRANSCRIPTION_DEVICE", "cpu")
+        self.transcription_model: str = os.environ.get(
+            "TRANSCRIPTION_MODEL", "large-v2"
+        )
+        self.transcription_compute_type: str = os.environ.get(
+            "TRANSCRIPTION_COMPUTE_TYPE", "float16"
+        )  # for cpu, use int8
 
 
 _ = load_dotenv()

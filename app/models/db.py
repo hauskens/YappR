@@ -24,11 +24,8 @@ import logging
 import webvtt
 import re
 import asyncio
-import json
-import ast
 
 from .transcription import TranscriptionResult
-from ..transcribe import transcribe
 from .config import config
 from ..utils import get_sec, sanitize_sentence, save_yt_thumbnail, save_twitch_thumbnail
 from ..youtube_api import (
@@ -253,24 +250,6 @@ class Video(Base):
         elif self.channel.platform.name.lower() == "twitch":
             return f"{url}/videos/{self.platform_ref}"
 
-    def process_audio(self):
-        file_path = f"{config.cache_location}/{self.id}.json"
-        if self.audio is not None:
-            at = transcribe(self.audio.file.get_cdn_url())
-            with open(file_path, "w") as f:
-                json.dump(at, f)
-            logger.info(f"transcriptions generated: {at}")
-            db.session.add(
-                Transcription(
-                    video_id=self.id,
-                    language="english",  # todo
-                    file_extention="json",
-                    file=open(file_path, "rb"),
-                    source=TranscriptionSource.Unknown,  # todo
-                )
-            )
-            db.session.commit()
-
     def fetch_details(self):
         result = get_videos([self.platform_ref])[0]
         self.duration = result.contentDetails.duration.total_seconds()
@@ -373,7 +352,7 @@ class Transcription(Base):
     def parse_json(self):
         logger.info(f"Processing json transcription: {self.id}")
         segments: list[Segments] = []
-        word_map: list[WordMaps] = []
+        # word_map: list[WordMaps] = []
         content = TranscriptionResult.model_validate_json(
             self.file.file.read().decode()
         )
@@ -382,7 +361,6 @@ class Transcription(Base):
         previous_segment: Segments | None = None
         logger.info(f"Processing json transcription: {self.id}")
         for caption in content.segments:
-            logger.info(f"Processing testieees transcription: {caption}")
             start = int(caption.start)
             if caption.text == "":
                 continue
@@ -406,23 +384,23 @@ class Transcription(Base):
                 previous_segment = segment
             previous = caption.text
             segments.append(segment)
-            words = sanitize_sentence(caption.text)
-            for word in words:
-                found_existing_word = False
-                for wm in word_map:
-                    if wm.word == word:
-                        wm.segments.append(segment.id)
-                        found_existing_word = True
-                        break
-                if found_existing_word == False:
-                    word_map.append(
-                        WordMaps(
-                            word=word,
-                            segments=[segment.id],
-                            transcription_id=self.id,
-                        )
-                    )
-        db.session.add_all(word_map)
+            # words = sanitize_sentence(caption.text)
+            # for word in words:
+            #     found_existing_word = False
+            #     for wm in word_map:
+            #         if wm.word == word:
+            #             wm.segments.append(segment.id)
+            #             found_existing_word = True
+            #             break
+            #     if found_existing_word == False:
+            #         word_map.append(
+            #             WordMaps(
+            #                 word=word,
+            #                 segments=[segment.id],
+            #                 transcription_id=self.id,
+            #             )
+            #         )
+        # db.session.add_all(word_map)
         db.session.commit()
         logger.info(f"Done processing transcription: {self.id}")
 
@@ -516,7 +494,7 @@ class Segments(Base):
             return f"{self.transcription.video.get_url()}?t={hours:02d}h{minutes:02d}m{seconds:02d}s"
 
         elif self.transcription.video.channel.platform.name.lower() == "youtube":
-            return f"{self.transcription.video.get_url()}?t={self.start}"
+            return f"{self.transcription.video.get_url()}&t={self.start}"
         raise ValueError("Could not generate url with timestamp")
 
 

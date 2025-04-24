@@ -9,13 +9,13 @@ from flask import (
     url_for,
     abort,
     session,
+    g,
 )
 from flask_login import current_user, login_required
 from io import BytesIO
 import json
 from . import app
 import os
-from .tasks import get_yt_segment
 from .models.config import config
 from .retrievers import (
     get_users,
@@ -52,9 +52,17 @@ from .utils import get_valid_date
 logger = logging.getLogger(__name__)
 
 
+def check_banned():
+    if current_user.is_authenticated and current_user.banned == True:
+        return True
+    return False
+
+
 @app.route("/")
 @login_required
 def index():
+    if check_banned():
+        return render_template("banned.html", user=current_user)
     broadcasters = get_broadcasters()
     logger.info("Loaded search.html")
     return render_template("search.html", broadcasters=broadcasters)
@@ -68,6 +76,8 @@ def access_denied():
 @app.route("/users")
 @login_required
 def users():
+    if check_banned():
+        return render_template("banned.html", user=current_user)
     users = get_users()
     logger.info("Loaded users.html")
     if current_user.has_permission(PermissionType.Admin):
@@ -111,6 +121,8 @@ def stats():
 @app.route("/search")
 @login_required
 def search_page():
+    if check_banned():
+        return render_template("banned.html", user=current_user)
     broadcasters = get_broadcasters()
     logger.info(f"Loaded search.html")
     return render_template("search.html", broadcasters=broadcasters)
@@ -119,6 +131,8 @@ def search_page():
 @app.route("/search", methods=["POST"])
 @login_required
 def search_word():
+    if check_banned():
+        return render_template("banned.html", user=current_user)
     logger.info("Loaded search_word.html")
     search_term = request.form["search"]
     broadcaster_id = int(request.form["broadcaster"])
@@ -156,6 +170,8 @@ def search_word():
 @app.route("/broadcasters")
 @login_required
 def broadcasters():
+    if check_banned():
+        return render_template("banned.html", user=current_user)
     broadcasters = get_broadcasters()
     logger.info("Loaded broadcasters.html")
     return render_template("broadcasters.html", broadcasters=broadcasters)

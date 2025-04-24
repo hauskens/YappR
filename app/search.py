@@ -28,6 +28,12 @@ def search_words_present_in_sentence(
     return all(word in sentence for word in search_words)
 
 
+def sort_function(segment: Segments | None) -> int:
+    if segment is not None:
+        return segment.start
+    raise ValueError("Cannot sort by None")
+
+
 def search_words_present_in_sentence_strict(
     sentence: list[str], search_words: list[str]
 ) -> bool:
@@ -52,7 +58,6 @@ def search_v2(
     end_date: datetime | None = None,
 ) -> tuple[list[SegmentsResult], list[Video]]:
 
-    logger.info(f"Searching for '{search_term}'")
     video_result: set[Video] = set()
     segment_result: list[SegmentsResult] = []
     transcriptions = None
@@ -132,9 +137,12 @@ def search_v2(
         # Skip the first word as thats our baseline, search for other words in current sentence
         elif strict_search is False:
             if search_words_present_in_sentence(current_sentence, search_words[1:]):
+                all_segments.sort(key=sort_function)
                 segment_result.append(
                     SegmentsResult(
-                        all_segments, segment.transcription.video, search_words
+                        all_segments,
+                        segment.transcription.video,
+                        search_words,
                     )
                 )
                 video_result.add(segment.transcription.video)

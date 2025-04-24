@@ -16,7 +16,11 @@
               <h5 class="card-title">
                 {{video.title}}
               </h5>
-              <p>{{video.channel.platform.name}} - {{video.uploaded}}</p>
+              <a href="{{ url_for('video_get_transcriptions', video_id=video.id) }}">
+                <img
+                  id="{{video.channel.platform.name}}"
+                  src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{video.channel.platform.color}}&logo={{video.channel.platform.name}}&logoColor=white"
+                  alt="{{video.channel.platform.name}}"/></a> - {{video.get_date_str()}}
               <div style="max-height: 400px; overflow-y: auto">
                 {% for segment in segment_result %}
                   {% if segment.video.id == video.id %}

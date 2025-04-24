@@ -17,7 +17,6 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy_utils.types.ts_vector import TSVectorType
 from sqlalchemy_file import FileField, File
-import twitchAPI.twitch as tapi
 from datetime import datetime
 from io import BytesIO
 import logging
@@ -65,6 +64,9 @@ class Platforms(Base):
     name: Mapped[str] = mapped_column(String(250), unique=True)
     url: Mapped[str] = mapped_column(String(1000), unique=True)
     logo_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    color: Mapped[str | None] = mapped_column(
+        String(10), nullable=True, default="#FF0000"
+    )
 
 
 class VideoType(enum.Enum):
@@ -99,12 +101,16 @@ class Users(Base, UserMixin):
     first_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
     last_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    banned: Mapped[bool] = mapped_column(Boolean, default=False)
+    banned_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     permissions: Mapped[list["Permissions"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
     def has_permission(self, permission_type: PermissionType) -> bool:
-        return any(p.permission_type == permission_type for p in self.permissions)
+        if self.banned_reason is None:
+            return any(p.permission_type == permission_type for p in self.permissions)
+        return False
 
     def add_permissions(self, permission_type: PermissionType):
         if not self.has_permission(permission_type):
@@ -242,6 +248,9 @@ class Video(Base):
     transcriptions: Mapped[list["Transcription"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
     )
+
+    def get_date_str(self) -> str:
+        return f"{self.uploaded.strftime("%d.%m.%Y")}"
 
     def get_url(self) -> str | None:
         url = self.channel.platform.url

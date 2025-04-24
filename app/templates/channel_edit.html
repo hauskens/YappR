@@ -48,9 +48,25 @@
           <td>{{ video.audio.filename }}</td>
           <td>{{ video.uploaded }}</td>
           <td>
-            <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', video_id=video.id) }}">Edit Video</a>
-            <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Download transcriptions</a>
-            <a class="btn btn-primary" role="button" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Process transcriptions</a>
+            <div class="container mb-2">
+              <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', video_id=video.id) }}">Edit Video</a>
+            </div>
+            {%for perm in g.user_object.permissions%}{% if 'Reader' in perm.permission_type.name %}
+              {% if video.transcriptions|length == 0 %}
+                <div class="container mb-2">
+                  <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a>
+                </div>
+              {% elif video.segments|length == 0 %}
+                <div class="container mb-2">
+                  <a class="btn btn-primary" role="button" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Process transcriptions</a>
+                </div>
+              {%endif%}
+              {% if video.audio.filename is defined %}
+              {% else%}
+                <div class="container mb-2">
+                  <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>                          {%endif%}
+                </div>
+            {% endif %}{% endfor %}
           </td>
         </tr>
         {% endfor %}

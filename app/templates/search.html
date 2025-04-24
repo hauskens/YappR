@@ -2,6 +2,14 @@
 <div class="container">
   <h1>Search:</h1>
   {% include "search_module.html" %}
+  <div class="container mt-4">
+    Search tips:
+    <ul>
+      <li>Try to search by keywords you would find in a ~8-12 sec timespan</li>
+      <li>Avoid long sentences</li>
+      <li>Keep in mind transcriptions are not correct</li>
+    </ul>
+  </div>
 </div>
   {% with messages = get_flashed_messages() %}
     {% if messages %}

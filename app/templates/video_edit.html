@@ -2,19 +2,32 @@
 
 {% block content %}
   <div class="container">
+    
     <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
-    <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_details', video_id=video.id) }}">Fetch video details from platform</a>
-    <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from platform</a>
-    <a class="btn btn-primary" role="button" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process audio from platform</a>
-    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', video_id=video.id) }}';">Fetch transcriptions for this video</button>
     <hr>
     <div class="container">
       <h1>{{ video.title }}</h1>
-      <a href="{{ video.get_url() }}" >Link to video on {{ video.channel.platform.name }}</a>
-      <p>Video ID: {{ video.id }}</p>
-      <p>Uploaded: {{ video.uploaded }}</p>
-      <p>Audio file: {{ video.audio.filename }}</p>
+      {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
+        <div class="container mb-2">
+          <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_details', video_id=video.id) }}">Fetch video details from platform</a>
+        </div>
+        <div class="container mb-2">
+          <p>Audio file: {% if video.audio.filename is defined %}<a class="btn btn-primary" role="button" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process {{ video.audio.filename }}</a>{% else %} <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>{% endif %}</p>
+        </div>
+        <div class="container mb-2">
+          <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', video_id=video.id) }}';">Fetch transcriptions for this video</button>
+        </div>
+      {% endif %}{% endfor %}
       <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
+      <br></br>
+      <a href="{{ video.get_url() }}" >
+        <img
+        id="{{video.channel.platform.name}}"
+        src="https://img.shields.io/badge/link_to_video-5dade2?style=for-the-badge&labelColor={{video.channel.platform.color}}&logo={{video.channel.platform.name}}&logoColor=white"
+        alt="{{video.channel.platform.name}}"
+      />
+      </a> 
+      <p>Uploaded: {{ video.uploaded }}</p>
     </div>
     <hr>
     <table class="table table-striped">
@@ -25,7 +38,7 @@
           <th scope="col">Source</th>
           <th scope="col">Last Updated</th>
           <th scope="col">Processed</th>
-          <th scope="col">Processed words</th>
+          <th scope="col">Processed segments</th>
           <th scope="col">File</th>
           <th scope="col">Actions</th>
         </tr>
@@ -38,14 +51,15 @@
           <td>{{ t.source.name }}</td>
           <td>{{ t.last_updated }}</td>
           <td>{{ t.processed }}</td>
-          <td>{{ t.word_maps|length }}</td>
+          <td>{{ t.segments|length }}</td>
           <td>
         <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
           </td>
           <td>
-
-    <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('delete_wordmaps_transcription', transcription_id=t.id) }}';"> Delete wordmaps</button>
-    <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('parse_transcription', transcription_id=t.id) }}';"> Process transcription</button>
+          {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
+            <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('delete_wordmaps_transcription', transcription_id=t.id) }}';"> Delete wordmaps</button>
+            <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('parse_transcription', transcription_id=t.id) }}';"> Process transcription</button>
+          {% endif %}{% endfor %}
           </td>
         </tr>
         {% endfor %}

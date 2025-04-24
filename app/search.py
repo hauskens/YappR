@@ -77,7 +77,7 @@ def search_v2(
                     Segments.text_tsv.match(search_term, postgresql_regconfig="simple"),
                     Segments.transcription_id.in_([t.id for t in transcriptions]),
                 )
-                .order_by(Segments.transcription_id)
+                .order_by(Segments.transcription_id, Segments.start)
                 .limit(1000)
             )
         )

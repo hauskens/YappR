@@ -75,12 +75,16 @@ def get_yt_audio(video_url: str) -> str:
 
 
 def get_twitch_audio(video_url: str) -> str:
-    download_path: str = f"{storage_directory}/{video_url.split('=')[-1]}s.webm"
+    download_path: str = f"{storage_directory}/{video_url.split('/')[-1]}s.webm"
 
     twitch_opts = {
         "format": "wa",
         "outtmpl": download_path,
     }
+    #     twitch_opts["extractor_args"] = {
+    #         "twitch": {"client_id": [config.twitch_dl_gql_client_id]}
+    #     }
+
     with yt_dlp.YoutubeDL(twitch_opts) as ydl:
         logger.info(f"Fetching audio for video: {video_url}")
         _ = ydl.download(video_url)

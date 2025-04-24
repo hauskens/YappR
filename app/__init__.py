@@ -27,6 +27,7 @@ bootstrap = Bootstrap5()
 login_manager = LoginManager()
 login_manager.login_view = "discord.login"
 
+init_storage()
 blueprint = make_discord_blueprint(
     client_id=config.discord_client_id,
     client_secret=config.discord_client_secret,
@@ -95,6 +96,10 @@ def create_app():
         broker_url=config.redis_uri,
         backend=config.database_uri,
         task_ignore_result=True,
+        task_routes={
+            "app.tasks.default": {"queue": "default-queue"},
+            "app.main.task_transcribe_audio": {"queue": "gpu-queue"},
+        },
     )
     environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     if config.debug:

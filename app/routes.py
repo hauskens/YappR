@@ -12,12 +12,16 @@ from flask import (
 )
 from flask_login import current_user, login_required
 from io import BytesIO
+import json
 from . import app
+import os
 from .tasks import get_yt_segment
+from .models.config import config
 from .retrievers import (
     get_users,
     get_broadcaster,
     get_broadcasters,
+    get_transcription,
     get_user_by_id,
     get_stats_words,
     get_stats_videos,
@@ -27,7 +31,6 @@ from .retrievers import (
     get_platforms,
     get_broadcaster_channels,
     get_channel,
-    get_transcription,
     get_transcriptions_by_video,
 )
 
@@ -37,9 +40,13 @@ from .models.db import (
     VideoType,
     Channels,
     PermissionType,
+    Transcription,
+    TranscriptionSource,
     db,
 )
-from .search import search, search_v2
+
+from .models.transcription import TranscriptionResult
+from .search import search_v2
 from .utils import get_valid_date
 
 logger = logging.getLogger(__name__)
@@ -165,6 +172,22 @@ def serve_thumbnails(video_id: int):
                 BytesIO(content),
                 mimetype="image/jpeg",
                 download_name=f"{video.id}.jpg",
+            )
+    except:
+        abort(404)
+    abort(500)
+
+
+@app.route("/video/<int:video_id>/download_audio")
+def serve_audio(video_id: int):
+    try:
+        video = get_video(video_id)
+        if video.audio is not None:
+            content = video.audio.file.read()
+            return send_file(
+                BytesIO(content),
+                mimetype="audio/mpeg",
+                download_name=f"{video.id}.webm",
             )
     except:
         abort(404)
@@ -346,30 +369,21 @@ def video_parse_transcriptions(video_id: int):
     return redirect(request.referrer)
 
 
-@app.route("/video/<int:video_id>/fecth_audio")
-@login_required
-def video_fetch_audio(video_id: int):
-    logger.info(f"Fetching audio for {video_id}")
-    video = get_video(video_id)
-    video.save_audio()
-    return redirect(request.referrer)
-
-
-@app.route("/video/<int:video_id>/download_clip", methods=["POST"])
-@login_required
-def download_video_clip(video_id: int):
-    start_time = int(request.form["start_time"])
-    duration = request.form["duration"]
-    video_url = get_video(video_id).get_url()
-    logger.info(f"Fetching clip for {int(start_time)}")
-    if video_url is not None:
-        clip = get_yt_segment(video_url, int(start_time), int(duration))
-        return send_file(
-            clip,
-            mimetype="video/mp4",
-            download_name=f"{video_id}.mp4",
-        )
-    return "something went wrong sorry no error handling glhf"
+# @app.route("/video/<int:video_id>/download_clip", methods=["POST"])
+# @login_required
+# def download_video_clip(video_id: int):
+#     start_time = int(request.form["start_time"])
+#     duration = request.form["duration"]
+#     video_url = get_video(video_id).get_url()
+#     logger.info(f"Fetching clip for {int(start_time)}")
+#     if video_url is not None:
+#         clip = get_yt_segment(video_url, int(start_time), int(duration))
+#         return send_file(
+#             clip,
+#             mimetype="video/mp4",
+#             download_name=f"{video_id}.mp4",
+#         )
+#     return "something went wrong sorry no error handling glhf"
 
 
 @app.route("/transcription/<int:transcription_id>/download")
@@ -384,14 +398,31 @@ def download_transcription(transcription_id: int):
     )
 
 
-@app.route("/transcription/<int:transcription_id>/parse")
-@login_required
-def parse_transcription(transcription_id: int):
-    transcription = get_transcription(transcription_id)
-    transcription.process_transcription()
-    return redirect(
-        url_for("video_get_transcriptions", video_id=transcription.video_id)
+@app.route("/video/<int:video_id>/upload_transcription", methods=["POST"])
+def upload_transcription(video_id: int):
+    logger.info(f"ready to receive json on {video_id}")
+    video = get_video(video_id)
+    if request.json is None:
+        logger.error("Json not found in request")
+        return "something wrong", 500
+    filename = f"{video_id}.json"
+    filepath = os.path.join(config.cache_location, filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+    logger.info(f"Json will be saved to{filepath}")
+    data = TranscriptionResult.model_validate(request.get_json())
+    db.session.add(
+        Transcription(
+            video_id=video.id,
+            language=data.language,
+            file_extention="json",
+            file=json.dumps(request.get_json()).encode("utf-8"),
+            source=TranscriptionSource.Unknown,
+        )
     )
+    db.session.commit()
+    logger.info("File uploaded")
+    return "ok", 200
 
 
 @app.route("/transcription/<int:transcription_id>/delete_wordmaps")

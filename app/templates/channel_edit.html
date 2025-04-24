@@ -51,7 +51,7 @@
             <div class="container mb-2">
               <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', video_id=video.id) }}">Edit Video</a>
             </div>
-            {%for perm in g.user_object.permissions%}{% if 'Reader' in perm.permission_type.name %}
+            {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
               {% if video.transcriptions|length == 0 %}
                 <div class="container mb-2">
                   <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a>

@@ -47,6 +47,9 @@ class Config:
         self.transcription_compute_type: str = os.environ.get(
             "TRANSCRIPTION_COMPUTE_TYPE", "float16"
         )  # for cpu, use int8
+        self.transcription_batch_size: int = int(
+            os.environ.get("TRANSCRIPTION_BATCH_SIZE", 8)
+        )  # lower this if gpu vram low
 
 
 _ = load_dotenv()

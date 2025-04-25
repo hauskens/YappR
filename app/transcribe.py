@@ -11,13 +11,17 @@ logger = logging.getLogger(__name__)
 def transcribe(path: str) -> TranscriptionResult:
     logger.info(f"Got path: {path}")
     device = config.transcription_device  # cuda
-    batch_size = 8  # reduce if low on GPU mem
+    batch_size = config.transcription_batch_size  # reduce if low on GPU mem
     compute_type = config.transcription_compute_type
     load_model = config.transcription_model
 
     model_dir = f"{config.cache_location}/models/"
     model = whisperx.load_model(
-        load_model, device, compute_type=compute_type, download_root=model_dir
+        load_model,
+        device,
+        compute_type=compute_type,
+        download_root=model_dir,
+        language="en",
     )
 
     audio = whisperx.load_audio(path)

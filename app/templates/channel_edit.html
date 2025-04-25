@@ -19,9 +19,9 @@
     <table class="table table-striped">
       <thead>
         <tr>
-          <th scope="col">Video ID</th>
           <th scope="col">Thumbnail</th>
           <th scope="col">Title</th>
+          <th scope="col">Duration</th>
           <th scope="col">Video Type</th>
           <th scope="col">Video Link</th>
           <th scope="col">Transcriptions</th>
@@ -33,13 +33,13 @@
       <tbody>
         {% for video in videos %}
         <tr>
-          <td>{{ video.id }}</td>
           <td>
             {% if loop.index <= 50 %}
                   <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
             {% endif %} 
           </td>
           <td>{{ video.title }}</td>
+          <td>{{ video.get_duration_str() }}</td>
           <td>{{ video.video_type.name }}</td>
           <td><a href="{{ video.get_url() }}">Link</a></td>
           <td> {{ 'No transcriptions' if video.transcriptions|length == 0 }} {% for t in video.transcriptions %}
@@ -49,7 +49,7 @@
           <td>{{ video.uploaded }}</td>
           <td>
             <div class="container mb-2">
-              <a class="btn btn-primary" role="button" href="{{ url_for('video_get_transcriptions', video_id=video.id) }}">Edit Video</a>
+              <a class="btn btn-primary" role="button" href="{{ url_for('video_edit', video_id=video.id) }}">Edit Video</a>
             </div>
             {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
               {% if video.transcriptions|length == 0 %}

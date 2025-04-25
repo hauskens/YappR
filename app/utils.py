@@ -5,7 +5,7 @@ import re
 import nltk
 import os
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from nltk.corpus import stopwords
 from nltk.tag import pos_tag
 from nltk.tokenize import word_tokenize
@@ -32,6 +32,10 @@ def sanitize_sentence(sentence: str) -> list[str]:
             word = ps.stem(word[0])
             result.append(word)
     return result
+
+
+def seconds_to_string(seconds: int | float) -> str:
+    return str(timedelta(seconds=int(seconds)))
 
 
 def loosely_sanitize_sentence(sentence: str) -> list[str]:

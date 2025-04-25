@@ -47,12 +47,9 @@ def load_user(oauth_id: int):
 @oauth_authorized.connect_via(blueprint)
 def handle_login(blueprint, token):
     if not token:
-        # flash("Failed to log in.", ="error")
         return False
     resp = blueprint.session.get("/api/users/@me")
     if not resp.ok:
-        # msg = "Failed to fetch user info."
-        # flash(msg, category="error")
         return False
     info = resp.json()
     logger.info(info)
@@ -66,9 +63,7 @@ def handle_login(blueprint, token):
         oauth = OAuth(provider=blueprint.name, provider_user_id=user_id, token=token)
 
     if oauth.user:
-        logger.info("sadasd")
         _ = login_user(oauth.user)
-        # flash("Successfully signed in.")
     else:
 
         u = Users(

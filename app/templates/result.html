@@ -2,6 +2,9 @@
 <div>
   <div class="container gx-2">
   <h1>{{broadcaster.name}}</h1>
+  <div class="container mb-4">
+    {% include "search_module.html" %}
+  </div>
   <p>Search results from '{{ search_word }}': {{video_result|length}} videos with {{segment_result|length}} segments</p>
   <!-- <p>Behind the scenes, the search terms used: {{segment_result[0].search_words}} </p> -->
     <div class="row gx-1">

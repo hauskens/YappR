@@ -89,7 +89,3 @@ def get_twitch_audio(video_url: str) -> str:
         logger.info(f"Fetching audio for video: {video_url}")
         _ = ydl.download(video_url)
         return download_path
-
-
-if __name__ == "__main__":
-    get_yt_segment("", 30, 20)

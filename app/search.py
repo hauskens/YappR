@@ -2,7 +2,6 @@ from datetime import datetime
 from collections.abc import Sequence
 from sqlalchemy import select
 import logging
-from flask import flash
 from .models.db import (
     Segments,
     Video,

@@ -305,7 +305,7 @@ def channel_delete(channel_id: int):
     return "ok"
 
 
-@app.route("/channel/<int:channel_id>/get_videos")
+@app.route("/channel/<int:channel_id>/videos")
 @login_required
 def channel_get_videos(channel_id: int):
     channel = get_channel(channel_id)
@@ -360,7 +360,7 @@ def video_fetch_details(video_id: int):
 def video_fetch_transcriptions(video_id: int):
     logger.info(f"Fetching transcriptions for {video_id}")
     video = get_video(video_id)
-    video.save_transcription(force=True)
+    video.download_transcription(force=True)
     return redirect(request.referrer)
 
 

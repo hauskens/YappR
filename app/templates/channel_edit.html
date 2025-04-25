@@ -10,8 +10,15 @@
     <div class="collapse" id="collapseManageChannel">
       <hr>
       <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_videos', channel_id=channel.id) }}';">Fetch videos on this channel</button>
-      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', channel_id=channel.id) }}';">Fetch all transcriptions</button>
-      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process ALL transcriptions</button>
+
+      {% if channel.platform.name.lower() == "youtube" %}
+        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', channel_id=channel.id) }}';">Fetch all transcriptions</button>
+      {% endif %}
+      {% if channel.platform.name.lower() == "twitch" %}
+        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
+        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_transcribe_audio', channel_id=channel.id) }}';">Process all audio</button>
+      {% endif %}
+      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
     </div>
     <hr>
     {% endif %}{% endfor %}
@@ -52,11 +59,12 @@
               <a class="btn btn-primary" role="button" href="{{ url_for('video_edit', video_id=video.id) }}">Edit Video</a>
             </div>
             {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
-              {% if video.transcriptions|length == 0 %}
+              {% if video.transcriptions|length == 0 and channel.platform.name.lower() == "youtube" %}
                 <div class="container mb-2">
                   <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a>
                 </div>
-              {% elif video.segments|length == 0 %}
+              {%endif%}
+              {% if video.segments|length == 0 and video.transcriptions|length != 0 %}
                 <div class="container mb-2">
                   <a class="btn btn-primary" role="button" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Process transcriptions</a>
                 </div>

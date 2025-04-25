@@ -157,12 +157,13 @@ class Channels(Base):
         back_populates="channel", cascade="all, delete-orphan"
     )
 
-    def get_url(self) -> str | None:
+    def get_url(self) -> str:
         url = self.platform.url
         if self.platform.name.lower() == "youtube":
             return f"{url}/@{self.platform_ref}"
         elif self.platform.name.lower() == "twitch":
             return f"{url}/{self.platform_ref}"
+        raise ValueError(f"Could not generate url for channel: {self.id}")
 
     def update(self):
         if self.platform.name.lower() == "youtube":
@@ -176,6 +177,14 @@ class Channels(Base):
     def delete(self):
         _ = db.session.query(Channels).filter_by(id=self.id).delete()
         db.session.commit()
+
+    def process_videos(self, force: bool = False):
+        for video in self.videos:
+            video.process_transcriptions(force)
+
+    def download_audio_videos(self, force: bool = False):
+        for video in self.videos:
+            video.save_audio(force)
 
     def fetch_latest_videos(self):
         if (
@@ -261,12 +270,13 @@ class Video(Base):
     def get_duration_str(self) -> str:
         return seconds_to_string(self.duration)
 
-    def get_url(self) -> str | None:
+    def get_url(self) -> str:
         url = self.channel.platform.url
         if self.channel.platform.name.lower() == "youtube":
             return f"{url}/watch?v={self.platform_ref}"
         elif self.channel.platform.name.lower() == "twitch":
             return f"{url}/videos/{self.platform_ref}"
+        raise ValueError(f"Could not generate url for video: {self.id}")
 
     def fetch_details(self):
         result = get_videos([self.platform_ref])[0]
@@ -278,11 +288,14 @@ class Video(Base):
             self.thumbnail = open(tn, "rb")
         db.session.commit()
 
-    def save_transcription(self, force: bool = False):
+    def download_transcription(self, force: bool = False):
         if force:
             for t in self.transcriptions:
-                logger.info(f"transcriptions found {self.platform_ref}, forcing delete")
-                db.session.delete(t)
+                if t.source == TranscriptionSource.YouTube:
+                    logger.info(
+                        f"transcriptions found {self.platform_ref}, forcing delete"
+                    )
+                    db.session.delete(t)
             db.session.commit()
         if len(self.transcriptions) == 0:
             logger.info(
@@ -304,6 +317,10 @@ class Video(Base):
                 )
             )
             db.session.commit()
+
+    def process_transcriptions(self, force: bool = False):
+        for t in self.transcriptions:
+            t.process_transcription(force)
 
     def save_audio(self, force: bool = False):
         if (
@@ -337,8 +354,14 @@ class Transcription(Base):
     )
 
     def delete(self):
+        self.reset()
         _ = db.session.query(Transcription).filter_by(id=self.id).delete()
         db.session.commit()
+
+    def reset(self):
+        self.delete_attached_wordmaps()
+        self.delete_attached_segments()
+        self.processed = False
 
     def delete_attached_wordmaps(self):
         _ = db.session.query(WordMaps).filter_by(transcription_id=self.id).delete()
@@ -355,16 +378,8 @@ class Transcription(Base):
         if self.processed and force == False:
             logger.info(f"Transcription {self.id}, already processed.. skipping")
             return
-        if len(self.word_maps) > 0:
-            logger.debug(f"wordmaps already found on {self.id}")
-            if force:
-                self.delete_attached_wordmaps()
-                self.delete_attached_segments()
-            else:
-                self.processed = True
-                db.session.commit()
-                return
-            db.session.flush()
+        if force:
+            self.reset()
         if self.file_extention == "vtt":
             _ = self.parse_vtt()
         elif self.file_extention == "json":
@@ -463,23 +478,23 @@ class Transcription(Base):
                 previous_segment = segment
             previous = text
             segments.append(segment)
-            words = sanitize_sentence(text)
-            for word in words:
-                found_existing_word = False
-                for wm in word_map:
-                    if wm.word == word:
-                        wm.segments.append(segment.id)
-                        found_existing_word = True
-                        break
-                if found_existing_word == False:
-                    word_map.append(
-                        WordMaps(
-                            word=word,
-                            segments=[segment.id],
-                            transcription_id=self.id,
-                        )
-                    )
-        db.session.add_all(word_map)
+        #     words = sanitize_sentence(text)
+        #     for word in words:
+        #         found_existing_word = False
+        #         for wm in word_map:
+        #             if wm.word == word:
+        #                 wm.segments.append(segment.id)
+        #                 found_existing_word = True
+        #                 break
+        #         if found_existing_word == False:
+        #             word_map.append(
+        #                 WordMaps(
+        #                     word=word,
+        #                     segments=[segment.id],
+        #                     transcription_id=self.id,
+        #                 )
+        #             )
+        # db.session.add_all(word_map)
         db.session.commit()
         logger.info(f"Done processing transcription: {self.id}")
 

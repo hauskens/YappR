@@ -84,7 +84,7 @@ def task_fetch_audio(video_id: int):
 def task_fetch_transcription(video_id: int):
     video = get_video(video_id)
     logger.info(f"Task queued, fetching transcription for {video.title}")
-    _ = video.save_transcription()
+    _ = video.download_transcription()
 
 
 @celery.task
@@ -92,7 +92,7 @@ def task_transcribe_audio(video_id: int, force: bool = False):
     video = get_video(video_id)
     logger.info(f"Task queued, processing audio for {video_id}")
     local_filename = config.cache_location + f"/{video.id}.mp4"
-    if os.path.exists(local_filename):
+    if os.path.exists(local_filename) and force:
         os.remove(local_filename)
     if video.audio is not None:
         with requests.get(f"{config.app_url}/video/{video.id}/download_audio") as r:
@@ -145,6 +145,27 @@ def channel_parse_transcriptions(channel_id: int):
         for video in channel.videos:
             for tran in video.transcriptions:
                 _ = task_parse_transcription.delay(tran.id)
+    return redirect(request.referrer)
+
+
+@app.route("/channel/<int:channel_id>/fetch_audio")
+@login_required
+def channel_fetch_audio(channel_id: int):
+    if current_user.has_permission(PermissionType.Admin):
+        channel = get_channel(channel_id)
+        for video in channel.videos:
+            _ = task_fetch_audio.delay(video.id)
+    return redirect(request.referrer)
+
+
+@app.route("/channel/<int:channel_id>/transcribe_audio")
+@login_required
+def channel_transcribe_audio(channel_id: int):
+    if current_user.has_permission(PermissionType.Admin):
+        channel = get_channel(channel_id)
+        for video in channel.videos:
+            if video.audio is not None:
+                _ = task_transcribe_audio.delay(video.id)
     return redirect(request.referrer)
 
 

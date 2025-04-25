@@ -133,7 +133,7 @@ def search_page():
 def search_word():
     if check_banned():
         return render_template("banned.html", user=current_user)
-    logger.info("Loaded search_word.html")
+    logger.info("User searching something..")
     search_term = request.form["search"]
     broadcaster_id = int(request.form["broadcaster"])
     session["last_selected_broadcaster"] = broadcaster_id
@@ -332,7 +332,7 @@ def channel_fetch_videos(channel_id: int):
     channel = get_channel(channel_id)
     logger.info(f"Fetching videos for {channel.name}")
     channel.fetch_latest_videos()
-    return redirect(url_for("channel_get_videos", channel_id=channel.id))
+    return redirect(request.referrer)
 
 
 # temp disabled, cant have this accidentaly run as it eats up api rate limit
@@ -361,12 +361,12 @@ def video_fetch_transcriptions(video_id: int):
     logger.info(f"Fetching transcriptions for {video_id}")
     video = get_video(video_id)
     video.save_transcription(force=True)
-    return redirect(url_for("video_get_transcriptions", video_id=video_id))
+    return redirect(request.referrer)
 
 
-@app.route("/video/<int:video_id>/get_transcriptions")
+@app.route("/video/<int:video_id>/edit")
 @login_required
-def video_get_transcriptions(video_id: int):
+def video_edit(video_id: int):
     video = get_video(video_id)
     return render_template(
         "video_edit.html",
@@ -446,6 +446,12 @@ def upload_transcription(video_id: int):
 def delete_wordmaps_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     transcription.delete_attached_wordmaps()
-    return redirect(
-        url_for("video_get_transcriptions", video_id=transcription.video_id)
-    )
+    return redirect(request.referrer)
+
+
+@app.route("/transcription/<int:transcription_id>/delete")
+@login_required
+def delete_transcription(transcription_id: int):
+    transcription = get_transcription(transcription_id)
+    transcription.delete()
+    return redirect(request.referrer)

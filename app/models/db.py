@@ -26,7 +26,13 @@ import asyncio
 
 from .transcription import TranscriptionResult
 from .config import config
-from ..utils import get_sec, sanitize_sentence, save_yt_thumbnail, save_twitch_thumbnail
+from ..utils import (
+    get_sec,
+    sanitize_sentence,
+    save_yt_thumbnail,
+    save_twitch_thumbnail,
+    seconds_to_string,
+)
 from ..youtube_api import (
     get_youtube_channel_details,
     get_videos_on_channel,
@@ -252,6 +258,9 @@ class Video(Base):
     def get_date_str(self) -> str:
         return f"{self.uploaded.strftime("%d.%m.%Y")}"
 
+    def get_duration_str(self) -> str:
+        return seconds_to_string(self.duration)
+
     def get_url(self) -> str | None:
         url = self.channel.platform.url
         if self.channel.platform.name.lower() == "youtube":
@@ -300,6 +309,7 @@ class Video(Base):
         if (
             self.channel.platform.name.lower() == "twitch"
             and self.get_url() is not None
+            and self.audio is None
         ):
             audio = get_twitch_audio(self.get_url())
             self.audio = open(audio, "rb")
@@ -325,6 +335,10 @@ class Transcription(Base):
     word_maps: Mapped[list["WordMaps"]] = relationship(
         back_populates="transcription", cascade="all, delete-orphan"
     )
+
+    def delete(self):
+        _ = db.session.query(Transcription).filter_by(id=self.id).delete()
+        db.session.commit()
 
     def delete_attached_wordmaps(self):
         _ = db.session.query(WordMaps).filter_by(transcription_id=self.id).delete()

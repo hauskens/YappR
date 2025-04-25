@@ -58,6 +58,7 @@
           <td>
           {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
             <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('delete_wordmaps_transcription', transcription_id=t.id) }}';"> Delete wordmaps</button>
+            <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('delete_transcription', transcription_id=t.id) }}';"> Delete transcription</button>
             <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('parse_transcription', transcription_id=t.id) }}';"> Process transcription</button>
           {% endif %}{% endfor %}
           </td>

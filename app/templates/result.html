@@ -16,7 +16,7 @@
               <h5 class="card-title">
                 {{video.title}}
               </h5>
-              <a href="{{ url_for('video_get_transcriptions', video_id=video.id) }}">
+              <a href="{{ url_for('video_edit', video_id=video.id) }}">
                 <img
                   id="{{video.channel.platform.name}}"
                   src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{video.channel.platform.color}}&logo={{video.channel.platform.name}}&logoColor=white"

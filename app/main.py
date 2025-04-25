@@ -7,7 +7,7 @@ from flask import (
     g,
 )
 
-from celery import Celery, Task, shared_task
+from celery import Celery, Task
 from .models.db import (
     PermissionType,
 )
@@ -16,9 +16,9 @@ import os
 from .transcribe import transcribe
 from .models.config import config
 import logging
-from .retrievers import get_transcription, get_video, fetch_audio
+from .retrievers import get_transcription, get_video
 from .routes import *
-from . import app, login_manager, init_storage
+from . import app, login_manager
 
 
 def celery_init_app(app: Flask) -> Celery:
@@ -76,7 +76,8 @@ def video_fetch_audio(video_id: int):
 @celery.task()
 def task_fetch_audio(video_id: int):
     logger.info(f"Fetching audio for {video_id}")
-    _ = task_audio(video_id)
+    video = get_video(video_id)
+    video.save_audio()
 
 
 @celery.task()
@@ -84,13 +85,6 @@ def task_fetch_transcription(video_id: int):
     video = get_video(video_id)
     logger.info(f"Task queued, fetching transcription for {video.title}")
     _ = video.save_transcription()
-
-
-@celery.task
-def task_audio(video_id: int):
-    logger.info(f"Task queued, fetching audio for {video_id}")
-    video = get_video(video_id)
-    video.save_audio()
 
 
 @celery.task

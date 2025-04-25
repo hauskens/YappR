@@ -1,43 +1,55 @@
 <form action="{{ url_for('search_word') }}" method="post">
-  <label for="broadcaster"{% if broadcasters|length == 0 %} hidden {% endif %} >Broadcaster</label>
-  <div class="mb-3">
-  <select id="broadcaster" name="broadcaster" {% if broadcasters|length == 0 %} hidden {% endif %} class="form-select">
-    {% if broadcasters|length > 0 %}
-      {% for broadcaster in broadcasters %}
-      <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
-      {% endfor %}</select>
-    {% else %}
-      <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
-    {% endif %}
-  </select>
-  </div>
-  <div class="collapse" id="collapseSearch">
-  <hr>
-  <div class="row">
-    <div class="col">
-      <label for="start_date">Start date</label>
-      <input name="start_date" id="start_date" class="form-control" type="date"> </input>
+  <div class="container">
+    <label for="broadcaster"{% if broadcasters|length == 0 %} hidden {% endif %} >Broadcaster</label>
+    <div class="row">
+      <div class="col-2">
+        <select id="broadcaster" name="broadcaster" {% if broadcasters|length == 0 %} hidden {% endif %} class="form-select">
+          {% if broadcasters|length > 0 %}
+            {% for broadcaster in broadcasters %}
+            <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
+            {% endfor %}</select>
+          {% else %}
+            <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
+          {% endif %}
+        </select>
+      </div>
+      <div class="col-2">
+        <select id="channel_type" name="channel_type" class="form-select">
+            <option value="all" selected>All</option>
+            <option value="youtube">YouTube</option>
+            <option value="twitch">Twitch</option>
+        </select>
+      </div>
+      <div class="col-1">
+        <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseSearch" role="button" aria-expanded="false" aria-controls="collapseSearch">
+          Filters 
+        </a>
+      </div>
     </div>
-    <div class="col">
-      <label for="end_date">End date</label>
-      <input name="end_date" id="end_date" class="form-control" type="date"> </input>
+    <div class="row collapse" id="collapseSearch">
+      <div class="col-3">
+        <div class="container-fluid">
+          <label for="start_date">Start date</label>
+          <input name="start_date" id="start_date" class="form-control" type="date"> </input>
+        </div>
+        <div class="container">
+          <label for="end_date">End date</label>
+          <input name="end_date" id="end_date" class="form-control" type="date"> </input>
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-5">
+        <hr>
+      </div>
+    </div>
+    <div class="row">
+      <div class="col-4">
+        <input type="search" autocomplete="off" id="search" name="search" class="form-control" required placeholder="Search..." />
+      </div>
+      <div class="col-1">
+        <button type="submit" class="btn btn-primary">Search</button>
+      </div>
     </div>
   </div>
-  <hr>
-  <label for="channel_type">Channel Type</label>
-  <select id="channel_type" name="channel_type" class="form-select">
-      <option value="all" selected>All</option>
-      <option value="youtube">YouTube</option>
-      <option value="twitch">Twitch</option>
-  </select>
-  <hr>
-  </div>
-  <div class="mb-3">
-    <input type="search" autocomplete="off" id="search" name="search" class="form-control" required placeholder="Search..." />
-  </div>
-  <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseSearch" role="button" aria-expanded="false" aria-controls="collapseSearch">
-    Filters 
-  </a>
-
-  <button type="submit" class="btn btn-primary">Search</button>
 </form>

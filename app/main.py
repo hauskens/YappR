@@ -19,6 +19,7 @@ import logging
 from .retrievers import get_transcription, get_video
 from .routes import *
 from . import app, login_manager
+from .models.db import TranscriptionSource
 
 
 def celery_init_app(app: Flask) -> Celery:
@@ -90,9 +91,16 @@ def task_fetch_transcription(video_id: int):
 @celery.task
 def task_transcribe_audio(video_id: int, force: bool = False):
     video = get_video(video_id)
+    for t in video.transcriptions:
+        if t.source == TranscriptionSource.Unknown and force == False:
+            logger.info(f"Transcription already exists on video {video.id}, skipping")
+            return
+        if t.source == TranscriptionSource.Unknown and force:
+            logger.info(f"Transcription already exists on video {video.id}, deleting")
+            t.delete()
     logger.info(f"Task queued, processing audio for {video_id}")
     local_filename = config.cache_location + f"/{video.id}.mp4"
-    if os.path.exists(local_filename) and force:
+    if os.path.exists(local_filename):
         os.remove(local_filename)
     if video.audio is not None:
         with requests.get(f"{config.app_url}/video/{video.id}/download_audio") as r:
@@ -163,8 +171,10 @@ def channel_fetch_audio(channel_id: int):
 def channel_transcribe_audio(channel_id: int):
     if current_user.has_permission(PermissionType.Admin):
         channel = get_channel(channel_id)
+        logger.info(f"Bulk queue audio processing for channel {channel.id}")
         for video in channel.videos:
             if video.audio is not None:
+                logger.info(f"Task queued, processing audio for video {video.id}")
                 _ = task_transcribe_audio.delay(video.id)
     return redirect(request.referrer)
 

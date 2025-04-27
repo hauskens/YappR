@@ -1,14 +1,13 @@
 {% extends 'base.html' %} {% block content %}
-  <div class="container mb-4">
+  <div class="container-fluid ms-4">
     {% include "search_module.html" %}
-  </div>
-  <div class="container">
-  <p>Search results from '{{ search_word }}': {{video_result|length}} videos with {{segment_result|length}} segments</p>
+  <hr>
+  <p>Search results from '{{ search_word }}': {{video_result|length}}</p>
+  <div class="container-fluid">
     <div class="row mb-1">
       {% for video in video_result %}
         <div class="col">
-          <div class="card" style="width: 325px;">
-
+          <div class="card mb-3" style="width: 325px;">
             {% if loop.index <= 50 %}
                   <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
             {% endif %} 
@@ -34,6 +33,7 @@
           </div>
         </div>
       {% endfor %}
-  </div>
+      </div>
+    </div>
   </div>
 {% endblock %}

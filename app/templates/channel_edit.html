@@ -51,7 +51,7 @@
           <td>{{ video.active }}</td>
           <td>{{ video.get_duration_str() }}</td>
           <td> 
-            {% if video.transcriptions|length == 0 %}
+            {% if video.transcriptions|length == 0 and video.active == true %}
               {%for perm in g.user_object.permissions%}
                 {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
                   <a class="btn btn-primary" onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>

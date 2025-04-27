@@ -177,9 +177,9 @@ class Channels(Base):
         db.session.commit()
 
     def delete(self):
-        _ = db.session.query(Channels).filter_by(id=self.id).delete()
         for video in self.videos:
             video.delete()
+        _ = db.session.query(Channels).filter_by(id=self.id).delete()
         db.session.commit()
 
     def process_videos(self, force: bool = False):

@@ -178,6 +178,8 @@ class Channels(Base):
 
     def delete(self):
         _ = db.session.query(Channels).filter_by(id=self.id).delete()
+        for video in self.videos:
+            video.delete()
         db.session.commit()
 
     def process_videos(self, force: bool = False):
@@ -268,6 +270,12 @@ class Video(Base):
 
     def get_date_str(self) -> str:
         return f"{self.uploaded.strftime("%d.%m.%Y")}"
+
+    def delete(self):
+        for t in self.transcriptions:
+            t.delete()
+        _ = db.session.query(Video).filter_by(id=self.id).delete()
+        db.session.commit()
 
     def get_duration_str(self) -> str:
         return seconds_to_string(self.duration)

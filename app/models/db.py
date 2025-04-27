@@ -90,6 +90,7 @@ class TranscriptionSource(enum.Enum):
 
 class PermissionType(enum.Enum):
     Admin = "admin"
+    Moderator = "mod"
     Reader = "reader"
 
 
@@ -342,7 +343,7 @@ class Video(Base):
         for t in self.transcriptions:
             if force:
                 t.reset()
-            if len(self.transcriptions) == 0:
+            if len(self.transcriptions) == 1:
                 transcription_to_process = t
             elif (
                 len(self.transcriptions) > 1
@@ -354,6 +355,9 @@ class Video(Base):
             ):
                 t.reset()
 
+        logger.info(
+            f"Processing transcriptions for {self.id}, found {transcription_to_process}"
+        )
         if transcription_to_process is not None:
             transcription_to_process.process_transcription(force)
 

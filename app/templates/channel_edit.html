@@ -9,8 +9,6 @@
     </a>
     <div class="collapse" id="collapseManageChannel">
       <hr>
-      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_videos', channel_id=channel.id) }}';">Fetch videos on this channel</button>
-
       <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_transcribe_audio', channel_id=channel.id) }}';">Process all audio</button>
       {% if channel.platform.name.lower() == "youtube" %}
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', channel_id=channel.id) }}';">Fetch all transcriptions</button>
@@ -20,11 +18,14 @@
       {% endif %}
       <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
     </div>
+    {%for perm in g.user_object.permissions%}
+      {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
+        <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a
+      {% endif %}
+    {% endfor %}
     <hr>
     {% endif %}{% endfor %}
-    <p>Videos on channel: {{ videos|length }}</p>
-    <p>Videos with audio: {{ audio_count }}</p>
-    <p>Videos with high quality transcriptions: {{ transcription_count }}</p>
+    <p>Videos on channel: {{ videos|length }}, Videos with audio: {{ audio_count }}, Videos with high quality transcriptions: {{ transcription_count }}</p>
     <table class="table table-striped">
       <thead>
         <tr>
@@ -32,8 +33,6 @@
           <th scope="col">Title</th>
           <th scope="col">Active</th>
           <th scope="col">Duration</th>
-          <th scope="col">Video Type</th>
-          <th scope="col">Video Link</th>
           <th scope="col">Transcriptions</th>
           <th scope="col">Attached audio</th>
           <th scope="col">Published</th>
@@ -51,18 +50,25 @@
           <td>{{ video.title }}</td>
           <td>{{ video.active }}</td>
           <td>{{ video.get_duration_str() }}</td>
-          <td>{{ video.video_type.name }}</td>
-          <td><a href="{{ video.get_url() }}">Link</a></td>
-          <td> {{ 'No transcriptions' if video.transcriptions|length == 0 }} {% for t in video.transcriptions %}
+          <td> 
+            {% if video.transcriptions|length == 0 %}
+              {%for perm in g.user_object.permissions%}
+                {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
+                  <a class="btn btn-primary" onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
+                {% endif %}
+              {% endfor %}
+            {% endif %}
+            {% for t in video.transcriptions %}
                 {{ 'Processed' if t.processed else 'Not processed' }}
-                {% endfor %}</td>
+            {% endfor %}</td>
           <td>{{ video.audio.filename }}</td>
           <td>{{ video.uploaded }}</td>
           <td>
             <div class="container mb-2">
               <a class="btn btn-primary" role="button" href="{{ url_for('video_edit', video_id=video.id) }}">Edit Video</a>
             </div>
-            {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
+            {%for perm in g.user_object.permissions%}
+            {% if 'Admin' in perm.permission_type.name %}
               {% if video.transcriptions|length == 0 and channel.platform.name.lower() == "youtube" %}
                 <div class="container mb-2">
                   <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a>

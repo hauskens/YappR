@@ -7,7 +7,7 @@ from flask import (
     g,
 )
 
-from celery import Celery, Task
+from celery import Celery, Task, group
 from .models.db import (
     PermissionType,
 )
@@ -66,11 +66,38 @@ def video_process_audio(video_id: int):
     return redirect(request.referrer)
 
 
+@app.route("/video/<int:video_id>/process_full")
+@login_required
+def video_process_full(video_id: int):
+    if current_user.has_permission(PermissionType.Admin) or current_user.has_permission(
+        PermissionType.Moderator
+    ):
+        logger.info(f"Full processing of video: {video_id}")
+        video = get_video(video_id)
+        if video.channel.platform.name.lower() == "twitch":
+            logger.info(f"Using twitch pipeline: {video_id}")
+            _ = group(
+                task_fetch_audio.delay(video_id),
+                task_transcribe_audio.delay(video_id),
+                task_parse_video_transcriptions.delay(video_id, force=True),
+            )
+        elif video.channel.platform.name.lower() == "youtube":
+            logger.info(f"Using youtube pipeline: {video_id}")
+            _ = group(
+                task_fetch_transcription.delay(video_id),
+                task_parse_video_transcriptions.delay(video_id, force=True),
+            )
+        return redirect(request.referrer)
+    else:
+        return access_denied()
+
+
 @app.route("/video/<int:video_id>/fecth_audio")
 @login_required
 def video_fetch_audio(video_id: int):
     logger.info(f"Fetching audio for {video_id}")
-    _ = task_fetch_audio.delay(video_id)
+    _ = group(task_fetch_audio.delay(video_id), task_transcribe_audio.delay(video_id))
+
     return redirect(request.referrer)
 
 
@@ -124,6 +151,12 @@ def task_transcribe_audio(video_id: int, force: bool = False):
 def task_parse_transcription(transcription_id: int, force: bool = False):
     trans = get_transcription(transcription_id)
     trans.process_transcription(force)
+
+
+@celery.task
+def task_parse_video_transcriptions(video_id: int, force: bool = False):
+    video = get_video(video_id)
+    video.process_transcriptions(force)
 
 
 @app.route("/transcription/<int:transcription_id>/parse")

@@ -20,6 +20,15 @@
       {% endif %}{% endfor %}
       <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
       <br></br>
+
+      {% if video.transcriptions|length == 0 %}
+        {%for perm in g.user_object.permissions%}
+          {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
+            <a class="btn btn-primary"onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
+          {% endif %}
+          <br></br>
+        {% endfor %}
+      {% endif %}
       <a href="{{ video.get_url() }}" >
         <img
         id="{{video.channel.platform.name}}"
@@ -53,14 +62,17 @@
           <td>{{ t.processed }}</td>
           <td>{{ t.segments|length }}</td>
           <td>
-        <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
+            <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
           </td>
           <td>
           {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
-            <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('delete_wordmaps_transcription', transcription_id=t.id) }}';"> Delete wordmaps</button>
             <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('delete_transcription', transcription_id=t.id) }}';"> Delete transcription</button>
-            <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('parse_transcription', transcription_id=t.id) }}';"> Process transcription</button>
-          {% endif %}{% endfor %}
+          {% endif %}
+          {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
+            <a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a>
+            <a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('delete_wordmaps_transcription', transcription_id=t.id) }}">Remove from search</a>
+          {% endif %}
+          {% endfor %}
           </td>
         </tr>
         {% endfor %}

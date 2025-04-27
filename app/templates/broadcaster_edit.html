@@ -38,7 +38,7 @@
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Edit Channel</a>
 
-            {%for perm in g.user_object.permissions%}{% if 'Reader' in perm.permission_type.name %}
+            {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
             <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Update channel details</button>
             {% endif %}{% endfor %}
             {% if g.user_object.broadcaster_id == broadcaster.id %}

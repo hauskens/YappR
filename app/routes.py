@@ -131,7 +131,7 @@ def user_edit(user_id: int):
 def grant_permission(user_id: int, permission_name: str):
     if current_user.has_permission(PermissionType.Admin):
         logger.info(
-            f"User {current_user.user_id} is granting '{permission_name}' to {user_id}"
+            f"User {current_user.id} is granting '{permission_name}' to {user_id}"
         )
 
         user = get_user_by_id(user_id)

@@ -38,10 +38,12 @@
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Edit Channel</a>
 
-            {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
-            <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Fetch details</button>
-            <a class="btn btn-danger disabled" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
+            {%for perm in g.user_object.permissions%}{% if 'Reader' in perm.permission_type.name %}
+            <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Update channel details</button>
             {% endif %}{% endfor %}
+            {% if g.user_object.broadcaster_id == broadcaster.id %}
+            <a class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this channel?')" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
+            {% endif %}
           </td>
         </tr>
         {% endfor %}
@@ -88,28 +90,6 @@
       <button type="submit" class="btn btn-primary">Save</button>
     </form>
   </div>
-            {% endif %}{% endfor %}
-    <hr>
-    <h4>Search in channel</h4>
-    <form action="{{ url_for('search_word') }}" method="post">
-      <input type="hidden" name="broadcaster" value="{{ broadcaster.id }}">
-      <div class="collapse" id="collapseSearch">
-      <hr>
-      <label for="start_date">Start date</label>
-      <input name="start_date" id="start_date" class="form-control" type="date"> </input>
-      <label for="end_date">End date</label>
-      <input name="end_date" id="end_date" class="form-control" type="date"> </input>
-      </div>
-      <hr>
-      <div class="mb-3">
-        <input type="search" autocomplete="off" id="search" name="search" class="form-control" required placeholder="Search..." />
-      </div>
-      <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseSearch" role="button" aria-expanded="false" aria-controls="collapseSearch">
-        Filters
-      </a>
-
-      <button type="submit" class="btn btn-primary">Search</button>
-    </form>
-
+ {% endif %}{% endfor %}
   </div>
 {% endblock %}

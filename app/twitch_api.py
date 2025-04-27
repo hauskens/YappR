@@ -28,7 +28,3 @@ async def get_latest_broadcasts(twitch_user_id: str) -> Sequence[Video]:
     twitch = await get_twitch_client()
     videos = twitch.get_videos(user_id=twitch_user_id)
     return [video async for video in videos]
-
-
-if __name__ == "__main__":
-    print(parse_time("6h36m1s"))

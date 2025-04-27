@@ -6,6 +6,7 @@ from .models.db import (
     Permissions,
     Platforms,
     Segments,
+    TranscriptionSource,
     WordMaps,
     Channels,
     Video,
@@ -162,6 +163,27 @@ def get_users() -> list[Users]:
 
 def get_stats_videos() -> int:
     return db.session.query(Video.id).count()
+
+
+def get_stats_videos_with_audio(channel_id: int) -> int:
+    return (
+        db.session.query(Video)
+        .filter(Video.audio.is_not(None), Video.channel_id == channel_id)
+        .count()
+    )
+
+
+def get_stats_videos_with_good_transcription(channel_id: int) -> int:
+    return (
+        db.session.query(Video)
+        .filter(
+            Video.transcriptions.any(
+                Transcription.source == TranscriptionSource.Unknown
+            ),
+            Video.channel_id == channel_id,
+        )
+        .count()
+    )
 
 
 def get_stats_words() -> int:

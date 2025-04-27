@@ -1,11 +1,12 @@
 {% extends 'base.html' %} {% block content %}
 
 <div class="container">
-  <p>You're not logged in yet!</p>
+  <h1>You're not logged in yet!</h1>
+  <hr>
   <p>YappR is a free and  <a href="https://github.com/hauskens/YappR">open source</a> project under the <a href="https://github.com/hauskens/YappR/blob/main/LICENSE">GNU GPL v2.0</a> license and is designed to be self hosted if you want to run your own instance<p>
-  <p>
-    Discord is used for authentication and can only see your profile name and picture.
-  </p>
+  <hr>
+  <p>Discord handles the authentication, so no passwords are exchanged with YappR.</p>
+  <p>We can only see your profile id, name and picture.</p>
   <p>Click the below login button to proceed, registration is automatic.</p>
   <a href="{{ url_for('discord.login') }}">
     <img

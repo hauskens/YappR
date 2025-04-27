@@ -3,6 +3,7 @@
     <label for="broadcaster"{% if broadcasters|length == 0 %} hidden {% endif %} >Broadcaster</label>
     <div class="row">
       <div class="col-2">
+        {% if broadcasters|length == 0 %} <h2>{{ broadcaster.name }}</h2> {% endif %} 
         <select id="broadcaster" name="broadcaster" {% if broadcasters|length == 0 %} hidden {% endif %} class="form-select">
           {% if broadcasters|length > 0 %}
             {% for broadcaster in broadcasters %}

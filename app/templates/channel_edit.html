@@ -18,13 +18,13 @@
       {% endif %}
       <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
     </div>
+    {% endif %}{% endfor %}
     {%for perm in g.user_object.permissions%}
       {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
         <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a
       {% endif %}
     {% endfor %}
     <hr>
-    {% endif %}{% endfor %}
     <p>Videos on channel: {{ videos|length }}, Videos with audio: {{ audio_count }}, Videos with high quality transcriptions: {{ transcription_count }}</p>
     <table class="table table-striped">
       <thead>

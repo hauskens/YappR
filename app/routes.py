@@ -32,6 +32,8 @@ from .retrievers import (
     get_broadcaster_channels,
     get_channel,
     get_transcriptions_by_video,
+    get_stats_videos_with_audio,
+    get_stats_videos_with_good_transcription,
 )
 
 from .models.db import (
@@ -86,6 +88,43 @@ def users():
         )
     else:
         return "You do not have access", 403
+
+
+@app.route("/user/<int:user_id>/edit", methods=["GET", "POST"])
+@login_required
+def user_edit(user_id: int):
+    if check_banned():
+        return render_template("banned.html", user=current_user)
+    if current_user.has_permission(PermissionType.Admin):
+        user = get_user_by_id(user_id)
+        if request.method == "GET":
+            logger.info("Loaded users.html")
+            if current_user.has_permission(PermissionType.Admin):
+                broadcasters = get_broadcasters()
+                return render_template(
+                    "user_edit.html",
+                    user=user,
+                    broadcasters=broadcasters,
+                    permission_types=PermissionType,
+                )
+        elif request.method == "POST":
+            try:
+                broadcaster_id = int(request.form["broadcaster_id"])
+                user.broadcaster_id = broadcaster_id
+                db.session.commit()
+                logger.info(
+                    f"User {user.id}, changing broadcaster_id to: '{broadcaster_id}'"
+                )
+                return redirect(request.referrer)
+            except:
+                user.broadcaster_id = None
+                db.session.commit()
+                logger.info(f"User {user.id}, changing broadcaster_id to: None")
+                return redirect(request.referrer)
+
+    else:
+        return access_denied()
+    return "Something went wrong", 503
 
 
 @app.route("/permissions/<int:user_id>/<permission_name>")
@@ -309,7 +348,15 @@ def channel_delete(channel_id: int):
 @login_required
 def channel_get_videos(channel_id: int):
     channel = get_channel(channel_id)
-    return render_template("channel_edit.html", videos=channel.videos, channel=channel)
+    return render_template(
+        "channel_edit.html",
+        videos=channel.videos,
+        channel=channel,
+        audio_count="{:,}".format(get_stats_videos_with_audio(channel_id)),
+        transcription_count="{:,}".format(
+            get_stats_videos_with_good_transcription(channel_id)
+        ),
+    )
 
 
 @app.route("/channel/<int:channel_id>/fetch_details")
@@ -378,10 +425,8 @@ def video_edit(video_id: int):
 @app.route("/video/<int:video_id>/parse_transcriptions")
 @login_required
 def video_parse_transcriptions(video_id: int):
-    tran = get_transcriptions_by_video(video_id)
-    if tran is not None:
-        for t in tran:
-            t.process_transcription()
+    video = get_video(video_id)
+    video.process_transcriptions(force=True)
     return redirect(request.referrer)
 
 

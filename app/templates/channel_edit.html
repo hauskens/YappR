@@ -11,18 +11,20 @@
       <hr>
       <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_videos', channel_id=channel.id) }}';">Fetch videos on this channel</button>
 
+      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_transcribe_audio', channel_id=channel.id) }}';">Process all audio</button>
       {% if channel.platform.name.lower() == "youtube" %}
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', channel_id=channel.id) }}';">Fetch all transcriptions</button>
       {% endif %}
       {% if channel.platform.name.lower() == "twitch" %}
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
-        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_transcribe_audio', channel_id=channel.id) }}';">Process all audio</button>
       {% endif %}
       <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
     </div>
     <hr>
     {% endif %}{% endfor %}
     <p>Videos on channel: {{ videos|length }}</p>
+    <p>Videos with audio: {{ audio_count }}</p>
+    <p>Videos with high quality transcriptions: {{ transcription_count }}</p>
     <table class="table table-striped">
       <thead>
         <tr>
@@ -90,7 +92,6 @@
         </div>
       {% endif %}
     {% endwith %}
-
 
   </div>
 {% endblock %}

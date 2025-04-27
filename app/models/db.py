@@ -28,7 +28,6 @@ from .transcription import TranscriptionResult
 from .config import config
 from ..utils import (
     get_sec,
-    sanitize_sentence,
     save_yt_thumbnail,
     save_twitch_thumbnail,
     seconds_to_string,
@@ -44,6 +43,8 @@ from ..twitch_api import get_twitch_user, get_latest_broadcasts, parse_time
 
 from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
+
+from app.models import transcription
 
 logger = logging.getLogger(__name__)
 
@@ -107,6 +108,7 @@ class Users(Base, UserMixin):
     first_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
     last_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    broadcaster_id: Mapped[int | None] = mapped_column(ForeignKey("broadcaster.id"))
     banned: Mapped[bool] = mapped_column(Boolean, default=False)
     banned_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     permissions: Mapped[list["Permissions"]] = relationship(
@@ -319,8 +321,24 @@ class Video(Base):
             db.session.commit()
 
     def process_transcriptions(self, force: bool = False):
+        transcription_to_process: Transcription | None = None
         for t in self.transcriptions:
-            t.process_transcription(force)
+            if force:
+                t.reset()
+            if len(self.transcriptions) == 0:
+                transcription_to_process = t
+            elif (
+                len(self.transcriptions) > 1
+                and t.source is not TranscriptionSource.YouTube
+            ):
+                transcription_to_process = t
+            elif (
+                len(self.transcriptions) > 1 and t.source is TranscriptionSource.YouTube
+            ):
+                t.reset()
+
+        if transcription_to_process is not None:
+            transcription_to_process.process_transcription(force)
 
     def save_audio(self, force: bool = False):
         if (
@@ -524,15 +542,18 @@ class Segments(Base):
     )
     transcription: Mapped["Transcription"] = relationship()
 
-    def get_url_timestamped(self) -> str:
+    def get_url_timestamped(self, time_shift: int = 5) -> str:
+        shifted_time = self.start - time_shift
+        if shifted_time < 0:
+            shifted_time = 0
         if self.transcription.video.channel.platform.name.lower() == "twitch":
-            hours = self.start // 3600
-            minutes = (self.start % 3600) // 60
-            seconds = self.start % 60
+            hours = shifted_time // 3600
+            minutes = (shifted_time % 3600) // 60
+            seconds = shifted_time % 60
             return f"{self.transcription.video.get_url()}?t={hours:02d}h{minutes:02d}m{seconds:02d}s"
 
         elif self.transcription.video.channel.platform.name.lower() == "youtube":
-            return f"{self.transcription.video.get_url()}&t={self.start}"
+            return f"{self.transcription.video.get_url()}&t={shifted_time}"
         raise ValueError("Could not generate url with timestamp")
 
 

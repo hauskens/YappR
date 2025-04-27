@@ -7,6 +7,7 @@
       <thead>
         <tr>
           <th scope="col">ID</th>
+          <th scope="col">BroadcasterID</th>
           <th scope="col">Username</th>
           <th scope="col">Roles</th>
           <th scope="col">Created</th>
@@ -19,6 +20,9 @@
         <tr>
         <td>
           {{ user.id }}
+        </td>
+        <td>
+          {{ user.broadcaster_id }}
         </td>
         <td>
           {{ user.name }}
@@ -35,9 +39,7 @@
           {{ user.last_login }}
         </td>
         <td>
-          {% for ptype in permission_types%}
-          <a class="btn btn-primary" role="button" href="{{ url_for('grant_permission', user_id=user.id, permission_name=ptype.name) }}">{{ptype.name}}</a>
-          {% endfor %}
+            <a class="btn btn-primary" role="button" href="{{ url_for('user_edit', user_id=user.id) }}">Edit User</a>
         </td>
         </tr>
       {% endfor %}

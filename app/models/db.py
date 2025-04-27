@@ -228,6 +228,9 @@ class Channels(Base):
             twitch_latest_videos = asyncio.run(
                 get_latest_broadcasts(self.platform_channel_id)
             )
+            for v in self.videos:
+                v.active = False
+            db.session.flush()
             for video in twitch_latest_videos:
                 existing_video = (
                     db.session.query(Video)
@@ -246,6 +249,11 @@ class Channels(Base):
                         thumbnail=open(tn, "rb"),
                     )
                     db.session.add(video)
+                else:
+                    existing_video.active = True
+                    existing_video.title = video.title
+                    existing_video.duration = parse_time(video.duration)
+                    existing_video.uploaded = video.created_at
             db.session.commit()
 
 
@@ -262,6 +270,7 @@ class Video(Base):
         DateTime, nullable=False, default=datetime(1970, 1, 1)
     )
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
+    active: Mapped[bool] = mapped_column(Boolean(), default=True)
     thumbnail: Mapped[File | None] = mapped_column(FileField())
     audio: Mapped[File | None] = mapped_column(FileField())
     transcriptions: Mapped[list["Transcription"]] = relationship(

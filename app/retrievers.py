@@ -99,7 +99,8 @@ def get_transcriptions_on_channels(
     transcriptions: list[Transcription] = []
     for channel in channels:
         for video in channel.videos:
-            transcriptions += video.transcriptions
+            if video.active:
+                transcriptions += video.transcriptions
     return transcriptions
 
 
@@ -109,10 +110,13 @@ def get_transcriptions_on_channels_daterange(
     transcriptions: list[Transcription] = []
     for channel in channels:
         for video in channel.videos:
-            logger.debug(f"Checking DATE: {start_date} < {video.uploaded} < {end_date}")
-            if start_date <= video.uploaded <= end_date:
-                transcriptions += video.transcriptions
-                logger.debug("Found match!")
+            if video.active:
+                logger.debug(
+                    f"Checking DATE: {start_date} < {video.uploaded} < {end_date}"
+                )
+                if start_date <= video.uploaded <= end_date:
+                    transcriptions += video.transcriptions
+                    logger.debug("Found match!")
     return transcriptions
 
 

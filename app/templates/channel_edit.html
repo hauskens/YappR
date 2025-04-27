@@ -30,6 +30,7 @@
         <tr>
           <th scope="col">Thumbnail</th>
           <th scope="col">Title</th>
+          <th scope="col">Active</th>
           <th scope="col">Duration</th>
           <th scope="col">Video Type</th>
           <th scope="col">Video Link</th>
@@ -48,6 +49,7 @@
             {% endif %} 
           </td>
           <td>{{ video.title }}</td>
+          <td>{{ video.active }}</td>
           <td>{{ video.get_duration_str() }}</td>
           <td>{{ video.video_type.name }}</td>
           <td><a href="{{ video.get_url() }}">Link</a></td>

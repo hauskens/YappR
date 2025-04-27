@@ -31,7 +31,6 @@ from .retrievers import (
     get_platforms,
     get_broadcaster_channels,
     get_channel,
-    get_transcriptions_by_video,
     get_stats_videos_with_audio,
     get_stats_videos_with_good_transcription,
 )

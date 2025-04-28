@@ -184,8 +184,7 @@ def channel_parse_transcriptions(channel_id: int):
     if current_user.has_permission(PermissionType.Admin):
         channel = get_channel(channel_id)
         for video in channel.videos:
-            for tran in video.transcriptions:
-                _ = task_parse_transcription.delay(tran.id)
+            _ = task_parse_video_transcriptions.delay(video.id)
     return redirect(request.referrer)
 
 

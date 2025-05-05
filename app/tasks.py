@@ -62,12 +62,17 @@ def get_yt_segment(video_url: str, start_time: int, duration: int) -> str:
 
 def get_yt_audio(video_url: str) -> str:
     download_path: str = f"{storage_directory}/{video_url.split('=')[-1]}s.webm"
+    cookie_path: str = f"{storage_directory}/cookies.txt"
 
     yt_opts = {
         "extract_audio": True,
         "format": "bestaudio[ext=webm]",
         "outtmpl": download_path,
     }
+
+    if os.path.exists(cookie_path):
+        yt_opts["cookiefile"] = cookie_path
+
     with yt_dlp.YoutubeDL(yt_opts) as ydl:
         logger.info(f"Fetching audio for video: {video_url}")
         _ = ydl.download(video_url)
@@ -81,6 +86,7 @@ def get_twitch_audio(video_url: str) -> str:
         "format": "wa",
         "outtmpl": download_path,
     }
+    # if config.twitch_dl_gql_client_id is not None:
     #     twitch_opts["extractor_args"] = {
     #         "twitch": {"client_id": [config.twitch_dl_gql_client_id]}
     #     }

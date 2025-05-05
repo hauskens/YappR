@@ -38,13 +38,12 @@ from ..youtube_api import (
     get_videos,
     fetch_transcription,
 )
-from ..tasks import get_twitch_audio
+from ..tasks import get_twitch_audio, get_yt_audio
 from ..twitch_api import get_twitch_user, get_latest_broadcasts, parse_time
 
 from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
 
-from app.models import transcription
 
 logger = logging.getLogger(__name__)
 
@@ -345,14 +344,12 @@ class Video(Base):
                 t.reset()
             if len(self.transcriptions) == 1:
                 transcription_to_process = t
-            elif (
+            if (
                 len(self.transcriptions) > 1
                 and t.source is not TranscriptionSource.YouTube
             ):
                 transcription_to_process = t
-            elif (
-                len(self.transcriptions) > 1 and t.source is TranscriptionSource.YouTube
-            ):
+            if len(self.transcriptions) > 1 and t.source is TranscriptionSource.YouTube:
                 t.reset()
 
         logger.info(
@@ -368,6 +365,14 @@ class Video(Base):
             and self.audio is None
         ):
             audio = get_twitch_audio(self.get_url())
+            self.audio = open(audio, "rb")
+            db.session.commit()
+        if (
+            self.channel.platform.name.lower() == "youtube"
+            and self.get_url() is not None
+            and self.audio is None
+        ):
+            audio = get_yt_audio(self.get_url())
             self.audio = open(audio, "rb")
             db.session.commit()
 

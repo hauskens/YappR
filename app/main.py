@@ -162,7 +162,7 @@ def task_parse_video_transcriptions(video_id: int, force: bool = False):
 @app.route("/transcription/<int:transcription_id>/parse")
 @login_required
 def parse_transcription(transcription_id: int):
-    _ = task_parse_transcription.delay(transcription_id)
+    _ = task_parse_transcription.delay(transcription_id, force=True)
     return redirect(request.referrer)
 
 
@@ -180,11 +180,11 @@ def channel_fetch_transcriptions(channel_id: int):
 
 @app.route("/channel/<int:channel_id>/parse_transcriptions")
 @login_required
-def channel_parse_transcriptions(channel_id: int):
+def channel_parse_transcriptions(channel_id: int, force: bool = False):
     if current_user.has_permission(PermissionType.Admin):
         channel = get_channel(channel_id)
         for video in channel.videos:
-            _ = task_parse_video_transcriptions.delay(video.id)
+            _ = task_parse_video_transcriptions.delay(video.id, force)
     return redirect(request.referrer)
 
 

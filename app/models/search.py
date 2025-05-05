@@ -28,3 +28,9 @@ class SegmentsResult:
 
     def get_url(self) -> str:
         return min(self.segments, key=lambda x: x.start).get_url_timestamped()
+
+
+@dataclass
+class VideoResult:
+    segment_results: list[SegmentsResult]
+    video: Video

@@ -8,7 +8,7 @@ from .models.db import (
     Channels,
     db,
 )
-from .models.search import SegmentsResult
+from .models.search import SegmentsResult, VideoResult
 from .retrievers import (
     get_transcriptions_on_channels,
     get_transcriptions_on_channels_daterange,
@@ -55,9 +55,10 @@ def search_v2(
     channels: Sequence[Channels],
     start_date: datetime | None = None,
     end_date: datetime | None = None,
-) -> tuple[list[SegmentsResult], list[Video]]:
+) -> list[VideoResult]:
 
-    video_result: set[Video] = set()
+    # video_result: set[Video] = set()
+    video_result: list[VideoResult] = []
     segment_result: list[SegmentsResult] = []
     transcriptions = None
     strict_search = search_term.startswith('"') and search_term.endswith('"')
@@ -126,17 +127,42 @@ def search_v2(
         if strict_search:
             if search_words_present_in_sentence_strict(current_sentence, search_words):
                 logger.debug(f"Found match!, {search_words} -- {segment.text}")
-                segment_result.append(
-                    SegmentsResult(
-                        all_segments, segment.transcription.video, search_words
-                    )
+                added = False
+                res = SegmentsResult(
+                    all_segments, segment.transcription.video, search_words
                 )
-                video_result.add(segment.transcription.video)
+                segment_result.append(res)
+                if video_result == []:
+                    video_result.append(VideoResult([res], res.video))
+                    added = True
+                for v in video_result:
+                    if v.video.id == res.video.id:
+                        v.segment_results.append(res)
+                        added = True
+                        continue
+                if added == False:
+                    video_result.append(VideoResult([res], res.video))
 
         # Skip the first word as thats our baseline, search for other words in current sentence
         elif strict_search is False:
             if search_words_present_in_sentence(current_sentence, search_words[1:]):
-                all_segments.sort(key=sort_function)
+                # all_segments.sort(key=sort_function)
+
+                added = False
+                res = SegmentsResult(
+                    all_segments, segment.transcription.video, search_words
+                )
+                segment_result.append(res)
+                # if len(video_result):
+                #     video_result.append(VideoResult([res], res.video))
+                #     added = True
+                for v in video_result:
+                    if v.video.id == res.video.id:
+                        v.segment_results.append(res)
+                        added = True
+                        continue
+                if added == False:
+                    video_result.append(VideoResult([res], res.video))
                 segment_result.append(
                     SegmentsResult(
                         all_segments,
@@ -144,12 +170,12 @@ def search_v2(
                         search_words,
                     )
                 )
-                video_result.add(segment.transcription.video)
 
     logger.info(
         f"Search found {len(video_result)} videos with {len(segment_result)} segments"
     )
-    return segment_result, sorted(video_result, key=lambda x: x.uploaded, reverse=True)
+    # return segment_result, sorted(video_result, key=lambda x: x.uploaded, reverse=True)
+    return video_result
 
 
 def search(

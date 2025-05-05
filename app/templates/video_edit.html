@@ -66,7 +66,7 @@
           </td>
           <td>
           {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
-            <button type="button" class="btn btn-danger" onclick="location.href = '{{ url_for('delete_transcription', transcription_id=t.id) }}';"> Delete transcription</button>
+            <button type="button" class="btn btn-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('delete_transcription', transcription_id=t.id) }}"> Delete transcription</button>
           {% endif %}
           {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
             <a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a>
@@ -78,6 +78,33 @@
         {% endfor %}
       </tbody>
     </table>
+    <hr>
+
+      {% for t in transcriptions %} {% if t.processed == true %}
+      <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th scope="col" width="10%">Timestamp link</th>
+            <th scope="col" width="5%">Start</th>
+            <th scope="col" width="5%">End</th>
+            <th scope="col">Text</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in t.segments %}
+          <tr>
+            <td><a href={{s.get_url_timestamped()}}>Link</a></td>
+            <td>{{ s.start }}</td>
+            <td>{{ s.end }}</td>
+            <td>{{ s.text }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% endif %}
+      {% endfor %}
 
     {% with messages = get_flashed_messages() %}
       {% if messages %}

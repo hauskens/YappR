@@ -16,7 +16,7 @@
       {% if channel.platform.name.lower() == "twitch" %}
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
       {% endif %}
-      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
+      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id, force=True) }}';">Process all transcriptions</button>
     </div>
     {% endif %}{% endfor %}
     {%for perm in g.user_object.permissions%}
@@ -31,7 +31,6 @@
         <tr>
           <th scope="col">Thumbnail</th>
           <th scope="col">Title</th>
-          <th scope="col">Active</th>
           <th scope="col">Duration</th>
           <th scope="col">Transcriptions</th>
           <th scope="col">Attached audio</th>
@@ -41,6 +40,7 @@
       </thead>
       <tbody>
         {% for video in videos %}
+        {% if video.active == true %}
         <tr>
           <td>
             {% if loop.index <= 50 %}
@@ -48,7 +48,6 @@
             {% endif %} 
           </td>
           <td>{{ video.title }}</td>
-          <td>{{ video.active }}</td>
           <td>{{ video.get_duration_str() }}</td>
           <td> 
             {% if video.transcriptions|length == 0 and video.active == true %}
@@ -86,7 +85,7 @@
                 </div>
             {% endif %}{% endfor %}
           </td>
-        </tr>
+        </tr>{% endif %}
         {% endfor %}
       </tbody>
     </table>

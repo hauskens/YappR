@@ -2,6 +2,8 @@ cli_to_api.py
 test
 test_cache
 test_storage
+cookies.txt
+*.webm
 project.db
 .env
 # Byte-compiled / optimized / DLL files

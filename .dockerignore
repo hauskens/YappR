@@ -2,6 +2,8 @@
 test_cache
 cli_to_api.py
 test
+cookies.txt
+*.webm
 test_storage
 project.db
 .env

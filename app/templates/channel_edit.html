@@ -3,7 +3,8 @@
 {% block content %}
   <div class="container">
     <h1>Videos on Channel: {{ channel.name }}</h1>
-    {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
+    {% for perm in g.user_object.permissions %}
+    {% if 'Admin' in perm.permission_type.name %}
     <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
       Some admin buttons...
     </a>
@@ -17,8 +18,24 @@
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
       {% endif %}
       <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id, force=True) }}';">Process all transcriptions</button>
+      <a class="btn btn-primary" onclick="return confirm('This will look for matches in source channel')" href="{{ url_for('channel_look_for_linked', channel_id=channel.id) }}">Look for linked videos</a>
+      <form action="{{ url_for('channel_link', channel_id=channel.id) }}" method="post">
+        <div class="mb-3">
+          <label for="name" class="form-label">Connect to channel</label>
+          <select id="link_channel_id" name="link_channel_id" class="form-select">
+            <option value="None">None</option>
+            {% for c in channel.broadcaster.channels %}
+              {% if c.id != channel.id %}
+                <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+        </div>
+       <button type="submit" class="btn btn-primary">Update Channel link</button>
+      </form>
     </div>
     {% endif %}{% endfor %}
+      <hr>
     {%for perm in g.user_object.permissions%}
       {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
         <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a
@@ -33,7 +50,7 @@
           <th scope="col">Title</th>
           <th scope="col">Duration</th>
           <th scope="col">Transcriptions</th>
-          <th scope="col">Attached audio</th>
+          <th scope="col">Status</th>
           <th scope="col">Published</th>
           <th scope="col">Actions</th>
         </tr>
@@ -60,7 +77,7 @@
             {% for t in video.transcriptions %}
                 {{ 'Processed' if t.processed else 'Not processed' }}
             {% endfor %}</td>
-          <td>{{ video.audio.filename }}</td>
+          <td>{% if video.audio.filename is defined %}Has audio attached{%elif video.source_video.id is defined%}<a href="{{ url_for('video_edit', video_id=video.source_video_id) }}">Linked with {{video.source_video.channel.platform.name}}</a>{% endif %}</td>
           <td>{{ video.uploaded }}</td>
           <td>
             <div class="container mb-2">

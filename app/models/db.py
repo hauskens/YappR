@@ -152,6 +152,10 @@ class Channels(Base):
     platform_channel_id: Mapped[str | None] = mapped_column(
         String(), unique=True, nullable=True
     )
+    source_channel_id: Mapped[int | None] = mapped_column(
+        ForeignKey("channels.id"), index=True, nullable=True
+    )
+    source_channel: Mapped["Channels"] = relationship()
     main_video_type: Mapped[str] = mapped_column(
         Enum(VideoType), default=VideoType.Unknown
     )
@@ -176,6 +180,26 @@ class Channels(Base):
             self.platform_channel_id = result.id
         db.session.commit()
 
+    def link_to_channel(self, channel_id: int | None = None):
+        if channel_id is not None:
+            try:
+                target_channel = (
+                    db.session.query(Channels)
+                    .filter_by(id=channel_id, broadcaster_id=self.broadcaster_id)
+                    .one()
+                )
+                self.source_channel_id = (
+                    target_channel.id
+                )  # I could have just taken channel_id directly from function, but this is to validate that it exists on broadcaster
+                db.session.commit()
+            except:
+                raise ValueError(
+                    "Failed to find target channel on broadcaster, is the broadcaster the same?"
+                )
+        else:
+            self.source_channel_id = None
+            db.session.commit()
+
     def delete(self):
         for video in self.videos:
             video.delete()
@@ -189,6 +213,26 @@ class Channels(Base):
     def download_audio_videos(self, force: bool = False):
         for video in self.videos:
             video.save_audio(force)
+
+    def look_for_linked_videos(self, margin_sec: int = 2, min_duration: int = 300):
+        logger.info(f"Looking for potential links on channel {self.name}")
+        for source_video in self.source_channel.videos:
+            for target_video in self.videos:
+                if (
+                    target_video.source_video_id is None
+                    and target_video.duration > min_duration
+                    and (
+                        (source_video.duration - margin_sec)
+                        <= target_video.duration
+                        <= (source_video.duration + margin_sec)
+                    )
+                ):
+                    logger.info(
+                        f"Found a match on video duration! Source: {source_video.id} -> target: {target_video.id}"
+                    )
+                    target_video.source_video_id = source_video.id
+                    db.session.flush()
+        db.session.commit()
 
     def fetch_latest_videos(self):
         if (
@@ -265,6 +309,13 @@ class Video(Base):
     duration: Mapped[float] = mapped_column(Float())
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)
     channel: Mapped["Channels"] = relationship()
+    source_video_id: Mapped[int | None] = mapped_column(
+        ForeignKey("video.id"), index=True, nullable=True
+    )
+    source_video: Mapped["Video"] = relationship(
+        back_populates="video_refs", remote_side="Video.id"
+    )
+    video_refs: Mapped[list["Video"]] = relationship(back_populates="source_video")
     last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
     uploaded: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime(1970, 1, 1)
@@ -296,6 +347,16 @@ class Video(Base):
         elif self.channel.platform.name.lower() == "twitch":
             return f"{url}/videos/{self.platform_ref}"
         raise ValueError(f"Could not generate url for video: {self.id}")
+
+    def archive(self):
+        for video in self.video_refs:
+            if video.video_type == VideoType.VOD:
+                for transcription in self.transcriptions:
+                    transcription.video_id = video.id
+                    logger.info(
+                        f"Transcription id: {transcription.id} on video id{self.id} is transfered to {video.id}"
+                    )
+                db.session.commit()
 
     def fetch_details(self):
         result = get_videos([self.platform_ref])[0]

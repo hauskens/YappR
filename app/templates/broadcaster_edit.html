@@ -23,6 +23,7 @@
           <th scope="col">Platform</th>
           <th scope="col">ID</th>
           <th scope="col">Channel Type</th>
+          <th scope="col">Linked</th>
           <th scope="col">Actions</th>
         </tr>
       </thead>
@@ -35,6 +36,7 @@
           <td>{{ channel.platform.name }}</td>
           <td>{{ channel.platform_ref }}</td>
           <td>{{ channel.main_video_type.name }}</td>
+          <td>{{ channel.source_channel.id }}</td>
           <td>
             <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Edit Channel</a>
 

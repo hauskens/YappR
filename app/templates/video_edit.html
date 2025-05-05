@@ -36,6 +36,14 @@
         alt="{{video.channel.platform.name}}"
       />
       </a> 
+      </br>
+      {% if video.source_video.id is defined %}
+        <a href="{{ url_for('video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform.name}}</a>
+        {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name and video.source_video.transcriptions|length > 0 %}
+          </br>
+          <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform.name}} to {{video.channel.platform.name}}')" href="{{ url_for('video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
+        {% endif %}{% endfor %}
+      {% endif %}
       <p>Uploaded: {{ video.uploaded }}</p>
     </div>
     <hr>
@@ -70,7 +78,7 @@
           {% endif %}
           {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
             <a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a>
-            <a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('delete_wordmaps_transcription', transcription_id=t.id) }}">Remove from search</a>
+            <a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('purge_transcription', transcription_id=t.id) }}">Remove from search</a>
           {% endif %}
           {% endfor %}
           </td>

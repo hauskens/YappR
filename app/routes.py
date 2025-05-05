@@ -333,6 +333,25 @@ def channel_create():
     )
 
 
+@app.route("/channel/<int:channel_id>/link", methods=["POST"])
+@login_required
+def channel_link(channel_id: int):
+    try:
+        link_channel_id = int(request.form["link_channel_id"])
+    except:
+        link_channel_id = None
+    _ = get_channel(channel_id).link_to_channel(link_channel_id)
+    return redirect(request.referrer)
+
+
+@app.route("/channel/<int:channel_id>/look_for_linked")
+@login_required
+def channel_look_for_linked(channel_id: int):
+    channel = get_channel(channel_id)
+    channel.look_for_linked_videos()
+    return redirect(request.referrer)
+
+
 @app.route("/channel/<int:channel_id>/delete")
 @login_required
 def channel_delete(channel_id: int):
@@ -405,6 +424,15 @@ def video_fetch_transcriptions(video_id: int):
     logger.info(f"Fetching transcriptions for {video_id}")
     video = get_video(video_id)
     video.download_transcription(force=True)
+    return redirect(request.referrer)
+
+
+@app.route("/video/<int:video_id>/archive")
+@login_required
+def video_archive(video_id: int):
+    logger.info(f"Archiving video {video_id}")
+    video = get_video(video_id)
+    video.archive()
     return redirect(request.referrer)
 
 
@@ -483,11 +511,11 @@ def upload_transcription(video_id: int):
     return "ok", 200
 
 
-@app.route("/transcription/<int:transcription_id>/delete_wordmaps")
+@app.route("/transcription/<int:transcription_id>/purge")
 @login_required
-def delete_wordmaps_transcription(transcription_id: int):
+def purge_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
-    transcription.delete_attached_wordmaps()
+    transcription.reset()
     return redirect(request.referrer)
 
 

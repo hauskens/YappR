@@ -186,22 +186,20 @@ def search_word():
     ]
     logger.info(f"channels: {len(channels)}")
     add_log(f"Searching for '{search_term}' on {broadcaster.name}")
-    segment_result, video_result = search_v2(
-        search_term, channels, start_date, end_date
-    )
-    if len(segment_result) == 0:
-        flash(
-            "Could not find any videos based on that search, try something else",
-            "error",
-        )
-        return redirect(request.referrer)
+    video_result = search_v2(search_term, channels, start_date, end_date)
+    # if len(segment_result) == 0:
+    #     flash(
+    #         "Could not find any videos based on that search, try something else",
+    #         "error",
+    #     )
+    #     return redirect(request.referrer)
 
     return render_template(
         "result.html",
         search_word=search_term,
         broadcaster=broadcaster,
         video_result=video_result,
-        segment_result=segment_result,
+        # segment_result=segment_result,
     )
 
 

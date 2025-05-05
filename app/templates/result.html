@@ -2,31 +2,28 @@
   <div class="container-fluid ms-4">
     {% include "search_module.html" %}
   <hr>
-  <p>Search results from '{{ search_word }}': {{video_result|length}}</p>
   <div class="container-fluid">
     <div class="row mb-1">
-      {% for video in video_result %}
+      {% for v in video_result %}
         <div class="col">
           <div class="card mb-3" style="width: 325px;">
             {% if loop.index <= 50 %}
-                  <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
+                  <img src="{{url_for('index')}}thumbnails/{{v.video.id}}" alt="" style="max-width:100%; max-height:250px;">
             {% endif %} 
             <div class="card-body">
               <h5 class="card-title">
-                {{video.title}}
+                {{v.video.title}}
               </h5>
-              <a href="{{ url_for('video_edit', video_id=video.id) }}">
+              <a href="{{ url_for('video_edit', video_id=v.video.id) }}">
                 <img
-                  id="{{video.channel.platform.name}}"
-                  src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{video.channel.platform.color}}&logo={{video.channel.platform.name}}&logoColor=white"
-                  alt="{{video.channel.platform.name}}"/></a> - {{video.get_date_str()}}
+                  id="{{v.video.channel.platform.name}}"
+                  src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{v.video.channel.platform.color}}&logo={{v.video.channel.platform.name}}&logoColor=white"
+                  alt="{{v.video.channel.platform.name}}"/></a> - {{v.video.get_date_str()}}
               <div style="max-height: 400px; overflow-y: auto">
-                {% for segment in segment_result %}
-                  {% if segment.video.id == video.id %}
+                {% for segment in v.segment_results %}
                     <hr>
                     <a class="card-text link-primary" id="card-sentence-result" target="_blank" href="{{ segment.get_url() }}"> {{ segment.start_time() }}s </a> 
                     <a>- {{ segment.get_sentences_formated()}}</a>
-                  {% endif %}
                 {% endfor %}
               </div>
             </div>

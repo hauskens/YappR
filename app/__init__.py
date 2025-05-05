@@ -8,6 +8,7 @@ from flask_dance.consumer.storage.sqla import SQLAlchemyStorage
 from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
+from datetime import timedelta
 from .models.config import config
 from .models.db import db, OAuth, Users, AccountSource
 from sqlalchemy_file.storage import StorageManager
@@ -63,7 +64,7 @@ def handle_login(blueprint, token):
         oauth = OAuth(provider=blueprint.name, provider_user_id=user_id, token=token)
 
     if oauth.user:
-        _ = login_user(oauth.user)
+        _ = login_user(oauth.user, remember=True, duration=timedelta(days=30))
     else:
 
         u = Users(
@@ -76,7 +77,7 @@ def handle_login(blueprint, token):
         db.session.add_all([u, oauth])
 
         db.session.commit()
-        _ = login_user(u)
+        _ = login_user(u, remember=True, duration=timedelta(days=30))
     # Disable Flask-Dance's default behavior for saving the OAuth token
     return False
 

@@ -366,7 +366,7 @@ def channel_get_videos(channel_id: int):
     channel = get_channel(channel_id)
     return render_template(
         "channel_edit.html",
-        videos=channel.videos,
+        videos=channel.get_videos_sorted_by_uploaded(),
         channel=channel,
         audio_count="{:,}".format(get_stats_videos_with_audio(channel_id)),
         transcription_count="{:,}".format(
@@ -396,17 +396,6 @@ def channel_fetch_videos(channel_id: int):
     logger.info(f"Fetching videos for {channel.name}")
     channel.fetch_latest_videos()
     return redirect(request.referrer)
-
-
-# temp disabled, cant have this accidentaly run as it eats up api rate limit
-# @app.route("/channel/<int:channel_id>/fetch_audio")
-# @login_required
-# def channel_fetch_audio(channel_id: int):
-#     channel = get_channel(channel_id)
-#     logger.info(f"Fetching all audio for {channel.name}")
-#     for video in channel.videos:
-#         _ = task_audio.delay(video.id)
-#     return redirect(url_for("channel_get_videos", channel_id=channel.id))
 
 
 @app.route("/video/<int:video_id>/fecth_details")

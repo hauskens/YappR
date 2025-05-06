@@ -177,6 +177,7 @@ def search_v2(
 
     for v in video_result:
         v.segment_results.sort(key=lambda r: min(s.start for s in r.segments))
+    video_result.sort(key=lambda v: v.video.uploaded, reverse=True)
     return video_result
 
 

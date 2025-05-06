@@ -214,6 +214,9 @@ class Channels(Base):
         for video in self.videos:
             video.save_audio(force)
 
+    def get_videos_sorted_by_uploaded(self, descending: bool = True) -> list["Video"]:
+        return sorted(self.videos, key=lambda v: v.uploaded, reverse=descending)
+
     def look_for_linked_videos(self, margin_sec: int = 2, min_duration: int = 300):
         logger.info(f"Looking for potential links on channel {self.name}")
         for source_video in self.source_channel.videos:

@@ -3,14 +3,26 @@
   <h1>Search:</h1>
   {% include "search_module.html" %}
   <div class="container mt-4">
-    Search tips:
-    <ul>
-      <li>Try to search by keywords you would find in a ~8-12 sec timespan</li>
-      <li>Avoid long sentences</li>
-      <li>Keep in mind transcriptions are not correct</li>
+    <h5 class="fw-bold">Search Tips</h5>
+    <ul class="list-group list-group-flush">
+      <li class="list-group-item">
+        🔍 Flexible search - Use <strong>keywords</strong> that would realistically appear within a short 8–12 second clip.
+      </li>
+      <li class="list-group-item">
+        🔒 Use <code>"quotes"</code> for <strong>strict search</strong> (exact match), but this is sensitive and may return fewer results, not recommended.
+      </li>
+      <li class="list-group-item">
+        ✂️ <strong>Keep it concise</strong> — long or complex sentences often won't match well.
+      </li>
+      <li class="list-group-item">
+        🧠 Remember: <strong>transcriptions do contain errors</strong> (e.g. typos or misheard words).
+      </li>
+      <li class="list-group-item">
+      ❌ Avoid searching for <strong>single common words</strong> like <em>"the"</em>, <em>"at"</em>, or <em>"thanks"</em> — they usually appear too frequently or are ignored.  
+      <br>However, <strong>distinctive single words</strong> like <em>"curry"</em> or <em>"passport"</em> works well.
+    </li>
     </ul>
   </div>
-</div>
   {% with messages = get_flashed_messages() %}
     {% if messages %}
       <div class="alert alert-danger" role="alert">

@@ -495,19 +495,17 @@ class Transcription(Base):
     def parse_json(self):
         logger.info(f"Processing json transcription: {self.id}")
         segments: list[Segments] = []
-        # word_map: list[WordMaps] = []
         content = TranscriptionResult.model_validate_json(
             self.file.file.read().decode()
         )
 
-        previous = None
         previous_segment: Segments | None = None
         logger.info(f"Processing json transcription: {self.id}")
         for caption in content.segments:
             start = int(caption.start)
             if caption.text == "":
                 continue
-            if caption.text == previous:
+            if previous_segment is not None and caption.text == previous_segment.text:
                 continue
 
             segment = Segments(
@@ -523,36 +521,18 @@ class Transcription(Base):
             db.session.flush()
             if previous_segment is not None:
                 previous_segment.next_segment_id = segment.id
-            else:
-                previous_segment = segment
-            previous = caption.text
+                db.session.add(previous_segment)
+                db.session.flush()
+
+            previous_segment = segment
             segments.append(segment)
-            # words = sanitize_sentence(caption.text)
-            # for word in words:
-            #     found_existing_word = False
-            #     for wm in word_map:
-            #         if wm.word == word:
-            #             wm.segments.append(segment.id)
-            #             found_existing_word = True
-            #             break
-            #     if found_existing_word == False:
-            #         word_map.append(
-            #             WordMaps(
-            #                 word=word,
-            #                 segments=[segment.id],
-            #                 transcription_id=self.id,
-            #             )
-            #         )
-        # db.session.add_all(word_map)
         db.session.commit()
         logger.info(f"Done processing transcription: {self.id}")
 
     def parse_vtt(self):
         logger.info(f"Processing vtt transcription: {self.id}")
         segments: list[Segments] = []
-        word_map: list[WordMaps] = []
         content = BytesIO(self.file.file.read())
-        previous = None
         previous_segment: Segments | None = None
         for caption in webvtt.from_buffer(content):
             start = get_sec(caption.start)
@@ -563,7 +543,7 @@ class Transcription(Base):
                 continue
             if text == "":
                 continue
-            if text == previous:
+            if previous_segment is not None and text == previous_segment.text:
                 continue
 
             segment = Segments(
@@ -579,27 +559,11 @@ class Transcription(Base):
             db.session.flush()
             if previous_segment is not None:
                 previous_segment.next_segment_id = segment.id
-            else:
-                previous_segment = segment
-            previous = text
+                db.session.add(previous_segment)
+                db.session.flush()
+
+            previous_segment = segment
             segments.append(segment)
-        #     words = sanitize_sentence(text)
-        #     for word in words:
-        #         found_existing_word = False
-        #         for wm in word_map:
-        #             if wm.word == word:
-        #                 wm.segments.append(segment.id)
-        #                 found_existing_word = True
-        #                 break
-        #         if found_existing_word == False:
-        #             word_map.append(
-        #                 WordMaps(
-        #                     word=word,
-        #                     segments=[segment.id],
-        #                     transcription_id=self.id,
-        #                 )
-        #             )
-        # db.session.add_all(word_map)
         db.session.commit()
         logger.info(f"Done processing transcription: {self.id}")
 
@@ -613,7 +577,7 @@ class Logs(Base):
 
 class Segments(Base):
     __tablename__: str = "segments"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     text_tsv: Mapped[TSVectorType] = mapped_column(
         TSVectorType("text", regconfig="simple"),

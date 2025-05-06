@@ -480,7 +480,7 @@ class Transcription(Base):
 
     def process_transcription(self, force: bool = False):
         logger.info(f"Task queued, parsing transcription for {self.id}, - {force}")
-        if self.processed and force == False:
+        if self.processed and force == False and len(self.word_maps) == 0:
             logger.info(f"Transcription {self.id}, already processed.. skipping")
             return
         if force:

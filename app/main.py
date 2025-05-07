@@ -109,7 +109,7 @@ def video_fetch_audio(video_id: int):
 def celery_active_tasks_view():
     i = celery.control.inspect()
     active = i.active() or {}
-    queue_names = ["gpu-tasks", "celery"]
+    queue_names = ["gpu-queue", "celery"]
     queued_tasks_by_queue = {}
     for queue_name in queue_names:
         queued_tasks = []

@@ -481,6 +481,9 @@ class Transcription(Base):
         self.processed = False
         db.session.commit()
 
+    def get_segments_sorted(self, descending: bool = True) -> list["Segments"]:
+        return sorted(self.segments, key=lambda v: v.start, reverse=not descending)
+
     def process_transcription(self, force: bool = False):
         logger.info(f"Task queued, parsing transcription for {self.id}, - {force}")
         if self.processed and force == False and len(self.word_maps) == 0:

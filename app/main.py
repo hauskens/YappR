@@ -4,9 +4,11 @@ from flask import (
     render_template,
     request,
     redirect,
+    jsonify,
     g,
 )
-
+import redis
+import json
 from celery import Celery, Task, group
 from .models.db import (
     PermissionType,
@@ -38,6 +40,7 @@ def celery_init_app(app: Flask) -> Celery:
 
 
 celery = celery_init_app(app)
+r = redis.Redis.from_url(config.redis_uri)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
 
@@ -99,6 +102,39 @@ def video_fetch_audio(video_id: int):
     _ = group(task_fetch_audio.delay(video_id), task_transcribe_audio.delay(video_id))
 
     return redirect(request.referrer)
+
+
+@app.route("/celery/active-view")
+@login_required
+def celery_active_tasks_view():
+    i = celery.control.inspect()
+    active = i.active() or {}
+    queue_names = ["gpu-tasks", "celery"]
+    queued_tasks_by_queue = {}
+    for queue_name in queue_names:
+        queued_tasks = []
+        queue_length = r.llen(queue_name)
+        for i in range(queue_length):
+            task_data = r.lindex(queue_name, i)
+            if task_data:
+                task = json.loads(task_data)
+                # Extract useful info
+                headers = task.get("headers", {})
+                task_name = headers.get("task", "Unknown Task")
+                argsrepr = headers.get("argsrepr", "")
+                queued_tasks.append(
+                    {
+                        "raw": task,
+                        "task_name": task_name,
+                        "argsrepr": argsrepr,
+                    }
+                )
+        queued_tasks_by_queue[queue_name] = queued_tasks
+    return render_template(
+        "active_tasks.html",
+        active_tasks=active,
+        queued_tasks_by_queue=queued_tasks_by_queue,
+    )
 
 
 @celery.task()

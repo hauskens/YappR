@@ -1,0 +1,62 @@
+
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container my-5">
+    <h1 class="mb-4 text-center">Active Celery Tasks</h1>
+    
+    {% if active_tasks %}
+        {% for worker, tasks in active_tasks.items() %}
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Worker: {{ worker }}</h5>
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for task in tasks %}
+                        <li class="list-group-item">
+                            <div class="mb-2"><strong>ID:</strong> {{ task.id }}</div>
+                            <div><strong>Name:</strong> {{ task.name }}</div>
+                            <div><strong>Args:</strong> {{ task.args }}</div>
+                            <div><strong>Kwargs:</strong> {{ task.kwargs }}</div>
+                            <div><strong>Time Start:</strong> {{ task.time_start }}</div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info text-center">
+            No active tasks at the moment.
+        </div>
+    {% endif %}
+    <div class="container my-5">
+    <h1 class="mb-4 text-center">Queued Tasks</h1>
+
+    {% for queue_name, queued_tasks in queued_tasks_by_queue.items() %}
+      <h3 class="mb-3">{{ queue_name | capitalize }} Queue</h3>
+      {% if queued_tasks %}
+          <p> Queue length: {{ queued_tasks|length }}</p>
+          <div class="accordion" id="queuedTasksAccordion">
+              {% for task in queued_tasks %}
+                  <div class="accordion-item">
+                      <h2 class="accordion-header" id="heading{{ loop.index }}">
+                          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ loop.index }}">
+                              Task {{ task.task_name }} - Args: {{ task.argsrepr }}
+                          </button>
+                      </h2>
+                      <div id="collapse{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#queuedTasksAccordion">
+                          <div class="accordion-body">
+                              <pre>{{ task.raw | tojson(indent=2) }}</pre>
+                          </div>
+                      </div>
+                  </div>
+              {% endfor %}
+          </div>
+      {% else %}
+          <div class="alert alert-info text-center">
+              No queued tasks at the moment.
+          </div>
+      {% endif %}
+    {% endfor %}
+</div>
+{% endblock %}

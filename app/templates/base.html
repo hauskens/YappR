@@ -35,6 +35,7 @@
             {{ render_nav_item('search_page', 'Search') }}
             {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
                 {{ render_nav_item('users', 'Users') }}
+                {{ render_nav_item('celery_active_tasks_view', 'Worker Status') }}
               {% endif %}{% endfor %}
             {{ render_nav_item('stats', 'Stats') }}
           </div>

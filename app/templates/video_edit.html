@@ -100,7 +100,7 @@
           </tr>
         </thead>
         <tbody>
-          {% for s in t.segments %}
+          {% for s in t.get_segments_sorted() %}
           <tr>
             <td><a href={{s.get_url_timestamped()}}>Link</a></td>
             <td>{{ s.start }}</td>

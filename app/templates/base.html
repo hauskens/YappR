@@ -7,6 +7,7 @@
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
         <script async defer src="https://buttons.github.io/buttons.js"></script>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
         {% block styles %}
             {{ bootstrap.load_css() }}
               <style>
@@ -45,92 +46,47 @@
       </div>
       <div class="container">
       <div class="form-check form-switch ms-auto me-2">
-      <label class="form-check-label ms-3" for="lightSwitch">
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          width="25"
-          height="25"
-          fill="currentColor"
-          class="bi bi-brightness-high"
-          viewBox="0 0 16 16"
-        >
-          <path
-            d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"
-          />
-        </svg>
-      </label>
-      <input class="form-check-input" type="checkbox" id="lightSwitch" />
+      <button id="themeToggle" class="btn">
+        <span id="themeIcon" class="bi bi-moon-fill"></span>
+      </button>
       </div>
       {% if g.username is defined %}
-      <div class="vr"></div>
-      <div class="ms-2">
-        <a>{{ g.username }}</a>
-        <img width="50" height="50" id="user-icon" src="{{ g.avatar_url }}"></img>
-      </div>
+        <div class="vr"></div>
+        <div class="ms-2">
+          <a>{{ g.username }}</a>
+          <img width="50" height="50" id="user-icon" src="{{ g.avatar_url }}"></img>
+        </div>
       {% endif %}
   </div>
     </nav>
     {% block content %}{% endblock %}
     {% block scripts %}
-      <script> 
-        // Toggle light/dark mode
-        /**
-         *  Light Switch @version v0.1.4
-         */
+      <script>
+          (function () {
+              const themeToggle = document.getElementById('themeToggle');
+              const themeIcon = document.getElementById('themeIcon'); // if using icons
 
-        // Modified toggle switch for bootstrap, based on https://github.com/han109k/light-switch-bootstrap
-        // MIT licenced, read their licence here -> https://github.com/han109k/light-switch-bootstrap/blob/main/LICENSE
+              // Get stored theme or system preference
+              let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
-        (function () {
-          let lightSwitch = document.getElementById('lightSwitch');
-          if (!lightSwitch) {
-            return;
-          }
-
-          function onToggleMode() {
-            if (!lightSwitch.checked) {
-              document.documentElement.setAttribute('data-bs-theme','light')
-              if (lightSwitch.checked) {
-                lightSwitch.checked = false;
+              // Apply initial theme
+              document.documentElement.setAttribute('data-bs-theme', currentTheme);
+              if (themeIcon) {
+                  themeIcon.className = currentTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
               }
-              localStorage.setItem('lightSwitch', 'light');
-            } else {
-              document.documentElement.setAttribute('data-bs-theme','dark')
-              if (!lightSwitch.checked) {
-                lightSwitch.checked = true;
-              }
-              localStorage.setItem('lightSwitch', 'dark');
-            }
-          }
 
-          /**
-           * @function getSystemDefaultTheme
-           * @summary: get system default theme by media query
-           */
-          function getSystemDefaultTheme() {
-            const darkThemeMq = window.matchMedia('(prefers-color-scheme: dark)');
-            if (darkThemeMq.matches) {
-              return 'dark';
-            }
-            return 'light';
-          }
+              themeToggle.addEventListener('click', () => {
+                  currentTheme = (document.documentElement.getAttribute('data-bs-theme') === 'dark') ? 'light' : 'dark';
+                  document.documentElement.setAttribute('data-bs-theme', currentTheme);
+                  localStorage.setItem('theme', currentTheme);
 
-          function setup() {
-            var settings = localStorage.getItem('lightSwitch');
-
-            if (settings == 'dark') {
-              lightSwitch.checked = true;
-            }
-
-            lightSwitch.addEventListener('change', onToggleMode);
-            onToggleMode();
-          }
-
-          setup();
-        })();
-
+                  if (themeIcon) {
+                      themeIcon.className = currentTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+                  }
+              });
+          })();
       </script>
-        {{ bootstrap.load_js() }}
+      {{ bootstrap.load_js() }}
     {% endblock %}
     {% block extra_scripts %}{% endblock %}
       <footer class="footer mt-auto fixed-bottom text-center text-lg-start text-white bg-body-tertiary">

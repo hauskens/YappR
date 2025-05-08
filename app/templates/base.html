@@ -27,11 +27,16 @@
                   fill: #007bff;
                 }
               </style>
+              <style>
+                .navbar {
+                  transition: top 0.3s;
+                }
+              </style>
         <title>YappR</title>
         {% endblock %}
     </head>
     <body>
-    <nav class="navbar navbar-expand-sm bg-dark bg-opacity-25">
+    <nav class="navbar navbar-expand-sm bg-dark sticky-top">
       <div class="container-fluid">
         <a class="navbar-brand" href="{{ url_for('index') }}">
         YappR
@@ -95,6 +100,24 @@
               });
           })();
       </script>
+      <script>
+          let lastScrollTop = 0;
+          const navbar = document.querySelector('.navbar');
+
+          window.addEventListener('scroll', function() {
+            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+
+            if (currentScroll > lastScrollTop) {
+              // Scrolling down
+              navbar.style.top = '-100px'; // Hide (adjust based on your navbar height)
+            } else {
+              // Scrolling up
+              navbar.style.top = '0';
+            }
+
+            lastScrollTop = currentScroll <= 0 ? 0 : currentScroll; // For Mobile or negative scrolling
+          });
+        </script>
       {{ bootstrap.load_js() }}
     {% block extra_scripts %}{% endblock %}
       <footer class="footer mt-auto fixed-bottom text-center text-lg-start text-white bg-body-tertiary">

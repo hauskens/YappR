@@ -33,6 +33,9 @@ from .retrievers import (
     get_channel,
     get_stats_videos_with_audio,
     get_stats_videos_with_good_transcription,
+    get_stats_transcriptions,
+    get_stats_high_quality_transcriptions,
+    get_total_video_duration,
 )
 
 from .models.db import (
@@ -151,8 +154,11 @@ def stats():
     return render_template(
         "stats.html",
         video_count="{:,}".format(get_stats_videos()),
+        video_duration="{:,}".format(get_total_video_duration()),
         word_count="{:,}".format(get_stats_words()),
         segment_count="{:,}".format(get_stats_segments()),
+        transcriptions_count="{:,}".format(get_stats_transcriptions()),
+        transcriptions_hq_count="{:,}".format(get_stats_high_quality_transcriptions()),
     )
 
 

@@ -12,33 +12,37 @@
       </thead>
       <tbody>
       {% for broadcaster in broadcasters %}
-        <tr>
-        <td>
-          {{ broadcaster.name }}<a href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}" class="text-primary"></a>
-        </td>
-        <td>
-          <a class="btn btn-primary" role="button" href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}">Show</a>
-        </td>
-        </tr>
+        {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin", "mod"])) %}
+          <tr>
+          <td>
+            {{ broadcaster.name }}<a href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}" class="text-primary"></a>
+          </td>
+          <td>
+            <a class="btn btn-primary" role="button" href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}">Show</a>
+          </td>
+          </tr>
+          {% endif %}
       {% endfor %}
       </tbody>
     </table>
 
-    {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
-    <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
-      Add new Broadcaster..
-    </a>
-      <div class="collapse" id="collapseManageChannel">
-      <form action="{{ url_for('broadcaster_create') }}" method="post">
-        <div class="mb-3">
-          <label for="name" class="form-label">Broadcaster Name:</label>
-          <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_!][A-Za-z0-9_! ]*" required placeholder="Mike Hunt" required title="Only A-Z or numbers allowed">
-        </div>
+    {% if  g.user_object.has_permission(["admin"]) %}
+      <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
+        Add new Broadcaster..
+      </a>
+        <div class="collapse" id="collapseManageChannel">
+        <form action="{{ url_for('broadcaster_create') }}" method="post">
+          <div class="mb-3">
+            <label for="name" class="form-label">Broadcaster Name:</label>
+            <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_!][A-Za-z0-9_! ]*" required placeholder="Mike Hunt" required title="Only A-Z or numbers allowed">
+          </div>
 
-        <button type="submit" class="btn btn-primary">Save Broadcaster</button>
-      </form>
-    </div>
+          <button type="submit" class="btn btn-primary">Save Broadcaster</button>
+        </form>
+      </div>
+    {% endif %}
   </div>
+
 
   {% with messages = get_flashed_messages() %}
     {% if messages %}
@@ -49,5 +53,4 @@
       </div>
     {% endif %}
   {% endwith %}
-  {% endif %}{% endfor %}
-{% endblock %}
+  {% endblock %}

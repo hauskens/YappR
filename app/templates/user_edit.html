@@ -1,49 +1,48 @@
 {% extends 'base.html' %} {% block content %}
 <div class="container">
-  {%for perm in g.user_object.permissions%}{% if 'Admin' in
-  perm.permission_type.name %}
-  <h1>User: {{ user.name }}</h1>
-  <p>
-    Yes.. this interface is horrible.. and it's open source, you can help
-    improve it ->
-    <a href="https://github.com/hauskens/yappr"> repo</a>
-  </p>
+  {% if g.user_object.has_permission(["admin"]) %}
+    <h1>User: {{ user.name }}</h1>
+    <p>
+      Yes.. this interface is horrible.. and it's open source, you can help
+      improve it ->
+      <a href="https://github.com/hauskens/yappr"> repo</a>
+    </p>
 
-  <form action="{{ url_for('user_edit', user_id=user.id) }}" method="post">
-    <div class="mb-3">
-      <label for="name" class="form-label">Connect to broadcaster</label>
-      <select id="broadcaster_id" name="broadcaster_id" class="form-select">
-        {% if user.broadcaster_id is defined %}
-        <option value="None">None</option>
-        {% else %}
-        <option value="None" selected>None</option>
-        {% endif %} {% for broadcaster in broadcasters %} {% if
-        user.broadcaster_id == broadcaster.id %}
-        <option value="{{ broadcaster.id }}" selected>
-          {{ broadcaster.name }}
-        </option>
-        {% else %}
-        <option value="{{ broadcaster.id }}">{{ broadcaster.name }}</option>
-        {% endif %} {% endfor %}
-      </select>
-    </div>
-
-    <button type="submit" class="btn btn-primary">Update User</button>
-  </form>
-  <hr />
-  <p>Users current permissions:</p>
-  {% for perm in user.permissions %}
-  <a>{{ perm.permission_type.name }}</a>
-  {% endfor %}
-  <hr />
-  <p>Grant permissions:</p>
-  {% for ptype in permission_types%}
-  <a
-    class="btn btn-primary"
-    role="button"
-    href="{{ url_for('grant_permission', user_id=user.id, permission_name=ptype.name) }}"
-    >{{ptype.name}}</a
-  >
-  {% endfor %} {% endif %}{% endfor %}
+    <form action="{{ url_for('user_edit', user_id=user.id) }}" method="post">
+      <div class="mb-3">
+        <label for="name" class="form-label">Connect to broadcaster</label>
+        <select id="broadcaster_id" name="broadcaster_id" class="form-select">
+          {% if user.broadcaster_id is defined %}
+          <option value="None">None</option>
+          {% else %}
+          <option value="None" selected>None</option>
+          {% endif %} {% for broadcaster in broadcasters %} {% if
+          user.broadcaster_id == broadcaster.id %}
+          <option value="{{ broadcaster.id }}" selected>
+            {{ broadcaster.name }}
+          </option>
+          {% else %}
+          <option value="{{ broadcaster.id }}">{{ broadcaster.name }}</option>
+          {% endif %} {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Update User</button>
+    </form>
+    <hr />
+    <p>Users current permissions:</p>
+    {% for perm in user.permissions %}
+      <a>{{ perm.permission_type.name }}</a>
+    {% endfor %}
+    <hr />
+    <p>Grant permissions:</p>
+    {% for ptype in permission_types%}
+      <a
+        class="btn btn-primary"
+        role="button"
+        href="{{ url_for('grant_permission', user_id=user.id, permission_name=ptype.name) }}"
+        >{{ptype.name}}</a
+      >
+    {% endfor %} 
+  {% endif %}
 </div>
 {% endblock %}

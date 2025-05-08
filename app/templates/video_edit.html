@@ -7,7 +7,7 @@
     <hr>
     <div class="container">
       <h1>{{ video.title }}</h1>
-      {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
+      {% if g.user_object.has_permission(["admin"]) %}
         <div class="container mb-2">
           <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_details', video_id=video.id) }}">Fetch video details from platform</a>
         </div>
@@ -17,17 +17,15 @@
         <div class="container mb-2">
           <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', video_id=video.id) }}';">Fetch transcriptions for this video</button>
         </div>
-      {% endif %}{% endfor %}
+      {% endif %}
       <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
       <br></br>
 
       {% if video.transcriptions|length == 0 and video.active == True %}
-        {%for perm in g.user_object.permissions%}
-          {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
-            <a class="btn btn-primary"onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
-          {% endif %}
+        {% if g.user_object.has_permission(["admin", "mod"]) %}
+          <a class="btn btn-primary"onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
           <br></br>
-        {% endfor %}
+        {% endif %}
       {% endif %}
       <a href="{{ video.get_url() }}" >
         <img
@@ -39,10 +37,10 @@
       </br>
       {% if video.source_video.id is defined %}
         <a href="{{ url_for('video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform.name}}</a>
-        {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name and video.source_video.transcriptions|length > 0 %}
+        {% if g.user_object.has_permission(["admin", "mod"]) and video.source_video.transcriptions|length > 0 %}
           </br>
           <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform.name}} to {{video.channel.platform.name}}')" href="{{ url_for('video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
-        {% endif %}{% endfor %}
+        {% endif %}
       {% endif %}
       <p>Uploaded: {{ video.uploaded }}</p>
     </div>
@@ -62,56 +60,56 @@
       </thead>
       <tbody>
         {% for t in transcriptions %}
-        <tr>
-          <td>{{ t.id }}</td>
-          <td>{{ t.file_extention }}</td>
-          <td>{{ t.source.name }}</td>
-          <td>{{ t.last_updated }}</td>
-          <td>{{ t.processed }}</td>
-          <td>{{ t.segments|length }}</td>
-          <td>
-            <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
-          </td>
-          <td>
-          {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
-            <button type="button" class="btn btn-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('delete_transcription', transcription_id=t.id) }}"> Delete transcription</button>
-          {% endif %}
-          {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
-            <a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a>
-            <a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('purge_transcription', transcription_id=t.id) }}">Remove from search</a>
-          {% endif %}
-          {% endfor %}
-          </td>
-        </tr>
+          <tr>
+            <td>{{ t.id }}</td>
+            <td>{{ t.file_extention }}</td>
+            <td>{{ t.source.name }}</td>
+            <td>{{ t.last_updated }}</td>
+            <td>{{ t.processed }}</td>
+            <td>{{ t.segments|length }}</td>
+            <td>
+              <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
+            </td>
+            <td>
+            {% if g.user_object.has_permission(["admin"]) %}
+              <button type="button" class="btn btn-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('delete_transcription', transcription_id=t.id) }}"> Delete transcription</button>
+            {% endif %}
+            {% if g.user_object.has_permission(["admin", "mod"]) %}
+              <a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a>
+              <a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('purge_transcription', transcription_id=t.id) }}">Remove from search</a>
+            {% endif %}
+            </td>
+          </tr>
         {% endfor %}
       </tbody>
     </table>
     <hr>
 
-      {% for t in transcriptions %} {% if t.processed == true %}
-      <div class="table-responsive">
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th scope="col" width="10%">Timestamp link</th>
-            <th scope="col" width="5%">Start</th>
-            <th scope="col" width="5%">End</th>
-            <th scope="col">Text</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for s in t.get_segments_sorted() %}
-          <tr>
-            <td><a href={{s.get_url_timestamped()}}>Link</a></td>
-            <td>{{ s.start }}</td>
-            <td>{{ s.end }}</td>
-            <td>{{ s.text }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-      </div>
-      {% endif %}
+      {% for t in transcriptions %} 
+        {% if t.processed == true %}
+          <div class="table-responsive">
+          <table class="table table-striped">
+            <thead>
+              <tr>
+                <th scope="col" width="10%">Timestamp link</th>
+                <th scope="col" width="5%">Start</th>
+                <th scope="col" width="5%">End</th>
+                <th scope="col">Text</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in t.get_segments_sorted() %}
+              <tr>
+                <td><a href={{s.get_url_timestamped()}}>Link</a></td>
+                <td>{{ s.start }}</td>
+                <td>{{ s.end }}</td>
+                <td>{{ s.text }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+          </div>
+        {% endif %}
       {% endfor %}
 
     {% with messages = get_flashed_messages() %}

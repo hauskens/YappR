@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Sequence
-from sqlalchemy import select
+from sqlalchemy import select, func
 from .models.db import (
     Broadcaster,
     Permissions,
@@ -166,7 +166,12 @@ def get_users() -> list[Users]:
 
 
 def get_stats_videos() -> int:
-    return db.session.query(Video.id).count()
+    return db.session.query(Video).count()
+
+
+def get_total_video_duration() -> int:
+    total_duration = db.session.query(func.sum(Video.duration)).scalar()
+    return total_duration or 0
 
 
 def get_stats_videos_with_audio(channel_id: int) -> int:
@@ -194,8 +199,20 @@ def get_stats_words() -> int:
     return db.session.query(WordMaps.word).count()
 
 
+def get_stats_transcriptions() -> int:
+    return db.session.query(Transcription).count()
+
+
+def get_stats_high_quality_transcriptions() -> int:
+    return (
+        db.session.query(Transcription)
+        .filter(Transcription.source == TranscriptionSource.Unknown)
+        .count()
+    )
+
+
 def get_stats_segments() -> int:
-    return db.session.query(Segments.id).count()
+    return db.session.query(Segments).count()
 
 
 def get_user_permissions(user: Users) -> list[Permissions]:

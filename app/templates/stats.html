@@ -2,7 +2,9 @@
 <div class="container">
   <h1>Stats</h1>
   <p>Videos indexed: {{ video_count }}</p>
+  <p>Total video duration in seconds: {{ video_duration }}</p>
   <p>Sentences mapped: {{ segment_count }}</p>
+  <p>High quality transcriptions: {{ transcriptions_hq_count }}</p>
 </div>
 
 {% with messages = get_flashed_messages() %} {% if messages %}

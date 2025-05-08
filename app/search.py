@@ -84,7 +84,7 @@ def search_v2(
                     Segments.transcription_id.in_([t.id for t in transcriptions]),
                 )
                 .order_by(Segments.transcription_id)
-                .limit(1000)
+                .limit(10000)
             )
         )
         .scalars()

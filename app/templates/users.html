@@ -1,60 +1,64 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <div class="container">
-    <h1>Users</h1>
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th scope="col">ID</th>
-          <th scope="col">BroadcasterID</th>
-          <th scope="col">Username</th>
-          <th scope="col">Roles</th>
-          <th scope="col">Created</th>
-          <th scope="col">LastLogin</th>
-          <th scope="col">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for user in users %}
-        <tr>
-        <td>
-          {{ user.id }}
-        </td>
-        <td>
-          {{ user.broadcaster_id }}
-        </td>
-        <td>
-          {{ user.name }}
-        </td>
-        <td>
-          {% for perm in user.permissions %}
-            <a>{{ perm.permission_type.name }}</a>
-          {% endfor %}
-        </td>
-        <td>
-          {{ user.first_login }}
-        </td>
-        <td>
-          {{ user.last_login }}
-        </td>
-        <td>
-            <a class="btn btn-primary" role="button" href="{{ url_for('user_edit', user_id=user.id) }}">Edit User</a>
-        </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
-    </div>
-  </div>
-
-  {% with messages = get_flashed_messages() %}
-    {% if messages %}
-      <div class="alert alert-success" role="alert">
-        {% for message in messages %}
-          {{ message }}
+  {% if g.user_object.has_permission(["admin"]) %}
+    <div class="container">
+      <h1>Users</h1>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">BroadcasterID</th>
+            <th scope="col">Username</th>
+            <th scope="col">Roles</th>
+            <th scope="col">Created</th>
+            <th scope="col">LastLogin</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for user in users %}
+          <tr>
+          <td>
+            {{ user.id }}
+          </td>
+          <td>
+            {{ user.broadcaster_id }}
+          </td>
+          <td>
+            {{ user.name }}
+          </td>
+          <td>
+            {% for perm in user.permissions %}
+              <a>{{ perm.permission_type.name }}</a>
+            {% endfor %}
+          </td>
+          <td>
+            {{ user.first_login }}
+          </td>
+          <td>
+            {{ user.last_login }}
+          </td>
+          <td>
+              <a class="btn btn-primary" role="button" href="{{ url_for('user_edit', user_id=user.id) }}">Edit User</a>
+          </td>
+          </tr>
         {% endfor %}
+        </tbody>
+      </table>
       </div>
-    {% endif %}
-  {% endwith %}
+    </div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-success" role="alert">
+          {% for message in messages %}
+            {{ message }}
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+  {% else %}
+    <p> WTF are you doing here?</p>
+  {% endif %}
 {% endblock %}

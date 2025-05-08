@@ -1,4 +1,5 @@
 import enum
+from typing import Union, Iterable
 from sqlalchemy import (
     Boolean,
     ForeignKey,
@@ -62,6 +63,7 @@ class Broadcaster(Base):
     channels: Mapped[list["Channels"]] = relationship(
         back_populates="broadcaster", cascade="all, delete-orphan"
     )
+    hidden: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Platforms(Base):
@@ -115,9 +117,19 @@ class Users(Base, UserMixin):
         back_populates="user", cascade="all, delete-orphan"
     )
 
-    def has_permission(self, permission_type: PermissionType) -> bool:
+    def has_permission(
+        self, permissions: PermissionType | str | Iterable[PermissionType | str]
+    ) -> bool:
+        if isinstance(permissions, (PermissionType, str)):
+            permissions = [permissions]
+
+        permission_types: list[PermissionType] = [
+            PermissionType(perm) if isinstance(perm, str) else perm
+            for perm in permissions
+        ]
+
         if self.banned_reason is None:
-            return any(p.permission_type == permission_type for p in self.permissions)
+            return any(p.permission_type in permission_types for p in self.permissions)
         return False
 
     def add_permissions(self, permission_type: PermissionType):
@@ -134,7 +146,7 @@ class Permissions(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["Users"] = relationship()
-    permission_type: Mapped[str] = mapped_column(
+    permission_type: Mapped[PermissionType] = mapped_column(
         Enum(PermissionType), default=PermissionType.Reader
     )
     date_added: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())

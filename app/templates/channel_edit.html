@@ -3,44 +3,41 @@
 {% block content %}
   <div class="container">
     <h1>Videos on Channel: {{ channel.name }}</h1>
-    {% for perm in g.user_object.permissions %}
-    {% if 'Admin' in perm.permission_type.name %}
-    <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
-      Some admin buttons...
-    </a>
-    <div class="collapse" id="collapseManageChannel">
-      <hr>
-      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_transcribe_audio', channel_id=channel.id) }}';">Process all audio</button>
-      {% if channel.platform.name.lower() == "youtube" %}
-        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', channel_id=channel.id) }}';">Fetch all transcriptions</button>
-      {% endif %}
-      {% if channel.platform.name.lower() == "twitch" %}
-        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
-      {% endif %}
-      <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id, force=True) }}';">Process all transcriptions</button>
-      <a class="btn btn-primary" onclick="return confirm('This will look for matches in source channel')" href="{{ url_for('channel_look_for_linked', channel_id=channel.id) }}">Look for linked videos</a>
-      <form action="{{ url_for('channel_link', channel_id=channel.id) }}" method="post">
-        <div class="mb-3">
-          <label for="name" class="form-label">Connect to channel</label>
-          <select id="link_channel_id" name="link_channel_id" class="form-select">
-            <option value="None">None</option>
-            {% for c in channel.broadcaster.channels %}
-              {% if c.id != channel.id %}
-                <option value="{{ c.id }}">{{ c.name }}</option>
-              {% endif %}
-            {% endfor %}
-          </select>
-        </div>
-       <button type="submit" class="btn btn-primary">Update Channel link</button>
-      </form>
-    </div>
-    {% endif %}{% endfor %}
-      <hr>
-    {%for perm in g.user_object.permissions%}
-      {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
+    {% if g.user_object.has_permission("admin") %}
+      <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
+        Some admin buttons...
+      </a>
+      <div class="collapse" id="collapseManageChannel">
+        <hr>
+        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_transcribe_audio', channel_id=channel.id) }}';">Process all audio</button>
+        {% if channel.platform.name.lower() == "youtube" %}
+          <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', channel_id=channel.id) }}';">Fetch all transcriptions</button>
+        {% endif %}
+        {% if channel.platform.name.lower() == "twitch" %}
+          <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
+        {% endif %}
+        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id, force=True) }}';">Process all transcriptions</button>
+        <a class="btn btn-primary" onclick="return confirm('This will look for matches in source channel')" href="{{ url_for('channel_look_for_linked', channel_id=channel.id) }}">Look for linked videos</a>
+        <form action="{{ url_for('channel_link', channel_id=channel.id) }}" method="post">
+          <div class="mb-3">
+            <label for="name" class="form-label">Connect to channel</label>
+            <select id="link_channel_id" name="link_channel_id" class="form-select">
+              <option value="None">None</option>
+              {% for c in channel.broadcaster.channels %}
+                {% if c.id != channel.id %}
+                  <option value="{{ c.id }}">{{ c.name }}</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+         <button type="submit" class="btn btn-primary">Update Channel link</button>
+        </form>
+      </div>
+    {% endif %}
+    <hr>
+    {% if g.user_object.has_permission(["admin", "mod"]) %}
         <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a
-      {% endif %}
-    {% endfor %}
+    {% endif %}
     <hr>
     <p>Videos on channel: {{ videos|length }}, Videos with high quality transcriptions: {{ transcription_count }}</p>
     <table class="table table-striped">
@@ -68,11 +65,9 @@
           <td>{{ video.get_duration_str() }}</td>
           <td> 
             {% if video.transcriptions|length == 0 and video.active == true %}
-              {%for perm in g.user_object.permissions%}
-                {% if 'Admin' in perm.permission_type.name or 'Manager in perm.permission_type.name' %}
+              {% if g.user_object.has_permission(["admin", "mod"]) %}
                   <a class="btn btn-primary" onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
-                {% endif %}
-              {% endfor %}
+              {% endif %}
             {% endif %}
             {% for t in video.transcriptions %}
                 {{ 'Processed' if t.processed else 'Not processed' }}
@@ -83,8 +78,7 @@
             <div class="container mb-2">
               <a class="btn btn-primary" role="button" href="{{ url_for('video_edit', video_id=video.id) }}">Edit Video</a>
             </div>
-            {%for perm in g.user_object.permissions%}
-            {% if 'Admin' in perm.permission_type.name %}
+            {% if g.user_object.has_permission(["admin", "mod"]) %}
               {% if video.transcriptions|length == 0 and channel.platform.name.lower() == "youtube" %}
                 <div class="container mb-2">
                   <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a>
@@ -100,7 +94,7 @@
                 <div class="container mb-2">
                   <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>                          {%endif%}
                 </div>
-            {% endif %}{% endfor %}
+            {% endif %}
           </td>
         </tr>{% endif %}
         {% endfor %}

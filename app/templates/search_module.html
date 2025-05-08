@@ -6,7 +6,9 @@
         <select id="broadcaster" name="broadcaster" {% if broadcasters|length == 0 %} hidden {% endif %} class="form-select">
           {% if broadcasters|length > 0 %}
             {% for broadcaster in broadcasters %}
-            <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
+              {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin", "mod"])) %}
+                <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
+              {% endif %}
             {% endfor %}</select>
           {% else %}
             <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>

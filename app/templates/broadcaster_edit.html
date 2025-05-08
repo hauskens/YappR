@@ -1,97 +1,102 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <div class="container">
-    <h1>Profile: {{ broadcaster.name }}</h1>
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="alert alert-success" role="alert">
-          {% for message in messages %}
-            {{ message }}
-          {% endfor %}
-        </div>
+  {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin", "mod"])) %}
+    <div class="container">
+      <h1>{{ broadcaster.name }}</h1>
+      {% if broadcaster.hidden %}
+        <h2>Hidden for regular users</h2>
       {% endif %}
-    {% endwith %}
-    <h4>Channels</h4>
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="alert alert-success" role="alert">
+            {% for message in messages %}
+              {{ message }}
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th scope="col">Channel ID</th>
+            <th scope="col">Channel External ID</th>
+            <th scope="col">Display Name</th>
+            <th scope="col">Platform</th>
+            <th scope="col">ID</th>
+            <th scope="col">Channel Type</th>
+            <th scope="col">Linked</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for channel in channels %}
+          <tr>
+            <td>{{ channel.id }}</td>
+            <td>{{ channel.platform_channel_id }}</td>
+            <td>{{ channel.name }}</td>
+            <td>{{ channel.platform.name }}</td>
+            <td>{{ channel.platform_ref }}</td>
+            <td>{{ channel.main_video_type.name }}</td>
+            <td>{{ channel.source_channel.id }}</td>
+            <td>
+              <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Go to Channel</a>
 
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th scope="col">Channel ID</th>
-          <th scope="col">Channel External ID</th>
-          <th scope="col">Display Name</th>
-          <th scope="col">Platform</th>
-          <th scope="col">ID</th>
-          <th scope="col">Channel Type</th>
-          <th scope="col">Linked</th>
-          <th scope="col">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for channel in channels %}
-        <tr>
-          <td>{{ channel.id }}</td>
-          <td>{{ channel.platform_channel_id }}</td>
-          <td>{{ channel.name }}</td>
-          <td>{{ channel.platform.name }}</td>
-          <td>{{ channel.platform_ref }}</td>
-          <td>{{ channel.main_video_type.name }}</td>
-          <td>{{ channel.source_channel.id }}</td>
-          <td>
-            <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Edit Channel</a>
-
-            {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
-            <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Update channel details</button>
-            {% endif %}{% endfor %}
-            {% if g.user_object.broadcaster_id == broadcaster.id %}
-            <a class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this channel?')" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
-            {% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+              {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin", "mod"])) %}
+                <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Update channel details</button>
+              {% endif %}
+              {% if g.user_object.broadcaster_id == broadcaster.id or  g.user_object.has_permission(["admin"]) %}
+                <a class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this channel? All transcription work will be lost')" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
 
 
-    {%for perm in g.user_object.permissions%}{% if 'Admin' in perm.permission_type.name %}
-    <h4>Add Channel</h4>
-    <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseAddChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
-      Add new channel
-    </a>
+      {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin"])) %}
+        <h4>Add Channel</h4>
+        <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseAddChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
+          Add new channel
+        </a>
 
-    <div class="collapse" id="collapseAddChannel">
-    <hr>
+        <div class="collapse" id="collapseAddChannel">
+        <hr>
 
-    <form action="{{ url_for('channel_create') }}" method="post">
-      <label for="platform_id">Platform:</label>
-      <select id="platform_id" name="platform_id" class="form-select">
-        {% for platform in platforms %}
-          <option value="{{ platform.id }}">{{ platform.name }}</option>
-        {% endfor %}
-      </select>
+        <form action="{{ url_for('channel_create') }}" method="post">
+          <label for="platform_id">Platform:</label>
+          <select id="platform_id" name="platform_id" class="form-select">
+            {% for platform in platforms %}
+              <option value="{{ platform.id }}">{{ platform.name }}</option>
+            {% endfor %}
+          </select>
 
-      <label for="channel_type">Channel Type</label>
-      <select id="channel_type" name="channel_type" class="form-select">
-        {% for video_type in video_types %}
-          <option value="{{ video_type.name }}">{{ video_type.name }}</option>
-        {% endfor %}
-      </select>
+          <label for="channel_type">Channel Type</label>
+          <select id="channel_type" name="channel_type" class="form-select">
+            {% for video_type in video_types %}
+              <option value="{{ video_type.name }}">{{ video_type.name }}</option>
+            {% endfor %}
+          </select>
 
-      <label for="name">Display Name:</label>
-      <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_ ]*" required placeholder="Testies VOD channel" required title="Only A-Z, _ and numbers allowed">
-      <label for="platform_ref">Channel ID in platform</label>
-      <input type="text" id="platform_ref" name="platform_ref" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_]*" required placeholder="" required title="Only A-Z or numbers allowed, remove @ from youtube tag">
+          <label for="name">Display Name:</label>
+          <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_ ]*" required placeholder="Testies VOD channel" required title="Only A-Z, _ and numbers allowed">
+          <label for="platform_ref">Channel ID in platform</label>
+          <input type="text" id="platform_ref" name="platform_ref" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_]*" required placeholder="" required title="Only A-Z or numbers allowed, remove @ from youtube tag">
 
-      <input
-        type="hidden"
-        id="broadcaster_id"
-        name="broadcaster_id"
-        value="{{ broadcaster.id }}"
-      >
-      </br>
-      <button type="submit" class="btn btn-primary">Save</button>
-    </form>
-  </div>
- {% endif %}{% endfor %}
-  </div>
+          <input
+            type="hidden"
+            id="broadcaster_id"
+            name="broadcaster_id"
+            value="{{ broadcaster.id }}"
+          >
+          </br>
+          <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+      </div>
+     {% endif %}
+    </div>
+  {% else %}
+    <p> What are you doing here?</p>
+  {% endif %}
 {% endblock %}

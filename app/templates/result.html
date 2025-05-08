@@ -30,7 +30,7 @@
       {% for v in video_result %}
         <div class="col">
           <div id="card-{{ v.video.id }}" class="card mb-3" style="width: 325px;">
-            {% if loop.index <= 50 %}
+            {% if loop.index <= 500 %}
               <img src="{{url_for('index')}}thumbnails/{{v.video.id}}" alt="" style="max-width:100%; max-height:250px;">
             {% endif %} 
             <div class="card-body">
@@ -72,7 +72,7 @@
       type: "bar",
       data: {
         labels: [
-          {% for v in video_result %}
+          {% for v in video_result|reverse %}
             "{{ v.video.uploaded }}",
           {% endfor %}
         ],
@@ -80,17 +80,17 @@
           {
             label: "# of results",
             data: [
-              {% for v in video_result %}
+              {% for v in video_result|reverse %}
                 {{ v.segment_results|length }},
               {% endfor %}
             ],
             videoId: [
-              {% for v in video_result %}
+              {% for v in video_result|reverse %}
                 {{ v.video.id }},
               {% endfor %}
             ],
             videoTitle: [
-              {% for v in video_result %}
+              {% for v in video_result|reverse %}
                 "{{ v.video.title }}",
               {% endfor %}
             ],

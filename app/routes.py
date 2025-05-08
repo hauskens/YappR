@@ -8,6 +8,7 @@ from flask import (
     send_file,
     url_for,
     abort,
+    make_response,
     session,
     g,
 )
@@ -226,11 +227,15 @@ def serve_thumbnails(video_id: int):
         video = get_video(video_id)
         if video.thumbnail is not None:
             content = video.thumbnail.file.read()
-            return send_file(
-                BytesIO(content),
-                mimetype="image/jpeg",
-                download_name=f"{video.id}.jpg",
+            response = make_response(
+                send_file(
+                    BytesIO(content),
+                    mimetype="image/jpeg",
+                    download_name=f"{video.id}.jpg",
+                )
             )
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+            return response
     except:
         abort(404)
     abort(500)

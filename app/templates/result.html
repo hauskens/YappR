@@ -1,14 +1,37 @@
-{% extends 'base.html' %} {% block content %}
-  <div class="container-fluid ms-4">
-    {% include "search_module.html" %}
+{% extends 'base.html' %} 
+{% block styles %}
+  <style>
+    /* Instantly turns card yellow */
+    .highlight-now {
+      background-color: #ffc107 !important; /* Bootstrap warning color */
+    }
+
+    /* Fades out smoothly */
+    .highlight-fade {
+      transition: background-color 1.5s ease;
+      background-color: transparent !important;
+    }
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="container-fluid mx-4 mt-2">
+    <div class="row">
+      <div class="col-8">
+        {% include "search_module.html" %}
+      </div>
+      <div class="col-4">
+        <canvas id="myChart"></canvas>
+      </div>
+    </div>
+  </div>
   <hr>
-  <div class="container-fluid">
+  <div class="container-fluid mx-4">
     <div class="row mb-1">
       {% for v in video_result %}
         <div class="col">
-          <div class="card mb-3" style="width: 325px;">
+          <div id="card-{{ v.video.id }}" class="card mb-3" style="width: 325px;">
             {% if loop.index <= 50 %}
-                  <img src="{{url_for('index')}}thumbnails/{{v.video.id}}" alt="" style="max-width:100%; max-height:250px;">
+              <img src="{{url_for('index')}}thumbnails/{{v.video.id}}" alt="" style="max-width:100%; max-height:250px;">
             {% endif %} 
             <div class="card-body">
               <h5 class="card-title">
@@ -30,7 +53,105 @@
           </div>
         </div>
       {% endfor %}
-      </div>
     </div>
   </div>
+{% endblock %}
+
+{% block scripts %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    function playVideo(playerName) {
+      $(`.${playerName}`).each(function(){
+        this.contentWindow.postMessage('{"event":"command","func":"stopVideo","args":""}', '*')
+      });
+    }
+    const ctx = document.getElementById("myChart");
+
+    var chart = new Chart(ctx, {
+      type: "bar",
+      data: {
+        labels: [
+          {% for v in video_result %}
+            "{{ v.video.uploaded }}",
+          {% endfor %}
+        ],
+        datasets: [
+          {
+            label: "# of results",
+            data: [
+              {% for v in video_result %}
+                {{ v.segment_results|length }},
+              {% endfor %}
+            ],
+            videoId: [
+              {% for v in video_result %}
+                {{ v.video.id }},
+              {% endfor %}
+            ],
+            videoTitle: [
+              {% for v in video_result %}
+                "{{ v.video.title }}",
+              {% endfor %}
+            ],
+            borderWidth: 1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        onClick: (e) => {
+          const activePoints = chart.getElementsAtEventForMode(e, 'nearest', {
+            intersect: true
+          }, false);
+          if (activePoints.length > 0) {
+            const index = activePoints[0].index;
+            const label = chart.data.labels[index];
+            const value = chart.data.datasets[0].data[index];
+            const videoId = chart.data.datasets[0].videoId[index];
+            const cardId = `card-${videoId}`;
+
+            const cardElement = document.getElementById(cardId);
+          // AI used for this block of code
+          if (cardElement) {
+              cardElement.scrollIntoView({ behavior: 'smooth' });
+
+              // Remove any existing highlight classes first
+              cardElement.classList.remove('highlight-now', 'highlight-fade');
+
+              // Add yellow instantly
+              cardElement.classList.add('highlight-now');
+
+              // Trigger the fade-out after a tiny delay (to allow repaint)
+              setTimeout(() => {
+                  cardElement.classList.add('highlight-fade');
+              }, 50);
+
+              // Fully clean up after the fade is complete (optional)
+              setTimeout(() => {
+                  cardElement.classList.remove('highlight-now', 'highlight-fade');
+              }, 2000);  // Match this with your transition time
+          }}
+        },
+        plugins: {
+          tooltip: {
+            callbacks: {
+              title: function(context) {
+                return context[0].chart.data.datasets[0].videoId[context.dataIndex];
+              },
+              label: function(context) {
+                const raw = context.raw;
+                const videoTitle = context.chart.data.datasets[0].videoTitle[context.dataIndex];
+                return [`Segments: ${raw}`, `Title: ${videoTitle}`];
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+          },
+        },
+      },
+    });
+  </script>
 {% endblock %}

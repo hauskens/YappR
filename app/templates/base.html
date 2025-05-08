@@ -16,6 +16,8 @@
             })();
         </script>
         {% block styles %}
+
+        {% endblock %}
             {{ bootstrap.load_css() }}
               <style>
                 .icon {
@@ -25,7 +27,6 @@
                   fill: #007bff;
                 }
               </style>
-        {% endblock %}
         <title>YappR</title>
         {% endblock %}
     </head>
@@ -68,7 +69,7 @@
   </div>
     </nav>
     {% block content %}{% endblock %}
-    {% block scripts %}
+    {% block scripts %}{% endblock %}
       <script>
           (function () {
               const themeToggle = document.getElementById('themeToggle');
@@ -95,7 +96,6 @@
           })();
       </script>
       {{ bootstrap.load_js() }}
-    {% endblock %}
     {% block extra_scripts %}{% endblock %}
       <footer class="footer mt-auto fixed-bottom text-center text-lg-start text-white bg-body-tertiary">
         <div class="bg-dark bg-opacity-25">

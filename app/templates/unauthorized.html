@@ -1,20 +1,51 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
 
-<div class="container">
-  <h1>You're not logged in yet!</h1>
-  <hr>
-  <p>YappR is a free and  <a href="https://github.com/hauskens/YappR">open source</a> project under the <a href="https://github.com/hauskens/YappR/blob/main/LICENSE">GNU GPL v2.0</a> license and is designed to be self hosted if you want to run your own instance<p>
-  <hr>
-  <p>Discord handles the authentication, so no passwords are exchanged with YappR.</p>
-  <p>We can only see your profile id, name and picture.</p>
-  <p>Click the below login button to proceed, registration is automatic.</p>
-  <a href="{{ url_for('discord.login') }}">
-    <img
-      id="discord"
-      src="https://img.shields.io/badge/Discord-Login-brightgreen?style=for-the-badge&labelColor=black&logo=Discord"
-      alt="discord"
-    />
-  </a>
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      
+      {% if ratelimit_exceeded %}
+      <div class="alert alert-warning text-center" role="alert">
+        <h2 class="alert-heading">Whoa there! 🚦</h2>
+        <p>You've used up your quota for now: {{ ratelimit_exceeded }}.</p>
+        <hr>
+        <p class="mb-0">Wait a bit and try again, or log in to get unlimited access and more features!</p>
+      </div>
+      {% else %}
+      <div class="alert alert-info text-center" role="alert">
+        <h2 class="alert-heading">Welcome to YappR! 👋</h2>
+        <p>It looks like you're not logged in yet.</p>
+        <hr>
+        <p class="mb-0">You can still use YappR, but you will be limited a certain amount of requests per day. </p>
+        <p class="mb-0">Log in to get unlimited access and more features!</p>
+      </div>
+      {% endif %}
+
+      <div class="card shadow-sm mt-4">
+        <div class="card-body">
+          <p>🛠️ <strong>YappR</strong> is a <strong>free</strong> and <a href="https://github.com/hauskens/YappR" target="_blank">open source</a> project, licensed under the <strong>GNU GPL v2.0</strong>.</p>
+          <p> You can <em>self-host</em> your own instance if you'd like to manage it on your own</p>
+          
+          <hr>
+          <p>🔒Discord is used for authentication, meaning <strong>no passwords</strong> are ever exchanged with YappR.</p>
+          <p>👀 The only info we can access is your <strong>profile ID, name, and avatar</strong>—nothing more.</p>
+          
+          <p>🚀 Ready to dive in? Just click the <strong>login button below</strong>. Once you're in, you're all set to go!</p>
+
+          <div class="text-center mt-4">
+            <a href="{{ url_for('discord.login') }}">
+              <img
+                id="discord"
+                src="https://img.shields.io/badge/Discord-Login-brightgreen?style=for-the-badge&labelColor=black&logo=Discord"
+                alt="Login with Discord"
+              />
+            </a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
 </div>
-
 {% endblock %}

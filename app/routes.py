@@ -15,7 +15,7 @@ from flask import (
 from flask_login import current_user, login_required
 from io import BytesIO
 import json
-from . import app
+from . import app, limiter, rate_limit_exempt
 import os
 from .models.config import config
 from .retrievers import (
@@ -64,7 +64,7 @@ def check_banned():
 
 
 @app.route("/")
-@login_required
+@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 def index():
     if check_banned():
         return render_template("banned.html", user=current_user)
@@ -73,7 +73,12 @@ def index():
     return render_template("search.html", broadcasters=broadcasters)
 
 
+@app.route("/login")
+def login():
+    return render_template("unauthorized.html")
+
 @app.route("/admin")
+@limiter.shared_limit("10000 per hour", exempt_when=rate_limit_exempt, scope="images")
 def access_denied():
     return send_from_directory("static", "401.jpg")
 
@@ -149,7 +154,7 @@ def grant_permission(user_id: int, permission_name: str):
 
 
 @app.route("/stats")
-@login_required
+@limiter.limit("100 per day, 5 per minute", exempt_when=rate_limit_exempt)
 def stats():
     logger.info("Loaded stats.html")
     return render_template(
@@ -164,7 +169,7 @@ def stats():
 
 
 @app.route("/search")
-@login_required
+@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 def search_page():
     if check_banned():
         return render_template("banned.html", user=current_user)
@@ -174,7 +179,7 @@ def search_page():
 
 
 @app.route("/search", methods=["POST"])
-@login_required
+@limiter.shared_limit("100 per day, 5 per minute", exempt_when=rate_limit_exempt, scope="query")
 def search_word():
     if check_banned():
         return render_template("banned.html", user=current_user)
@@ -194,19 +199,11 @@ def search_word():
     logger.info(f"channels: {len(channels)}")
     add_log(f"Searching for '{search_term}' on {broadcaster.name}")
     video_result = search_v2(search_term, channels, start_date, end_date)
-    # if len(segment_result) == 0:
-    #     flash(
-    #         "Could not find any videos based on that search, try something else",
-    #         "error",
-    #     )
-    #     return redirect(request.referrer)
-
     return render_template(
         "result.html",
         search_word=search_term,
         broadcaster=broadcaster,
         video_result=video_result,
-        # segment_result=segment_result,
     )
 
 
@@ -221,7 +218,7 @@ def broadcasters():
 
 
 @app.route("/thumbnails/<int:video_id>")
-@login_required
+@limiter.shared_limit("10000 per hour", exempt_when=rate_limit_exempt, scope="images")
 def serve_thumbnails(video_id: int):
     try:
         video = get_video(video_id)
@@ -242,6 +239,7 @@ def serve_thumbnails(video_id: int):
 
 
 @app.route("/video/<int:video_id>/download_audio")
+# TODO: add rate limit, but need to authenticate agents
 def serve_audio(video_id: int):
     try:
         video = get_video(video_id)
@@ -437,7 +435,7 @@ def video_archive(video_id: int):
 
 
 @app.route("/video/<int:video_id>/edit")
-@login_required
+@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 def video_edit(video_id: int):
     video = get_video(video_id)
     return render_template(
@@ -485,6 +483,7 @@ def download_transcription(transcription_id: int):
 
 
 @app.route("/video/<int:video_id>/upload_transcription", methods=["POST"])
+# TODO: add rate limit, but need to authenticate agents
 def upload_transcription(video_id: int):
     logger.info(f"ready to receive json on {video_id}")
     video = get_video(video_id)

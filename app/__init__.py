@@ -13,6 +13,8 @@ from .models.config import config
 from .models.db import db, OAuth, Users, AccountSource
 from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 logger = logging.getLogger(__name__)
 
@@ -105,8 +107,21 @@ def create_app():
     bootstrap.init_app(app)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
+    
+
     app.register_blueprint(blueprint, url_prefix="/login")
     return app
 
 
 app = create_app()
+# Configure rate limiter
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["2000 per day", "200 per hour"],
+    storage_uri=config.redis_uri
+)
+
+# Custom rate limit exemption for authenticated users
+def rate_limit_exempt():
+    return current_user.is_authenticated

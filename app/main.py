@@ -44,6 +44,10 @@ r = redis.Redis.from_url(config.redis_uri)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
 
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return render_template("unauthorized.html", ratelimit_exceeded=e.description)
+
 
 @app.before_request
 def get_current_user():

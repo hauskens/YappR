@@ -7,7 +7,7 @@
     <hr>
     <div class="container">
       <h1>{{ video.title }}</h1>
-      {% if g.user_object.has_permission(["admin"]) %}
+      {% if g.user_object is defined and g.user_object.has_permission(["admin"]) %}
         <div class="container mb-2">
           <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_details', video_id=video.id) }}">Fetch video details from platform</a>
         </div>
@@ -15,14 +15,14 @@
           <p>Audio file: {% if video.audio.filename is defined %}<a class="btn btn-primary" role="button" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process {{ video.audio.filename }}</a>{% else %} <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>{% endif %}</p>
         </div>
         <div class="container mb-2">
-          <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('video_fetch_transcriptions', video_id=video.id) }}';">Fetch transcriptions for this video</button>
+          <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions for this video</a>
         </div>
       {% endif %}
       <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
       <br></br>
 
       {% if video.transcriptions|length == 0 and video.active == True %}
-        {% if g.user_object.has_permission(["admin", "mod"]) %}
+        {% if g.user_object is defined and g.user_object.has_permission(["admin", "mod"]) %}
           <a class="btn btn-primary"onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
           <br></br>
         {% endif %}
@@ -37,7 +37,7 @@
       </br>
       {% if video.source_video.id is defined %}
         <a href="{{ url_for('video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform.name}}</a>
-        {% if g.user_object.has_permission(["admin", "mod"]) and video.source_video.transcriptions|length > 0 %}
+        {% if g.user_object is defined and g.user_object.has_permission(["admin", "mod"]) and video.source_video.transcriptions|length > 0 %}
           </br>
           <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform.name}} to {{video.channel.platform.name}}')" href="{{ url_for('video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
         {% endif %}
@@ -68,13 +68,13 @@
             <td>{{ t.processed }}</td>
             <td>{{ t.segments|length }}</td>
             <td>
-              <a class="btn btn-primary" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
+              <a class="btn btn-primary {{ 'disabled' if g.user_object is undefined else '' }}" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
             </td>
             <td>
-            {% if g.user_object.has_permission(["admin"]) %}
+            {% if g.user_object is defined and g.user_object.has_permission(["admin"]) %}
               <button type="button" class="btn btn-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('delete_transcription', transcription_id=t.id) }}"> Delete transcription</button>
             {% endif %}
-            {% if g.user_object.has_permission(["admin", "mod"]) %}
+            {% if g.user_object is defined and g.user_object.has_permission(["admin", "mod"]) %}
               <a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a>
               <a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('purge_transcription', transcription_id=t.id) }}">Remove from search</a>
             {% endif %}

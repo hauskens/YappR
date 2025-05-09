@@ -53,6 +53,13 @@
               {{ render_nav_item('stats', 'Stats') }}
             </div>
           </div>
+        {% else %}
+          <div class="collapse navbar-collapse" id="navbarScroll">
+            <div class="navbar-nav mr-auto">
+              {{ render_nav_item('search_page', 'Search') }}
+              {{ render_nav_item('stats', 'Stats') }}
+            </div>
+          </div>
         {% endif %}
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarScroll" aria-controls="navbarScroll" aria-expanded="false" aria-label="Toggle navigation">
           <span class="navbar-toggler-icon"></span>
@@ -69,6 +76,11 @@
         <div class="ms-2">
           <a>{{ g.username }}</a>
           <img width="50" height="50" id="user-icon" src="{{ g.avatar_url }}"></img>
+        </div>
+      {% else %}
+        <div class="vr"></div>
+        <div class="ms-2">
+          <a href="{{ url_for('login') }}">Login</a>
         </div>
       {% endif %}
   </div>

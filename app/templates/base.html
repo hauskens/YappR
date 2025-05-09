@@ -2,40 +2,40 @@
 {% from 'bootstrap5/utils.html' import render_messages %}
 <!doctype html>
 <html lang="en">
-    <head>
-        {% block head %}
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-        <script async defer src="https://buttons.github.io/buttons.js"></script>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
-        <!-- EARLY theme setting -->
-        <script>
-            (function() {
-                const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-                document.documentElement.setAttribute('data-bs-theme', theme);
-            })();
-        </script>
-        {% block styles %}
+  <head>
+    {% block head %}
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <!-- EARLY theme setting -->
+    <script>
+        (function() {
+            const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-bs-theme', theme);
+        })();
+    </script>
+    {% block styles %}
 
-        {% endblock %}
-            {{ bootstrap.load_css() }}
-              <style>
-                .icon {
-                  width: 1em;
-                  height: 1em;
-                  vertical-align: -0.125em;
-                  fill: #007bff;
-                }
-              </style>
-              <style>
-                .navbar {
-                  transition: top 0.3s;
-                }
-              </style>
-        <title>YappR</title>
-        {% endblock %}
-    </head>
-    <body>
+    {% endblock %}
+        {{ bootstrap.load_css() }}
+          <style>
+            .icon {
+              width: 1em;
+              height: 1em;
+              vertical-align: -0.125em;
+              fill: #007bff;
+            }
+          </style>
+          <style>
+            .navbar {
+              transition: top 0.3s;
+            }
+          </style>
+    <title>YappR</title>
+    {% endblock %}
+  </head>
+  <body>
     <nav class="navbar navbar-expand-sm bg-body-tertiary sticky-top">
       <div class="container-fluid">
         <a class="navbar-brand" href="{{ url_for('index') }}">
@@ -66,58 +66,58 @@
         </button>
       </div>
       <div class="container">
-      <div class="form-check form-switch ms-auto me-2">
-      <button id="themeToggle" class="btn">
-        <span id="themeIcon" class="bi bi-moon-fill"></span>
-      </button>
+        <div class="form-check form-switch ms-auto me-2">
+          <button id="themeToggle" class="btn">
+            <span id="themeIcon" class="bi bi-moon-fill"></span>
+          </button>
+        </div>
+        {% if g.username is defined %}
+          <div class="vr"></div>
+          <div class="ms-2">
+            <a>{{ g.username }}</a>
+            <img width="50" height="50" id="user-icon" src="{{ g.avatar_url }}"></img>
+          </div>
+        {% else %}
+          <div class="vr"></div>
+          <div class="ms-2">
+            <a href="{{ url_for('login') }}">Login</a>
+          </div>
+        {% endif %}
       </div>
-      {% if g.username is defined %}
-        <div class="vr"></div>
-        <div class="ms-2">
-          <a>{{ g.username }}</a>
-          <img width="50" height="50" id="user-icon" src="{{ g.avatar_url }}"></img>
-        </div>
-      {% else %}
-        <div class="vr"></div>
-        <div class="ms-2">
-          <a href="{{ url_for('login') }}">Login</a>
-        </div>
-      {% endif %}
-  </div>
     </nav>
     {% block content %}{% endblock %}
     {% block scripts %}{% endblock %}
-      <script>
-          (function () {
-              const themeToggle = document.getElementById('themeToggle');
-              const themeIcon = document.getElementById('themeIcon'); // if using icons
+    <script>
+      (function () {
+          const themeToggle = document.getElementById('themeToggle');
+          const themeIcon = document.getElementById('themeIcon'); // if using icons
 
-              // Get stored theme or system preference
-              let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          // Get stored theme or system preference
+          let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
 
-              // Apply initial theme
+          // Apply initial theme
+          document.documentElement.setAttribute('data-bs-theme', currentTheme);
+          if (themeIcon) {
+              themeIcon.className = currentTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+          }
+
+          themeToggle.addEventListener('click', () => {
+              currentTheme = (document.documentElement.getAttribute('data-bs-theme') === 'dark') ? 'light' : 'dark';
               document.documentElement.setAttribute('data-bs-theme', currentTheme);
+              localStorage.setItem('theme', currentTheme);
+
               if (themeIcon) {
-                  themeIcon.className = currentTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
+                themeIcon.className = currentTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
               }
+          });
+      })();
+    </script>
+    <script>
+      let lastScrollTop = 0;
+      const navbar = document.querySelector('.navbar');
 
-              themeToggle.addEventListener('click', () => {
-                  currentTheme = (document.documentElement.getAttribute('data-bs-theme') === 'dark') ? 'light' : 'dark';
-                  document.documentElement.setAttribute('data-bs-theme', currentTheme);
-                  localStorage.setItem('theme', currentTheme);
-
-                  if (themeIcon) {
-                      themeIcon.className = currentTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
-                  }
-              });
-          })();
-      </script>
-      <script>
-          let lastScrollTop = 0;
-          const navbar = document.querySelector('.navbar');
-
-          window.addEventListener('scroll', function() {
-            const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
+      window.addEventListener('scroll', function() {
+        const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
 
             if (currentScroll > lastScrollTop) {
               // Scrolling down
@@ -129,12 +129,12 @@
 
             lastScrollTop = currentScroll <= 0 ? 0 : currentScroll; // For Mobile or negative scrolling
           });
-        </script>
-      {{ bootstrap.load_js() }}
+    </script>
+    {{ bootstrap.load_js() }}
     {% block extra_scripts %}{% endblock %}
-      <footer class="footer mt-auto fixed-bottom text-center text-lg-start text-white bg-body-tertiary">
-        <div class="text-center p-1">
-          <div class="text-body-secondary fs-6 lh-sm">Made by Hausken, project on GitHub
+    <footer class="footer mt-auto fixed-bottom text-center text-lg-start text-white bg-body-tertiary">
+      <div class="text-center p-1">
+        <div class="text-body-secondary fs-6 lh-sm">Made by Hausken, project on GitHub
             <a class="github-button" href="https://github.com/hauskens/YappR" data-color-scheme="no-preference: light; light: light; dark: light;" data-show-count="true" size="large" data-icon="octicon-star" aria-label="Star buttons/github-buttons on GitHub">Star</a>
         </div>
         <div class="text-body-secondary fs-6 lh-sm text-center p-1">

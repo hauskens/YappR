@@ -78,7 +78,6 @@
         ],
         datasets: [
           {
-            label: "# of results",
             data: [
               {% for v in video_result|reverse %}
                 {{ v.segment_results|length }},
@@ -100,6 +99,7 @@
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
         onClick: (e) => {
           const activePoints = chart.getElementsAtEventForMode(e, 'nearest', {
             intersect: true
@@ -134,19 +134,25 @@
           }}
         },
         plugins: {
-          zoom: {
-            pan: {
-                enabled: true,
+            title: {
+                display: false,
             },
+            legend: {
+            display: false,
+            },
+          zoom: {
             zoom: {
-                wheel: {
-                  enabled: true, // enable zooming with mouse wheel
-                  speed: 0.9,
-                },
-                pinch: {
-                  enabled: true // enable zooming on touch
-                },
-                mode: 'x', // zoom in/out only horizontally
+              pan: {
+                enabled: true,
+              },
+              wheel: {
+                enabled: true, // enable zooming with mouse wheel
+                speed: 0.9,
+              },
+              pinch: {
+                enabled: true // enable zooming on touch
+              },
+              mode: 'x', // zoom in/out only horizontally
             },
         },
           tooltip: {

@@ -5,7 +5,7 @@ ENV UV_LINK_MODE=copy
 
 ADD https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb  ./
 RUN dpkg -i cuda-keyring_1.0-1_all.deb  && apt update && apt install -y libcudnn8 libcudnn8-dev ffmpeg \
-  && apt-get clean && rm -rf /var/lib/apt/lists/*
+  && apt-get clean && rm -rf /var/lib/apt/lists/* && rm cuda-keyring_1.0-1_all.deb
 
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \

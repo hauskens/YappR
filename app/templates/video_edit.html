@@ -1,7 +1,13 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <div class="container">
+  {% if video.active == False %}
+    <div class="container">
+      <h1>Video is not active</h1>
+      <p>This video is not available, likely disabled on {{video.channel.platform.name}} or deleted</p>
+    </div>
+  {% else %}
+    <div class="container">
     
     <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
     <hr>
@@ -123,4 +129,5 @@
     {% endwith %}
 
   </div>
+{% endif %}
 {% endblock %}

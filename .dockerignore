@@ -5,6 +5,7 @@ test
 cookies.txt
 *.webm
 test_storage
+test_db
 project.db
 .env
 # Byte-compiled / optimized / DLL files

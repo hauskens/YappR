@@ -73,7 +73,7 @@
             <td>{{ t.last_updated }}</td>
             <td>{{ t.processed }}</td>
             <td>{{ t.segments|length }}</td>
-            <td>
+            <td title="{{ 'Users that are not logged in are not allowed to download transcriptions' if g.user_object is undefined else 'Download transcription' }}">
               <a class="btn btn-primary {{ 'disabled' if g.user_object is undefined else '' }}" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
             </td>
             <td>

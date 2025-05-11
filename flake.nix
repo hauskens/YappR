@@ -23,7 +23,10 @@
           python3Packages.alembic
           python3Packages.openai-whisper
         ];
+        shellHook = ''
+          # fixes libstdc++ issues and libgl.so issues
+          LD_LIBRARY_PATH=${stdenv.cc.cc.lib}/lib/
+        '';
       };
-
     };
 }

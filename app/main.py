@@ -7,9 +7,10 @@ from flask import (
     jsonify,
     g,
 )
+import time
 import redis
 import json
-from celery import Celery, Task, group
+from celery import Celery, Task, group, chain
 from .models.db import (
     PermissionType,
 )
@@ -22,6 +23,9 @@ from .retrievers import get_transcription, get_video
 from .routes import *
 from . import app, login_manager
 from .models.db import TranscriptionSource
+from .utils import require_api_key
+
+
 
 
 def celery_init_app(app: Flask) -> Celery:
@@ -103,7 +107,7 @@ def video_process_full(video_id: int):
 @login_required
 def video_fetch_audio(video_id: int):
     logger.info(f"Fetching audio for {video_id}")
-    _ = group(task_fetch_audio.delay(video_id), task_transcribe_audio.delay(video_id))
+    _ = chain(task_fetch_audio.s(video_id), task_transcribe_audio.s(), task_parse_video_transcriptions.s()).apply_async()
 
     return redirect(request.referrer)
 
@@ -146,6 +150,7 @@ def task_fetch_audio(video_id: int):
     logger.info(f"Fetching audio for {video_id}")
     video = get_video(video_id)
     video.save_audio()
+    return video_id
 
 
 @celery.task()
@@ -153,10 +158,14 @@ def task_fetch_transcription(video_id: int):
     video = get_video(video_id)
     logger.info(f"Task queued, fetching transcription for {video.title}")
     _ = video.download_transcription()
+    return video_id
 
 
 @celery.task
 def task_transcribe_audio(video_id: int, force: bool = False):
+    headers = {
+        "X-API-Key": config.api_key
+    }
     video = get_video(video_id)
     for t in video.transcriptions:
         if t.source == TranscriptionSource.Unknown and force == False:
@@ -170,14 +179,14 @@ def task_transcribe_audio(video_id: int, force: bool = False):
     if os.path.exists(local_filename):
         os.remove(local_filename)
     if video.audio is not None:
-        with requests.get(f"{config.app_url}/video/{video.id}/download_audio") as r:
+        with requests.get(f"{config.app_url}/video/{video.id}/download_audio", headers=headers) as r:
             r.raise_for_status()
             with open(local_filename, "wb") as f:
                 _ = f.write(r.content)
             try:
                 file_content = transcribe(local_filename)
                 logger.info(f"Uploading to video {video_id}")
-                headers = {"Content-type": "application/json", "Accept": "text/plain"}
+                headers = {"Content-type": "application/json", "Accept": "text/plain", "X-API-Key": config.api_key}
                 r = requests.post(
                     f"{config.app_url}/video/{video_id}/upload_transcription",
                     json=file_content,
@@ -185,6 +194,7 @@ def task_transcribe_audio(video_id: int, force: bool = False):
                 )
             except:
                 raise ValueError("Failed to upload audio file")
+    return video_id
 
 
 @celery.task
@@ -197,6 +207,7 @@ def task_parse_transcription(transcription_id: int, force: bool = False):
 def task_parse_video_transcriptions(video_id: int, force: bool = False):
     video = get_video(video_id)
     video.process_transcriptions(force)
+    return video_id
 
 
 @app.route("/transcription/<int:transcription_id>/parse")
@@ -250,6 +261,32 @@ def channel_transcribe_audio(channel_id: int):
                 _ = task_transcribe_audio.delay(video.id)
     return redirect(request.referrer)
 
-
 if __name__ == "__main__":
     app.run(debug=config.debug, host=config.app_host, port=config.app_port)
+
+@app.route("/video/<int:video_id>/upload_transcription", methods=["POST"])
+@require_api_key
+def upload_transcription(video_id: int):
+    logger.info(f"ready to receive json on {video_id}")
+    video = get_video(video_id)
+    if request.json is None:
+        logger.error("Json not found in request")
+        return "something wrong", 500
+    filename = f"{video_id}.json"
+    filepath = os.path.join(config.cache_location, filename)
+    if os.path.exists(filepath):
+        os.remove(filepath)
+    logger.info(f"Json will be saved to{filepath}")
+    data = TranscriptionResult.model_validate(request.get_json())
+    db.session.add(
+        Transcription(
+            video_id=video.id,
+            language=data.language,
+            file_extention="json",
+            file=json.dumps(request.get_json()).encode("utf-8"),
+            source=TranscriptionSource.Unknown,
+        )
+    )
+    db.session.commit()
+    logger.info("File uploaded")
+    return "ok", 200

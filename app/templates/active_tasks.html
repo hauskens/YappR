@@ -3,22 +3,20 @@
 
 {% block content %}
 <div class="container my-5">
-    <h1 class="mb-4 text-center">Active Celery Tasks</h1>
+    <h1 class="mb-4 text-center">Workers</h1>
     
     {% if active_tasks %}
         {% for worker, tasks in active_tasks.items() %}
             <div class="card mb-4 shadow-sm">
                 <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Worker: {{ worker }}</h5>
+                    <h5 class="mb-0">Worker id: {{ worker }}</h5>
                 </div>
                 <ul class="list-group list-group-flush">
                     {% for task in tasks %}
                         <li class="list-group-item">
-                            <div class="mb-2"><strong>ID:</strong> {{ task.id }}</div>
-                            <div><strong>Name:</strong> {{ task.name }}</div>
+                            <div>Working on task</div>
+                            <div><strong>Task name:</strong> {{ task.name }}</div>
                             <div><strong>Args:</strong> {{ task.args }}</div>
-                            <div><strong>Kwargs:</strong> {{ task.kwargs }}</div>
-                            <div><strong>Time Start:</strong> {{ task.time_start }}</div>
                         </li>
                     {% endfor %}
                 </ul>
@@ -54,7 +52,7 @@
           </div>
       {% else %}
           <div class="alert alert-info text-center">
-              No queued tasks at the moment.
+              No tasks in queue, all tasks are currently either running or finished
           </div>
       {% endif %}
     {% endfor %}

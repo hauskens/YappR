@@ -94,7 +94,7 @@ def get_all_videos_on_channel(channel_id: str) -> list[SearchResultItem]:
         max_requests -= 1
         video_result = get_videos_on_channel(channel_id, next_page_token, 50)
         all_videos.extend(video_result.items)
-        if video_result.nextPageToken:
+        if video_result.nextPageToken is not None and video_result.nextPageToken != next_page_token:
             next_page_token = video_result.nextPageToken
         else:
             break

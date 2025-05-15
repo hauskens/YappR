@@ -36,7 +36,10 @@
     {% endif %}
     <hr>
     {% if g.user_object.has_permission(["admin", "mod"]) %}
-        <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a
+        <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a>
+    {% endif %}
+    {% if g.user_object.has_permission(["admin"]) %}
+        <a class="btn btn-primary" onclick="return confirm('This will look all videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos_all', channel_id=channel.id) }}">Look for all videos on channel</a>
     {% endif %}
     <hr>
     <p>Videos on channel: {{ videos|length }}, Videos with high quality transcriptions: {{ transcription_count }}</p>
@@ -57,9 +60,7 @@
         {% if video.active == true %}
         <tr>
           <td>
-            {% if loop.index <= 50 %}
                   <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
-            {% endif %} 
           </td>
           <td>{{ video.title }}</td>
           <td>{{ video.get_duration_str() }}</td>
@@ -79,21 +80,27 @@
               <a class="btn btn-primary" role="button" href="{{ url_for('video_edit', video_id=video.id) }}">Edit Video</a>
             </div>
             {% if g.user_object.has_permission(["admin", "mod"]) %}
-              {% if video.transcriptions|length == 0 and channel.platform.name.lower() == "youtube" %}
+              <!-- {% if video.transcriptions|length == 0 and channel.platform.name.lower() == "youtube" %}
                 <div class="container mb-2">
                   <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a>
                 </div>
-              {%endif%}
+              {%endif%} -->
               {% if video.segments|length == 0 and video.transcriptions|length != 0 %}
                 <div class="container mb-2">
-                  <a class="btn btn-primary" role="button" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Process transcriptions</a>
+                  {% for t in video.transcriptions %}
+                    {% if t.processed == false %}
+                      <a class="btn btn-primary" role="button" title="Quick task that parses the transcription and makes it searchable" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Make searchable</a>
+                    {% endif %}
+                  {% endfor %}
                 </div>
               {%endif%}
-              {% if video.audio.filename is defined %}
-              {% else%}
+              {% if video.audio.filename is defined and video.transcriptions|length == 0 %}
+                <a class="btn btn-primary" role="button" title="Transcribe audio, this will take long time depending on queue and video length" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process audio</a>
+              {% elif video.audio.filename is undefined %}
                 <div class="container mb-2">
-                  <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>                          {%endif%}
+                  <a class="btn btn-primary" role="button" title="Download audio from {{ video.channel.platform.name }}, this may take a while depending on queue and video length" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>                          
                 </div>
+              {% endif %}
             {% endif %}
           </td>
         </tr>{% endif %}

@@ -42,7 +42,7 @@
             <td>
               <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Go to Channel</a>
 
-              {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin", "mod"])) %}
+              {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin"])) %}
                 <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Update channel details</button>
               {% endif %}
               {% if g.user_object.broadcaster_id == broadcaster.id or  g.user_object.has_permission(["admin"]) %}
@@ -80,9 +80,9 @@
           </select>
 
           <label for="name">Display Name:</label>
-          <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_ ]*" required placeholder="Testies VOD channel" required title="Only A-Z, _ and numbers allowed">
+          <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_.][A-Za-z0-9_. ]*" required placeholder="Testies VOD channel" required title="Only A-Z, _ and numbers allowed">
           <label for="platform_ref">Channel ID in platform</label>
-          <input type="text" id="platform_ref" name="platform_ref" class="form-control" pattern="[A-Za-z0-9_][A-Za-z0-9_]*" required placeholder="" required title="Only A-Z or numbers allowed, remove @ from youtube tag">
+          <input type="text" id="platform_ref" name="platform_ref" class="form-control" pattern="[A-Za-z0-9_.][A-Za-z0-9_.]*" required placeholder="" required title="Only A-Z or numbers allowed, remove @ from youtube tag">
 
           <input
             type="hidden"

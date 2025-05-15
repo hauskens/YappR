@@ -11,20 +11,6 @@ logger = logging.getLogger(__name__)
 storage_directory = os.path.abspath(config.cache_location)
 
 
-def parse_metadata_file(path: str) -> datetime | None:
-    logger.debug(f"Parsing metadata on file: {path}")
-    with open(path) as file:
-        for line in file:
-            date_str = line.strip()  # Remove leading/trailing whitespace
-            try:
-                result = datetime.utcfromtimestamp(int(date_str))
-                if result is not None:
-                    logger.info(f"Found metadata on file: {path} - {result}")
-                    return result
-            except ValueError:  # Ignore invalid dates
-                pass
-
-
 def get_largest_thumbnail(video: VideoData) -> Thumbnail | None:
     if video.thumbnails:
         if len(video.thumbnails) > 0:

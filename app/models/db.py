@@ -36,6 +36,7 @@ from ..utils import (
 from ..youtube_api import (
     get_youtube_channel_details,
     get_videos_on_channel,
+    get_all_videos_on_channel,
     get_videos,
     fetch_transcription,
 )
@@ -175,6 +176,11 @@ class Channels(Base):
         back_populates="channel", cascade="all, delete-orphan"
     )
 
+    def update_thumbnail(self):
+        for video in self.videos:
+            if video.thumbnail is None:
+                video.fetch_details(force=True)
+
     def get_url(self) -> str:
         url = self.platform.url
         if self.platform.name.lower() == "youtube":
@@ -249,6 +255,47 @@ class Channels(Base):
                     db.session.flush()
         db.session.commit()
 
+    def fetch_videos_all(self):
+        if (
+            self.platform.name.lower() == "youtube"
+            and self.platform_channel_id is not None
+        ):
+            latest_videos = get_all_videos_on_channel(self.platform_channel_id)
+            videos_result: list[SearchResultItem] = []
+            for res in latest_videos:
+                if hasattr(res, "items"):
+                    for search_result in res.items:
+                        existing_video = (
+                            db.session.query(Video)
+                            .filter_by(platform_ref=search_result.id.videoId)
+                            .one_or_none()
+                        )
+                        if existing_video is None:
+                            videos_result.append(search_result)
+                else:
+                    existing_video = (
+                        db.session.query(Video)
+                        .filter_by(platform_ref=res.id.videoId)
+                        .one_or_none()
+                    )
+                    if existing_video is None:
+                        videos_result.append(res)
+
+            videos_details = get_videos([item.id.videoId for item in videos_result])
+            for video in videos_details:
+                tn = save_yt_thumbnail(video, force=True)
+                db.session.add(
+                    Video(
+                        title=video.snippet.title,
+                        video_type=VideoType.VOD,
+                        channel_id=self.id,
+                        platform_ref=video.id,
+                        duration=video.contentDetails.duration.total_seconds(),
+                        uploaded=video.snippet.publishedAt,
+                        thumbnail=open(tn, "rb"),
+                    )
+                )
+            db.session.commit()
     def fetch_latest_videos(self):
         if (
             self.platform.name.lower() == "youtube"
@@ -267,7 +314,7 @@ class Channels(Base):
 
             videos_details = get_videos([item.id.videoId for item in videos_result])
             for video in videos_details:
-                tn = save_yt_thumbnail(video)
+                tn = save_yt_thumbnail(video, force=True)
                 db.session.add(
                     Video(
                         title=video.snippet.title,
@@ -297,7 +344,7 @@ class Channels(Base):
                     .one_or_none()
                 )
                 if existing_video is None:
-                    tn = save_twitch_thumbnail(video)
+                    tn = save_twitch_thumbnail(video, force=True)
                     video = Video(
                         title=video.title,
                         video_type=VideoType.VOD,
@@ -309,6 +356,8 @@ class Channels(Base):
                     )
                     db.session.add(video)
                 else:
+                    tn = save_twitch_thumbnail(video, force=True)
+                    existing_video.thumbnail = open(tn, "rb")
                     existing_video.active = True
                     existing_video.title = video.title
                     existing_video.duration = parse_time(video.duration)
@@ -337,7 +386,7 @@ class Video(Base):
     )
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
     active: Mapped[bool] = mapped_column(Boolean(), default=True)
-    thumbnail: Mapped[File | None] = mapped_column(FileField())
+    thumbnail: Mapped[File | None] = mapped_column(FileField(upload_storage="thumbnails"))
     audio: Mapped[File | None] = mapped_column(FileField())
     transcriptions: Mapped[list["Transcription"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
@@ -373,15 +422,21 @@ class Video(Base):
                     )
                 db.session.commit()
 
-    def fetch_details(self):
-        result = get_videos([self.platform_ref])[0]
-        self.duration = result.contentDetails.duration.total_seconds()
-        self.title = result.snippet.title
-        self.uploaded = result.snippet.publishedAt
-        if self.thumbnail is None:
-            tn = save_yt_thumbnail(result)
-            self.thumbnail = open(tn, "rb")
-        db.session.commit()
+    def fetch_details(self, force: bool = True):
+        if self.channel.platform.name.lower() == "youtube":
+            try:
+                result = get_videos([self.platform_ref])[0]
+            except Exception as e:
+                res = get_videos([self.platform_ref])
+                logger.error(f"Failed to fetch details for video {self.id}: {e} - {res}")
+                return
+            self.duration = result.contentDetails.duration.total_seconds()
+            self.title = result.snippet.title
+            self.uploaded = result.snippet.publishedAt
+            if self.thumbnail is None or force:
+                tn = save_yt_thumbnail(result)
+                self.thumbnail = open(tn, "rb")
+            db.session.commit()
 
     def download_transcription(self, force: bool = False):
         if force:

@@ -13,6 +13,7 @@ from flask import (
     g,
 )
 from flask_login import current_user, login_required
+from .utils import require_api_key
 from io import BytesIO
 import json
 from . import app, limiter, rate_limit_exempt
@@ -239,6 +240,7 @@ def serve_thumbnails(video_id: int):
 
 
 @app.route("/video/<int:video_id>/download_audio")
+@require_api_key
 # TODO: add rate limit, but need to authenticate agents
 def serve_audio(video_id: int):
     try:
@@ -357,7 +359,8 @@ def channel_link(channel_id: int):
 @login_required
 def channel_look_for_linked(channel_id: int):
     channel = get_channel(channel_id)
-    channel.look_for_linked_videos()
+    # channel.look_for_linked_videos()
+    channel.update_thumbnail()
     return redirect(request.referrer)
 
 
@@ -406,6 +409,13 @@ def channel_fetch_videos(channel_id: int):
     channel.fetch_latest_videos()
     return redirect(request.referrer)
 
+@app.route("/channel/<int:channel_id>/fetch_videos_all")
+@login_required
+def channel_fetch_videos_all(channel_id: int):
+    channel = get_channel(channel_id)
+    logger.info(f"Fetching videos for {channel.name}")
+    channel.fetch_videos_all()
+    return redirect(request.referrer)
 
 @app.route("/video/<int:video_id>/fecth_details")
 @login_required
@@ -452,24 +462,6 @@ def video_parse_transcriptions(video_id: int):
     video.process_transcriptions(force=True)
     return redirect(request.referrer)
 
-
-# @app.route("/video/<int:video_id>/download_clip", methods=["POST"])
-# @login_required
-# def download_video_clip(video_id: int):
-#     start_time = int(request.form["start_time"])
-#     duration = request.form["duration"]
-#     video_url = get_video(video_id).get_url()
-#     logger.info(f"Fetching clip for {int(start_time)}")
-#     if video_url is not None:
-#         clip = get_yt_segment(video_url, int(start_time), int(duration))
-#         return send_file(
-#             clip,
-#             mimetype="video/mp4",
-#             download_name=f"{video_id}.mp4",
-#         )
-#     return "something went wrong sorry no error handling glhf"
-
-
 @app.route("/transcription/<int:transcription_id>/download")
 @login_required
 def download_transcription(transcription_id: int):
@@ -482,32 +474,6 @@ def download_transcription(transcription_id: int):
     )
 
 
-@app.route("/video/<int:video_id>/upload_transcription", methods=["POST"])
-# TODO: add rate limit, but need to authenticate agents
-def upload_transcription(video_id: int):
-    logger.info(f"ready to receive json on {video_id}")
-    video = get_video(video_id)
-    if request.json is None:
-        logger.error("Json not found in request")
-        return "something wrong", 500
-    filename = f"{video_id}.json"
-    filepath = os.path.join(config.cache_location, filename)
-    if os.path.exists(filepath):
-        os.remove(filepath)
-    logger.info(f"Json will be saved to{filepath}")
-    data = TranscriptionResult.model_validate(request.get_json())
-    db.session.add(
-        Transcription(
-            video_id=video.id,
-            language=data.language,
-            file_extention="json",
-            file=json.dumps(request.get_json()).encode("utf-8"),
-            source=TranscriptionSource.Unknown,
-        )
-    )
-    db.session.commit()
-    logger.info("File uploaded")
-    return "ok", 200
 
 
 @app.route("/transcription/<int:transcription_id>/purge")

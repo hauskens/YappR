@@ -46,9 +46,11 @@
             <div class="navbar-nav mr-auto">
               {{ render_nav_item('broadcasters', 'Broadcasters') }}
               {{ render_nav_item('search_page', 'Search') }}
+              {% if g.user_object.has_permission(["admin", "mod"]) %}
+                {{ render_nav_item('celery_active_tasks_view', 'Worker Status') }}
+              {% endif %}
               {% if g.user_object.has_permission(["admin"]) %}
                 {{ render_nav_item('users', 'Users') }}
-                {{ render_nav_item('celery_active_tasks_view', 'Worker Status') }}
               {% endif %}
               {{ render_nav_item('stats', 'Stats') }}
             </div>

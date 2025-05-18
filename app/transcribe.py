@@ -1,14 +1,13 @@
-import whisperx
 import logging
-
-from whisperx.types import TranscriptionResult
+import json
 from .models.config import config
 
 
 logger = logging.getLogger(__name__)
 
 
-def transcribe(path: str) -> TranscriptionResult:
+def transcribe(path: str) -> str:
+    import whisperx
     logger.info(f"Got path: {path}")
     device = config.transcription_device  # cuda
     batch_size = config.transcription_batch_size  # reduce if low on GPU mem
@@ -25,7 +24,13 @@ def transcribe(path: str) -> TranscriptionResult:
     )
 
     audio = whisperx.load_audio(path)
-    return model.transcribe(audio, batch_size=batch_size, chunk_size=10, language="en")
+    result = model.transcribe(audio, batch_size=batch_size, chunk_size=10, language="en")
+    # write result to file and return file path, remove origirnal file extension
+    filename = f"{path.split(".")[0]}.json"
+    with open(filename, "w") as f:
+        _ = f.write(json.dumps(result))
+
+    return filename
 
     # delete model if low on GPU resources
     # import gc; gc.collect(); torch.cuda.empty_cache(); del model

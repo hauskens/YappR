@@ -36,7 +36,14 @@ dependencies = [
     "sqlalchemy-utils>=0.41.2",
     "twitchapi>=4.4.0",
     "webvtt-py>=0.5.1",
-    "whisperx==3.3.0",
     "youtube-transcript-api>=1.0.3",
     "yt-dlp>=2025.3.27",
+]
+
+[dependency-groups]
+dev = [
+    "whisperx>=3.3.4",
+]
+worker = [
+    "whisperx>=3.3.4",
 ]

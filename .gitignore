@@ -5,6 +5,7 @@ test_storage
 cookies.txt
 *.webm
 project.db
+test_db
 .env
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -184,12 +184,14 @@ def task_transcribe_audio(video_id: int, force: bool = False):
             with open(local_filename, "wb") as f:
                 _ = f.write(r.content)
             try:
-                file_content = transcribe(local_filename)
+                result_file = transcribe(local_filename)
+                with open(result_file, "r") as f:
+                    result = json.load(f)
                 logger.info(f"Uploading to video {video_id}")
                 headers = {"Content-type": "application/json", "Accept": "text/plain", "X-API-Key": config.api_key}
                 r = requests.post(
                     f"{config.app_url}/video/{video_id}/upload_transcription",
-                    json=file_content,
+                    json=result,
                     headers=headers,
                 )
             except:

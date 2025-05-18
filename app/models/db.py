@@ -299,7 +299,6 @@ class Channels(Base):
     def fetch_latest_videos(self):
         if (
             self.platform.name.lower() == "youtube"
-            and self.platform_channel_id is not None
         ):
             latest_videos = get_videos_on_channel(self.platform_channel_id)
             videos_result: list[SearchResultItem] = []
@@ -329,7 +328,6 @@ class Channels(Base):
             db.session.commit()
         elif (
             self.platform.name.lower() == "twitch"
-            and self.platform_channel_id is not None
         ):
             twitch_latest_videos = asyncio.run(
                 get_latest_broadcasts(self.platform_channel_id)

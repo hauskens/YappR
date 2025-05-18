@@ -256,33 +256,33 @@ class Channels(Base):
         db.session.commit()
 
     def fetch_videos_all(self):
-        if (
-            self.platform.name.lower() == "youtube"
-            and self.platform_channel_id is not None
-        ):
-            latest_videos = get_all_videos_on_channel(self.platform_channel_id)
-            videos_result: list[SearchResultItem] = []
-            for res in latest_videos:
-                if hasattr(res, "items"):
-                    for search_result in res.items:
-                        existing_video = (
-                            db.session.query(Video)
-                            .filter_by(platform_ref=search_result.id.videoId)
-                            .one_or_none()
-                        )
-                        if existing_video is None:
-                            videos_result.append(search_result)
-                else:
-                    existing_video = (
-                        db.session.query(Video)
-                        .filter_by(platform_ref=res.id.videoId)
-                        .one_or_none()
-                    )
-                    if existing_video is None:
-                        videos_result.append(res)
+        if self.platform.name.lower() != "youtube":
+            return
 
-            videos_details = get_videos([item.id.videoId for item in videos_result])
-            for video in videos_details:
+        # Step 1: Fetch all results (could be paginated)
+        latest_video_batches = get_all_videos_on_channel(self.platform_channel_id)
+
+        video_id_set = set()
+        for item in latest_video_batches:
+            video_id = item.id.videoId
+            logger.info(f"Checking for existing video ref: {video_id}")
+            existing_video = (
+                db.session.query(Video)
+                .filter_by(platform_ref=video_id)
+                .one_or_none()
+            )
+            if existing_video is None:
+                logger.info(f"New video found: {video_id}")
+                video_id_set.add(video_id)
+
+        if not video_id_set:
+            logger.info("No new videos found.")
+            return
+
+        video_details = get_videos(list(video_id_set))
+
+        for video in video_details:
+            try:
                 tn = save_yt_thumbnail(video, force=True)
                 db.session.add(
                     Video(
@@ -295,7 +295,13 @@ class Channels(Base):
                         thumbnail=open(tn, "rb"),
                     )
                 )
-            db.session.commit()
+            except Exception as e:
+                logger.error(f"Failed to add video {video.id}, exception: {e}")
+                continue
+            db.session.flush()
+
+        db.session.commit()
+
     def fetch_latest_videos(self):
         if (
             self.platform.name.lower() == "youtube"
@@ -329,39 +335,51 @@ class Channels(Base):
         elif (
             self.platform.name.lower() == "twitch"
         ):
+            logger.info(f"Fetching latest videos for channel: {self.name}")
             twitch_latest_videos = asyncio.run(
                 get_latest_broadcasts(self.platform_channel_id)
             )
-            for v in self.videos:
-                v.active = False
-            db.session.flush()
-            for video in twitch_latest_videos:
+            for video_data in twitch_latest_videos:
+                logger.info(f"Processing video ref: {video_data.id}")
+                
+                # Query full DB, not just self.videos
                 existing_video = (
                     db.session.query(Video)
-                    .filter_by(platform_ref=video.id)
+                    .filter_by(platform_ref=video_data.id)
                     .one_or_none()
                 )
+
+                tn = save_twitch_thumbnail(video_data, force=True)
+
                 if existing_video is None:
-                    tn = save_twitch_thumbnail(video, force=True)
+                    logger.info(f"Found new video ref: {video_data.id}")
                     video = Video(
-                        title=video.title,
+                        title=video_data.title,
                         video_type=VideoType.VOD,
                         channel_id=self.id,
-                        platform_ref=video.id,
-                        duration=parse_time(video.duration),
-                        uploaded=video.created_at,
+                        platform_ref=video_data.id,
+                        duration=parse_time(video_data.duration),
+                        uploaded=video_data.created_at,
                         thumbnail=open(tn, "rb"),
+                        active=True,
                     )
                     db.session.add(video)
                 else:
-                    tn = save_twitch_thumbnail(video, force=True)
+                    logger.info(f"Updating existing video: {video_data.id}")
                     existing_video.thumbnail = open(tn, "rb")
                     existing_video.active = True
-                    existing_video.title = video.title
-                    existing_video.duration = parse_time(video.duration)
-                    existing_video.uploaded = video.created_at
-            db.session.commit()
+                    existing_video.title = video_data.title
+                    existing_video.duration = parse_time(video_data.duration)
+                    existing_video.uploaded = video_data.created_at
+                    if existing_video.duration != parse_time(video_data.duration):
+                        logger.info(
+                            f"Duration changed for video {video_data.id}: {existing_video.duration} -> {parse_time(video_data.duration)}"
+                        )
+                        existing_video.duration = parse_time(video_data.duration)
+                        existing_video.process_transcriptions(force=True)
 
+                    if existing_video.channel_id != self.id:
+                        existing_video.channel_id = self.id  # optional fix if relevant
 
 class Video(Base):
     __tablename__: str = "video"

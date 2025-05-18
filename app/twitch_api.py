@@ -26,5 +26,5 @@ async def get_twitch_user(twitch_username: str) -> TwitchUser:
 
 async def get_latest_broadcasts(twitch_user_id: str) -> Sequence[Video]:
     twitch = await get_twitch_client()
-    videos = twitch.get_videos(user_id=twitch_user_id)
+    videos = twitch.get_videos(user_id=twitch_user_id, type="archive")
     return [video async for video in videos]

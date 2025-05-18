@@ -107,13 +107,19 @@ def get_all_videos_on_channel(channel_id: str) -> list[SearchResultItem]:
 
 def get_videos(video_ids: list[str]) -> list[VideoDetails]:
     logging.debug(f"get_videos: Fetching videos for ids: {",".join(video_ids)}")
-    request = (
-        youtube.videos()
-        .list(part="snippet,contentDetails", id=",".join(video_ids), maxResults=25)
-        .execute()
-    )
-    videos = VideoResourceResponse.model_validate(request)
-    return videos.items
+    all_videos: list[VideoDetails] = []
+    for i in range(0, len(video_ids), 50):
+        chunk = video_ids[i:i + 50]
+        logging.debug(f"Fetching chunk: {chunk}")
+        request = (
+            youtube.videos()
+            .list(part="snippet,contentDetails", id=",".join(chunk), maxResults=50)
+            .execute()
+        )
+        videos = VideoResourceResponse.model_validate(request)
+        all_videos.extend(videos.items)
+
+    return all_videos
 
 
 def get_captions(video_id: str) -> CaptionResourceResponse:

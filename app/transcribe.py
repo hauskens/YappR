@@ -25,12 +25,6 @@ def transcribe(path: str) -> str:
 
     audio = whisperx.load_audio(path)
     result = model.transcribe(audio, batch_size=batch_size, chunk_size=10, language="en")
-    # write result to file and return file path, remove origirnal file extension
-    filename = f"{path.split(".")[0]}.json"
-    with open(filename, "w") as f:
-        _ = f.write(json.dumps(result))
-
-    return filename
 
     # delete model if low on GPU resources
     # import gc; gc.collect(); torch.cuda.empty_cache(); del model
@@ -48,16 +42,17 @@ def transcribe(path: str) -> str:
     #     return_char_alignments=False,
     # )
     #
-    # print(result["segments"])  # after alignment
-    #
     # # delete model if low on GPU resources
     # # import gc; gc.collect(); torch.cuda.empty_cache(); del model_a
     #
     # # 3. Assign speaker labels
-    # diarize_model = whisperx.DiarizationPipeline(
-    #     use_auth_token=YOUR_HF_TOKEN, device=device
-    # )
-    #
+    # if config.hf_token:
+    #     diarize_model = whisperx.diarize.DiarizationPipeline(
+    #         use_auth_token=config.hf_token, device=device
+    #     )
+    #     diarize_segments = diarize_model(audio)
+    #     result = whisperx.assign_word_speakers(diarize_segments, result)
+    
     # # add min/max number of speakers if known
     # diarize_segments = diarize_model(audio)
     # # diarize_model(audio, min_speakers=min_speakers, max_speakers=max_speakers)
@@ -65,3 +60,10 @@ def transcribe(path: str) -> str:
     # result = whisperx.assign_word_speakers(diarize_segments, result)
     # print(diarize_segments)
     # print(result["segments"])  # segments are now assigned speaker IDs
+
+    # write result to file and return file path, remove origirnal file extension
+    filename = f"{path.split(".")[0]}.json"
+    with open(filename, "w") as f:
+        _ = f.write(json.dumps(result))
+
+    return filename

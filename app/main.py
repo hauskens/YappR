@@ -84,20 +84,11 @@ def video_process_full(video_id: int):
         PermissionType.Moderator
     ):
         logger.info(f"Full processing of video: {video_id}")
-        video = get_video(video_id)
-        if video.channel.platform.name.lower() == "twitch":
-            logger.info(f"Using twitch pipeline: {video_id}")
-            _ = group(
-                task_fetch_audio.delay(video_id),
-                task_transcribe_audio.delay(video_id),
-                task_parse_video_transcriptions.delay(video_id, force=True),
-            )
-        elif video.channel.platform.name.lower() == "youtube":
-            logger.info(f"Using youtube pipeline: {video_id}")
-            _ = group(
-                task_fetch_transcription.delay(video_id),
-                task_parse_video_transcriptions.delay(video_id, force=True),
-            )
+        _ = chain(
+            task_fetch_audio.s(video_id),
+            task_transcribe_audio.s(),
+            task_parse_video_transcriptions.s(),
+        ).apply_async(ignore_result=True)
         return redirect(request.referrer)
     else:
         return access_denied()
@@ -107,7 +98,7 @@ def video_process_full(video_id: int):
 @login_required
 def video_fetch_audio(video_id: int):
     logger.info(f"Fetching audio for {video_id}")
-    _ = chain(task_fetch_audio.s(video_id), task_transcribe_audio.s(), task_parse_video_transcriptions.s()).apply_async()
+    _ = chain(task_fetch_audio.s(video_id), task_transcribe_audio.s(), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)
 
     return redirect(request.referrer)
 
@@ -170,7 +161,7 @@ def task_transcribe_audio(video_id: int, force: bool = False):
     for t in video.transcriptions:
         if t.source == TranscriptionSource.Unknown and force == False:
             logger.info(f"Transcription already exists on video {video.id}, skipping")
-            return
+            return video_id
         if t.source == TranscriptionSource.Unknown and force:
             logger.info(f"Transcription already exists on video {video.id}, deleting")
             t.delete()
@@ -291,4 +282,5 @@ def upload_transcription(video_id: int):
     )
     db.session.commit()
     logger.info("File uploaded")
+    os.remove(f"{config.cache_location}/{video_id}.mp4")
     return "ok", 200

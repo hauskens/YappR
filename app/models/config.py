@@ -51,6 +51,7 @@ class Config:
             os.environ.get("TRANSCRIPTION_BATCH_SIZE", 8)
         )  # lower this if gpu vram low
         self.api_key: str = os.environ.get("API_KEY", "not_a_secure_key!11")
+        self.hf_token: str | None = os.environ.get("HF_TOKEN")
 
 
 _ = load_dotenv()

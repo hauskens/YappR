@@ -22,7 +22,10 @@ logger = logging.getLogger(__name__)
 def init_storage(container: str = "transcriptions"):
     makedirs(
         config.storage_location + "/" + container, 0o777, exist_ok=True
-    )  # Ensure storage folder exists
+    ) 
+    makedirs(
+        config.storage_location + "/thumbnails", 0o777, exist_ok=True
+    ) 
 
 
 bootstrap = Bootstrap5()
@@ -39,7 +42,9 @@ blueprint = make_discord_blueprint(
 blueprint.storage = SQLAlchemyStorage(OAuth, db.session, user=current_user)
 
 container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
+thumbnail_container = LocalStorageDriver(config.storage_location).get_container("thumbnails")
 StorageManager.add_storage("default", container)
+StorageManager.add_storage("thumbnails", thumbnail_container)
 
 
 @login_manager.user_loader

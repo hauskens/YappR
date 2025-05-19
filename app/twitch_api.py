@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from twitchAPI.twitch import Twitch, TwitchUser, Video
+from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType
 from twitchAPI.helper import first
 from .models.config import config
 from pytimeparse.timeparse import timeparse
@@ -24,7 +24,7 @@ async def get_twitch_user(twitch_username: str) -> TwitchUser:
         return user
 
 
-async def get_latest_broadcasts(twitch_user_id: str) -> Sequence[Video]:
+async def get_latest_broadcasts(twitch_user_id: str, limit: int = 100) -> Sequence[Video]:
     twitch = await get_twitch_client()
-    videos = twitch.get_videos(user_id=twitch_user_id, type="archive")
+    videos = twitch.get_videos(user_id=twitch_user_id, video_type=VideoType.ARCHIVE, sort=SortMethod.TIME, first=limit)
     return [video async for video in videos]

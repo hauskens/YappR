@@ -13,6 +13,8 @@ import json
 from celery import Celery, Task, group, chain
 from .models.db import (
     PermissionType,
+    db,
+    Channels,
 )
 import requests
 import os
@@ -24,7 +26,7 @@ from .routes import *
 from . import app, login_manager
 from .models.db import TranscriptionSource
 from .utils import require_api_key
-
+from celery.schedules import crontab
 
 
 
@@ -48,6 +50,17 @@ r = redis.Redis.from_url(config.redis_uri)
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=config.log_level)
 
+@celery.on_after_configure.connect
+def setup_periodic_tasks(sender: Celery, **kwargs):
+    logger.info("Setting up periodic tasks")
+    with app.app_context():
+        channels = db.session.query(Channels).all()
+        for channel in channels:
+            if channel.platform.name.lower() == "twitch":
+                logger.info(f"Setting up tasks for {channel.name}")
+                sender.add_periodic_task(crontab(hour="*", minute="*/30"), test_task.s(channel.id), name=f'look for new videos every 30 minutes - {channel.name}')
+                
+
 @app.errorhandler(429)
 def ratelimit_handler(e):
     return render_template("unauthorized.html", ratelimit_exceeded=e.description)
@@ -67,6 +80,16 @@ def get_current_user():
 @login_manager.unauthorized_handler
 def redirect_unauthorized():
     return render_template("unauthorized.html")
+
+
+@celery.task()
+def test_task(channel_id: int):
+    logger.info(f"Processing channel {channel_id}")
+    channel = get_channel(channel_id)
+    video = channel.fetch_latest_videos(process=True)
+    if video is not None:
+        _ = chain(task_fetch_audio.s(video), task_transcribe_audio.s(), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)
+
 
 
 @app.route("/video/<int:video_id>/process_audio")
@@ -187,6 +210,7 @@ def task_transcribe_audio(video_id: int, force: bool = False):
                 )
             except:
                 raise ValueError("Failed to upload audio file")
+    os.remove(local_filename)
     return video_id
 
 
@@ -282,5 +306,4 @@ def upload_transcription(video_id: int):
     )
     db.session.commit()
     logger.info("File uploaded")
-    os.remove(f"{config.cache_location}/{video_id}.mp4")
     return "ok", 200

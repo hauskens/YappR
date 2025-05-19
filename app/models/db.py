@@ -234,6 +234,9 @@ class Channels(Base):
 
     def get_videos_sorted_by_uploaded(self, descending: bool = True) -> list["Video"]:
         return sorted(self.videos, key=lambda v: v.uploaded, reverse=descending)
+    
+    def get_videos_sorted_by_id(self, descending: bool = True) -> list["Video"]:
+        return sorted(self.videos, key=lambda v: v.id, reverse=descending)
 
     def look_for_linked_videos(self, margin_sec: int = 2, min_duration: int = 300):
         logger.info(f"Looking for potential links on channel {self.name}")
@@ -274,7 +277,6 @@ class Channels(Base):
             if existing_video is None:
                 logger.info(f"New video found: {video_id}")
                 video_id_set.add(video_id)
-
         if not video_id_set:
             logger.info("No new videos found.")
             return
@@ -302,7 +304,7 @@ class Channels(Base):
 
         db.session.commit()
 
-    def fetch_latest_videos(self):
+    def fetch_latest_videos(self, process: bool = False) -> int | None:
         if (
             self.platform.name.lower() == "youtube"
         ):
@@ -336,9 +338,14 @@ class Channels(Base):
             self.platform.name.lower() == "twitch"
         ):
             logger.info(f"Fetching latest videos for channel: {self.name}")
-            twitch_latest_videos = asyncio.run(
-                get_latest_broadcasts(self.platform_channel_id)
-            )
+            if process:
+                twitch_latest_videos = asyncio.run(
+                    get_latest_broadcasts(self.platform_channel_id, limit=1)
+                )
+            else:
+                twitch_latest_videos = asyncio.run(
+                    get_latest_broadcasts(self.platform_channel_id)
+                )
             for video_data in twitch_latest_videos:
                 logger.info(f"Processing video ref: {video_data.id}")
                 
@@ -349,9 +356,9 @@ class Channels(Base):
                     .one_or_none()
                 )
 
-                tn = save_twitch_thumbnail(video_data, force=True)
 
                 if existing_video is None:
+                    tn = save_twitch_thumbnail(video_data, force=True)
                     logger.info(f"Found new video ref: {video_data.id}")
                     video = Video(
                         title=video_data.title,
@@ -364,13 +371,18 @@ class Channels(Base):
                         active=True,
                     )
                     db.session.add(video)
-                else:
+                    if process:
+                        db.session.commit()
+                        return db.session.query(Video).filter_by(platform_ref=video_data.id).one().id
+                elif process is False:
+                    tn = save_twitch_thumbnail(video_data, force=True)
                     logger.info(f"Updating existing video: {video_data.id}")
                     existing_video.thumbnail = open(tn, "rb")
                     existing_video.active = True
                     existing_video.title = video_data.title
                     existing_video.duration = parse_time(video_data.duration)
                     existing_video.uploaded = video_data.created_at
+                    db.session.flush()
                     if existing_video.duration != parse_time(video_data.duration):
                         logger.info(
                             f"Duration changed for video {video_data.id}: {existing_video.duration} -> {parse_time(video_data.duration)}"
@@ -379,7 +391,9 @@ class Channels(Base):
                         existing_video.process_transcriptions(force=True)
 
                     if existing_video.channel_id != self.id:
-                        existing_video.channel_id = self.id  # optional fix if relevant
+                        existing_video.channel_id = self.id
+        db.session.commit()
+        return None
 
 class Video(Base):
     __tablename__: str = "video"

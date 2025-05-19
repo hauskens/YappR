@@ -18,7 +18,8 @@ services:
       - POSTGRES_USER=root
       - POSTGRES_PASSWORD=secret
     volumes:
-      - db:/var/lib/postgresql/data
+      # - db:/var/lib/postgresql/data
+      - ./test_db/data:/var/lib/postgresql/data
   cache:
     image: redis:6.2-alpine
     restart: always
@@ -74,7 +75,7 @@ services:
     depends_on:
       - app
     deploy:
-      replicas: 1 # number up = more brrr, over 4 will probably cause db pool issues
+      replicas: 0
   worker:
     extends: app
     image: ${REGISTRY-}yappr-worker${VERSION-}
@@ -84,9 +85,14 @@ services:
     depends_on:
       - app
     deploy:
-      replicas: 1 # number up = more brrr, over 4 will probably cause db pool issues
+      replicas: 2 # number up = more brrr, over 4 will probably cause db pool issues
+  beat:
+    extends: worker
+    command: ["--app","app.main.celery","beat","--loglevel=info" ]
+    deploy:
+      replicas: 1
 volumes:
-  db:
+  # db:
   app:
   app-cache:
   app-nltk:

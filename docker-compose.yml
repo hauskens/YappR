@@ -72,10 +72,21 @@ services:
     ports: !reset []
     build:
       target: worker-gpu
-    depends_on:
-      - app
+    depends_on: !reset[]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+      - LD_LIBRARY_PATH=/usr/local/nvidia/lib64
     deploy:
       replicas: 0
+      resources:
+        reservations:
+          devices:
+          - driver: cdi
+            capabilities:
+              - gpu
+            device_ids:
+              - nvidia.com/gpu=all
   worker:
     extends: app
     image: ${REGISTRY-}yappr-worker${VERSION-}
@@ -85,7 +96,7 @@ services:
     depends_on:
       - app
     deploy:
-      replicas: 2 # number up = more brrr, over 4 will probably cause db pool issues
+      replicas: 1 # number up = more brrr, over 4 will probably cause db pool issues
   beat:
     extends: worker
     command: ["--app","app.main.celery","beat","--loglevel=info" ]

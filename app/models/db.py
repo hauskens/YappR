@@ -336,17 +336,13 @@ class Channels(Base):
         elif (
             self.platform.name.lower() == "twitch"
         ):
-            logger.info(f"Fetching latest videos for channel: {self.name}")
-            if process:
-                twitch_latest_videos = asyncio.run(
-                    get_latest_broadcasts(self.platform_channel_id, limit=1)
-                )
-            else:
-                twitch_latest_videos = asyncio.run(
-                    get_latest_broadcasts(self.platform_channel_id)
-                )
+            logger.info(f"Fetching latest videos for twitch channel: {self.name} - Process: {process}")
+            limit = 1 if process else None
+            twitch_latest_videos = asyncio.run(
+                get_latest_broadcasts(self.platform_channel_id, limit=limit)
+            )
             for video_data in twitch_latest_videos:
-                logger.info(f"Processing video ref: {video_data.id}")
+                logger.info(f"Processing video ref: {video_data.id} - got {len(twitch_latest_videos)} videos")
                 
                 # Query full DB, not just self.videos
                 existing_video = (
@@ -380,7 +376,6 @@ class Channels(Base):
                         existing_video.thumbnail = open(tn, "rb")
                         existing_video.active = True
                         existing_video.title = video_data.title
-                        existing_video.duration = parse_time(video_data.duration)
                         existing_video.uploaded = video_data.created_at
                         db.session.flush()
                         if abs(existing_video.duration - parse_time(video_data.duration)) > 1:
@@ -394,8 +389,9 @@ class Channels(Base):
                             except Exception as e:
                                 logger.error(f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
                             existing_video.audio = None
-                            if process:
-                                return existing_video.id
+                            existing_video.duration = parse_time(video_data.duration)
+                        if process:
+                            return existing_video.id
                         if existing_video.channel_id != self.id:
                             existing_video.channel_id = self.id
                         db.session.flush()

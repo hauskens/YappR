@@ -41,7 +41,7 @@ from ..youtube_api import (
     fetch_transcription,
 )
 from ..tasks import get_twitch_audio, get_yt_audio
-from ..twitch_api import get_twitch_user, get_latest_broadcasts, parse_time
+from ..twitch_api import get_twitch_user, get_latest_broadcasts, get_twitch_video_by_ids, parse_time
 
 from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
@@ -262,7 +262,6 @@ class Channels(Base):
         if self.platform.name.lower() != "youtube":
             return
 
-        # Step 1: Fetch all results (could be paginated)
         latest_video_batches = get_all_videos_on_channel(self.platform_channel_id)
 
         video_id_set = set()
@@ -374,24 +373,35 @@ class Channels(Base):
                     if process:
                         db.session.commit()
                         return db.session.query(Video).filter_by(platform_ref=video_data.id).one().id
-                elif process is False:
-                    tn = save_twitch_thumbnail(video_data, force=True)
-                    logger.info(f"Updating existing video: {video_data.id}")
-                    existing_video.thumbnail = open(tn, "rb")
-                    existing_video.active = True
-                    existing_video.title = video_data.title
-                    existing_video.duration = parse_time(video_data.duration)
-                    existing_video.uploaded = video_data.created_at
-                    db.session.flush()
-                    if existing_video.duration != parse_time(video_data.duration):
-                        logger.info(
-                            f"Duration changed for video {video_data.id}: {existing_video.duration} -> {parse_time(video_data.duration)}"
-                        )
+                else:
+                    try:
+                        tn = save_twitch_thumbnail(video_data, force=True)
+                        logger.info(f"Updating existing video: {video_data.id}")
+                        existing_video.thumbnail = open(tn, "rb")
+                        existing_video.active = True
+                        existing_video.title = video_data.title
                         existing_video.duration = parse_time(video_data.duration)
-                        existing_video.process_transcriptions(force=True)
-
-                    if existing_video.channel_id != self.id:
-                        existing_video.channel_id = self.id
+                        existing_video.uploaded = video_data.created_at
+                        db.session.flush()
+                        if abs(existing_video.duration - parse_time(video_data.duration)) > 1:
+                            logger.info(
+                                f"Duration changed for video {self.platform_ref}: {existing_video.duration} -> {parse_time(video_data.duration)}"
+                            )
+                            for transcription in existing_video.transcriptions:
+                                transcription.delete()
+                            try:
+                                existing_video.audio.file.object.delete()
+                            except Exception as e:
+                                logger.error(f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
+                            existing_video.audio = None
+                            if process:
+                                return existing_video.id
+                        if existing_video.channel_id != self.id:
+                            existing_video.channel_id = self.id
+                        db.session.flush()
+                    except Exception as e:
+                        logger.error(f"Failed to update video {video_data.id}, exception: {e}")
+                        continue
         db.session.commit()
         return None
 
@@ -463,9 +473,32 @@ class Video(Base):
             self.duration = result.contentDetails.duration.total_seconds()
             self.title = result.snippet.title
             self.uploaded = result.snippet.publishedAt
-            if self.thumbnail is None or force:
-                tn = save_yt_thumbnail(result)
-                self.thumbnail = open(tn, "rb")
+            tn = save_yt_thumbnail(result)
+            self.thumbnail = open(tn, "rb")
+            db.session.commit()
+        if self.channel.platform.name.lower() == "twitch":
+            try:
+                twitch_result = asyncio.run(get_twitch_video_by_ids([self.platform_ref]))[0]
+            except Exception as e:
+                logger.error(f"Failed to fetch details for video {self.id}: {e}")
+                return
+            if self.duration != parse_time(twitch_result.duration):
+                logger.info(
+                    f"Duration changed for video {self.platform_ref}: {self.duration} -> {parse_time(twitch_result.duration)}"
+                )
+                for transcription in self.transcriptions:
+                    transcription.delete()
+                try:
+                    self.audio.file.object.delete()
+                except Exception as e:
+                    logger.error(f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
+                self.audio = None
+                self.duration = parse_time(twitch_result.duration)
+            self.title = twitch_result.title
+            self.uploaded = twitch_result.created_at
+            # if self.thumbnail is None or force:
+            tn = save_twitch_thumbnail(twitch_result)
+            self.thumbnail = open(tn, "rb")
             db.session.commit()
 
     def download_transcription(self, force: bool = False):

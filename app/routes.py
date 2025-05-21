@@ -443,6 +443,17 @@ def video_archive(video_id: int):
     video.archive()
     return redirect(request.referrer)
 
+@app.route("/video/<int:video_id>/delete")
+@login_required
+def video_delete(video_id: int):
+    if current_user.has_permission(PermissionType.Admin):
+        logger.info(f"Deleting video {video_id}")
+        video = get_video(video_id)
+        channel_id = video.channel_id
+        video.delete()
+        return redirect(url_for("channel_get_videos", channel_id=channel_id))
+    else:
+        return "You do not have access", 403
 
 @app.route("/video/<int:video_id>/edit")
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")

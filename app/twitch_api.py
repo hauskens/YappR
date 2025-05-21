@@ -28,3 +28,10 @@ async def get_latest_broadcasts(twitch_user_id: str, limit: int = 100) -> Sequen
     twitch = await get_twitch_client()
     videos = twitch.get_videos(user_id=twitch_user_id, video_type=VideoType.ARCHIVE, sort=SortMethod.TIME, first=limit)
     return [video async for video in videos]
+
+
+async def get_twitch_video_by_ids(video_ids: list[str]) -> Sequence[Video]:
+    twitch = await get_twitch_client()
+    videos = twitch.get_videos(ids=video_ids)
+    return [video async for video in videos]
+    

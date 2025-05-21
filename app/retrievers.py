@@ -7,11 +7,9 @@ from .models.db import (
     Platforms,
     Segments,
     TranscriptionSource,
-    WordMaps,
     Channels,
     Video,
     Transcription,
-    Logs,
     Users,
     db,
 )
@@ -120,39 +118,6 @@ def get_transcriptions_on_channels_daterange(
     return transcriptions
 
 
-def search_wordmaps_by_transcription(
-    search_term: str, transcription: Transcription
-) -> Sequence[WordMaps]:
-    return (
-        db.session.execute(
-            select(WordMaps).filter_by(
-                transcription_id=transcription.id, word=search_term
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-
-def search_wordmaps_by_transcriptions(
-    search_term: str, transcriptions: Sequence[Transcription]
-) -> Sequence[WordMaps]:
-    return (
-        db.session.execute(
-            select(WordMaps).filter(
-                WordMaps.transcription_id.in_([t.id for t in transcriptions]),
-                WordMaps.word == search_term,
-            )
-        )
-        .scalars()
-        .all()
-    )
-
-
-def get_segments_by_wordmap(wordmap: WordMaps) -> Sequence[Segments]:
-    return db.session.query(Segments).filter(Segments.id.in_(wordmap.segments)).all()
-
-
 def get_segment_by_id(segment_id: int) -> Segments:
     return db.session.query(Segments).filter_by(id=segment_id).one()
 
@@ -195,10 +160,6 @@ def get_stats_videos_with_good_transcription(channel_id: int) -> int:
     )
 
 
-def get_stats_words() -> int:
-    return db.session.query(WordMaps.word).count()
-
-
 def get_stats_transcriptions() -> int:
     return db.session.query(Transcription).count()
 
@@ -225,12 +186,6 @@ def get_user_by_ext(user_external_id: str) -> Users:
 
 def get_user_by_id(user_id: int) -> Users:
     return db.session.query(Users).filter_by(id=user_id).one()
-
-
-def add_log(log_text: str):
-    logger.info(log_text)
-    db.session.add(Logs(text=log_text))
-    db.session.commit()
 
 
 def fetch_audio(video_id: int):

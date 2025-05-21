@@ -25,10 +25,8 @@ from .retrievers import (
     get_broadcasters,
     get_transcription,
     get_user_by_id,
-    get_stats_words,
     get_stats_videos,
     get_stats_segments,
-    add_log,
     get_video,
     get_platforms,
     get_broadcaster_channels,
@@ -162,7 +160,6 @@ def stats():
         "stats.html",
         video_count="{:,}".format(get_stats_videos()),
         video_duration="{:,}".format(get_total_video_duration()),
-        word_count="{:,}".format(get_stats_words()),
         segment_count="{:,}".format(get_stats_segments()),
         transcriptions_count="{:,}".format(get_stats_transcriptions()),
         transcriptions_hq_count="{:,}".format(get_stats_high_quality_transcriptions()),
@@ -198,7 +195,6 @@ def search_word():
         if channel.platform.name.lower() == channel_type or channel_type == "all"
     ]
     logger.info(f"channels: {len(channels)}")
-    add_log(f"Searching for '{search_term}' on {broadcaster.name}")
     video_result = search_v2(search_term, channels, start_date, end_date)
     return render_template(
         "result.html",

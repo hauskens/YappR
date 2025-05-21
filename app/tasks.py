@@ -69,7 +69,8 @@ def get_twitch_audio(video_url: str) -> str:
     download_path: str = f"{storage_directory}/{video_url.split('/')[-1]}s.webm"
 
     twitch_opts = {
-        "format": "wa",
+        "format": "all[resolution='audio only']",
+        "match_filter": yt_dlp.utils.match_filter_func(['!is_live'], None),
         "outtmpl": download_path,
     }
     # if config.twitch_dl_gql_client_id is not None:

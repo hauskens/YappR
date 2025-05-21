@@ -66,6 +66,7 @@ def get_videos_on_channel(
                 channelId=channel_id,
                 order="date",
                 maxResults=max_results,
+                eventType="completed",
             )
             .execute()
         )
@@ -79,6 +80,7 @@ def get_videos_on_channel(
                 order="date",
                 pageToken=next_page_token,
                 maxResults=max_results,
+                eventType="completed",
             )
             .execute()
         )
@@ -89,11 +91,12 @@ def get_videos_on_channel(
 def get_all_videos_on_channel(channel_id: str) -> list[SearchResultItem]:
     next_page_token: str | None = None
     all_videos: list[SearchResultItem] = []
-    max_requests = 100  # This is equals to 10000 videos on a channel, which is most likely never the case
+    max_requests = 50  # This is equals to 2500 videos on a channel, which is most likely never the case
     while max_requests > 0:
         max_requests -= 1
         video_result = get_videos_on_channel(channel_id, next_page_token, 50)
         all_videos.extend(video_result.items)
+        logger.info(f"Found {len(video_result.items)} videos on page, next page token: {video_result.nextPageToken}, current page token: {next_page_token}")
         if video_result.nextPageToken is not None and video_result.nextPageToken != next_page_token:
             next_page_token = video_result.nextPageToken
         else:

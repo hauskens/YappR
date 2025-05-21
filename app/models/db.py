@@ -587,9 +587,6 @@ class Transcription(Base):
     segments: Mapped[list["Segments"]] = relationship(
         back_populates="transcription", cascade="all, delete-orphan"
     )
-    word_maps: Mapped[list["WordMaps"]] = relationship(
-        back_populates="transcription", cascade="all, delete-orphan"
-    )
 
     def delete(self):
         self.reset()
@@ -597,14 +594,8 @@ class Transcription(Base):
         db.session.commit()
 
     def reset(self):
-        self.delete_attached_wordmaps()
         self.delete_attached_segments()
         self.processed = False
-
-    def delete_attached_wordmaps(self):
-        _ = db.session.query(WordMaps).filter_by(transcription_id=self.id).delete()
-        self.processed = False
-        db.session.commit()
 
     def delete_attached_segments(self):
         _ = db.session.query(Segments).filter_by(transcription_id=self.id).delete()
@@ -616,7 +607,7 @@ class Transcription(Base):
 
     def process_transcription(self, force: bool = False):
         logger.info(f"Task queued, parsing transcription for {self.id}, - {force}")
-        if self.processed and force == False and len(self.word_maps) == 0:
+        if self.processed and force == False and len(self.segments) == 0:
             logger.info(f"Transcription {self.id}, already processed.. skipping")
             return
         if force:
@@ -704,13 +695,6 @@ class Transcription(Base):
         logger.info(f"Done processing transcription: {self.id}")
 
 
-class Logs(Base):
-    __tablename__: str = "logs"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    text: Mapped[str] = mapped_column(String(250))
-    timestamp: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
-
-
 class Segments(Base):
     __tablename__: str = "segments"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -742,17 +726,6 @@ class Segments(Base):
         elif self.transcription.video.channel.platform.name.lower() == "youtube":
             return f"{self.transcription.video.get_url()}&t={shifted_time}"
         raise ValueError("Could not generate url with timestamp")
-
-
-class WordMaps(Base):
-    __tablename__: str = "wordmaps"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    word: Mapped[str] = mapped_column(String(50), index=True)
-    segments: Mapped[list[int]] = mapped_column(ARRAY(Integer))
-    transcription_id: Mapped[int] = mapped_column(
-        ForeignKey("transcriptions.id"), index=True
-    )
-    transcription: Mapped["Transcription"] = relationship()
 
 
 class OAuth(OAuthConsumerMixin, Base):

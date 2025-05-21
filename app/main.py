@@ -58,7 +58,7 @@ def setup_periodic_tasks(sender: Celery, **kwargs):
         for channel in channels:
             if channel.platform.name.lower() == "twitch":
                 logger.info(f"Setting up tasks for {channel.name}")
-                sender.add_periodic_task(crontab(hour="*", minute="*/30"), test_task.s(channel.id), name=f'look for new videos every 30 minutes - {channel.name}')
+                sender.add_periodic_task(crontab(hour="*", minute="*/30"), full_processing_task.s(channel.id), name=f'look for new videos every 30 minutes - {channel.name}')
                 
 
 @app.errorhandler(429)
@@ -83,7 +83,7 @@ def redirect_unauthorized():
 
 
 @celery.task()
-def test_task(channel_id: int):
+def full_processing_task(channel_id: int):
     logger.info(f"Processing channel {channel_id}")
     channel = get_channel(channel_id)
     video = channel.fetch_latest_videos(process=True)

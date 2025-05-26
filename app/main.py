@@ -26,6 +26,10 @@ from .routes import *
 from . import app, login_manager
 from .models.db import TranscriptionSource
 from .utils import require_api_key
+import tempfile
+import mimetypes
+import json
+from urllib.parse import unquote
 from celery.schedules import crontab
 
 
@@ -60,6 +64,18 @@ def setup_periodic_tasks(sender: Celery, **kwargs):
                 logger.info(f"Setting up tasks for {channel.name}")
                 sender.add_periodic_task(crontab(hour="*", minute="*/30"), full_processing_task.s(channel.id), name=f'look for new videos every 30 minutes - {channel.name}')
                 
+def get_extension_from_response(response):
+    # Try to extract filename from Content-Disposition header
+    cd = response.headers.get("Content-Disposition", "")
+    if "filename=" in cd:
+        filename = cd.split("filename=")[-1].strip('" ')
+        ext = os.path.splitext(unquote(filename))[-1]
+        if ext:
+            return ext
+    # Fallback: use MIME type
+    content_type = response.headers.get("Content-Type")
+    ext = mimetypes.guess_extension(content_type)
+    return ext or ".tmp"
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
@@ -177,42 +193,60 @@ def task_fetch_transcription(video_id: int):
 
 @celery.task
 def task_transcribe_audio(video_id: int, force: bool = False):
-    headers = {
-        "X-API-Key": config.api_key
-    }
+    headers = {"X-API-Key": config.api_key}
     video = get_video(video_id)
+
     for t in video.transcriptions:
-        if t.source == TranscriptionSource.Unknown and force == False:
-            logger.info(f"Transcription already exists on video {video.id}, skipping")
-            return video_id
-        if t.source == TranscriptionSource.Unknown and force:
+        if t.source == TranscriptionSource.Unknown:
+            if not force:
+                logger.info(f"Transcription already exists on video {video.id}, skipping")
+                return video_id
             logger.info(f"Transcription already exists on video {video.id}, deleting")
             t.delete()
-    logger.info(f"Task queued, processing audio for {video_id}")
-    local_filename = config.cache_location + f"/{video.id}.mp4"
-    if os.path.exists(local_filename):
-        os.remove(local_filename)
-    if video.audio is not None:
-        with requests.get(f"{config.app_url}/video/{video.id}/download_audio", headers=headers) as r:
-            r.raise_for_status()
-            with open(local_filename, "wb") as f:
-                _ = f.write(r.content)
-            try:
-                result_file = transcribe(local_filename)
-                with open(result_file, "r") as f:
-                    result = json.load(f)
-                logger.info(f"Uploading to video {video_id}")
-                headers = {"Content-type": "application/json", "Accept": "text/plain", "X-API-Key": config.api_key}
-                r = requests.post(
-                    f"{config.app_url}/video/{video_id}/upload_transcription",
-                    json=result,
-                    headers=headers,
-                )
-            except:
-                raise ValueError("Failed to upload audio file")
-    os.remove(local_filename)
-    return video_id
 
+    logger.info(f"Task queued, processing audio for video {video_id}")
+
+    if not video.audio:
+        logger.warning(f"No audio associated with video {video_id}")
+        return video_id
+
+    download_url = f"{config.app_url}/video/{video.id}/download_audio"
+
+    try:
+        with requests.get(download_url, headers=headers, stream=True) as r:
+            r.raise_for_status()
+            ext = get_extension_from_response(r)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir=config.cache_location) as temp_file:
+                for chunk in r.iter_content(chunk_size=8192):
+                    temp_file.write(chunk)
+                local_filename = temp_file.name
+
+        logger.info(f"Audio downloaded to {local_filename}, starting transcription")
+
+        result_file = transcribe(local_filename)
+
+        with open(result_file, "r") as f:
+            result = json.load(f)
+
+        logger.info(f"Uploading transcription to video {video_id}")
+        upload_url = f"{config.app_url}/video/{video_id}/upload_transcription"
+        headers.update({"Content-type": "application/json", "Accept": "text/plain"})
+        response = requests.post(upload_url, json=result, headers=headers)
+        response.raise_for_status()
+
+    except Exception as e:
+        logger.error(f"Transcription task failed: {e}")
+        raise
+
+    finally:
+        # Clean up temp file
+        try:
+            if os.path.exists(local_filename):
+                os.remove(local_filename)
+        except Exception as cleanup_error:
+            logger.warning(f"Failed to delete temp file: {cleanup_error}")
+
+    return video_id
 
 @celery.task
 def task_parse_transcription(transcription_id: int, force: bool = False):

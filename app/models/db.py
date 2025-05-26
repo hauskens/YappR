@@ -337,7 +337,7 @@ class Channels(Base):
             self.platform.name.lower() == "twitch"
         ):
             logger.info(f"Fetching latest videos for twitch channel: {self.name} - Process: {process}")
-            limit = 1 if process else None
+            limit = 1 if process else 100
             twitch_latest_videos = asyncio.run(
                 get_latest_broadcasts(self.platform_channel_id, limit=limit)
             )
@@ -405,7 +405,7 @@ class Video(Base):
     __tablename__: str = "video"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     title: Mapped[str] = mapped_column(String(250))
-    video_type: Mapped[str] = mapped_column(Enum(VideoType))
+    video_type: Mapped[VideoType] = mapped_column(Enum(VideoType))
     duration: Mapped[float] = mapped_column(Float())
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)
     channel: Mapped["Channels"] = relationship()
@@ -546,21 +546,18 @@ class Video(Base):
             f"Processing transcriptions for {self.id}, found {transcription_to_process}"
         )
         if transcription_to_process is not None:
+            transcription_to_process.reset()
             transcription_to_process.process_transcription(force)
 
     def save_audio(self, force: bool = False):
         if (
             self.channel.platform.name.lower() == "twitch"
-            and self.get_url() is not None
-            and self.audio is None
         ):
             audio = get_twitch_audio(self.get_url())
             self.audio = open(audio, "rb")
             db.session.commit()
         if (
             self.channel.platform.name.lower() == "youtube"
-            and self.get_url() is not None
-            and self.audio is None
         ):
             audio = get_yt_audio(self.get_url())
             self.audio = open(audio, "rb")
@@ -621,6 +618,7 @@ class Transcription(Base):
         content = TranscriptionResult.model_validate_json(
             self.file.file.read().decode()
         )
+        self.reset()
 
         previous_segment: Segments | None = None
         logger.info(f"Processing json transcription: {self.id}")

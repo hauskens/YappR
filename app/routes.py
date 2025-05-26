@@ -16,6 +16,7 @@ from flask_login import current_user, login_required
 from .utils import require_api_key
 from io import BytesIO
 import json
+import mimetypes
 from . import app, limiter, rate_limit_exempt
 import os
 from .models.config import config
@@ -237,20 +238,29 @@ def serve_thumbnails(video_id: int):
 
 @app.route("/video/<int:video_id>/download_audio")
 @require_api_key
-# TODO: add rate limit, but need to authenticate agents
 def serve_audio(video_id: int):
     try:
         video = get_video(video_id)
-        if video.audio is not None:
-            content = video.audio.file.read()
-            return send_file(
-                BytesIO(content),
-                mimetype="audio/mpeg",
-                download_name=f"{video.id}.webm",
-            )
-    except:
-        abort(404)
-    abort(500)
+        if not video or not video.audio:
+            abort(404, description="Audio not found")
+
+        # Detect MIME type from the file or store it explicitly
+        filename = video.audio.file.filename  # assuming you store this
+        mimetype, _ = mimetypes.guess_type(filename)
+        mimetype = mimetype or "application/octet-stream"
+        content = video.audio.file.read()
+
+        return send_file(
+            BytesIO(content),
+            mimetype=mimetype,
+            as_attachment=True,
+            download_name=filename,
+        )
+
+    except Exception as e:
+        # Log the error to aid debugging
+        logger.error(f"Failed to serve audio for video {video_id}: {e}")
+        abort(500, description="Internal Server Error")
 
 
 @app.route("/platforms")

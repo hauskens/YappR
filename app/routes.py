@@ -10,9 +10,8 @@ from flask import (
     abort,
     make_response,
     session,
-    g,
 )
-from flask_login import current_user, login_required
+from flask_login import current_user, login_required, logout_user
 from .utils import require_api_key
 from io import BytesIO
 import json
@@ -58,7 +57,7 @@ logger = logging.getLogger(__name__)
 
 
 def check_banned():
-    if current_user.is_authenticated and current_user.banned == True:
+    if current_user.is_anonymous == False and current_user.banned == True:
         return True
     return False
 
@@ -82,6 +81,11 @@ def login():
 def access_denied():
     return send_from_directory("static", "401.jpg")
 
+@app.route("/logout")
+def logout():
+    logout_user()
+    flash("You have logged out")
+    return render_template("unauthorized.html")
 
 @app.route("/users")
 @login_required
@@ -90,7 +94,7 @@ def users():
         return render_template("banned.html", user=current_user)
     users = get_users()
     logger.info("Loaded users.html")
-    if current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         return render_template(
             "users.html", users=users, permission_types=PermissionType
         )
@@ -103,11 +107,11 @@ def users():
 def user_edit(user_id: int):
     if check_banned():
         return render_template("banned.html", user=current_user)
-    if current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         user = get_user_by_id(user_id)
         if request.method == "GET":
             logger.info("Loaded users.html")
-            if current_user.has_permission(PermissionType.Admin):
+            if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
                 broadcasters = get_broadcasters()
                 return render_template(
                     "user_edit.html",
@@ -138,7 +142,7 @@ def user_edit(user_id: int):
 @app.route("/permissions/<int:user_id>/<permission_name>")
 @login_required
 def grant_permission(user_id: int, permission_name: str):
-    if current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         logger.info(
             f"User {current_user.id} is granting '{permission_name}' to {user_id}"
         )
@@ -452,7 +456,7 @@ def video_archive(video_id: int):
 @app.route("/video/<int:video_id>/delete")
 @login_required
 def video_delete(video_id: int):
-    if current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         logger.info(f"Deleting video {video_id}")
         video = get_video(video_id)
         channel_id = video.channel_id
@@ -462,6 +466,7 @@ def video_delete(video_id: int):
         return "You do not have access", 403
 
 @app.route("/video/<int:video_id>/edit")
+@login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 def video_edit(video_id: int):
     video = get_video(video_id)

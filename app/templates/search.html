@@ -1,6 +1,6 @@
 {% extends 'base.html' %} {% block content %}
 <div class="container">
-  <h1>Search:</h1>
+  <h1>Search: {{ current_user.is_anonymous }}</h1>
   {% include "search_module.html" %}
   <div class="container mt-4">
     <h5 class="fw-bold">Search Tips</h5>

@@ -1,6 +1,6 @@
 {% extends 'base.html' %} {% block content %}
 <div class="container">
-  {% if g.user_object.has_permission(["admin"]) %}
+  {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
     <h1>User: {{ user.name }}</h1>
     <p>
       Yes.. this interface is horrible.. and it's open source, you can help

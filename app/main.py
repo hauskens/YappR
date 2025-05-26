@@ -5,7 +5,6 @@ from flask import (
     request,
     redirect,
     jsonify,
-    g,
 )
 import time
 import redis
@@ -82,17 +81,6 @@ def ratelimit_handler(e):
     return render_template("unauthorized.html", ratelimit_exceeded=e.description)
 
 
-@app.before_request
-def get_current_user():
-    try:
-        if current_user.is_authenticated and "username" not in g:
-            g.user_object = current_user
-            g.username = current_user.name
-            g.avatar_url = current_user.avatar_url
-    except:
-        logger.info("get_current_user: failed")
-
-
 @login_manager.unauthorized_handler
 def redirect_unauthorized():
     return render_template("unauthorized.html")
@@ -119,7 +107,7 @@ def video_process_audio(video_id: int):
 @app.route("/video/<int:video_id>/process_full")
 @login_required
 def video_process_full(video_id: int):
-    if current_user.has_permission(PermissionType.Admin) or current_user.has_permission(
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin) or current_user.has_permission(
         PermissionType.Moderator
     ):
         logger.info(f"Full processing of video: {video_id}")
@@ -272,7 +260,7 @@ def parse_transcription(transcription_id: int):
 @app.route("/channel/<int:channel_id>/fetch_transcriptions")
 @login_required
 def channel_fetch_transcriptions(channel_id: int):
-    if current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         channel = get_channel(channel_id)
         logger.info(f"Fetching all transcriptions for {channel.name}")
         for video in channel.videos:
@@ -283,7 +271,7 @@ def channel_fetch_transcriptions(channel_id: int):
 @app.route("/channel/<int:channel_id>/parse_transcriptions")
 @login_required
 def channel_parse_transcriptions(channel_id: int, force: bool = False):
-    if current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         channel = get_channel(channel_id)
         for video in channel.videos:
             _ = task_parse_video_transcriptions.delay(video.id, force)
@@ -293,7 +281,7 @@ def channel_parse_transcriptions(channel_id: int, force: bool = False):
 @app.route("/channel/<int:channel_id>/fetch_audio")
 @login_required
 def channel_fetch_audio(channel_id: int):
-    if current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         channel = get_channel(channel_id)
         for video in channel.videos:
             _ = task_fetch_audio.delay(video.id)
@@ -303,7 +291,7 @@ def channel_fetch_audio(channel_id: int):
 @app.route("/channel/<int:channel_id>/transcribe_audio")
 @login_required
 def channel_transcribe_audio(channel_id: int):
-    if current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         channel = get_channel(channel_id)
         logger.info(f"Bulk queue audio processing for channel {channel.id}")
         for video in channel.videos:

@@ -98,6 +98,7 @@ class PermissionType(enum.Enum):
 
 class AccountSource(enum.Enum):
     Discord = "discord"
+    Twitch = "twitch"
 
 
 class Users(Base, UserMixin):

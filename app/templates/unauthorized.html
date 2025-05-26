@@ -28,16 +28,25 @@
           <p> You can <em>self-host</em> your own instance if you'd like to manage it on your own</p>
           
           <hr>
-          <p>🔒Discord is used for authentication, meaning <strong>no passwords</strong> are ever exchanged with YappR.</p>
-          <p>👀 The only info we can access is your <strong>profile ID, name, and avatar</strong>—nothing more.</p>
+          <p>🔒Twitch and Discord are used for authentication, <strong>no passwords</strong> are ever exchanged with YappR.</p>
+          <p>👀 The only info we access is your <strong>profile ID, username, and avatar</strong>—nothing more.</p>
           
-          <p>🚀 Ready to dive in? Just click the <strong>login button below</strong>. Once you're in, you're all set to go!</p>
+          <p>🚀 Ready to dive in? Just click one of the <strong>login buttons below</strong>. Once you're in, you're all set to go!</p>
 
+          <div class="text-center mt-4">
+            <a href="{{ url_for('twitch.login') }}">
+              <img
+                id="twitch"
+                src="https://img.shields.io/badge/Twitch-Login-9146ff?style=for-the-badge&labelColor=black&logo=Twitch"
+                alt="Login with Twitch"
+              />
+            </a>
+          </div>
           <div class="text-center mt-4">
             <a href="{{ url_for('discord.login') }}">
               <img
                 id="discord"
-                src="https://img.shields.io/badge/Discord-Login-brightgreen?style=for-the-badge&labelColor=black&logo=Discord"
+                src="https://img.shields.io/badge/Discord-Login-7289da?style=for-the-badge&labelColor=black&logo=Discord"
                 alt="Login with Discord"
               />
             </a>
@@ -45,6 +54,15 @@
         </div>
       </div>
 
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="alert alert-warning" role="alert">
+            {% for message in messages %}
+              {{ message }}
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
     </div>
   </div>
 </div>

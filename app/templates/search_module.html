@@ -6,7 +6,7 @@
         <select id="broadcaster" name="broadcaster" {% if broadcasters|length == 0 %} hidden {% endif %} class="form-select">
           {% if broadcasters|length > 0 %}
             {% for broadcaster in broadcasters %}
-              {% if not broadcaster.hidden or (g.username is defined and broadcaster.hidden and g.user_object.has_permission(["admin", "mod"])) %}
+              {% if not broadcaster.hidden or (current_user.is_anonymous == False and broadcaster.hidden and current_user.has_permission(["admin", "mod"])) %}
                 <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
               {% endif %}
             {% endfor %}</select>

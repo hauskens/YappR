@@ -12,7 +12,7 @@
       </thead>
       <tbody>
       {% for broadcaster in broadcasters %}
-        {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin", "mod"])) %}
+        {% if not broadcaster.hidden or (broadcaster.hidden and current_user.has_permission(["admin", "mod"])) %}
           <tr>
           <td>
             {{ broadcaster.name }}<a href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}" class="text-primary"></a>
@@ -26,7 +26,7 @@
       </tbody>
     </table>
 
-    {% if  g.user_object.has_permission(["admin"]) %}
+    {% if  current_user.has_permission(["admin"]) %}
       <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
         Add new Broadcaster..
       </a>

@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin", "mod"])) %}
+  {% if not broadcaster.hidden or (broadcaster.hidden and current_user.has_permission(["admin", "mod"])) %}
     <div class="container">
       <h1>{{ broadcaster.name }}</h1>
       {% if broadcaster.hidden %}
@@ -42,10 +42,10 @@
             <td>
               <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Go to Channel</a>
 
-              {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin"])) %}
+              {% if not broadcaster.hidden or (broadcaster.hidden and current_user.has_permission(["admin"])) %}
                 <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Update channel details</button>
               {% endif %}
-              {% if g.user_object.broadcaster_id == broadcaster.id or  g.user_object.has_permission(["admin"]) %}
+              {% if current_user.broadcaster_id == broadcaster.id or  current_user.has_permission(["admin"]) %}
                 <a class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this channel? All transcription work will be lost')" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
               {% endif %}
             </td>
@@ -55,7 +55,7 @@
       </table>
 
 
-      {% if not broadcaster.hidden or (broadcaster.hidden and g.user_object.has_permission(["admin"])) %}
+      {% if not broadcaster.hidden or (broadcaster.hidden and current_user.has_permission(["admin"])) %}
         <h4>Add Channel</h4>
         <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseAddChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
           Add new channel

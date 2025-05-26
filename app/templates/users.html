@@ -1,7 +1,7 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  {% if g.user_object.has_permission(["admin"]) %}
+  {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
     <div class="container">
       <h1>Users</h1>
       <table class="table table-striped">

@@ -15,6 +15,7 @@ from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
+from .auth import discord_blueprint, twitch_blueprint
 
 logger = logging.getLogger(__name__)
 
@@ -34,12 +35,6 @@ login_manager = LoginManager()
 login_manager.login_view = "discord.login"
 
 init_storage()
-blueprint = make_discord_blueprint(
-    client_id=config.discord_client_id,
-    client_secret=config.discord_client_secret,
-    scope=["identify"],
-)
-blueprint.storage = SQLAlchemyStorage(OAuth, db.session, user=current_user)
 
 container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
 thumbnail_container = LocalStorageDriver(config.storage_location).get_container("thumbnails")
@@ -50,44 +45,6 @@ StorageManager.add_storage("thumbnails", thumbnail_container)
 @login_manager.user_loader
 def load_user(oauth_id: int):
     return db.session.query(OAuth).filter_by(user_id=int(oauth_id)).one().user
-
-
-@oauth_authorized.connect_via(blueprint)
-def handle_login(blueprint, token):
-    if not token:
-        return False
-    resp = blueprint.session.get("/api/users/@me")
-    if not resp.ok:
-        return False
-    info = resp.json()
-    logger.info(info)
-    user_id = info["id"]
-    query = db.session.query(OAuth).filter_by(
-        provider=blueprint.name, provider_user_id=user_id
-    )
-    try:
-        oauth = query.one()
-    except NoResultFound:
-        oauth = OAuth(provider=blueprint.name, provider_user_id=user_id, token=token)
-
-    if oauth.user:
-        _ = login_user(oauth.user, remember=True, duration=timedelta(days=30))
-    else:
-
-        u = Users(
-            name=info["global_name"],
-            external_account_id=str(info["id"]),
-            account_type=AccountSource.Discord,
-            avatar_url=f"https://cdn.discordapp.com/avatars/{info["id"]}/{info["avatar"]}.png",
-        )
-        oauth.user = u
-        db.session.add_all([u, oauth])
-
-        db.session.commit()
-        _ = login_user(u, remember=True, duration=timedelta(days=30))
-    # Disable Flask-Dance's default behavior for saving the OAuth token
-    return False
-
 
 def create_app():
     init_storage()
@@ -114,7 +71,8 @@ def create_app():
 
     
 
-    app.register_blueprint(blueprint, url_prefix="/login")
+    app.register_blueprint(discord_blueprint, url_prefix="/login")
+    app.register_blueprint(twitch_blueprint, url_prefix="/login")
     return app
 
 
@@ -129,4 +87,4 @@ limiter = Limiter(
 
 # Custom rate limit exemption for authenticated users
 def rate_limit_exempt():
-    return current_user.is_authenticated
+    return current_user.is_anonymous == False

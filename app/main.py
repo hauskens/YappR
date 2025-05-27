@@ -30,6 +30,7 @@ import mimetypes
 import json
 from urllib.parse import unquote
 from celery.schedules import crontab
+from .chatlogparse import parse_logs
 
 
 
@@ -95,6 +96,11 @@ def full_processing_task(channel_id: int):
         _ = chain(task_fetch_audio.s(video), task_transcribe_audio.s(), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)
 
 
+@app.route("/<int:channel_id>/parse_logs/<folder_path>")
+def parse_logs_route(channel_id: int, folder_path: str):
+    with app.app_context():
+        parse_logs(f'/chatterino_logs/Twitch/Channels/{folder_path}', channel_id)
+    return "Done"
 
 @app.route("/video/<int:video_id>/process_audio")
 @login_required

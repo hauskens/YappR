@@ -3,6 +3,7 @@ test_cache
 cli_to_api.py
 test
 cookies.txt
+chatterino_logs
 *.webm
 test_storage
 test_db

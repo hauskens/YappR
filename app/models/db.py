@@ -10,6 +10,7 @@ from sqlalchemy import (
     DateTime,
     Text,
     Computed,
+    Index,
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
@@ -722,6 +723,27 @@ class Segments(Base):
             return f"{self.transcription.video.get_url()}&t={shifted_time}"
         raise ValueError("Could not generate url with timestamp")
 
+class ChatLog(Base):
+    __tablename__: str = "chatlogs"
+    __table_args__ = (
+        Index("ix_chatlogs_channel_timestamp", "channel_id", "timestamp"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
+    channel: Mapped["Channels"] = relationship()
+    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    username: Mapped[str] = mapped_column(String(256), nullable=False)
+    message: Mapped[str] = mapped_column(String(600), nullable=False)
+    
+class ChannelEvent(Base):
+    __tablename__ = "channel_events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
+    channel: Mapped["Channels"] = relationship()
+
+    timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    raw_message: Mapped[str] = mapped_column(String(512), nullable=False) 
 
 class OAuth(OAuthConsumerMixin, Base):
     provider_user_id: Mapped[str] = mapped_column(

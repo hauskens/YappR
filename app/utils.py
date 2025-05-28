@@ -17,9 +17,10 @@ from typing import Callable, Any, TypeVar, cast
 from functools import wraps
 from flask import request, abort
 
-_ = nltk.download("stopwords")
-_ = nltk.download("averaged_perceptron_tagger_eng")
-_ = nltk.download("punkt_tab")
+if not nltk.data.path:
+    _ = nltk.download("stopwords")
+    _ = nltk.download("averaged_perceptron_tagger_eng")
+    _ = nltk.download("punkt_tab")
 
 sw = stopwords.words("english")
 ps = PorterStemmer()

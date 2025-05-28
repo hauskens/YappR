@@ -21,11 +21,14 @@
           python3
           ffmpeg
           python3Packages.alembic
-          python3Packages.openai-whisper
+          python3Packages.psycopg2
+          psqlodbc
+          
         ];
         shellHook = ''
           # fixes libstdc++ issues and libgl.so issues
           LD_LIBRARY_PATH=${stdenv.cc.cc.lib}/lib/
+          source .venv/bin/activate
         '';
       };
     };

@@ -15,7 +15,7 @@ from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from .auth import discord_blueprint, twitch_blueprint
+from .auth import discord_blueprint, twitch_blueprint, twitch_blueprint_bot
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +73,7 @@ def create_app():
 
     app.register_blueprint(discord_blueprint, url_prefix="/login")
     app.register_blueprint(twitch_blueprint, url_prefix="/login")
+    app.register_blueprint(twitch_blueprint_bot, url_prefix="/login/bot", name="twitch_bot")
     return app
 
 

@@ -36,6 +36,7 @@ from .retrievers import (
     get_stats_transcriptions,
     get_stats_high_quality_transcriptions,
     get_total_video_duration,
+    get_bots,
 )
 
 from .models.db import (
@@ -101,6 +102,19 @@ def users():
     else:
         return "You do not have access", 403
 
+@app.route("/management")
+@login_required
+def management():
+    if check_banned():
+        return render_template("banned.html", user=current_user)
+    logger.info("Loaded management.html")
+    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
+        bots = get_bots()
+        return render_template(
+            "management.html", bots=bots
+        )
+    else:
+        return "You do not have access", 403
 
 @app.route("/user/<int:user_id>/edit", methods=["GET", "POST"])
 @login_required

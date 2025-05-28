@@ -11,6 +11,7 @@ from .models.db import (
     Video,
     Transcription,
     Users,
+    OAuth,
     db,
 )
 from .tasks import (
@@ -128,6 +129,9 @@ def delete_broadcaster(broadcaster_id: int):
 
 def get_users() -> list[Users]:
     return db.session.query(Users).all()
+
+def get_bots() -> list[OAuth]:
+    return db.session.query(OAuth).filter_by(provider="twitch_bot").all()
 
 
 def get_stats_videos() -> int:

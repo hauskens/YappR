@@ -73,6 +73,7 @@
               {% endif %}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
                 {{ render_nav_item('users', 'Users') }}
+                {{ render_nav_item('management', 'Management') }}
               {% endif %}
               {{ render_nav_item('stats', 'Stats') }}
             </div>

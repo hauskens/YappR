@@ -10,6 +10,7 @@ from flask import (
     abort,
     make_response,
     session,
+    jsonify,
 )
 from flask_login import current_user, login_required, logout_user # type: ignore
 from .utils import require_api_key
@@ -17,7 +18,7 @@ from io import BytesIO
 import json
 import mimetypes
 from . import app, limiter, rate_limit_exempt
-import os
+from datetime import datetime
 from .models.config import config
 from .retrievers import (
     get_users,
@@ -39,6 +40,7 @@ from .retrievers import (
     get_bots,
     get_content_queue,
     get_all_twitch_channels,
+    get_channel_by_external_id,
 )
 
 from .models.db import (
@@ -115,8 +117,11 @@ def management():
     logger.info("Loaded management.html")
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         bots = get_bots()
+        twitch_channels = get_all_twitch_channels()
+        channel_id = request.args.get('channel_id', type=int)
+        queue_items = get_content_queue(channel_id)
         return render_template(
-            "management.html", bots=bots
+            "management.html", bots=bots, twitch_channels=twitch_channels, selected_channel_id=channel_id, queue_items=queue_items
         )
     else:
         return "You do not have access", 403
@@ -514,28 +519,57 @@ def download_transcription(transcription_id: int):
         download_name=f"{transcription.id}.{transcription.file_extention}",
     )
 
-@app.route("/content_queue")
+@app.route("/clip_queue")
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 @login_required
-def content_queue():
+def clip_queue():
     if check_banned():
         return render_template("banned.html", user=current_user)
     
-    # Get channel_id from query parameter if it exists
-    channel_id = request.args.get('channel_id', type=int)
+    try:
+        logger.info(f"Loading clip queue for {current_user.external_account_id}")
+        channel = get_channel_by_external_id(current_user.external_account_id) 
+        logger.info(f"Found channel {channel.id}")
+        queue_items = get_content_queue(channel.id)
+        return render_template(
+            "clip_queue.html",
+            queue_items=queue_items,
+            channel=channel,
+        )
+    except Exception as e:
+        logger.error(f"Error loading clip queue: {e}")
+        return "You do not have access", 403
+
+
+@app.route("/clip_queue/mark_watched/<int:item_id>", methods=["POST"])
+@login_required
+def mark_clip_watched(item_id: int):
+    """Mark a content queue item as watched"""
+    if check_banned():
+        return jsonify({"success": False, "error": "User is banned"}), 403
     
-    # Get content queue items filtered by channel_id if provided
-    queue_items = get_content_queue(channel_id)
+    try:
+        # Get the content queue item
+        queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
+        if queue_item.channel.platform_channel_id != current_user.external_account_id:
+            return access_denied()
+        
+        # Check if the user has permission to mark this item as watched
+        channel = get_channel_by_external_id(current_user.external_account_id)
+        if not channel or queue_item.channel_id != channel.id:
+            return jsonify({"success": False, "error": "Not authorized"}), 403
+        
+        # Mark as watched
+        queue_item.watched = True
+        queue_item.watched_at = datetime.now()
+        db.session.commit()
+        
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error marking clip as watched: {e}")
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
     
-    # Get all Twitch channels for the dropdown
-    twitch_channels = get_all_twitch_channels()
-    
-    return render_template(
-        "content_queue.html",
-        queue_items=queue_items,
-        twitch_channels=twitch_channels,
-        selected_channel_id=channel_id
-    )
 
 
 @app.route("/transcription/<int:transcription_id>/purge")

@@ -102,6 +102,34 @@ services:
     command: ["--app","app.main.celery","beat","--loglevel=info" ]
     deploy:
       replicas: 1
+  bot:
+    image: ${REGISTRY-}yappr-bot${VERSION-}
+    build:
+      context: .
+      target: bot
+    networks:
+      - internal
+    env_file:
+      - path: .env
+        required: false
+    depends_on:
+      cache:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./app/
+          target: /src/app/
+        - action: sync+restart
+          path: ./bot/
+          target: /src/bot/
+        - action: rebuild
+          path: ./pyproject.toml
+        - action: rebuild
+          path: ./uv.lock
+    
 volumes:
   # db:
   app:

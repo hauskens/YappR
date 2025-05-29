@@ -2,14 +2,17 @@ from twitchAPI.twitch import Twitch, AuthScope
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from .models.db import OAuth
-from .models.config import config
+from app.models.db import OAuth
+from app.models.config import config
 import asyncio
 import logging
+import signal
+import asyncio
 from twitchAPI.type import AuthScope, ChatEvent
-from twitchAPI.chat import Chat, EventData, ChatMessage, ChatSub, ChatCommand
+from twitchAPI.chat import Chat, EventData, ChatMessage, ChatSub
 
 logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO)
 
 engine = create_engine(config.database_uri)
 SessionLocal = sessionmaker(bind=engine)
@@ -62,43 +65,56 @@ class TwitchBot:
 
     # this will be called when the event READY is triggered, which will be on bot start
     async def on_ready(self, ready_event: EventData):
-        print('Bot is ready for work, joining channels')
+        logger.info('Bot is ready for work, joining channels')
         # join our target channel, if you want to join multiple, either call join for each individually
         # or even better pass a list of channels as the argument
-        await ready_event.chat.join_room("hauskens")
-        await ready_event.chat.join_room("ACB_x")
+        channels = ["hauskens"]
+        await ready_event.chat.join_room(channels)
         # you can do other bot initialization things in here
 
 
     # this will be called whenever a message in a channel was send by either the bot OR another user
     async def on_message(self, msg: ChatMessage):
-        print(f'in {msg.room.name}, {msg.user.name} said: {msg.text}')
+        logger.info(f'in {msg.room.name}, {msg.user.name} said: {msg.text} - {msg.sent_timestamp}')
 
 
     # this will be called whenever someone subscribes to a channel
     async def on_sub(self, sub: ChatSub):
-        print(f'New subscription in {sub.room.name}:\n'
+        logger.info(f'New subscription in {sub.room.name}:\n'
             f'  Type: {sub.sub_plan}\n'
             f'  Message: {sub.sub_message}')
 
     async def on_joined(self, joined_event: EventData):
-        print(f'Joined channel {joined_event.room_name}')
+        logger.info(f'Joined channel {joined_event.room_name}')
+
+shutdown_event = asyncio.Event()
+
+def handle_shutdown(*_):
+    shutdown_event.set()
 
 async def main():
+    print("✅ Entered main()")
+    logger.info("Starting bot...")
+
+    signal.signal(signal.SIGTERM, handle_shutdown)
+    signal.signal(signal.SIGINT, handle_shutdown)
+
     bot = TwitchBot()
     await bot.init_bot()
+
     chat = await Chat(bot.twitch)
     chat.register_event(ChatEvent.READY, bot.on_ready)
     chat.register_event(ChatEvent.JOINED, bot.on_joined)
     chat.register_event(ChatEvent.MESSAGE, bot.on_message)
     chat.register_event(ChatEvent.SUB, bot.on_sub)
+
     chat.start()
-    try:
-        input('press ENTER to stop\n')
-    finally:
-        # now we can close the chat bot and the twitch api client
-        chat.stop()
-        await bot.twitch.close()
+
+    await shutdown_event.wait()
+    logger.info("Shutting down cleanly.")
+    chat.stop()
+
 
 if __name__ == "__main__":
+    logging.info("Starting bot...")
     asyncio.run(main())

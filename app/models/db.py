@@ -358,7 +358,7 @@ class Channels(Base):
                 if existing_video is None:
                     tn = save_twitch_thumbnail(video_data, force=True)
                     logger.info(f"Found new video ref: {video_data.id}")
-                    video = Video(
+                    vid = Video(
                         title=video_data.title,
                         video_type=VideoType.VOD,
                         channel_id=self.id,
@@ -368,7 +368,7 @@ class Channels(Base):
                         thumbnail=open(tn, "rb"),
                         active=True,
                     )
-                    db.session.add(video)
+                    db.session.add(vid)
                     if process:
                         db.session.commit()
                         return db.session.query(Video).filter_by(platform_ref=video_data.id).one().id
@@ -376,7 +376,7 @@ class Channels(Base):
                     try:
                         tn = save_twitch_thumbnail(video_data, force=True)
                         logger.info(f"Updating existing video: {video_data.id}")
-                        existing_video.thumbnail = open(tn, "rb")
+                        existing_video.thumbnail = open(tn, "rb") # type: ignore
                         existing_video.active = True
                         existing_video.title = video_data.title
                         existing_video.uploaded = video_data.created_at
@@ -388,7 +388,8 @@ class Channels(Base):
                             for transcription in existing_video.transcriptions:
                                 transcription.delete()
                             try:
-                                existing_video.audio.file.object.delete()
+                                if existing_video.audio is not None:
+                                    existing_video.audio.file.object.delete()
                             except Exception as e:
                                 logger.error(f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
                             existing_video.audio = None
@@ -473,7 +474,7 @@ class Video(Base):
             self.title = result.snippet.title
             self.uploaded = result.snippet.publishedAt
             tn = save_yt_thumbnail(result)
-            self.thumbnail = open(tn, "rb")
+            self.thumbnail = open(tn, "rb") # type: ignore
             db.session.commit()
         if self.channel.platform.name.lower() == "twitch":
             try:
@@ -488,7 +489,8 @@ class Video(Base):
                 for transcription in self.transcriptions:
                     transcription.delete()
                 try:
-                    self.audio.file.object.delete()
+                    if self.audio is not None:
+                        self.audio.file.object.delete()
                 except Exception as e:
                     logger.error(f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
                 self.audio = None
@@ -497,7 +499,7 @@ class Video(Base):
             self.uploaded = twitch_result.created_at
             # if self.thumbnail is None or force:
             tn = save_twitch_thumbnail(twitch_result)
-            self.thumbnail = open(tn, "rb")
+            self.thumbnail = open(tn, "rb") # type: ignore
             db.session.commit()
 
     def download_transcription(self, force: bool = False):
@@ -557,13 +559,13 @@ class Video(Base):
             self.channel.platform.name.lower() == "twitch"
         ):
             audio = get_twitch_audio(self.get_url())
-            self.audio = open(audio, "rb")
+            self.audio = open(audio, "rb") # type: ignore
             db.session.commit()
         if (
             self.channel.platform.name.lower() == "youtube"
         ):
             audio = get_yt_audio(self.get_url())
-            self.audio = open(audio, "rb")
+            self.audio = open(audio, "rb") # type: ignore
             db.session.commit()
 
 

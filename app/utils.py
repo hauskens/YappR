@@ -2,14 +2,9 @@
 
 import logging
 import re
-import nltk
 import os
 import requests
 from datetime import datetime, timedelta
-from nltk.corpus import stopwords
-from nltk.tag import pos_tag
-from nltk.tokenize import word_tokenize
-from nltk.stem import PorterStemmer
 from .models.youtube.video import VideoDetails
 from .models.config import config
 from twitchAPI.twitch import Video
@@ -17,13 +12,18 @@ from typing import Callable, Any, TypeVar, cast
 from functools import wraps
 from flask import request, abort
 
-if not nltk.data.path:
+if os.getenv("NLTK_ENABLED", "true") == "true":
+    import nltk
+    from nltk.corpus import stopwords
+    from nltk.tag import pos_tag
+    from nltk.tokenize import word_tokenize
+    from nltk.stem import PorterStemmer
     _ = nltk.download("stopwords")
     _ = nltk.download("averaged_perceptron_tagger_eng")
     _ = nltk.download("punkt_tab")
 
-sw = stopwords.words("english")
-ps = PorterStemmer()
+    sw = stopwords.words("english")
+    ps = PorterStemmer()
 logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])

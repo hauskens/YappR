@@ -10,12 +10,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-install-project --no-dev
+ENV PATH="/src/.venv/bin:$PATH"
 
+FROM base AS main
 ADD . .
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
 
-ENV PATH="/src/.venv/bin:$PATH"
 
 
 FROM nvidia/cuda:12.9.0-cudnn-runtime-ubuntu24.04 AS worker-gpu
@@ -39,10 +40,18 @@ ENV PATH="/src/.venv/bin:$PATH"
 ENTRYPOINT ["celery"]
 CMD ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1", "-Q", "gpu-queue"]
 
-FROM base AS worker
+FROM main AS worker
 ENTRYPOINT ["celery"]
 CMD ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1"]
 
-FROM base AS app
+FROM main AS app
 EXPOSE 5000
 ENTRYPOINT ["/src/entrypoint.sh"]
+
+FROM base AS bot
+ADD . .
+RUN --mount=type=cache,target=/root/.cache/uv \
+  uv sync --frozen --no-dev --group bot
+ENV NLTK_ENABLED=false
+CMD ["python", "-m", "bot.main"]
+

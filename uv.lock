@@ -3424,7 +3424,11 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+bot = [
+    { name = "twitchapi" },
+]
 dev = [
+    { name = "twitchapi" },
     { name = "whisperx" },
 ]
 worker = [
@@ -3469,7 +3473,11 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = [{ name = "whisperx", specifier = ">=3.3.4" }]
+bot = [{ name = "twitchapi", specifier = ">=4.4.0" }]
+dev = [
+    { name = "twitchapi", specifier = ">=4.4.0" },
+    { name = "whisperx", specifier = ">=3.3.4" },
+]
 worker = [{ name = "whisperx", specifier = ">=3.3.4" }]
 
 [[package]]

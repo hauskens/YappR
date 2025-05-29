@@ -43,7 +43,11 @@ dependencies = [
 [dependency-groups]
 dev = [
     "whisperx>=3.3.4",
+    "twitchapi>=4.4.0",
 ]
 worker = [
     "whisperx>=3.3.4",
+]
+bot = [
+    "twitchapi>=4.4.0",
 ]

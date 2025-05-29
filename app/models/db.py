@@ -811,6 +811,8 @@ class ContentQueueSubmission(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     content_queue_id: Mapped[int] = mapped_column(ForeignKey("content_queue.id"))
     content_queue: Mapped["ContentQueue"] = relationship(backref="submissions")
+    content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
+    content: Mapped["Content"] = relationship()
     user_id: Mapped[int] = mapped_column(ForeignKey("external_users.id"))
     user: Mapped["ExternalUser"] = relationship()
     submitted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)

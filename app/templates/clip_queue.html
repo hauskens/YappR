@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+
+{% block styles %}
+<style>
+  .player-container {
+    position: relative;
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+    height: 0;
+    overflow: hidden;
+  }
+  .player-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .queue-item {
+    cursor: pointer;
+    transition: background-color 0.3s;
+    padding: 10px;
+    border-bottom: 1px solid #dee2e6;
+  }
+  .queue-item:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+  }
+  .queue-item.active {
+    background-color: rgba(0, 123, 255, 0.2);
+    border-left: 4px solid #007bff;
+  }
+  .queue-list {
+    max-height: 500px;
+    overflow-y: auto;
+  }
+  .queue-title {
+    font-weight: bold;
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .queue-meta {
+    font-size: 0.8rem;
+    color: #6c757d;
+  }
+  .no-content {
+    padding: 20px;
+    text-align: center;
+    color: #6c757d;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+  <h1>Your Clip Queue</h1>
+  
+  {% if queue_items %}
+    <div class="row">
+      <!-- Video Player Column -->
+      <div class="col-lg-8 mb-4">
+        <div class="card">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0" id="current-title">Now Playing</h5>
+            <button class="btn btn-sm btn-success" id="mark-watched-btn">Mark as Watched</button>
+          </div>
+          <div class="card-body">
+            <div class="player-container" id="player-container">
+              <!-- Player will be inserted here via JavaScript -->
+              <div class="d-flex justify-content-center align-items-center h-100 bg-light">
+                <p class="text-muted">Select a clip to start playing</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Queue List Column -->
+      <div class="col-lg-4">
+        <div class="card">
+          <div class="card-header">
+            <h5 class="mb-0">Up Next</h5>
+          </div>
+          <div class="card-body p-0">
+            <div class="queue-list">
+              {% for item in queue_items %}
+                <div class="queue-item{% if loop.first %} active{% endif %}" 
+                     data-id="{{ item.id }}" 
+                     data-url="{{ item.content.url }}" 
+                     data-watched="{{ item.watched|lower }}"
+                     onclick="playContent(this)">
+                  <div class="queue-title">{{ item.content.url|truncate(60) }}</div>
+                  <div class="queue-meta">
+                    <span>Added: {{ item.submitted_at.strftime('%Y-%m-%d') }}</span>
+                    {% if item.watched %}
+                      <span class="badge bg-success ms-2">Watched</span>
+                    {% else %}
+                      <span class="badge bg-danger ms-2">Unwatched</span>
+                    {% endif %}
+                  </div>
+                </div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% else %}
+    <div class="alert alert-info">
+      <p>Your clip queue is empty. When people share YouTube videos or Twitch clips in your chat, they'll appear here.</p>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  // YouTube API
+  var tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  var firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  
+  var player = null;
+  var currentItem = null;
+  var playerType = null; // 'youtube' or 'twitch'
+  
+  function onYouTubeIframeAPIReady() {
+    // YouTube API is ready
+    if (document.querySelector('.queue-item')) {
+      playContent(document.querySelector('.queue-item'));
+    }
+  }
+  
+  function playContent(element) {
+    // Update active item styling
+    document.querySelectorAll('.queue-item').forEach(item => {
+      item.classList.remove('active');
+    });
+    element.classList.add('active');
+    
+    currentItem = element;
+    var contentUrl = element.getAttribute('data-url');
+    var contentId = element.getAttribute('data-id');
+    
+    // Update title
+    document.getElementById('current-title').textContent = contentUrl;
+    
+    // Determine content type and create appropriate player
+    if (isYouTubeUrl(contentUrl)) {
+      createYouTubePlayer(contentUrl);
+      playerType = 'youtube';
+    } else if (isTwitchClipUrl(contentUrl)) {
+      createTwitchClipPlayer(contentUrl);
+      playerType = 'twitch';
+    } else {
+      // Fallback for unsupported URLs
+      document.getElementById('player-container').innerHTML = 
+        `<div class="d-flex justify-content-center align-items-center h-100 bg-light">
+          <p class="text-muted">Unsupported content type</p>
+         </div>`;
+      playerType = null;
+    }
+  }
+  
+  function isYouTubeUrl(url) {
+    return url.includes('youtube.com/watch') || url.includes('youtu.be/');
+  }
+  
+  function isTwitchClipUrl(url) {
+    return url.includes('clips.twitch.tv/') || url.includes('twitch.tv/videos/');
+  }
+  
+  function createYouTubePlayer(url) {
+    // Extract video ID and timestamp from URL
+    var videoId = '';
+    var startTime = 0;
+    
+    if (url.includes('youtube.com/watch')) {
+      // Format: https://www.youtube.com/watch?v=VIDEO_ID&t=1m30s
+      var urlParams = new URLSearchParams(url.split('?')[1]);
+      videoId = urlParams.get('v');
+      
+      // Parse timestamp if present
+      var timeParam = urlParams.get('t');
+      if (timeParam) {
+        // Convert timestamp to seconds
+        if (timeParam.includes('m')) {
+          var parts = timeParam.split('m');
+          var minutes = parseInt(parts[0]);
+          var seconds = parseInt(parts[1]);
+          startTime = minutes * 60 + seconds;
+        } else {
+          startTime = parseInt(timeParam);
+        }
+      }
+    } else if (url.includes('youtu.be/')) {
+      // Format: https://youtu.be/VIDEO_ID?t=1m30s or https://youtu.be/VIDEO_ID?t=90s
+      const urlParts = url.split('?');
+      videoId = urlParts[0].split('youtu.be/')[1];
+      
+      // Parse timestamp if present
+      if (urlParts.length > 1) {
+        const params = new URLSearchParams('?' + urlParts[1]);
+        const timeParam = params.get('t');
+        
+        if (timeParam) {
+          // Handle formats: 1m30s, 1m, 90s, or just seconds
+          if (timeParam.includes('m') || timeParam.includes('s')) {
+            // Handle format like 1m30s or 1m or 30s
+            let seconds = 0;
+            const minutesMatch = timeParam.match(/(\d+)m/);
+            const secondsMatch = timeParam.match(/(\d+)s/);
+            
+            if (minutesMatch) seconds += parseInt(minutesMatch[1]) * 60;
+            if (secondsMatch) seconds += parseInt(secondsMatch[1]);
+            
+            startTime = seconds;
+          } else {
+            startTime = parseInt(timeParam);
+          }
+          console.log('Using start time:', startTime, 'seconds');
+        }
+      }
+    }
+    
+    // Create a div with an ID for the YouTube player
+    document.getElementById('player-container').innerHTML = '<div id="youtube-player"></div>';
+    
+    // Make sure the container has the right dimensions
+    document.getElementById('youtube-player').style.width = '100%';
+    document.getElementById('youtube-player').style.height = '100%';
+    
+    // Create YouTube player
+    player = new YT.Player('youtube-player', {
+      height: '100%',
+      width: '100%',
+      videoId: videoId,
+      playerVars: {
+        start: startTime,
+        autoplay: 1
+      },
+      events: {
+        'onReady': onPlayerReady,
+        'onStateChange': onPlayerStateChange
+      }
+    });
+  }
+  
+  function createTwitchClipPlayer(url) {
+    // Extract clip ID or video ID from URL
+    var clipId = '';
+    var videoId = '';
+    var timestamp = '';
+    var embedUrl = '';
+    
+    if (url.includes('clips.twitch.tv/')) {
+      // For clips format: https://clips.twitch.tv/ClipName
+      clipId = url.split('clips.twitch.tv/')[1].split('?')[0];
+      embedUrl = `https://clips.twitch.tv/embed?clip=${clipId}&parent=${window.location.hostname}`;
+    } else if (url.includes('twitch.tv/videos/')) {
+      // For videos format: https://www.twitch.tv/videos/123456789?t=1h2m3s
+      videoId = url.split('twitch.tv/videos/')[1].split('?')[0];
+      
+      // Extract timestamp if present
+      if (url.includes('?t=')) {
+        timestamp = url.split('?t=')[1];
+      }
+      
+      embedUrl = `https://player.twitch.tv/?video=${videoId}&parent=${window.location.hostname}`;
+      if (timestamp) {
+        embedUrl += `&time=${timestamp}`;
+      }
+    }
+    
+    // Create iframe for Twitch
+    document.getElementById('player-container').innerHTML = 
+      `<iframe src="${embedUrl}" allowfullscreen="true" autoplay="true"></iframe>`;
+    
+    // Reset YouTube player if it exists
+    if (player && playerType === 'youtube') {
+      player = null;
+    }
+  }
+  
+  function onPlayerReady(event) {
+    // Player is ready to receive commands
+    console.log('YouTube player is ready');
+  }
+  
+  function onPlayerStateChange(event) {
+    console.log('Player state changed to:', event.data);
+    
+    // Auto-mark as watched when video ends
+    if (event.data === YT.PlayerState.ENDED) {
+      console.log('Video ended, marking as watched');
+      
+      // Make sure currentItem is defined
+      if (currentItem) {
+        const currentItemId = currentItem.getAttribute('data-id');
+        console.log('Marking item as watched:', currentItemId);
+        
+        // Mark the current item as watched
+        markAsWatched(currentItemId);
+        
+        // Find next unwatched item
+        var nextItem = findNextUnwatched();
+        if (nextItem) {
+          playContent(nextItem);
+        }
+      } else {
+        console.error('No current item defined');
+      }
+    }
+  }
+  
+  function findNextUnwatched() {
+    var items = document.querySelectorAll('.queue-item');
+    var foundCurrent = false;
+    
+    for (var i = 0; i < items.length; i++) {
+      if (foundCurrent && items[i].getAttribute('data-watched') === 'false') {
+        return items[i];
+      }
+      
+      if (items[i] === currentItem) {
+        foundCurrent = true;
+      }
+    }
+    
+    // If no unwatched items after current, return first unwatched
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].getAttribute('data-watched') === 'false') {
+        return items[i];
+      }
+    }
+    
+    return null; // No unwatched items
+  }
+  
+  function markAsWatched(itemId) {
+    console.log('Marking item as watched:', itemId);
+    
+    // Send AJAX request to mark item as watched
+    fetch(`/clip_queue/mark_watched/${itemId}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest'
+      }
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        console.log('Successfully marked as watched in database');
+        
+        // Find the specific item by ID and update its UI
+        const itemToUpdate = document.querySelector(`.queue-item[data-id="${itemId}"]`);
+        if (itemToUpdate) {
+          console.log('Updating UI for item:', itemId);
+          itemToUpdate.setAttribute('data-watched', 'true');
+          var badge = itemToUpdate.querySelector('.badge');
+          if (badge) {
+            badge.classList.remove('bg-danger');
+            badge.classList.add('bg-success');
+            badge.textContent = 'Watched';
+          }
+        } else {
+          console.error('Could not find item with ID:', itemId);
+        }
+      }
+    })
+    .catch(error => console.error('Error marking as watched:', error));
+  }
+  
+  // Mark as watched button
+  document.getElementById('mark-watched-btn').addEventListener('click', function() {
+    if (currentItem) {
+      markAsWatched(currentItem.getAttribute('data-id'));
+    }
+  });
+</script>
+{% endblock %}

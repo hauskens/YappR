@@ -47,4 +47,73 @@
   {% else %}
     <p> WTF are you doing here?</p>
   {% endif %}
+<hr>
+<div class="container mt-4">
+  <h1>Content Queue</h1>
+  
+  <div class="row mb-4">
+    <div class="col-md-6">
+      <form method="get" action="{{ url_for('management') }}" class="d-flex">
+        <select name="channel_id" class="form-select me-2" onchange="this.form.submit()">
+          <option value="">All Channels</option>
+          {% for channel in twitch_channels %}
+            <option value="{{ channel.id }}" {% if selected_channel_id == channel.id %}selected{% endif %}>
+              {{ channel.name }}
+            </option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-primary">Filter</button>
+      </form>
+    </div>
+  </div>
+
+  {% if queue_items %}
+    <div class="table-responsive">
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Channel</th>
+            <th>Content URL</th>
+            <th>Submitted At</th>
+            <th>Watched</th>
+            <th>Watched At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in queue_items %}
+            <tr>
+              <td>{{ item.id }}</td>
+              <td>{{ item.channel.name }}</td>
+              <td>
+                <a href="{{ item.content.url }}" target="_blank" rel="noopener noreferrer">
+                  {{ item.content.url }}
+                </a>
+              </td>
+              <td>{{ item.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+              <td>
+                {% if item.watched %}
+                  <span class="badge bg-success">Yes</span>
+                {% else %}
+                  <span class="badge bg-danger">No</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if item.watched_at %}
+                  {{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                {% else %}
+                  -
+                {% endif %}
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="alert alert-info">
+      No content queue items found{% if selected_channel_id %} for the selected channel{% endif %}.
+    </div>
+  {% endif %}
+</div>
 {% endblock %}

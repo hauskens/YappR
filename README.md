@@ -40,6 +40,9 @@ project [SqueexVodSearch](https://github.com/lawrencehook/SqueexVodSearch) by
 Also thanks to [NLQotes](https://github.com/irinelul/NLQuotes) for inspiration
 to use `tsvector` in PostgreSQL
 
+Some code, comments, and documentation were generated or refined with the help of large-language-model tools. 
+All outputs were reviewed and integrated by the project maintainer.
+
 ## Running the project
 
 Nvidia GPU is required to run the transcription workers.

@@ -73,7 +73,7 @@
             <div class="navbar-nav mr-auto">
               {{ render_nav_item('broadcasters', 'Broadcasters') }}
               {{ render_nav_item('search_page', 'Search') }}
-              {{ render_nav_item('content_queue', 'Content Queue') }}
+              {{ render_nav_item('clip_queue', 'Clip Queue') }}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
                 {{ render_nav_item('celery_active_tasks_view', 'Worker Status') }}
               {% endif %}
@@ -167,7 +167,7 @@
     </script>
     {{ bootstrap.load_js() }}
     {% block extra_scripts %}{% endblock %}
-    <footer class="footer mt-auto fixed-bottom text-center text-lg-start text-white bg-body-tertiary">
+    <footer class="footer mt-5 text-center text-lg-start text-white bg-body-tertiary">
       <div class="text-center p-1">
         <div class="text-body-secondary fs-6 lh-sm">Made by Hausken, project on GitHub
             <a class="github-button" href="https://github.com/hauskens/YappR" data-color-scheme="no-preference: light; light: light; dark: light;" data-show-count="true" size="large" data-icon="octicon-star" aria-label="Star buttons/github-buttons on GitHub">Star</a>
@@ -175,6 +175,7 @@
         <div class="text-body-secondary fs-6 lh-sm text-center p-1">
           <a>Issues and Feature requests can be created <a href="https://github.com/hauskens/YappR/issues/new">here</a></a>
         </div>
-      </footer>
+      </div>
+    </footer>
     </body>
 </html>

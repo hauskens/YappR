@@ -201,6 +201,8 @@ def get_content_queue(channel_id: int | None = None) -> Sequence[ContentQueue]:
         query = query.filter(ContentQueue.channel_id == channel_id)
     return db.session.execute(query.order_by(ContentQueue.submitted_at.desc())).scalars().all()
 
+def get_channel_by_external_id(external_id: str) -> Channels | None:
+    return db.session.query(Channels).filter_by(platform_channel_id=external_id).one_or_none()
 
 def get_all_twitch_channels() -> Sequence[Channels]:
     """Get all Twitch channels"""

@@ -21,6 +21,33 @@
     transition: background-color 0.3s;
     padding: 10px;
     border-bottom: 1px solid #dee2e6;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  
+  .queue-thumbnail {
+    width: 120px;
+    height: 68px;
+    background-color: #f8f9fa;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #6c757d;
+    overflow: hidden;
+  }
+  
+  .queue-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .queue-content {
+    flex-grow: 1;
+    min-width: 0; /* Prevents flex item from overflowing */
   }
   .queue-item:hover {
     background-color: rgba(0, 123, 255, 0.1);
@@ -90,14 +117,16 @@
                      data-url="{{ item.content.url }}" 
                      data-watched="{{ item.watched|lower }}"
                      onclick="playContent(this)">
-                  <div class="queue-title">{{ item.content.url|truncate(60) }}</div>
-                  <div class="queue-meta">
-                    <span>Added: {{ item.submitted_at.strftime('%Y-%m-%d') }}</span>
-                    {% if item.watched %}
-                      <span class="badge bg-success ms-2">Watched</span>
-                    {% else %}
-                      <span class="badge bg-danger ms-2">Unwatched</span>
-                    {% endif %}
+                  <div class="queue-content">
+                    <div class="queue-title">{{ item.content.url|truncate(60) }}</div>
+                    <div class="queue-meta">
+                      <span>Added: {{ item.submitted_at.strftime('%Y-%m-%d') }}</span>
+                      {% if item.watched %}
+                        <span class="badge bg-success ms-2">Watched</span>
+                      {% else %}
+                        <span class="badge bg-danger ms-2">Unwatched</span>
+                      {% endif %}
+                    </div>
                   </div>
                 </div>
               {% endfor %}

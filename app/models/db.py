@@ -786,7 +786,12 @@ class Content(Base):
     __tablename__ = "content"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     url: Mapped[str] = mapped_column(Text, nullable=False)
+    stripped_url: Mapped[str] = mapped_column(Text, nullable=False)
+    title: Mapped[str] = mapped_column(String(256), nullable=False)
     duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    thumbnail_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    channel_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    author: Mapped[str | None] = mapped_column(String(500), nullable=True)
     
 
 class ContentQueue(Base):

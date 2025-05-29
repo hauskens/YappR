@@ -48,6 +48,7 @@ class TestUrlDetection(unittest.TestCase):
             "https://www.youtube.com/watch?v=SfT4FMkh1-w",
             "https://www.twitch.tv/videos/123456789?t=10h01m21s",
             "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+            "https://www.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR?filter=clips&range=all&sort=time",
         ]
         
         for url in test_urls:
@@ -80,7 +81,7 @@ class TestUrlDetection(unittest.TestCase):
         
         for url in supported_urls:
             self.assertTrue(
-                self.bot.is_supported_url(url),
+                self.bot.get_platform(url),
                 f"URL should be identified as supported: {url}"
             )
         
@@ -97,7 +98,7 @@ class TestUrlDetection(unittest.TestCase):
         
         for url in unsupported_urls:
             self.assertFalse(
-                self.bot.is_supported_url(url),
+                self.bot.get_platform(url),
                 f"URL should be identified as unsupported: {url}"
             )
 

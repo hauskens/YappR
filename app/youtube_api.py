@@ -1,6 +1,8 @@
 import logging
+import re
 from .models.config import config
 from googleapiclient.discovery import build
+from urllib.parse import urlparse, parse_qs
 
 from youtube_transcript_api import YouTubeTranscriptApi, FetchedTranscript
 from youtube_transcript_api._errors import NoTranscriptFound
@@ -150,3 +152,55 @@ def fetch_transcription(video_id: str) -> FetchedTranscript:
                 f"Failed to fetch transcription for video {video_id} , exception: {e}"
             )
             raise ValueError("Failed to fetch transcript")
+
+
+def get_youtube_thumbnail_url(url: str, quality: str = "hqdefault") -> str:
+    """Extracts the YouTube video ID from a URL and returns the thumbnail URL.
+
+    :param url: Full YouTube video URL (e.g., https://youtu.be/abc123 or https://www.youtube.com/watch?v=abc123)
+    :param quality: Thumbnail quality (default: 'hqdefault')
+                     Options: 'default', 'mqdefault', 'hqdefault', 'sddefault', 'maxresdefault'
+    :return: Thumbnail URL or None if invalid
+    """
+    video_id = get_youtube_video_id(url)
+    try:
+        if not video_id:
+            raise ValueError("Failed to get thumbnail because video ID was not found in url")
+
+        return f"https://img.youtube.com/vi/{video_id}/{quality}.jpg"
+    except Exception as e:
+        raise ValueError(f"Failed to get thumbnail for url: {url}, exception: {e}")
+
+
+def get_youtube_video_id(url: str) -> str:
+    """
+    Extracts the YouTube video ID from a given URL.
+
+    Supported formats:
+    - https://youtu.be/VIDEO_ID
+    - https://www.youtube.com/watch?v=VIDEO_ID
+    - https://www.youtube.com/embed/VIDEO_ID
+    - With extra query params like ?t=17
+
+    :param url: YouTube video URL
+    :return: Video ID or None if not found
+    """
+    try:
+        parsed = urlparse(url)
+        video_id = None
+
+        # Handle short URL (youtu.be)
+        if parsed.netloc in ["youtu.be"]:
+            video_id = parsed.path.lstrip("/")
+
+        # Handle long URL (youtube.com)
+        elif parsed.netloc in ["www.youtube.com", "youtube.com", "m.youtube.com"]:
+            query = parse_qs(parsed.query)
+            video_id = query.get("v", [None])[0]
+
+        if not video_id:
+            raise ValueError("Failed to get video ID")
+
+        return video_id
+    except Exception as e:
+        raise ValueError(f"Failed to get video ID for url: {url}, exception: {e}")

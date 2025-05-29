@@ -2,8 +2,11 @@ from twitchAPI.twitch import Twitch, AuthScope
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, scoped_session
-from app.models.db import OAuth, Channels, ChannelSettings, Platforms, ChatLog, Content, ContentQueue, ContentQueueSubmission, ExternalUser, AccountSource
+from app.models.db import OAuth, Channels, ChannelSettings, ChatLog, Content, ContentQueue, ContentQueueSubmission, ExternalUser, AccountSource
 from app.models.config import config
+from app.twitch_api import parse_clip_id, get_twitch_clips, get_twitch_video_by_ids, get_twitch_video_id, parse_time
+from app.youtube_api import get_youtube_thumbnail_url, get_youtube_video_id, get_videos
+from urllib.parse import urlparse, urlunparse
 import asyncio
 import logging
 import signal
@@ -26,6 +29,16 @@ class ChannelSettingsDict(TypedDict):
     content_queue_enabled: bool
     chat_collection_enabled: bool
 
+class ContentDict(TypedDict):
+    """TypedDict representing content stored in memory"""
+    url: str
+    sanitized_url: str
+    title: str
+    duration: int
+    thumbnail_url: str
+    channel_name: str
+    author: str | None
+
 
 class TwitchBot:
     def __init__(self):
@@ -38,6 +51,16 @@ class TwitchBot:
         self.enabled_channels: dict[str, int] = {}  # Store channel info: {room_id: channel_id}
         self.channel_settings: dict[int, ChannelSettingsDict] = {}  # Store channel settings: {channel_id: settings_dict}
         self.last_commit_time = time.time()
+
+        # URL regex pattern to detect URLs in messages
+        self.URL_PATTERN = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[\w/\-?=%.#&:;]*')
+
+        # Supported platforms and their domain patterns
+        self.SUPPORTED_PLATFORMS = {
+            'youtube': re.compile(r'^https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w\-]{11}'),
+            'twitch_video': re.compile(r'^https?://(?:www\.)?twitch\.tv/videos/\d+\?t=\d+h\d+m\d+s'),
+            'twitch_clip': re.compile(r'^https?://(?:clips\.twitch\.tv/[\w\-]+|(?:www\.)?twitch\.tv/\w+/clip/[\w\-]+)'),
+        }
 
     async def init_bot(self):
         self.twitch = await Twitch(app_id=config.twitch_client_id, app_secret=config.twitch_client_secret)
@@ -113,7 +136,6 @@ class TwitchBot:
                 self.channel_settings[channel_id] = ChannelSettingsDict(
                     content_queue_enabled=channel.settings.content_queue_enabled if channel.settings else False,
                     chat_collection_enabled=channel.settings.chat_collection_enabled if channel.settings else False
-                    # Add any future settings here as needed
                 )
                 
             logger.info(f"Stored {len(self.enabled_channels)} enabled channels in memory with settings")
@@ -132,36 +154,113 @@ class TwitchBot:
         logger.info(f'Joining channels: {channels}')
         await ready_event.chat.join_room(channels)
 
+    async def fetch_youtube_data(self, url: str) -> ContentDict:
+        """Fetches video data from YouTube"""
+        try:
+            logger.info(f"Fetching YouTube data for url: {url}")
+            thumbnail_url = get_youtube_thumbnail_url(url)
+            video_id = get_youtube_video_id(url)
+            video_details = get_videos([video_id])
+            return ContentDict(
+                url=url,
+                sanitized_url=self.sanitize_url(url),
+                title=video_details[0].snippet.title,
+                duration=int(video_details[0].contentDetails.duration.total_seconds()),
+                thumbnail_url=thumbnail_url,
+                channel_name=video_details[0].snippet.channelTitle,
+                author=None
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch YouTube data for url: {url}, exception: {e}")
+            raise ValueError("Failed to fetch YouTube data")
 
-    # URL regex pattern to detect URLs in messages
-    URL_PATTERN = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[\w/\-?=%.#&:;]*')
-    
-    # Supported platforms and their domain patterns
-    SUPPORTED_PLATFORMS = {
-        'youtube': re.compile(r'^https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w\-]{11}'),
-        'twitch_video': re.compile(r'^https?://(?:www\.)?twitch\.tv/videos/\d+\?t=\d+h\d+m\d+s'),
-        'twitch_clip': re.compile(r'^https?://clips\.twitch\.tv/[\w\-]+'),
-    }
-    
-    def is_supported_url(self, url: str) -> bool:
-        """Check if the URL is from a supported platform"""
+    async def fetch_twitch_video_data(self, url: str) -> ContentDict:
+        """Fetches video data from Twitch"""
+        try:
+            logger.info(f"Fetching Twitch data for url: {url}")
+            video_id = get_twitch_video_id(url)
+            video_details = await get_twitch_video_by_ids([video_id], api_client=self.twitch)
+            video = video_details[0]
+            return ContentDict(
+                url=url,
+                sanitized_url=self.sanitize_url(url),
+                title=video.title,
+                duration=parse_time(video.duration),
+                thumbnail_url=video.thumbnail_url,
+                channel_name=video.user_name,
+                author=None
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch Twitch data for url: {url}, exception: {e}")
+            raise ValueError("Failed to fetch Twitch data")
+
+    async def fetch_twitch_clip_data(self, url: str) -> ContentDict:
+        """Fetches clip data from Twitch"""
+        try:
+            logger.info(f"Fetching Twitch data for clip url: {url}")
+            clip_id = parse_clip_id(url)
+            clip_details = await get_twitch_clips([clip_id], api_client=self.twitch)
+            clip = clip_details[0]
+            return ContentDict(
+                url=url,
+                sanitized_url=self.sanitize_url(url),
+                title=clip.title,
+                duration=int(clip.duration),
+                thumbnail_url=clip.thumbnail_url,
+                channel_name=clip.broadcaster_name,
+                author=clip.creator_name
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch Twitch data for url: {url}, exception: {e}")
+            raise ValueError("Failed to fetch Twitch data")
+        
+    def get_platform(self, url: str) -> str | None:
+        """Returns the platform name if supported, else None"""
         for platform, pattern in self.SUPPORTED_PLATFORMS.items():
             if pattern.match(url):
-                return True
-        return False
+                return platform
+        return None
+
+    def sanitize_url(self, url: str) -> str:
+        """Remove junk from url"""
+        parsed = urlparse(url)
+        return urlunparse(parsed._replace(query='', fragment=''))
     
-    def add_to_content_queue(self, url: str, channel_id: int, username: str, external_user_id: str) -> None:
+    async def add_to_content_queue(self, url: str, channel_id: int, username: str, external_user_id: str) -> None:
         """Add a URL to the content queue for a channel and record who submitted it"""
         session = SessionLocal()
         try:
+            platform = self.get_platform(url)
+            if not platform:
+                logger.info(f"URL is not supported: {url}, not sure how we got here...")
+                return
             # Check if content already exists
             existing_content = session.execute(
                 select(Content).filter(Content.url == url)
             ).scalars().one_or_none()
-            
+
+
             if existing_content is None:
+                if platform == 'youtube':
+                    platform_video_data = await self.fetch_youtube_data(url)
+                elif platform == 'twitch_video':
+                    platform_video_data = await self.fetch_twitch_video_data(url)
+                elif platform == 'twitch_clip':
+                    platform_video_data = await self.fetch_twitch_clip_data(url)
+                else:
+                    logger.info(f"URL is not supported: {url}")
+                    return
+                logger.info(f"Fetched data for url: {url}, data: {platform_video_data}")
                 # Create new content entry
-                content = Content(url=url)
+                content = Content(
+                    url=url, 
+                    stripped_url=platform_video_data['sanitized_url'], 
+                    title=platform_video_data['title'], 
+                    duration=platform_video_data['duration'], 
+                    thumbnail_url=platform_video_data['thumbnail_url'], 
+                    channel_name=platform_video_data['channel_name'], 
+                    author=platform_video_data['author']
+                )
                 session.add(content)
                 session.flush()  # Flush to get the content ID
                 content_id = content.id
@@ -258,9 +357,9 @@ class TwitchBot:
             # Only process URLs if content queue is enabled for this channel
             if urls and channel_id in self.channel_settings and self.channel_settings[channel_id]['content_queue_enabled']:
                 for url in urls:
-                    if self.is_supported_url(url):
+                    if self.get_platform(url):
                         logger.info(f"Found supported URL in message: {url}")
-                        self.add_to_content_queue(
+                        await self.add_to_content_queue(
                             url=url, 
                             channel_id=channel_id,
                             username=msg.user.name,

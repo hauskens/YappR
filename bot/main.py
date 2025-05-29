@@ -2,7 +2,7 @@ from twitchAPI.twitch import Twitch, AuthScope
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker, scoped_session
-from app.models.db import OAuth, Channels, ChannelSettings, Platforms, ChatLog
+from app.models.db import OAuth, Channels, ChannelSettings, Platforms, ChatLog, Content, ContentQueue, ContentQueueSubmission, ExternalUser, AccountSource
 from app.models.config import config
 import asyncio
 import logging
@@ -11,6 +11,8 @@ import time
 from datetime import datetime
 from twitchAPI.type import AuthScope, ChatEvent
 from twitchAPI.chat import Chat, EventData, ChatMessage, ChatSub
+import re
+from typing import TypedDict
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -19,16 +21,23 @@ engine = create_engine(config.database_uri)
 SessionLocal = sessionmaker(bind=engine)
 ScopedSession = scoped_session(SessionLocal)
 
+class ChannelSettingsDict(TypedDict):
+    """TypedDict representing channel settings stored in memory"""
+    content_queue_enabled: bool
+    chat_collection_enabled: bool
+
+
 class TwitchBot:
     def __init__(self):
         self.twitch = None
-        self.lock = asyncio.Lock()
         self.session = None
-        self.message_buffer = []
-        self.last_commit_time = time.time()
+        self.message_buffer: list[ChatLog] = []
+        self.lock = asyncio.Lock()
         self.commit_interval = 5  # Commit every 5 seconds
         self.max_buffer_size = 100    # Commit when buffer reaches this size
-        self.enabled_channels = {}  # Store channel info: {room_id: channel_id}
+        self.enabled_channels: dict[str, int] = {}  # Store channel info: {room_id: channel_id}
+        self.channel_settings: dict[int, ChannelSettingsDict] = {}  # Store channel settings: {channel_id: settings_dict}
+        self.last_commit_time = time.time()
 
     async def init_bot(self):
         self.twitch = await Twitch(app_id=config.twitch_client_id, app_secret=config.twitch_client_secret)
@@ -94,10 +103,20 @@ class TwitchBot:
             
             # Store channel information in memory for quick lookups
             self.enabled_channels = {}
+            self.channel_settings = {}
+            
             for channel in channels:
-                self.enabled_channels[channel.platform_channel_id] = channel.id
+                channel_id = channel.id
+                self.enabled_channels[channel.platform_channel_id] = channel_id
                 
-            logger.info(f"Stored {len(self.enabled_channels)} enabled channels in memory")
+                # Store channel settings for quick access
+                self.channel_settings[channel_id] = ChannelSettingsDict(
+                    content_queue_enabled=channel.settings.content_queue_enabled if channel.settings else False,
+                    chat_collection_enabled=channel.settings.chat_collection_enabled if channel.settings else False
+                    # Add any future settings here as needed
+                )
+                
+            logger.info(f"Stored {len(self.enabled_channels)} enabled channels in memory with settings")
             return [channel.platform_ref for channel in channels]
         finally:
             session.close()
@@ -114,6 +133,100 @@ class TwitchBot:
         await ready_event.chat.join_room(channels)
 
 
+    # URL regex pattern to detect URLs in messages
+    URL_PATTERN = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[\w/\-?=%.#&:;]*')
+    
+    # Supported platforms and their domain patterns
+    SUPPORTED_PLATFORMS = {
+        'youtube': re.compile(r'^https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w\-]{11}'),
+        'twitch_video': re.compile(r'^https?://(?:www\.)?twitch\.tv/videos/\d+\?t=\d+h\d+m\d+s'),
+        'twitch_clip': re.compile(r'^https?://clips\.twitch\.tv/[\w\-]+'),
+    }
+    
+    def is_supported_url(self, url: str) -> bool:
+        """Check if the URL is from a supported platform"""
+        for platform, pattern in self.SUPPORTED_PLATFORMS.items():
+            if pattern.match(url):
+                return True
+        return False
+    
+    def add_to_content_queue(self, url: str, channel_id: int, username: str, external_user_id: str) -> None:
+        """Add a URL to the content queue for a channel and record who submitted it"""
+        session = SessionLocal()
+        try:
+            # Check if content already exists
+            existing_content = session.execute(
+                select(Content).filter(Content.url == url)
+            ).scalars().one_or_none()
+            
+            if existing_content is None:
+                # Create new content entry
+                content = Content(url=url)
+                session.add(content)
+                session.flush()  # Flush to get the content ID
+                content_id = content.id
+            else:
+                content_id = existing_content.id
+            
+            # Check if this content is already in the queue for this channel
+            existing_queue_item = session.execute(
+                select(ContentQueue).filter(
+                    ContentQueue.content_id == content_id,
+                    ContentQueue.channel_id == channel_id
+                )
+            ).scalars().one_or_none()
+            
+            # Find or create external user
+            external_user = session.execute(
+                select(ExternalUser).filter(
+                    ExternalUser.external_account_id == external_user_id,
+                    ExternalUser.account_type == AccountSource.Twitch
+                )
+            ).scalars().one_or_none()
+            
+            if external_user is None:
+                # Create new external user
+                external_user = ExternalUser(
+                    username=username,
+                    external_account_id=external_user_id,
+                    account_type=AccountSource.Twitch,
+                    disabled=False
+                )
+                session.add(external_user)
+                session.flush()  # Flush to get the user ID
+            
+            if existing_queue_item is None:
+                # Add to content queue
+                queue_item = ContentQueue(
+                    channel_id=channel_id,
+                    content_id=content_id,
+                    watched=False,
+                    submitted_at=datetime.now()
+                )
+                session.add(queue_item)
+                session.flush()  # Flush to get the queue item ID
+                
+                # Create submission record
+                submission = ContentQueueSubmission(
+                    content_queue_id=queue_item.id,
+                    content_id=content_id,
+                    user_id=external_user.id,
+                    submitted_at=datetime.now()
+                )
+                session.add(submission)
+                
+                # Commit all changes
+                session.commit()
+                logger.info(f"Added URL to content queue: {url} for channel ID: {channel_id} by user: {username}")
+            else:
+                logger.info(f"URL already in content queue: {url} for channel ID: {channel_id}")
+                
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Error adding URL to content queue: {e}")
+        finally:
+            session.close()
+    
     # this will be called whenever a message in a channel was send by either the bot OR another user
     async def on_message(self, msg: ChatMessage):
         if msg.room is None:
@@ -126,16 +239,35 @@ class TwitchBot:
             if room_id not in self.enabled_channels:
                 logger.warning(f"Received message from untracked room id: {room_id} - {msg.room.name}")
                 return
+            
+            channel_id = self.enabled_channels[room_id]
                 
             # Create a new ChatLog entry
             chat_log = ChatLog(
-                channel_id=self.enabled_channels[room_id],
+                channel_id=channel_id,
                 timestamp=datetime.fromtimestamp(msg.sent_timestamp / 1000),
                 username=msg.user.name,
                 message=msg.text,
                 external_user_account_id=msg.user.id,
                 imported=False,
             )
+            
+            # Check for URLs in the message
+            urls = self.URL_PATTERN.findall(msg.text)
+            
+            # Only process URLs if content queue is enabled for this channel
+            if urls and channel_id in self.channel_settings and self.channel_settings[channel_id]['content_queue_enabled']:
+                for url in urls:
+                    if self.is_supported_url(url):
+                        logger.info(f"Found supported URL in message: {url}")
+                        self.add_to_content_queue(
+                            url=url, 
+                            channel_id=channel_id,
+                            username=msg.user.name,
+                            external_user_id=msg.user.id
+                        )
+            elif urls:
+                logger.debug(f"Found URLs but content queue is disabled for channel {channel_id}")
             
             # Add to session and buffer
             self.session.add(chat_log)

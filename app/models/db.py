@@ -11,6 +11,7 @@ from sqlalchemy import (
     Text,
     Computed,
     Index,
+    UniqueConstraint,
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
@@ -734,6 +735,9 @@ class ChatLog(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     username: Mapped[str] = mapped_column(String(256), nullable=False)
     message: Mapped[str] = mapped_column(String(600), nullable=False)
+    external_user_account_id: Mapped[str | None] = mapped_column(ForeignKey("external_users.external_account_id"), nullable=True)
+    external_user: Mapped["ExternalUser"] = relationship()
+    
     
 class ChannelEvent(Base):
     __tablename__ = "channel_events"
@@ -751,3 +755,48 @@ class OAuth(OAuthConsumerMixin, Base):
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["Users"] = relationship()
+
+class ExternalUser(Base):
+    __tablename__ = "external_users"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(600), nullable=False)
+    external_account_id: Mapped[str | None] = mapped_column(
+        String(500), unique=True, nullable=True
+    )
+    account_type: Mapped[str] = mapped_column(Enum(AccountSource))
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    
+
+class Content(Base):
+    __tablename__ = "content"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    url: Mapped[str] = mapped_column(Text, nullable=False)
+    duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    
+
+class ContentQueue(Base):
+    __tablename__ = "content_queue"
+    __table_args__ = (
+        UniqueConstraint("channel_id", "content_id", name="uq_channel_content"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
+    channel: Mapped["Channels"] = relationship()
+    content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
+    content: Mapped["Content"] = relationship()
+    watched: Mapped[bool] = mapped_column(Boolean, default=False)
+    watched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    
+class ContentQueueSubmission(Base):
+    __tablename__ = "content_queue_submissions"
+    __table_args__ = (
+        UniqueConstraint("content_queue_id", "user_id", name="uq_user_submission"),
+    )
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    content_queue_id: Mapped[int] = mapped_column(ForeignKey("content_queue.id"))
+    content_queue: Mapped["ContentQueue"] = relationship(backref="submissions")
+    user_id: Mapped[int] = mapped_column(ForeignKey("external_users.id"))
+    user: Mapped["ExternalUser"] = relationship()
+    submitted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+

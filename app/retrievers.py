@@ -12,6 +12,8 @@ from .models.db import (
     Transcription,
     Users,
     OAuth,
+    ContentQueue,
+    Content,
     db,
 )
 from .tasks import (
@@ -190,6 +192,28 @@ def get_user_by_ext(user_external_id: str) -> Users:
 
 def get_user_by_id(user_id: int) -> Users:
     return db.session.query(Users).filter_by(id=user_id).one()
+
+
+def get_content_queue(channel_id: int | None = None) -> Sequence[ContentQueue]:
+    """Get content queue items, optionally filtered by channel_id"""
+    query = select(ContentQueue).join(Content)
+    if channel_id is not None:
+        query = query.filter(ContentQueue.channel_id == channel_id)
+    return db.session.execute(query.order_by(ContentQueue.submitted_at.desc())).scalars().all()
+
+
+def get_all_twitch_channels() -> Sequence[Channels]:
+    """Get all Twitch channels"""
+    return (
+        db.session.execute(
+            select(Channels)
+            .join(Platforms)
+            .filter(Platforms.name.ilike("twitch"))
+            .order_by(Channels.name)
+        )
+        .scalars()
+        .all()
+    )
 
 
 def fetch_audio(video_id: int):

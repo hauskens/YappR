@@ -73,6 +73,7 @@
             <div class="navbar-nav mr-auto">
               {{ render_nav_item('broadcasters', 'Broadcasters') }}
               {{ render_nav_item('search_page', 'Search') }}
+              {{ render_nav_item('content_queue', 'Content Queue') }}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
                 {{ render_nav_item('celery_active_tasks_view', 'Worker Status') }}
               {% endif %}

@@ -11,7 +11,7 @@ from flask import (
     make_response,
     session,
 )
-from flask_login import current_user, login_required, logout_user
+from flask_login import current_user, login_required, logout_user # type: ignore
 from .utils import require_api_key
 from io import BytesIO
 import json
@@ -37,6 +37,8 @@ from .retrievers import (
     get_stats_high_quality_transcriptions,
     get_total_video_duration,
     get_bots,
+    get_content_queue,
+    get_all_twitch_channels,
 )
 
 from .models.db import (
@@ -48,6 +50,8 @@ from .models.db import (
     PermissionType,
     Transcription,
     TranscriptionSource,
+    ContentQueue,
+    Content,
     db,
 )
 
@@ -510,16 +514,41 @@ def download_transcription(transcription_id: int):
         download_name=f"{transcription.id}.{transcription.file_extention}",
     )
 
-
+@app.route("/content_queue")
+@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@login_required
+def content_queue():
+    if check_banned():
+        return render_template("banned.html", user=current_user)
+    
+    # Get channel_id from query parameter if it exists
+    channel_id = request.args.get('channel_id', type=int)
+    
+    # Get content queue items filtered by channel_id if provided
+    queue_items = get_content_queue(channel_id)
+    
+    # Get all Twitch channels for the dropdown
+    twitch_channels = get_all_twitch_channels()
+    
+    return render_template(
+        "content_queue.html",
+        queue_items=queue_items,
+        twitch_channels=twitch_channels,
+        selected_channel_id=channel_id
+    )
 
 
 @app.route("/transcription/<int:transcription_id>/purge")
 @login_required
 def purge_transcription(transcription_id: int):
-    transcription = get_transcription(transcription_id)
-    transcription.reset()
-    return redirect(request.referrer)
-
+    if current_user.is_anonymous == False and current_user.has_permission(
+        PermissionType.Admin
+    ):
+        transcription = get_transcription(transcription_id)
+        transcription.reset()
+        return redirect(request.referrer)
+    else:
+        return access_denied()
 
 @app.route("/transcription/<int:transcription_id>/delete")
 @login_required

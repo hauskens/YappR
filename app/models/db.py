@@ -178,6 +178,11 @@ class Channels(Base):
     videos: Mapped[list["Video"]] = relationship(
         back_populates="channel", cascade="all, delete-orphan"
     )
+    content_queue: Mapped[list["ContentQueue"]] = relationship(
+        back_populates="channel", cascade="all, delete-orphan"
+    )
+    settings: Mapped["ChannelSettings"] = relationship(back_populates="channel", uselist=False)
+
 
     def update_thumbnail(self):
         for video in self.videos:
@@ -404,6 +409,14 @@ class Channels(Base):
                         continue
         db.session.commit()
         return None
+
+class ChannelSettings(Base):
+    __tablename__ = "channel_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), unique=True)
+    content_queue_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    chat_collection_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    channel: Mapped["Channels"] = relationship(back_populates="settings")
 
 class Video(Base):
     __tablename__: str = "video"
@@ -737,8 +750,8 @@ class ChatLog(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     username: Mapped[str] = mapped_column(String(256), nullable=False)
     message: Mapped[str] = mapped_column(String(600), nullable=False)
-    external_user_account_id: Mapped[str | None] = mapped_column(ForeignKey("external_users.external_account_id"), nullable=True)
-    external_user: Mapped["ExternalUser"] = relationship()
+    external_user_account_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    imported: Mapped[bool] = mapped_column(Boolean, nullable=False)
     
     
 class ChannelEvent(Base):

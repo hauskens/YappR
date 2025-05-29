@@ -20,6 +20,11 @@
     {% endblock %}
         {{ bootstrap.load_css() }}
           <style>
+            .modal.fade .modal-dialog {
+              transition: transform 0.1s ease-out, opacity 0.5s ease-out;
+            }
+          </style>
+          <style>
             details[open] > summary::after {
               transform: rotate(180deg);
             }

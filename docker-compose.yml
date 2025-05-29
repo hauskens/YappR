@@ -104,6 +104,8 @@ services:
       replicas: 1
   bot:
     image: ${REGISTRY-}yappr-bot${VERSION-}
+    stop_signal: SIGINT          # ensure the bot can handle the shutdown signal
+    stop_grace_period: 5s        # wait 5 s before SIGKILL
     build:
       context: .
       target: bot

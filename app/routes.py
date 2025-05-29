@@ -44,6 +44,7 @@ from .models.db import (
     Platforms,
     VideoType,
     Channels,
+    ChannelSettings,
     PermissionType,
     Transcription,
     TranscriptionSource,
@@ -525,4 +526,28 @@ def purge_transcription(transcription_id: int):
 def delete_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     transcription.delete()
+    db.session.commit()
+    return redirect(request.referrer)
+
+@app.route("/channel/<int:channel_id>/settings/update", methods=["POST"])
+@login_required
+def channel_settings_update(channel_id: int):
+    channel = get_channel(channel_id)
+    
+    # Check if user has permission to modify this channel
+    if current_user.is_anonymous or not (current_user.external_account_id == channel.broadcaster_id or current_user.has_permission(["admin"])):
+        return "You do not have permission to modify this channel", 403
+    
+    # Get or create channel settings
+    settings = db.session.query(ChannelSettings).filter_by(channel_id=channel_id).first()
+    if not settings:
+        settings = ChannelSettings(channel_id=channel_id)
+        db.session.add(settings)
+    
+    # Update settings
+    settings.content_queue_enabled = 'content_queue_enabled' in request.form
+    settings.chat_collection_enabled = 'chat_collection_enabled' in request.form
+    
+    db.session.commit()
+    flash('Channel settings updated successfully')
     return redirect(request.referrer)

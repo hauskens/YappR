@@ -12,6 +12,7 @@ from sqlalchemy import (
     Computed,
     Index,
     UniqueConstraint,
+    BigInteger,
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
@@ -67,7 +68,20 @@ class Broadcaster(Base):
         back_populates="broadcaster", cascade="all, delete-orphan"
     )
     hidden: Mapped[bool] = mapped_column(Boolean, default=False)
+    settings: Mapped["BroadcasterSettings"] = relationship(back_populates="broadcaster", uselist=False)
+    content_queue: Mapped[list["ContentQueue"]] = relationship(
+        back_populates="broadcaster", cascade="all, delete-orphan"
+    )
 
+class BroadcasterSettings(Base):
+    __tablename__: str = "broadcaster_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
+    broadcaster: Mapped["Broadcaster"] = relationship()
+    linked_discord_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    linked_discord_channel_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    linked_discord_disable_voting: Mapped[bool] = mapped_column(Boolean, default=False)
+    
 
 class Platforms(Base):
     __tablename__: str = "platforms"
@@ -176,9 +190,6 @@ class Channels(Base):
         Enum(VideoType), default=VideoType.Unknown
     )
     videos: Mapped[list["Video"]] = relationship(
-        back_populates="channel", cascade="all, delete-orphan"
-    )
-    content_queue: Mapped[list["ContentQueue"]] = relationship(
         back_populates="channel", cascade="all, delete-orphan"
     )
     settings: Mapped["ChannelSettings"] = relationship(back_populates="channel", uselist=False)
@@ -775,11 +786,13 @@ class ExternalUser(Base):
     __tablename__ = "external_users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(600), nullable=False)
-    external_account_id: Mapped[str | None] = mapped_column(
-        String(500), unique=True, nullable=True
+    external_account_id: Mapped[int | None] = mapped_column(
+        BigInteger, unique=True, nullable=True
     )
-    account_type: Mapped[str] = mapped_column(Enum(AccountSource))
+    account_type: Mapped[AccountSource] = mapped_column(Enum(AccountSource))
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    ignore_weight_penalty: Mapped[bool] = mapped_column(Boolean, default=False)
+    submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="user")
     
 
 class Content(Base):
@@ -792,22 +805,26 @@ class Content(Base):
     thumbnail_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     channel_name: Mapped[str] = mapped_column(String(500), nullable=False)
     author: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    
 
 class ContentQueue(Base):
     __tablename__ = "content_queue"
     __table_args__ = (
-        UniqueConstraint("channel_id", "content_id", name="uq_channel_content"),
+        UniqueConstraint("broadcaster_id", "content_id", name="uq_broadcaster_content"),
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
-    channel: Mapped["Channels"] = relationship()
+    broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
+    broadcaster: Mapped["Broadcaster"] = relationship()
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
     watched: Mapped[bool] = mapped_column(Boolean, default=False)
     watched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    submitted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    skipped: Mapped[bool] = mapped_column(Boolean, default=False)
+    submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="content_queue")
     
+class ContentQueueSubmissionSource(enum.Enum):
+    Discord = "discord" # Comes from a message in a linked channel based on broadcaster settings
+    Twitch = "twitch" # Comes from a clip submission in twitch
+
 class ContentQueueSubmission(Base):
     __tablename__ = "content_queue_submissions"
     __table_args__ = (
@@ -815,10 +832,14 @@ class ContentQueueSubmission(Base):
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     content_queue_id: Mapped[int] = mapped_column(ForeignKey("content_queue.id"))
-    content_queue: Mapped["ContentQueue"] = relationship(backref="submissions")
+    content_queue: Mapped["ContentQueue"] = relationship(back_populates="submissions")
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
     user_id: Mapped[int] = mapped_column(ForeignKey("external_users.id"))
     user: Mapped["ExternalUser"] = relationship()
     submitted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    submission_source_type: Mapped[ContentQueueSubmissionSource] = mapped_column(Enum(ContentQueueSubmissionSource), nullable=False)
+    submission_source_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    weight: Mapped[float] = mapped_column(Float, nullable=False)
+
 

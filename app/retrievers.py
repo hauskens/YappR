@@ -194,15 +194,20 @@ def get_user_by_id(user_id: int) -> Users:
     return db.session.query(Users).filter_by(id=user_id).one()
 
 
-def get_content_queue(channel_id: int | None = None) -> Sequence[ContentQueue]:
-    """Get content queue items, optionally filtered by channel_id"""
-    query = select(ContentQueue).join(Content)
-    if channel_id is not None:
-        query = query.filter(ContentQueue.channel_id == channel_id)
-    return db.session.execute(query.order_by(ContentQueue.submitted_at.desc())).scalars().all()
+def get_content_queue(broadcaster_id: int | None = None) -> Sequence[ContentQueue]:
+    """Get content queue items, optionally filtered by broadcaster_id"""
+    query = select(ContentQueue).join(Broadcaster)
+    if broadcaster_id is not None:
+        query = query.filter(ContentQueue.broadcaster_id == broadcaster_id)
+    return db.session.execute(query.order_by(ContentQueue.id.desc())).scalars().all()
 
-def get_channel_by_external_id(external_id: str) -> Channels | None:
-    return db.session.query(Channels).filter_by(platform_channel_id=external_id).one_or_none()
+def get_broadcaster_by_external_id(external_id: str) -> Broadcaster | None:
+    return db.session.execute((
+        select(Broadcaster)
+        .join(Broadcaster.channels)
+        .where(Channels.platform_channel_id == external_id)
+        .limit(1)
+    )).scalars().one_or_none()
 
 def get_all_twitch_channels() -> Sequence[Channels]:
     """Get all Twitch channels"""
@@ -226,7 +231,7 @@ def fetch_audio(video_id: int):
             logger.info(f"fetching audio for {video_url}")
             audio = get_yt_audio(video_url)
             logger.info(f"adding audio on {video_id}..")
-            video.audio = open(audio, "rb")
+            video.audio = open(audio, "rb") # type: ignore
             db.session.commit()
     else:
         logger.info(f"skipped audio for {video_url}, already exists.")

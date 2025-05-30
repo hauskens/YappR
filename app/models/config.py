@@ -52,6 +52,7 @@ class Config:
         )  # lower this if gpu vram low
         self.api_key: str = os.environ.get("API_KEY", "not_a_secure_key!11")
         self.hf_token: str | None = os.environ.get("HF_TOKEN")
+        self.discord_bot_token: str | None = os.environ.get("DISCORD_BOT_TOKEN")
 
 
 _ = load_dotenv()

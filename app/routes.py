@@ -40,7 +40,7 @@ from .retrievers import (
     get_bots,
     get_content_queue,
     get_all_twitch_channels,
-    get_channel_by_external_id,
+    get_broadcaster_by_external_id,
 )
 
 from .models.db import (
@@ -55,6 +55,7 @@ from .models.db import (
     ContentQueue,
     Content,
     db,
+    BroadcasterSettings,
 )
 
 from .models.transcription import TranscriptionResult
@@ -117,11 +118,11 @@ def management():
     logger.info("Loaded management.html")
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         bots = get_bots()
-        twitch_channels = get_all_twitch_channels()
-        channel_id = request.args.get('channel_id', type=int)
-        queue_items = get_content_queue(channel_id)
+        broadcasters = get_broadcasters()
+        broadcaster_id = request.args.get('broadcaster_id', type=int)
+        queue_items = get_content_queue(broadcaster_id)
         return render_template(
-            "management.html", bots=bots, twitch_channels=twitch_channels, selected_channel_id=channel_id, queue_items=queue_items
+            "management.html", bots=bots, broadcasters=broadcasters, selected_broadcaster_id=broadcaster_id, queue_items=queue_items
         )
     else:
         return "You do not have access", 403
@@ -528,13 +529,13 @@ def clip_queue():
     
     try:
         logger.info(f"Loading clip queue for {current_user.external_account_id}")
-        channel = get_channel_by_external_id(current_user.external_account_id) 
-        logger.info(f"Found channel {channel.id}")
-        queue_items = get_content_queue(channel.id)
+        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
+        logger.info(f"Found broadcaster {broadcaster.id}")
+        queue_items = get_content_queue(broadcaster.id)
         return render_template(
             "clip_queue.html",
             queue_items=queue_items,
-            channel=channel,
+            broadcaster=broadcaster,
         )
     except Exception as e:
         logger.error(f"Error loading clip queue: {e}")
@@ -551,13 +552,10 @@ def mark_clip_watched(item_id: int):
     try:
         # Get the content queue item
         queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
-        if queue_item.channel.platform_channel_id != current_user.external_account_id:
+    
+        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id)
+        if broadcaster is None or broadcaster.id != queue_item.broadcaster_id:
             return access_denied()
-        
-        # Check if the user has permission to mark this item as watched
-        channel = get_channel_by_external_id(current_user.external_account_id)
-        if not channel or queue_item.channel_id != channel.id:
-            return jsonify({"success": False, "error": "Not authorized"}), 403
         
         # Mark as watched
         queue_item.watched = True
@@ -613,4 +611,26 @@ def channel_settings_update(channel_id: int):
     
     db.session.commit()
     flash('Channel settings updated successfully')
+    return redirect(request.referrer)
+
+
+@app.route("/broadcaster/<int:broadcaster_id>/settings/update", methods=["POST"])
+@login_required
+def broadcaster_settings_update(broadcaster_id: int):
+    # Check if user has permission to modify this broadcaster
+    if current_user.is_anonymous or not (current_user.broadcaster_id == broadcaster_id or current_user.has_permission(["admin"])):
+        return "You do not have permission to modify this broadcaster", 403
+    
+    # Get or create broadcaster settings
+    settings = db.session.query(BroadcasterSettings).filter_by(broadcaster_id=broadcaster_id).first()
+    if not settings:
+        settings = BroadcasterSettings(broadcaster_id=broadcaster_id)
+        db.session.add(settings)
+    
+    # Update settings
+    discord_channel_id = request.form.get('discord_channel_id')
+    settings.linked_discord_channel_id = int(discord_channel_id) if discord_channel_id else None
+    
+    db.session.commit()
+    flash('Broadcaster settings updated successfully')
     return redirect(request.referrer)

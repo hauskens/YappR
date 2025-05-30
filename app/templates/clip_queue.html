@@ -81,24 +81,24 @@
 
 {% block content %}
 <div class="container-fluid mt-4">
-  <h1>Your Clip Queue</h1>
-  
   {% if queue_items %}
     <div class="row">
       <!-- Video Player Column -->
       <div class="col-lg-8 mb-4">
         <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
+          <div class="card-header">
             <h5 class="mb-0" id="current-title">Now Playing</h5>
-            <button class="btn btn-sm btn-success" id="mark-watched-btn">Mark as Watched</button>
           </div>
-          <div class="card-body">
+          <div class="card-body p-0">
             <div class="player-container" id="player-container">
               <!-- Player will be inserted here via JavaScript -->
               <div class="d-flex justify-content-center align-items-center h-100 bg-light">
                 <p class="text-muted">Select a clip to start playing</p>
               </div>
             </div>
+          </div>
+          <div class="card-footer bg-transparent d-flex justify-content-end">
+            <button class="btn btn-success" id="mark-watched-btn" data-bs-toggle="tooltip" title="Mark as watched and play next clip">Next</button>
           </div>
         </div>
       </div>
@@ -115,17 +115,35 @@
                 <div class="queue-item{% if loop.first %} active{% endif %}" 
                      data-id="{{ item.id }}" 
                      data-url="{{ item.content.url }}" 
+                     data-title="{{ item.content.title }}"
                      data-watched="{{ item.watched|lower }}"
                      onclick="playContent(this)">
+                  {% if item.content.thumbnail_url %}
+                  <div class="queue-thumbnail">
+                    <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid">
+                  </div>
+                  {% endif %}
                   <div class="queue-content">
-                    <div class="queue-title">{{ item.content.url|truncate(60) }}</div>
+                    <div class="queue-title">{{ item.content.title|truncate(150) }}</div>
                     <div class="queue-meta">
-                      <span>Added: {{ item.submitted_at.strftime('%Y-%m-%d') }}</span>
+                      {% if item.submissions %}
+                        {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
+                        <span>Added: {{ earliest.submitted_at.strftime('%Y-%m-%d') }}</span>
+                      {% endif %}
                       {% if item.watched %}
                         <span class="badge bg-success ms-2">Watched</span>
-                      {% else %}
-                        <span class="badge bg-danger ms-2">Unwatched</span>
                       {% endif %}
+                      {% for submission in item.submissions %}
+                        {% if submission.submission_source_type.name == "Twitch" %}
+                          <span class="badge ms-2" style="background-color: #9147FF; color: white;" data-bs-toggle="tooltip" title="Twitch">
+                            {{ submission.user.username }}
+                          </span>
+                        {% elif submission.submission_source_type.name == "Discord" %}
+                          <span class="badge ms-2" style="background-color: #7289da; color: white;" data-bs-toggle="tooltip" title="Discord">
+                            {{ submission.user.username }}
+                          </span>
+                        {% endif %}
+                      {% endfor %}
                     </div>
                   </div>
                 </div>
@@ -171,10 +189,11 @@
     
     currentItem = element;
     var contentUrl = element.getAttribute('data-url');
+    var contentTitle = element.getAttribute('data-title');
     var contentId = element.getAttribute('data-id');
     
     // Update title
-    document.getElementById('current-title').textContent = contentUrl;
+    document.getElementById('current-title').textContent = contentTitle;
     
     // Determine content type and create appropriate player
     if (isYouTubeUrl(contentUrl)) {

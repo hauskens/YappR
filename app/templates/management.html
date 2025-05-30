@@ -54,11 +54,11 @@
   <div class="row mb-4">
     <div class="col-md-6">
       <form method="get" action="{{ url_for('management') }}" class="d-flex">
-        <select name="channel_id" class="form-select me-2" onchange="this.form.submit()">
-          <option value="">All Channels</option>
-          {% for channel in twitch_channels %}
-            <option value="{{ channel.id }}" {% if selected_channel_id == channel.id %}selected{% endif %}>
-              {{ channel.name }}
+        <select name="broadcaster_id" class="form-select me-2" onchange="this.form.submit()">
+          <option value="">All Broadcasters</option>
+          {% for broadcaster in broadcasters %}
+            <option value="{{ broadcaster.id }}" {% if selected_broadcaster_id == broadcaster.id %}selected{% endif %}>
+              {{ broadcaster.name }}
             </option>
           {% endfor %}
         </select>
@@ -73,9 +73,9 @@
         <thead>
           <tr>
             <th>ID</th>
-            <th>Channel</th>
+            <th>Broadcaster</th>
             <th>Content URL</th>
-            <th>Submitted At</th>
+            <th>Submission Count</th>
             <th>Watched</th>
             <th>Watched At</th>
           </tr>
@@ -84,13 +84,13 @@
           {% for item in queue_items %}
             <tr>
               <td>{{ item.id }}</td>
-              <td>{{ item.channel.name }}</td>
+              <td>{{ item.broadcaster.name }}</td>
               <td>
                 <a href="{{ item.content.url }}" target="_blank" rel="noopener noreferrer">
                   {{ item.content.url }}
                 </a>
               </td>
-              <td>{{ item.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+              <td>{{ item.submissions|length }}</td>
               <td>
                 {% if item.watched %}
                   <span class="badge bg-success">Yes</span>
@@ -112,7 +112,7 @@
     </div>
   {% else %}
     <div class="alert alert-info">
-      No content queue items found{% if selected_channel_id %} for the selected channel{% endif %}.
+      No content queue items found{% if selected_broadcaster_id %} for the selected broadcaster{% endif %}.
     </div>
   {% endif %}
 </div>

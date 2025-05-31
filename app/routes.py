@@ -637,8 +637,15 @@ def channel_settings_update(channel_id: int):
         db.session.add(settings)
     
     # Update settings
-    settings.content_queue_enabled = 'content_queue_enabled' in request.form
-    settings.chat_collection_enabled = 'chat_collection_enabled' in request.form
+    content_queue_enabled = 'content_queue_enabled' in request.form
+    chat_collection_enabled = 'chat_collection_enabled' in request.form
+    
+    # If content queue is enabled, chat collection must also be enabled
+    if content_queue_enabled:
+        chat_collection_enabled = True
+        
+    settings.content_queue_enabled = content_queue_enabled
+    settings.chat_collection_enabled = chat_collection_enabled
     
     db.session.commit()
     flash('Channel settings updated successfully')
@@ -661,6 +668,12 @@ def broadcaster_settings_update(broadcaster_id: int):
     # Update settings
     discord_channel_id = request.form.get('discord_channel_id')
     settings.linked_discord_channel_id = int(discord_channel_id) if discord_channel_id else None
+    
+    # Update broadcaster hidden status (admin only)
+    if (current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster_id)) and request.form.get('hidden'):
+        broadcaster = db.session.query(Broadcaster).filter_by(id=broadcaster_id).first()
+        if broadcaster:
+            broadcaster.hidden = 'hidden' in request.form
     
     db.session.commit()
     flash('Broadcaster settings updated successfully')

@@ -2,6 +2,36 @@
 
 {% block styles %}
 <style>
+  .queue-item {
+    position: relative;
+  }
+  .queue-item-content {
+    display: flex;
+    align-items: center;
+    flex-grow: 1;
+    min-width: 0;
+    cursor: pointer;
+  }
+  .queue-actions {
+    margin-left: auto;
+    padding: 0 10px;
+    display: flex;
+    align-items: center;
+  }
+  .skip-btn {
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .queue-item:hover .skip-btn {
+    opacity: 1;
+  }
+  .queue-item.skipped {
+    opacity: 0.6;
+  }
+  .queue-item.skipped .queue-actions .skip-btn {
+    color: #6c757d;
+    border-color: #6c757d;
+  }
   .player-container {
     position: relative;
     padding-bottom: 56.25%; /* 16:9 aspect ratio */
@@ -18,12 +48,63 @@
   }
   .queue-item {
     cursor: pointer;
-    transition: background-color 0.3s;
+    margin-bottom: 10px;
     padding: 10px;
-    border-bottom: 1px solid #dee2e6;
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    transition: all 0.2s;
+  }
+  
+  .autoplay-toggle {
     display: flex;
-    gap: 10px;
     align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+  }
+  
+  .switch {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+  }
+  
+  .switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  
+  .slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+  }
+  
+  .slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+  }
+  
+  input:checked + .slider {
+    background-color: #2196F3;
+  }
+  
+  input:checked + .slider:before {
+    transform: translateX(26px);
   }
   
   .queue-thumbnail {
@@ -98,6 +179,13 @@
             </div>
           </div>
           <div class="card-footer bg-transparent d-flex justify-content-end">
+            <div class="autoplay-toggle me-3">
+              <label class="switch">
+                <input type="checkbox" id="autoplay-toggle">
+                <span class="slider"></span>
+              </label>
+              <span>Autoplay</span>
+            </div>
             <button class="btn btn-success" id="mark-watched-btn" data-bs-toggle="tooltip" title="Mark as watched and play next clip">Next</button>
           </div>
         </div>
@@ -112,39 +200,62 @@
           <div class="card-body p-0">
             <div class="queue-list">
               {% for item in queue_items %}
-                <div class="queue-item{% if loop.first %} active{% endif %}" 
+                <div class="queue-item{% if loop.first %} active{% endif %}{% if item.skipped %} skipped{% endif %}" 
                      data-id="{{ item.id }}" 
                      data-url="{{ item.content.url }}" 
                      data-title="{{ item.content.title }}"
                      data-watched="{{ item.watched|lower }}"
-                     onclick="playContent(this)">
+                     data-skipped="{{ item.skipped|lower }}">
+                  <div class="queue-item-content" onclick="playContent(this.parentElement)">
                   {% if item.content.thumbnail_url %}
-                  <div class="queue-thumbnail">
+                  <div class="queue-thumbnail me-3">
                     <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid">
                   </div>
                   {% endif %}
                   <div class="queue-content">
                     <div class="queue-title">{{ item.content.title|truncate(150) }}</div>
                     <div class="queue-meta">
-                      {% if item.submissions %}
-                        {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
-                        <span>Added: {{ earliest.submitted_at.strftime('%Y-%m-%d') }}</span>
-                      {% endif %}
-                      {% if item.watched %}
-                        <span class="badge bg-success ms-2">Watched</span>
-                      {% endif %}
-                      {% for submission in item.submissions %}
-                        {% if submission.submission_source_type.name == "Twitch" %}
-                          <span class="badge ms-2" style="background-color: #9147FF; color: white;" data-bs-toggle="tooltip" title="Twitch">
-                            {{ submission.user.username }}
-                          </span>
-                        {% elif submission.submission_source_type.name == "Discord" %}
-                          <span class="badge ms-2" style="background-color: #7289da; color: white;" data-bs-toggle="tooltip" title="Discord">
-                            {{ submission.user.username }}
-                          </span>
+                      <div class="d-flex flex-wrap align-items-center gap-2">
+                        {% if item.content.channel_name %}
+                          <span class="text-muted">{{ item.content.channel_name }}</span>
+                          <span class="text-muted">•</span>
                         {% endif %}
-                      {% endfor %}
+                        {% if item.content.duration %}
+                          {% set minutes = (item.content.duration // 60)|int %}
+                          {% set seconds = (item.content.duration % 60)|int %}
+                          <span class="badge bg-secondary">{{ "%d:%02d"|format(minutes, seconds) }}</span>
+                        {% endif %}
+                        {% if item.submissions %}
+                          {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
+                          <span class="text-muted">•</span>
+                          <span class="text-muted">Added: {{ earliest.submitted_at.strftime('%Y-%m-%d') }}</span>
+                        {% endif %}
+                      </div>
+                      <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                        {% if item.watched %}
+                          <span class="badge bg-success">Watched</span>
+                        {% endif %}
+                        {% for submission in item.submissions %}
+                          {% if submission.submission_source_type.name == "Twitch" %}
+                            <span class="badge" style="background-color: #9147FF; color: white;" data-bs-toggle="tooltip" title="Twitch">
+                              {{ submission.user.username }}
+                            </span>
+                          {% elif submission.submission_source_type.name == "Discord" %}
+                            <span class="badge" style="background-color: #7289da; color: white;" data-bs-toggle="tooltip" title="Discord">
+                              {{ submission.user.username }}
+                            </span>
+                          {% endif %}
+                        {% endfor %}
+                      </div>
                     </div>
+                  </div>
+                  <div class="queue-actions">
+                    <button class="btn btn-sm btn-outline-secondary skip-btn" 
+                            onclick="event.stopPropagation(); skipItem({{ item.id }})"
+                            data-bs-toggle="tooltip" 
+                            title="Skip this clip">
+                      <i class="bi bi-skip-forward"></i>
+                    </button>
                   </div>
                 </div>
               {% endfor %}
@@ -172,6 +283,13 @@
   var player = null;
   var currentItem = null;
   var playerType = null; // 'youtube' or 'twitch'
+  var autoplayEnabled = true;
+  
+  // Initialize autoplay toggle
+  document.getElementById('autoplay-toggle').addEventListener('change', function(e) {
+    autoplayEnabled = e.target.checked;
+    console.log('Autoplay ' + (autoplayEnabled ? 'enabled' : 'disabled'));
+  });
   
   function onYouTubeIframeAPIReady() {
     // YouTube API is ready
@@ -352,10 +470,18 @@
         // Mark the current item as watched
         markAsWatched(currentItemId);
         
-        // Find next unwatched item
-        var nextItem = findNextUnwatched();
-        if (nextItem) {
-          playContent(nextItem);
+        // Only proceed with autoplay if it's enabled
+        if (autoplayEnabled) {
+          // Find next unwatched item
+          var nextItem = findNextUnwatched();
+          // Only play next item if it's different from the current item
+          if (nextItem && (!currentItem || nextItem.getAttribute('data-id') !== currentItemId)) {
+            playContent(nextItem);
+          } else {
+            console.log('No more unwatched items in queue or reached the last item');
+          }
+        } else {
+          console.log('Autoplay is disabled');
         }
       } else {
         console.error('No current item defined');
@@ -427,6 +553,75 @@
     if (currentItem) {
       markAsWatched(currentItem.getAttribute('data-id'));
     }
+  });
+  // Mark as skipped button
+  document.getElementById('mark-skipped-btn').addEventListener('click', function() {
+    if (currentItem) {
+      console.log('Skipping itemsss:', currentItem.getAttribute('data-id'));
+      skipItem(currentItem.getAttribute('data-id'));
+    }
+  });
+
+  function skipItem(itemId) {
+  console.log('Toggling skip for item:', itemId);
+
+  fetch(`/clip_queue/item/${itemId}/skip`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    },
+    body: JSON.stringify({})
+  })
+  .then(response => {
+    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+    return response.json();
+  })
+  .then(data => {
+    if (!data.success) {
+      console.error('Backend responded with success=false');
+      return;
+    }
+
+    const item = document.querySelector(`.queue-item[data-id="${itemId}"]`);
+    if (!item) {
+      console.error('Could not find item element for ID:', itemId);
+      return;
+    }
+
+    const skipBtn = item.querySelector('.skip-btn');
+    const isSkipped = item.getAttribute('data-skipped') === 'true';
+
+    // Toggle skipped state
+    item.setAttribute('data-skipped', String(!isSkipped));
+    item.classList.toggle('skipped', !isSkipped);
+
+    if (skipBtn) {
+      skipBtn.classList.toggle('btn-outline-secondary', isSkipped);
+      skipBtn.classList.toggle('btn-outline-danger', !isSkipped);
+      skipBtn.innerHTML = isSkipped
+        ? '<i class="bi bi-fast-forward-fill"></i>'  // original skip icon
+        : '<i class="bi bi-x-lg"></i>';               // skipped icon
+      skipBtn.setAttribute('title', isSkipped ? 'Skip' : 'Undo skip');
+
+      // Fully reinitialize tooltip
+      const oldTooltip = bootstrap.Tooltip.getInstance(skipBtn);
+      if (oldTooltip) oldTooltip.dispose();
+      new bootstrap.Tooltip(skipBtn);
+    }
+
+    console.log(`${isSkipped ? 'Unskipped' : 'Skipped'} item in UI:`, itemId);
+  })
+  .catch(error => {
+    console.error('Error toggling skip:', error);
+  });
+}
+
+
+  // Initialize tooltips
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
   });
 </script>
 {% endblock %}

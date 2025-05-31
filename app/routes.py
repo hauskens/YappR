@@ -120,7 +120,7 @@ def management():
         bots = get_bots()
         broadcasters = get_broadcasters()
         broadcaster_id = request.args.get('broadcaster_id', type=int)
-        queue_items = get_content_queue(broadcaster_id)
+        queue_items = get_content_queue(broadcaster_id, include_skipped=True, include_watched=True)
         return render_template(
             "management.html", bots=bots, broadcasters=broadcasters, selected_broadcaster_id=broadcaster_id, queue_items=queue_items
         )
@@ -567,7 +567,38 @@ def mark_clip_watched(item_id: int):
         logger.error(f"Error marking clip as watched: {e}")
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route("/clip_queue/item/<int:item_id>/skip", methods=["POST"])
+@login_required
+def skip_clip_queue_item(item_id: int):
+    """Toggle the skip status of a content queue item"""
+    if check_banned():
+        return jsonify({"success": False, "error": "User is banned"}), 403
     
+    try:
+        # Get the skip status from request
+        data = request.get_json()
+        skip_status = data.get('skip', True)  # Default to True if not specified
+        
+        # Get the content queue item
+        queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
+    
+        # Verify user has permission
+        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id)
+        if broadcaster is None or broadcaster.id != queue_item.broadcaster_id:
+            return jsonify({"success": False, "error": "Unauthorized"}), 403
+        
+        # Update skip status
+        queue_item.skipped = skip_status
+        db.session.commit()
+        
+        return jsonify({"success": True, "skipped": skip_status})
+    except Exception as e:
+        logger.error(f"Error updating skip status for item {item_id}: {e}")
+        db.session.rollback()
+        return jsonify({"success": False, "error": str(e)}), 500
+
 
 
 @app.route("/transcription/<int:transcription_id>/purge")

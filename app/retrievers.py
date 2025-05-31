@@ -194,11 +194,11 @@ def get_user_by_id(user_id: int) -> Users:
     return db.session.query(Users).filter_by(id=user_id).one()
 
 
-def get_content_queue(broadcaster_id: int | None = None) -> Sequence[ContentQueue]:
+def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool = False, include_watched: bool = False) -> Sequence[ContentQueue]:
     """Get content queue items, optionally filtered by broadcaster_id"""
     query = select(ContentQueue).join(Broadcaster)
     if broadcaster_id is not None:
-        query = query.filter(ContentQueue.broadcaster_id == broadcaster_id)
+        query = query.filter(ContentQueue.broadcaster_id == broadcaster_id, ContentQueue.skipped == include_skipped, ContentQueue.watched == include_watched)
     return db.session.execute(query.order_by(ContentQueue.id.desc())).scalars().all()
 
 def get_broadcaster_by_external_id(external_id: str) -> Broadcaster | None:

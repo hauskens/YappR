@@ -841,5 +841,6 @@ class ContentQueueSubmission(Base):
     submission_source_type: Mapped[ContentQueueSubmissionSource] = mapped_column(Enum(ContentQueueSubmissionSource), nullable=False)
     submission_source_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
     weight: Mapped[float] = mapped_column(Float, nullable=False)
+    user_comment: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
 

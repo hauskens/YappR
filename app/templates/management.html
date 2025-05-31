@@ -78,6 +78,7 @@
             <th>Submission Count</th>
             <th>Watched</th>
             <th>Watched At</th>
+            <th>Skipped</th>
           </tr>
         </thead>
         <tbody>
@@ -103,6 +104,13 @@
                   {{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}
                 {% else %}
                   -
+                {% endif %}
+              </td>
+              <td>
+                {% if item.skipped %}
+                  <span class="badge bg-danger">Yes</span>
+                {% else %}
+                  <span class="badge bg-success">No</span>
                 {% endif %}
               </td>
             </tr>

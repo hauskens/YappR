@@ -2,22 +2,7 @@
 
 {% block styles %}
 <style>
-  .queue-item {
-    position: relative;
-  }
-  .queue-item-content {
-    display: flex;
-    align-items: center;
-    flex-grow: 1;
-    min-width: 0;
-    cursor: pointer;
-  }
-  .queue-actions {
-    margin-left: auto;
-    padding: 0 10px;
-    display: flex;
-    align-items: center;
-  }
+  /* Custom styles that can't be replaced with Bootstrap */
   .skip-btn {
     opacity: 0;
     transition: opacity 0.2s;
@@ -32,6 +17,8 @@
     color: #6c757d;
     border-color: #6c757d;
   }
+  
+  /* Player container with aspect ratio */
   .player-container {
     position: relative;
     padding-bottom: 56.25%; /* 16:9 aspect ratio */
@@ -46,22 +33,8 @@
     height: 100%;
     border: 0;
   }
-  .queue-item {
-    cursor: pointer;
-    margin-bottom: 10px;
-    padding: 10px;
-    border: 1px solid #494e53;
-    border-radius: 5px;
-    transition: all 0.2s;
-  }
   
-  .autoplay-toggle {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 15px;
-  }
-  
+  /* Custom toggle switch */
   .switch {
     position: relative;
     display: inline-block;
@@ -107,16 +80,12 @@
     transform: translateX(26px);
   }
   
+  /* Thumbnail container with fixed dimensions */
   .queue-thumbnail {
     width: 120px;
     height: 68px;
     background-color: #f8f9fa;
     flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    color: #6c757d;
     overflow: hidden;
   }
   
@@ -126,36 +95,14 @@
     object-fit: cover;
   }
   
-  .queue-content {
-    flex-grow: 1;
-    min-width: 0; /* Prevents flex item from overflowing */
-  }
-  .queue-item:hover {
-    background-color: rgba(0, 123, 255, 0.1);
-  }
-  .queue-item.active {
-    background-color: rgba(0, 123, 255, 0.2);
-    border-left: 4px solid #007bff;
-  }
+  /* Queue list with fixed height */
   .queue-list {
     max-height: 500px;
-    overflow-y: auto;
   }
-  .queue-title {
-    font-weight: bold;
-    margin-bottom: 5px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .queue-meta {
-    font-size: 0.8rem;
-    color: #6c757d;
-  }
-  .no-content {
-    padding: 20px;
-    text-align: center;
-    color: #6c757d;
+  
+  /* Transition for queue items */
+  .queue-item {
+    transition: all 0.2s;
   }
 </style>
 {% endblock %}
@@ -179,7 +126,7 @@
             </div>
           </div>
           <div class="card-footer bg-transparent d-flex justify-content-end">
-            <div class="autoplay-toggle me-3">
+            <div class="autoplay-toggle d-flex align-items-center gap-2 mb-3 me-3">
               <label class="switch">
                 <input type="checkbox" id="autoplay-toggle">
                 <span class="slider"></span>
@@ -198,23 +145,23 @@
             <h5 class="mb-0">Up Next</h5>
           </div>
           <div class="card-body p-0">
-            <div class="queue-list">
+            <div class="queue-list overflow-auto">
               {% for item in queue_items %}
-                <div class="queue-item{% if loop.first %} active{% endif %}{% if item.skipped %} skipped{% endif %}" 
+                <div class="queue-item position-relative d-flex mb-2 p-2 border border-light-subtle rounded cursor-pointer{% if loop.first %} active bg-primary-subtle border-start border-2 border-primary-subtle{% endif %}{% if item.skipped %} skipped{% endif %}" 
                      data-id="{{ item.id }}" 
                      data-url="{{ item.content.url }}" 
                      data-title="{{ item.content.title }}"
                      data-watched="{{ item.watched|lower }}"
                      data-skipped="{{ item.skipped|lower }}">
-                  <div class="queue-item-content" onclick="playContent(this.parentElement)">
+                  <div class="queue-item-content d-flex align-items-center flex-grow-1 min-width-0 cursor-pointer" onclick="playContent(this.parentElement)">
                   {% if item.content.thumbnail_url %}
-                  <div class="queue-thumbnail me-3">
-                    <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid">
+                  <div class="queue-thumbnail me-3 d-flex align-items-center justify-content-center text-muted">
+                    <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid rounded">
                   </div>
                   {% endif %}
-                  <div class="queue-content">
-                    <div class="queue-title">{{ item.content.title|truncate(150) }}</div>
-                    <div class="queue-meta">
+                  <div class="queue-content flex-grow-1 min-width-0">
+                    <div class="queue-title fw-bold mb-1 text-truncate">{{ item.content.title|truncate(150) }}</div>
+                    <div class="queue-meta fs-6 text-muted">
                       <div class="d-flex flex-wrap align-items-center gap-2">
                         {% if item.content.channel_name %}
                           <span class="text-muted">{{ item.content.channel_name }}</span>
@@ -249,8 +196,7 @@
                       </div>
                     </div>
                   </div>
-                </div>
-                <div class="queue-actions">
+                  </div><div class="queue-actions ms-auto px-2 d-flex align-items-center">
                     <button class="btn btn-sm btn-outline-secondary skip-btn" 
                             onclick="event.stopPropagation(); skipItem({{ item.id }})"
                             data-bs-toggle="tooltip" 
@@ -303,8 +249,18 @@
     // Update active item styling
     document.querySelectorAll('.queue-item').forEach(item => {
       item.classList.remove('active');
+      item.classList.remove('bg-primary-subtle');
+      item.classList.remove('border-start');
+      item.classList.remove('border-2');
+      item.classList.remove('border-primary-subtle');
     });
+    
+    // Add active class and related Bootstrap classes to the clicked item
     element.classList.add('active');
+    element.classList.add('bg-primary-subtle');
+    element.classList.add('border-start');
+    element.classList.add('border-2');
+    element.classList.add('border-primary-subtle');
     
     currentItem = element;
     var contentUrl = element.getAttribute('data-url');
@@ -535,16 +491,48 @@
         if (itemToUpdate) {
           console.log('Updating UI for item:', itemId);
           itemToUpdate.setAttribute('data-watched', 'true');
-          var badge = itemToUpdate.querySelector('.badge');
-          if (badge) {
-            badge.classList.remove('bg-danger');
-            badge.classList.add('bg-success');
-            badge.textContent = 'Watched';
+          
+          // Add a watched badge if it doesn't exist
+          let watchedBadgeExists = false;
+          const badges = itemToUpdate.querySelectorAll('.badge');
+          badges.forEach(badge => {
+            if (badge.textContent === 'Watched') {
+              watchedBadgeExists = true;
+              badge.classList.remove('bg-danger');
+              badge.classList.add('bg-success');
+            }
+          });
+          
+          if (!watchedBadgeExists) {
+            const metaDiv = itemToUpdate.querySelector('.queue-meta .d-flex:first-child');
+            if (metaDiv) {
+              const watchedBadge = document.createElement('span');
+              watchedBadge.className = 'badge bg-success';
+              watchedBadge.textContent = 'Watched';
+              metaDiv.prepend(watchedBadge);
+            }
           }
           
           const nextItem = findNextUnwatched();
           if (nextItem) {
             console.log('Auto-playing next unwatched item');
+            // Remove active class from all items before adding it to the next item
+            document.querySelectorAll('.queue-item').forEach(item => {
+              item.classList.remove('active');
+              item.classList.remove('bg-primary-subtle');
+              item.classList.remove('border-start');
+              item.classList.remove('border-2');
+              item.classList.remove('border-primary-subtle');
+            });
+            
+            // Add active class and related Bootstrap classes to the next item
+            nextItem.classList.add('active');
+            nextItem.classList.add('bg-primary-subtle');
+            nextItem.classList.add('border-start');
+            nextItem.classList.add('border-2');
+            nextItem.classList.add('border-primary-subtle');
+            
+            // Play the next content
             playContent(nextItem);
           } else {
             console.log('No more unwatched items in queue');

@@ -50,7 +50,7 @@
     cursor: pointer;
     margin-bottom: 10px;
     padding: 10px;
-    border: 1px solid #dee2e6;
+    border: 1px solid #494e53;
     border-radius: 5px;
     transition: all 0.2s;
   }
@@ -249,7 +249,8 @@
                       </div>
                     </div>
                   </div>
-                  <div class="queue-actions">
+                </div>
+                <div class="queue-actions">
                     <button class="btn btn-sm btn-outline-secondary skip-btn" 
                             onclick="event.stopPropagation(); skipItem({{ item.id }})"
                             data-bs-toggle="tooltip" 
@@ -539,6 +540,14 @@
             badge.classList.remove('bg-danger');
             badge.classList.add('bg-success');
             badge.textContent = 'Watched';
+          }
+          
+          const nextItem = findNextUnwatched();
+          if (nextItem) {
+            console.log('Auto-playing next unwatched item');
+            playContent(nextItem);
+          } else {
+            console.log('No more unwatched items in queue');
           }
         } else {
           console.error('Could not find item with ID:', itemId);

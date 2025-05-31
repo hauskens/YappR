@@ -202,12 +202,12 @@ def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool =
     return db.session.execute(query.order_by(ContentQueue.id.desc())).scalars().all()
 
 def get_broadcaster_by_external_id(external_id: str) -> Broadcaster | None:
-    return db.session.execute((
+    return db.session.execute(
         select(Broadcaster)
         .join(Broadcaster.channels)
         .where(Channels.platform_channel_id == external_id)
         .limit(1)
-    )).scalars().one_or_none()
+    ).scalars().one_or_none()
 
 def get_all_twitch_channels() -> Sequence[Channels]:
     """Get all Twitch channels"""

@@ -52,7 +52,7 @@ class TwitchBot:
         await self.twitch.set_user_authentication(
             token=token_data['access_token'],
             refresh_token=token_data['refresh_token'],
-            scope=[AuthScope.CHAT_READ, AuthScope.CHAT_EDIT],
+            scope=[AuthScope.CHAT_READ, AuthScope.CHAT_EDIT, AuthScope.CLIPS_EDIT],
         )
         
         # Start the background commit task

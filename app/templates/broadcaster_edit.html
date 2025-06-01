@@ -25,7 +25,6 @@
             <th scope="col">Platform</th>
             <th scope="col">ID</th>
             <th scope="col">Channel Type</th>
-            <th scope="col">Settings</th>
             <th scope="col">Linked</th>
             <th scope="col">Actions</th>
           </tr>
@@ -39,35 +38,6 @@
             <td>{{ channel.platform.name }}</td>
             <td>{{ channel.platform_ref }}</td>
             <td>{{ channel.main_video_type.name }}</td>
-            <td>
-              <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#settingsModal{{ channel.id }}">Settings</button>
-              <div class="modal fade" id="settingsModal{{ channel.id }}" tabindex="-1" aria-labelledby="settingsModalLabel{{ channel.id }}" aria-hidden="true">
-                <div class="modal-dialog">
-                  <div class="modal-content">
-                    <div class="modal-header">
-                      <h5 class="modal-title" id="settingsModalLabel{{ channel.id }}">Channel Settings for {{ channel.name }}</h5>
-                      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <form action="{{ url_for('channel_settings_update', channel_id=channel.id) }}" method="post">
-                      <div class="modal-body">
-                        <div class="mb-3 form-check">
-                          <input type="checkbox" class="form-check-input" id="content_queue_enabled{{ channel.id }}" name="content_queue_enabled" {% if channel.settings and channel.settings.content_queue_enabled %}checked{% endif %}>
-                          <label class="form-check-label" for="content_queue_enabled{{ channel.id }}">Enable Content Queue</label>
-                        </div>
-                        <div class="mb-3 form-check">
-                          <input type="checkbox" class="form-check-input" id="chat_collection_enabled{{ channel.id }}" name="chat_collection_enabled" {% if channel.settings and channel.settings.chat_collection_enabled %}checked{% endif %}>
-                          <label class="form-check-label" for="chat_collection_enabled{{ channel.id }}">Enable Chat Collection</label>
-                        </div>
-                      </div>
-                      <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Save changes</button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            </td>
             <td>{{ channel.source_channel.id }}</td>
             <td>
               <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Go to Channel</a>

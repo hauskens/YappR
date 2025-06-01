@@ -530,6 +530,8 @@ def clip_queue():
     try:
         logger.info(f"Loading clip queue for {current_user.external_account_id}")
         broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
+        if broadcaster is None:
+            return "No broadcaster found, you need to link a broadcaster to your account, and this is not properly implemented, contact admin"
         logger.info(f"Found broadcaster {broadcaster.id}")
         queue_items = get_content_queue(broadcaster.id)
         return render_template(

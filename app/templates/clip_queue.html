@@ -155,12 +155,12 @@
                      data-skipped="{{ item.skipped|lower }}">
                   <div class="queue-item-content d-flex align-items-center flex-grow-1 min-width-0 cursor-pointer" onclick="playContent(this.parentElement)">
                   {% if item.content.thumbnail_url %}
-                  <div class="queue-thumbnail me-3 d-flex align-items-center justify-content-center text-muted">
-                    <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid rounded">
+                  <div class="queue-thumbnail me-3 d-flex align-items-center justify-content-center text-muted" style="background-color: transparent;">
+                    <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid rounded ">
                   </div>
                   {% endif %}
                   <div class="queue-content flex-grow-1 min-width-0">
-                    <div class="queue-title fw-bold mb-1 text-truncate">{{ item.content.title|truncate(150) }}</div>
+                    <div class="queue-title fw-bold mb-1 text-truncate">{{ item.content.title|truncate(50) }}</div>
                     <div class="queue-meta fs-6 text-muted">
                       <div class="d-flex flex-wrap align-items-center gap-2">
                         {% if item.content.channel_name %}

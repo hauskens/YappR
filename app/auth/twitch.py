@@ -58,7 +58,7 @@ def handle_login(blueprint, token):
 blueprint_bot = make_twitch_blueprint(
     client_id=config.twitch_client_id,
     client_secret=config.twitch_client_secret,
-    scope=['chat:read', 'chat:edit'],
+    scope=['chat:read', 'chat:edit', 'clips:edit'],
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user),
 )
 
@@ -98,3 +98,4 @@ def handle_login_bot(blueprint, token):
     db.session.commit()
     # Disable Flask-Dance's default behavior for saving the OAuth token
     return False
+

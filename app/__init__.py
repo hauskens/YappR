@@ -17,9 +17,12 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from .auth import discord_blueprint, twitch_blueprint, twitch_blueprint_bot
 from .redis_client import RedisTaskQueue
+from flask_cors import CORS, cross_origin
+from flask_socketio import SocketIO, emit, send
+
 
 logger = logging.getLogger(__name__)
-
+socketio = SocketIO()
 
 def init_storage(container: str = "transcriptions"):
     makedirs(
@@ -69,7 +72,8 @@ def create_app():
     login_manager.init_app(app)
     bootstrap.init_app(app)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-
+    cors = CORS(app, resources={r"/*": {"origins": "http://localhost:" + str(config.app_port)}})
+    socketio.init_app(app)
     
 
     app.register_blueprint(discord_blueprint, url_prefix="/login")

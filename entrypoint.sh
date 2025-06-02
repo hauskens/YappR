@@ -8,7 +8,7 @@ echo "------------"
 echo "Starting application"
 echo "------------"
 if [ "$DEBUG" = true ]; then
-	flask --app app.main --debug run --host=0.0.0.0
+	python -m app.main
 else
 	gunicorn --config gunicorn_config.py 'app.main:app'
 fi

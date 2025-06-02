@@ -22,7 +22,7 @@ from .models.config import config
 import logging
 from .retrievers import get_transcription, get_video
 from .routes import *
-from . import app, login_manager
+from . import app, login_manager, socketio
 from .models.db import TranscriptionSource
 from .utils import require_api_key
 import tempfile
@@ -31,8 +31,7 @@ import json
 from urllib.parse import unquote
 from celery.schedules import crontab
 from .chatlogparse import parse_logs
-
-
+from flask_socketio import emit, send
 
 def celery_init_app(app: Flask) -> Celery:
     # todo: getting a type error here
@@ -47,7 +46,6 @@ def celery_init_app(app: Flask) -> Celery:
     celery_app.autodiscover_tasks()
     app.extensions["celery"] = celery_app
     return celery_app
-
 
 celery = celery_init_app(app)
 r = redis.Redis.from_url(config.redis_uri)
@@ -306,8 +304,6 @@ def channel_transcribe_audio(channel_id: int):
                 _ = task_transcribe_audio.delay(video.id)
     return redirect(request.referrer)
 
-if __name__ == "__main__":
-    app.run(debug=config.debug, host=config.app_host, port=config.app_port)
 
 @app.route("/video/<int:video_id>/upload_transcription", methods=["POST"])
 @require_api_key
@@ -335,3 +331,35 @@ def upload_transcription(video_id: int):
     db.session.commit()
     logger.info("File uploaded")
     return "ok", 200
+
+@socketio.on("connect")
+@login_required
+def connected():
+    """event listener when client connects to the server"""
+    if current_user.is_anonymous == False and current_user.banned == False:
+        logger.info(request.sid)
+        logger.info("client has connected")
+        emit("connect",{"data":f"id: {request.sid} is connected"})
+    else:
+        logger.info("client has connected, but is banned")
+        return False
+
+@socketio.on_error()        # Handles the default namespace
+def error_handler(e):
+    logger.error(f'An error occurred: {e}')
+
+@socketio.on('message')
+@login_required
+def handleMessage(msg):
+    if current_user.is_anonymous == False and current_user.banned == False:
+        logger.info('Message: ' + msg)
+        logger.info(current_user.permissions)
+        send(msg, broadcast=True)
+    else:
+        logger.info("User is anonymous or banned")
+        return False
+
+
+if __name__ == "__main__":
+    # socketio.run(app, debug=config.debug, host=config.app_host, port=config.app_port)
+    socketio.run(app, allow_unsafe_werkzeug=config.debug, host=config.app_host, port=config.app_port, debug=config.debug)

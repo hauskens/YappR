@@ -815,6 +815,13 @@ class Content(Base):
     channel_name: Mapped[str] = mapped_column(String(500), nullable=False)
     author: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
+    def get_platform(self):
+        if 'youtube' in self.url or 'youtu.be' in self.url:
+            return 'youtube'
+        if 'twitch' in self.url:
+            return 'twitch'
+        return 'unknown'
+
 class ContentQueue(Base):
     __tablename__ = "content_queue"
     __table_args__ = (

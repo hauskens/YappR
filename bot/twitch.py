@@ -204,7 +204,7 @@ class TwitchBot:
         parsed = urlparse(url)
         return urlunparse(parsed._replace(query='', fragment=''))
     
-    async def add_to_content_queue(self, url: str, channel_id: int, username: str, external_user_id: str) -> None:
+    async def add_to_content_queue(self, url: str, channel_id: int, username: str, external_user_id: str, user_comment: str = None) -> None:
         """Add a URL to the content queue for a channel and record who submitted it"""
         session = SessionLocal()
         try:
@@ -289,7 +289,8 @@ class TwitchBot:
                     submitted_at=datetime.now(),
                     submission_source_type=ContentQueueSubmissionSource.Twitch,
                     submission_source_id=int(external_user_id),
-                    weight=1.0
+                    weight=1.0,
+                    user_comment=user_comment
                 )
                 session.add(submission)
                 
@@ -338,11 +339,37 @@ class TwitchBot:
                 for url in urls:
                     if self.get_platform(url):
                         logger.info(f"Found supported URL in message: {url}")
+                        
+                        # Extract user's message without the URL or replace URL with <link> based on position
+                        user_comment = msg.text
+                        
+                        for found_url in urls:
+                            # Check if the URL is at the start, end, or middle of the message
+                            start_pos = user_comment.find(found_url)
+                            end_pos = start_pos + len(found_url)
+                            
+                            # If URL is at the start of the message (accounting for possible whitespace)
+                            if start_pos <= len(user_comment.strip()) - len(user_comment.strip().lstrip()):
+                                user_comment = user_comment.replace(found_url, "", 1)
+                            # If URL is at the end of the message (accounting for possible whitespace)
+                            elif end_pos >= len(user_comment.rstrip()):
+                                user_comment = user_comment.replace(found_url, "", 1)
+                            # If URL is in the middle of the message
+                            else:
+                                user_comment = user_comment.replace(found_url, "<link>", 1)
+                        
+                        user_comment = user_comment.strip()
+                        
+                        # Only store non-empty comments
+                        if not user_comment or user_comment == "<link>":
+                            user_comment = None
+                            
                         await self.add_to_content_queue(
                             url=url, 
                             channel_id=channel_id,
                             username=msg.user.name,
-                            external_user_id=msg.user.id
+                            external_user_id=msg.user.id,
+                            user_comment=user_comment
                         )
             elif urls:
                 logger.debug(f"Found URLs but content queue is disabled for channel {channel_id}")

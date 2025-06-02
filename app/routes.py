@@ -536,10 +536,12 @@ def clip_queue():
             return "No broadcaster found, you need to link a broadcaster to your account, and this is not properly implemented, contact admin"
         logger.info(f"Found broadcaster {broadcaster.id}")
         queue_items = get_content_queue(broadcaster.id)
+        from datetime import datetime
         return render_template(
             "clip_queue.html",
             queue_items=queue_items,
             broadcaster=broadcaster,
+            now=datetime.now(),
         )
     except Exception as e:
         logger.error(f"Error loading clip queue: {e}")

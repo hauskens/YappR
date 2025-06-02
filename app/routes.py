@@ -15,11 +15,12 @@ from flask import (
 from flask_login import current_user, login_required, logout_user # type: ignore
 from .utils import require_api_key
 from io import BytesIO
-import json
 import mimetypes
 from . import app, limiter, rate_limit_exempt
 from datetime import datetime
 from .models.config import config
+from app import twitch_client
+from app.twitch_api import create_clip
 from .retrievers import (
     get_users,
     get_broadcaster,
@@ -61,6 +62,7 @@ from .models.db import (
 from .models.transcription import TranscriptionResult
 from .search import search_v2
 from .utils import get_valid_date
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -601,6 +603,26 @@ def skip_clip_queue_item(item_id: int):
         db.session.rollback()
         return jsonify({"success": False, "error": str(e)}), 500
 
+
+@app.route("/broadcaster/<int:broadcaster_id>/create_clip")
+@login_required
+def broadcaster_create_clip(broadcaster_id: int):
+    # Check if user has permission to modify this broadcaster
+    if current_user.is_anonymous or not (current_user.broadcaster_id == broadcaster_id or current_user.has_permission(["admin"])):
+        return "You do not have permission to modify this broadcaster", 403
+    
+    # Add clip creation task to Redis queue
+    from app import redis_task_queue
+    task_id = redis_task_queue.enqueue_clip_creation(str(broadcaster_id))
+    
+    if task_id:
+        flash(f"Clip creation task queued successfully")
+        logger.info(f"Clip creation task {task_id} queued for broadcaster {broadcaster_id}")
+    else:
+        flash("Failed to queue clip creation task", "error")
+        logger.error(f"Failed to queue clip creation task for broadcaster {broadcaster_id}")
+    
+    return redirect(request.referrer)
 
 
 @app.route("/transcription/<int:transcription_id>/purge")

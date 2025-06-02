@@ -5,15 +5,14 @@ from app.models.db import OAuth, Channels, ChannelSettings, ChatLog, Content, Co
 from app.models.config import config
 from app.twitch_api import parse_clip_id, get_twitch_clips, get_twitch_video_by_ids, get_twitch_video_id, parse_time
 from app.youtube_api import get_youtube_thumbnail_url, get_youtube_video_id, get_videos
-from app.routes import get_broadcaster_by_external_id
 from urllib.parse import urlparse, urlunparse
 import asyncio
 import signal
 import time
 from datetime import datetime
 from twitchAPI.type import AuthScope, ChatEvent
-from twitchAPI.chat import Chat, EventData, ChatMessage, ChatSub
-from .shared import ChannelSettingsDict, ContentDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event
+from twitchAPI.chat import Chat, EventData, ChatMessage
+from .shared import ChannelSettingsDict, ContentDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event, task_manager, start_task_manager
 import re
 
 class TwitchBot:
@@ -37,6 +36,8 @@ class TwitchBot:
             'twitch_video': re.compile(r'^https?://(?:www\.)?twitch\.tv/videos/\d+\?t=\d+h\d+m\d+s'),
             'twitch_clip': re.compile(r'^https?://(?:clips\.twitch\.tv/[\w\-]+|(?:www\.)?twitch\.tv/\w+/clip/[\w\-]+)'),
         }
+        # Use the shared task manager instead of creating a separate Redis queue
+        self.task_manager = task_manager
 
     async def init_bot(self):
         self.twitch = await Twitch(app_id=config.twitch_client_id, app_secret=config.twitch_client_secret)
@@ -402,9 +403,11 @@ class TwitchBot:
             self.session.rollback()
     
     async def cleanup(self):
-        """Clean up resources before shutdown"""
-        # Commit any remaining messages
-        if self.message_buffer:
+        """Clean up resources"""
+        logger.info("Cleaning up resources")
+        
+        # Commit any pending changes
+        if self.session:
             await self.commit_messages()
             
         # Close the session
@@ -417,17 +420,39 @@ async def main():
     signal.signal(signal.SIGTERM, handle_shutdown)
     signal.signal(signal.SIGINT, handle_shutdown)
 
+    # Initialize the bot
     bot = TwitchBot()
     await bot.init_bot()
 
+    # Initialize the task manager
+    task_manager.init()
+    
+    # Register the bot with the task manager
+    task_manager.register_component('twitch', bot)
+
+    # Start the chat connection
     chat = await Chat(bot.twitch)
     chat.register_event(ChatEvent.READY, bot.on_ready)
     chat.register_event(ChatEvent.MESSAGE, bot.on_message)
-
     chat.start()
+    
+    # Start the task manager in a background task
+    task_manager_task = asyncio.create_task(start_task_manager())
 
+    # Wait for shutdown signal
     await shutdown_event.wait()
     logger.info("Shutting down twitch bot cleanly.")
+    
+    # Clean up resources
     await bot.cleanup()
     chat.stop()
+    
+    # Cancel the task manager task
+    if not task_manager_task.done():
+        task_manager_task.cancel()
+        try:
+            await task_manager_task
+        except asyncio.CancelledError:
+            pass
+    
     logger.info("Twitch bot stopped")

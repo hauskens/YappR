@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip
+from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip, CreatedClip
 from twitchAPI.helper import first
 from .models.config import config
 from pytimeparse.timeparse import timeparse
@@ -101,4 +101,10 @@ async def get_twitch_clips(clip_ids: list[str], api_client: Twitch | None = None
     clip = twitch.get_clips(clip_id=clip_ids)
     return [clip async for clip in clip]
     
-    
+async def create_clip(broadcaster_id: str, api_client: Twitch | None = None) -> CreatedClip:
+    if api_client is None:
+        twitch = await get_twitch_client()
+    else:
+        twitch = api_client
+    clip = await twitch.create_clip(broadcaster_id=broadcaster_id)
+    return clip

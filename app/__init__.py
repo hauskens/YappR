@@ -16,6 +16,7 @@ from libcloud.storage.drivers.local import LocalStorageDriver
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from .auth import discord_blueprint, twitch_blueprint, twitch_blueprint_bot
+from .redis_client import RedisTaskQueue
 
 logger = logging.getLogger(__name__)
 
@@ -78,6 +79,11 @@ def create_app():
 
 
 app = create_app()
+
+# Initialize Redis task queue
+redis_task_queue = RedisTaskQueue()
+redis_task_queue.init()
+
 # Configure rate limiter
 limiter = Limiter(
     app=app,

@@ -13,7 +13,7 @@ from .models.db import (
     Users,
     OAuth,
     ContentQueue,
-    Content,
+    ChannelModerator,
     db,
 )
 from .tasks import (
@@ -177,6 +177,9 @@ def get_stats_high_quality_transcriptions() -> int:
         .count()
     )
 
+def get_moderated_channels(user_id: int) -> list[ChannelModerator]:
+    return db.session.query(ChannelModerator).filter_by(user_id=user_id).all()
+    
 
 def get_stats_segments() -> int:
     return db.session.query(Segments).count()

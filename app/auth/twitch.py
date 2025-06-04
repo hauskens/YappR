@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 blueprint = make_twitch_blueprint(
     client_id=config.twitch_client_id,
     client_secret=config.twitch_client_secret,
-    # scope=["user_read"],
+    scope=['user:read:moderated_channels'],
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user)
 )
 
@@ -41,24 +41,35 @@ def handle_login(blueprint, token):
         _ = login_user(oauth.user, remember=True, duration=timedelta(days=30))
     else:
 
-        u = Users(
-            name=info["data"][0]["display_name"],
-            external_account_id=str(info["data"][0]["id"]),
-            account_type=AccountSource.Twitch,
-            avatar_url=info["data"][0]["profile_image_url"],
-        )
-        oauth.user = u
-        db.session.add_all([u, oauth])
-
-        db.session.commit()
-        _ = login_user(u, remember=True, duration=timedelta(days=30))
+        logger.info(f"checking for existing user with id: {info['data'][0]['id']}")
+        existing_user = db.session.query(Users).filter_by(
+            external_account_id=str(info["data"][0]["id"])
+        ).one_or_none()
+        logger.info(f"existing_user: {existing_user}")
+        if existing_user is None:
+            u = Users(
+                name=info["data"][0]["display_name"],
+                external_account_id=str(info["data"][0]["id"]),
+                account_type=AccountSource.Twitch,
+                avatar_url=info["data"][0]["profile_image_url"],
+            )
+            oauth.user = u
+            db.session.add_all([u, oauth])
+            db.session.commit()
+            _ = login_user(u, remember=True, duration=timedelta(days=30))
+        else:
+            logger.info(f"User {existing_user.name} already exists, logging in")
+            oauth.user = existing_user
+            db.session.add(oauth)
+            db.session.commit()
+            _ = login_user(existing_user, remember=True, duration=timedelta(days=30))
     # Disable Flask-Dance's default behavior for saving the OAuth token
     return False
 
 blueprint_bot = make_twitch_blueprint(
     client_id=config.twitch_client_id,
     client_secret=config.twitch_client_secret,
-    scope=['chat:read', 'chat:edit', 'clips:edit'],
+    scope=['chat:read', 'chat:edit', 'clips:edit', 'user:bot'],
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user),
 )
 

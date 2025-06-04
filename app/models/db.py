@@ -261,9 +261,7 @@ class Users(Base, UserMixin):
             logger.info(user.broadcaster_type)
             if user.id == self.external_account_id:
                 return user.broadcaster_type
-        return "affiliate"
-
-
+        return None
     
         
 class ChannelModerator(Base):

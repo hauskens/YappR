@@ -243,7 +243,8 @@ def broadcasters():
         return render_template("banned.html", user=current_user)
     broadcasters = get_broadcasters()
     logger.info("Loaded broadcasters.html")
-    return render_template("broadcasters.html", broadcasters=broadcasters)
+    moderated_channels = current_user.update_moderated_channels()
+    return render_template("broadcasters.html", broadcasters=broadcasters, moderated_channels=moderated_channels)
 
 
 @app.route("/thumbnails/<int:video_id>")

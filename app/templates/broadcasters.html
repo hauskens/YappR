@@ -25,6 +25,9 @@
       {% endfor %}
       </tbody>
     </table>
+    {% if moderated_channels %}
+    <p>Channels moderated by {{ current_user.name }}: {{ moderated_channels|join(", ") }}</p>
+    {% endif %}
 
     {% if  current_user.has_permission(["admin"]) %}
       <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">

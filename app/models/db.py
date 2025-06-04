@@ -45,7 +45,7 @@ from ..youtube_api import (
     fetch_transcription,
 )
 from ..tasks import get_twitch_audio, get_yt_audio
-from ..twitch_api import get_twitch_user, get_latest_broadcasts, get_twitch_video_by_ids, parse_time
+from ..twitch_api import get_twitch_user, get_latest_broadcasts, get_twitch_video_by_ids, parse_time, get_moderated_channels
 
 from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
@@ -135,6 +135,9 @@ class Users(Base, UserMixin):
     permissions: Mapped[list["Permissions"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
+    channel_moderators: Mapped[list["ChannelModerator"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
 
     def has_permission(
         self, permissions: PermissionType | str | Iterable[PermissionType | str]
@@ -167,6 +170,30 @@ class Users(Base, UserMixin):
             db.session.commit()
             logger.info(f"Granted {permission_type.name} to {self.name}!")
 
+    def update_moderated_channels(self) -> list[int]:
+        if self.account_type == AccountSource.Twitch:
+            moderated_channels = asyncio.run(get_moderated_channels(self.external_account_id))
+            if moderated_channels is None:
+                return []
+            logger.info(f"Updating moderated channels for {self.name}")
+            for channel in moderated_channels:
+                if not self.has_broadcaster_id(channel.id):
+                    db.session.add(
+                        ChannelModerator(user_id=self.id, channel_id=channel.id)
+                    )
+            db.session.commit()
+            return [channel.broadcaster_id for channel in moderated_channels]
+        else:
+            return []
+        
+class ChannelModerator(Base):
+    __tablename__: str = "channel_moderators"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user: Mapped["Users"] = relationship(back_populates="channel_moderators")
+    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
+    channel: Mapped["Channels"] = relationship(back_populates="moderators")
+    
 
 class Permissions(Base):
     __tablename__: str = "permissions"
@@ -202,6 +229,10 @@ class Channels(Base):
         back_populates="channel", cascade="all, delete-orphan"
     )
     settings: Mapped["ChannelSettings"] = relationship(back_populates="channel", uselist=False)
+    moderators: Mapped[list["ChannelModerator"]] = relationship(
+        back_populates="channel",
+        cascade="all, delete-orphan"
+    )
 
 
     def update_thumbnail(self):

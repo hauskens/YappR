@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip, CreatedClip
+from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip, CreatedClip, ChannelModerator
 from twitchAPI.helper import first
 from .models.config import config
 from pytimeparse.timeparse import timeparse
@@ -108,3 +108,11 @@ async def create_clip(broadcaster_id: str, api_client: Twitch | None = None) -> 
         twitch = api_client
     clip = await twitch.create_clip(broadcaster_id=broadcaster_id)
     return clip
+
+async def get_moderated_channels(twitch_user_id: str, api_client: Twitch | None = None) -> Sequence[ChannelModerator]:
+    if api_client is None:
+        twitch = await get_twitch_client()
+    else:
+        twitch = api_client
+    return [user async for user in twitch.get_moderated_channels(user_id=twitch_user_id)]
+    

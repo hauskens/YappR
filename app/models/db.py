@@ -189,6 +189,14 @@ class Users(Base, UserMixin):
             .limit(1)
         ).scalars().one_or_none() is not None
 
+    def get_broadcaster(self) -> Broadcaster | None:
+        return db.session.execute(
+            select(Broadcaster)
+            .join(Broadcaster.channels)
+            .where(Channels.platform_channel_id == self.external_account_id)
+            .limit(1)
+        ).scalars().one_or_none()
+
     def add_permissions(self, permission_type: PermissionType):
         if not self.has_permission(permission_type):
             db.session.add(

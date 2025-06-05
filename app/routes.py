@@ -128,13 +128,20 @@ def management():
         broadcasters = get_broadcasters()
 
     elif current_user.is_anonymous == False and moderated_channels is not None:
-        broadcasters = moderated_channels
+        # Convert moderated channels to a list of broadcasters
+        broadcaster_ids = [channel.channel.broadcaster_id for channel in moderated_channels]
+        broadcasters = db.session.query(Broadcaster).filter(Broadcaster.id.in_(broadcaster_ids)).all()
     
     if moderated_channels is None and not (current_user.has_permission(PermissionType.Admin) or current_user.is_broadcaster()):
         return "You do not have access", 403
     
     broadcaster_id = request.args.get('broadcaster_id', type=int)
+    if broadcaster_id is None and current_user.is_broadcaster():
+        logger.info(f"User {current_user.id} is accessing management without broadcaster_id, using broadcaster_id {current_user.get_broadcaster().id}")
+        broadcaster_id = current_user.get_broadcaster().id
+    
     queue_items = get_content_queue(broadcaster_id, include_skipped=True, include_watched=True)
+    logger.info(f"User {current_user.id} is accessing management with broadcaster_id {broadcaster_id}, queue_items: {queue_items}")
     return render_template(
         "management.html", bots=bots, broadcasters=broadcasters, selected_broadcaster_id=broadcaster_id, queue_items=queue_items
     )

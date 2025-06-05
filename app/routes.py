@@ -40,6 +40,7 @@ from .retrievers import (
     get_total_video_duration,
     get_bots,
     get_content_queue,
+    get_moderated_channels,
     get_all_twitch_channels,
     get_broadcaster_by_external_id,
 )
@@ -57,6 +58,8 @@ from .models.db import (
     Content,
     db,
     BroadcasterSettings,
+    Platforms,
+    ChannelModerator,
 )
 
 from .models.transcription import TranscriptionResult
@@ -118,16 +121,23 @@ def management():
     if check_banned():
         return render_template("banned.html", user=current_user)
     logger.info("Loaded management.html")
+    moderated_channels = get_moderated_channels(current_user.id)
+    bots = None
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         bots = get_bots()
         broadcasters = get_broadcasters()
-        broadcaster_id = request.args.get('broadcaster_id', type=int)
-        queue_items = get_content_queue(broadcaster_id, include_skipped=True, include_watched=True)
-        return render_template(
-            "management.html", bots=bots, broadcasters=broadcasters, selected_broadcaster_id=broadcaster_id, queue_items=queue_items
-        )
-    else:
+
+    elif current_user.is_anonymous == False and moderated_channels is not None:
+        broadcasters = moderated_channels
+    
+    if moderated_channels is None and not (current_user.has_permission(PermissionType.Admin) or current_user.is_broadcaster()):
         return "You do not have access", 403
+    
+    broadcaster_id = request.args.get('broadcaster_id', type=int)
+    queue_items = get_content_queue(broadcaster_id, include_skipped=True, include_watched=True)
+    return render_template(
+        "management.html", bots=bots, broadcasters=broadcasters, selected_broadcaster_id=broadcaster_id, queue_items=queue_items
+    )
 
 @app.route("/user/<int:user_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -301,23 +311,97 @@ def platforms():
     logger.info("Loaded platforms.html")
     return render_template("platforms.html", platforms=platforms)
 
+@app.route("/broadcaster/delete/<int:broadcaster_id>", methods=["GET"])
+@login_required
+def broadcaster_delete(broadcaster_id: int):
+    logger.info(f"User {current_user.id} - {current_user.name} is attempting to delete broadcaster {broadcaster_id}")
+    if check_banned():
+        return render_template("banned.html", user=current_user)
+    if current_user.is_anonymous == True:
+        flash("You don't have permission to delete broadcasters", "danger")
+        return redirect(url_for("broadcasters"))
+    if current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster_id) or current_user.is_moderator(broadcaster_id):
+        broadcaster = get_broadcaster(broadcaster_id)
+        logger.info(f"User {current_user.id} - {current_user.name} is deleting broadcaster {broadcaster_id} - {broadcaster.name}")
+        broadcaster.delete()
+        return redirect(url_for("broadcasters"))
+    else:
+        logger.error(f"User {current_user.id} - {current_user.name} is denied deleting broadcaster {broadcaster_id}")
+        return access_denied()
 
-@app.route("/broadcaster/create", methods=["POST"])
+
+@app.route("/broadcaster/create", methods=["POST", "GET"])
 @login_required
 def broadcaster_create():
-    name = request.form["name"]
-    existing_broadcasters = get_broadcasters()
-    for broadcaster in existing_broadcasters:
-        if broadcaster.name.lower() == name.lower():
-            flash("This broadcaster already exists", "error")
-            return render_template(
-                "broadcasters.html",
-                form=request.form,
-                broadcasters=existing_broadcasters,
+    if check_banned():
+        return render_template("banned.html", user=current_user)
+    if current_user.is_anonymous == True:
+        flash("You don't have permission to add broadcasters", "danger")
+        return redirect(url_for("broadcasters"))
+    if request.method == "GET":
+        logger.info("Loaded broadcaster_add.html")
+        return render_template("broadcaster_add.html")
+    elif request.method == "POST":
+        try:
+            name = request.form["name"]
+            hidden = "hidden" in request.form
+            channel_id = request.form.get("channel_id", "")
+            channel_name = request.form.get("channel_name", "")
+            twitch_channel = request.form.get("twitch_channel", "")
+            willbehave = "willbehave" in request.form
+        
+            logger.info(f"Creating broadcaster: {name}")
+            if not willbehave:
+                flash("You must agree to the terms", "danger")
+                return render_template("broadcaster_add.html", form=request.form)
+            
+            if not twitch_channel:
+                flash("You must select a Twitch channel", "danger")
+                return render_template("broadcaster_add.html", form=request.form)
+            
+            existing_broadcasters = get_broadcasters()
+            for broadcaster in existing_broadcasters:
+                if broadcaster.name.lower() == name.lower():
+                    flash("This broadcaster already exists", "error")
+                    return render_template(
+                        "broadcaster_add.html",
+                        form=request.form
+                    )
+                    
+            # Create the new broadcaster
+            new_broadcaster = Broadcaster(name=name, hidden=hidden)
+            db.session.add(new_broadcaster)
+            db.session.flush()
+            
+            # Get the platform ID for Twitch
+            twitch_platform = db.session.query(Platforms).filter_by(name="Twitch").one()
+            # Create a channel for this broadcaster
+            db.session.add(
+                Channels(
+                    name=name,
+                    broadcaster_id=new_broadcaster.id,
+                    platform_id=twitch_platform.id,
+                    platform_ref=channel_name,
+                    platform_channel_id=channel_id,
+                    main_video_type=VideoType.VOD.name,
+                )
             )
-    db.session.add(Broadcaster(name=name))
-    db.session.commit()
-    return redirect(url_for("broadcasters"))
+            db.session.flush()
+            if channel_id != current_user.external_account_id:
+                db.session.add(
+                    ChannelModerator(
+                        channel_id=new_broadcaster.id,
+                        user_id=current_user.id,
+                    )
+                )
+            db.session.commit()
+            flash(f"Broadcaster '{name}' was successfully created", "success")
+            logger.info(f"Broadcaster '{name}' was successfully created")
+            return redirect(url_for("broadcaster_edit", id=new_broadcaster.id))
+        except Exception as e:
+            flash(f"Failed to create broadcaster", "danger")
+            logger.error(f"Failed to create broadcaster: {e}")
+            return redirect(url_for("broadcaster_add"))
 
 
 @app.route("/broadcaster/edit/<int:id>", methods=["GET"])
@@ -653,7 +737,7 @@ def channel_settings_update(channel_id: int):
     channel = get_channel(channel_id)
     
     # Check if user has permission to modify this channel
-    if current_user.is_anonymous or not (current_user.external_account_id == channel.broadcaster_id or current_user.has_permission(["admin"])):
+    if current_user.is_anonymous or not (current_user.is_broadcaster() or current_user.is_moderator() or current_user.has_permission(["admin"])):
         return "You do not have permission to modify this channel", 403
     
     # Get or create channel settings

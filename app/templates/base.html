@@ -71,14 +71,16 @@
         {% if current_user.is_anonymous == False %}
           <div class="collapse navbar-collapse" id="navbarScroll">
             <div class="navbar-nav mr-auto">
-              {{ render_nav_item('broadcasters', 'Broadcasters') }}
               {{ render_nav_item('search_page', 'Search') }}
+              {{ render_nav_item('broadcasters', 'Broadcasters') }}
               {{ render_nav_item('clip_queue', 'Clip Queue') }}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
                 {{ render_nav_item('celery_active_tasks_view', 'Worker Status') }}
               {% endif %}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
                 {{ render_nav_item('users', 'Users') }}
+              {% endif %}
+              {% if current_user.is_anonymous == False %}
                 {{ render_nav_item('management', 'Management') }}
               {% endif %}
               {{ render_nav_item('stats', 'Stats') }}

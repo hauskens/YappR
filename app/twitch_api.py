@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip, CreatedClip
+from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip, CreatedClip, ChannelModerator, AuthScope
 from twitchAPI.helper import first
 from .models.config import config
 from pytimeparse.timeparse import timeparse
@@ -44,7 +44,7 @@ def get_twitch_video_id(url: str) -> str:
 
         # Handle short URL (youtu.be)
         if parsed.netloc in ["www.twitch.tv", "twitch.tv"]:
-            match = re.match(r"^/videos/(\d+)", path)
+            match = re.match(r"^/videos/(\d+)", parsed.geturl())
             if match:
                 video_id = match.group(1)
             else:
@@ -74,6 +74,17 @@ async def get_twitch_user(twitch_username: str, api_client: Twitch | None = None
         raise ValueError(f"Twitch user not found{twitch_username}")
     else:
         return user
+
+async def get_twitch_user_by_id(twitch_user_id: str, api_client: Twitch | None = None) -> TwitchUser:
+    if api_client is None:
+        twitch = await get_twitch_client()
+    else:
+        twitch = api_client
+    users = await first(twitch.get_users(user_ids=[twitch_user_id]))
+    if users is None:
+        raise ValueError(f"Twitch users not found{twitch_user_id}")
+    else:
+        return users
 
 
 async def get_latest_broadcasts(twitch_user_id: str, limit: int = 100, api_client: Twitch | None = None) -> Sequence[Video]:
@@ -108,3 +119,14 @@ async def create_clip(broadcaster_id: str, api_client: Twitch | None = None) -> 
         twitch = api_client
     clip = await twitch.create_clip(broadcaster_id=broadcaster_id)
     return clip
+
+async def get_moderated_channels(twitch_user_id: str, api_client: Twitch | None = None, user_token: str | None = None, refresh_token: str | None = None) -> Sequence[ChannelModerator]:
+    if api_client is None:
+        twitch = await get_twitch_client()
+    else:
+        twitch = api_client
+    if api_client is None and user_token is not None and refresh_token is not None:
+        await twitch.set_user_authentication(token=user_token, refresh_token=refresh_token, scope=[AuthScope.USER_READ_MODERATED_CHANNELS])
+    moderators = twitch.get_moderated_channels(user_id=twitch_user_id)
+    return [moderator async for moderator in moderators]
+    

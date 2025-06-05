@@ -35,10 +35,10 @@
       </div>
     {% endif %}
     <hr>
-    {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
+    {% if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(channel.broadcaster_id) or current_user.is_moderator(channel.broadcaster_id)) %}
         <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a>
     {% endif %}
-    {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
+    {% if current_user.is_anonymous == False and (current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(channel.broadcaster_id)) %}
         <a class="btn btn-primary" onclick="return confirm('This will look all videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos_all', channel_id=channel.id) }}">Look for all videos on channel</a>
     {% endif %}
     <hr>
@@ -66,7 +66,7 @@
           <td>{{ video.get_duration_str() }}</td>
           <td> 
             {% if video.transcriptions|length == 0 and video.active == true %}
-              {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
+              {% if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(channel.broadcaster_id) or current_user.is_moderator(channel.broadcaster_id)) %}
                   <a class="btn btn-primary" onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
               {% endif %}
             {% endif %}
@@ -79,7 +79,7 @@
             <div class="container mb-2">
               <a class="btn btn-primary" role="button" href="{{ url_for('video_edit', video_id=video.id) }}">Edit Video</a>
             </div>
-            {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
+            {% if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(channel.broadcaster_id) or current_user.is_moderator(channel.broadcaster_id)) %}
               <!-- {% if video.transcriptions|length == 0 and channel.platform.name.lower() == "youtube" %}
                 <div class="container mb-2">
                   <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a>

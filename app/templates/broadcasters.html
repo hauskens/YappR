@@ -25,22 +25,9 @@
       {% endfor %}
       </tbody>
     </table>
-
-    {% if  current_user.has_permission(["admin"]) %}
-      <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
-        Add new Broadcaster..
-      </a>
-        <div class="collapse" id="collapseManageChannel">
-        <form action="{{ url_for('broadcaster_create') }}" method="post">
-          <div class="mb-3">
-            <label for="name" class="form-label">Broadcaster Name:</label>
-            <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_!][A-Za-z0-9_! ]*" required placeholder="Mike Hunt" required title="Only A-Z or numbers allowed">
-          </div>
-
-          <button type="submit" class="btn btn-primary">Save Broadcaster</button>
-        </form>
-      </div>
-    {% endif %}
+    <a href="{{ url_for('broadcaster_create') }}" class="btn btn-primary">
+      <i class="fas fa-plus"></i> Create New Broadcaster
+    </a>
   </div>
 
 

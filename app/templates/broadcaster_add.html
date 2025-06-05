@@ -1,0 +1,145 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+  <h1>Add New Broadcaster</h1>
+  
+  <div class="row">
+    <div class="col-md-8">
+      <div class="card">
+        <div class="card-header">
+          <h5>Broadcaster Information</h5>
+        </div>
+        <!-- Get moderated channels -->
+        {% set moderated_channels = current_user.update_moderated_channels() %}
+        {% set own_channel_type = current_user.get_twitch_account_type() %}
+        <div class="card-body">
+          <form action="{{ url_for('broadcaster_create') }}" method="post">
+            <div class="mb-3">
+              <label for="twitch_channel" class="form-label">Select Twitch Channel:</label>
+              <select id="twitch_channel" name="twitch_channel" class="form-select" onchange="updateBroadcasterName()" required>
+                <option value="" disabled selected>-- Select a channel --</option>
+                {% if current_user.external_account_id %}
+                  <option value="{{ current_user.external_account_id }}|{{ current_user.name }}" {{ "disabled" if own_channel_type is none else ""}}>Your channel{{ ' is not partner/affiliate' if own_channel_type is none else ''}}: {{ current_user.name }}</option>
+                {% endif %}
+                
+                {% if moderated_channels %}
+                  <optgroup label="Channels you moderate:">
+                    {% for channel in moderated_channels %}
+                      <option value="{{ channel.broadcaster_id }}|{{ channel.broadcaster_name }}">{{ channel.broadcaster_name }}</option>
+                    {% endfor %}
+                  </optgroup>
+                {% endif %}
+              </select>
+              <div class="form-text">Select your own channel or a channel you moderate</div>
+            </div>
+
+            <div class="mb-3">
+              <label for="name" class="form-label">Broadcaster Name:</label>
+              <input type="text" id="name" name="name" class="form-control" 
+                     pattern="[A-Za-z0-9_!][A-Za-z0-9_! ]*" required 
+                     placeholder="Enter broadcaster name" 
+                     title="Only A-Z, numbers, spaces, _ and ! are allowed">
+              <div class="form-text">This name will be displayed throughout the application.</div>
+            </div>
+
+            <input type="hidden" id="channel_id" name="channel_id" value="">
+            <input type="hidden" id="channel_name" name="channel_name" value="">
+
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="hidden" checked name="hidden">
+              <label class="form-check-label" for="hidden">Hidden broadcaster (only visible to admins and mods)</label>
+              <div class="form-text">This can be changed later, but only by the Broadcaster</div>
+            </div>
+
+            <hr>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+              {% if messages %}
+                {% for category, message in messages %}
+                  <div class="alert alert-{{ category if category != 'message' else 'info' }}" role="alert">
+                    {{ message }}
+                  </div>
+                {% endfor %}
+              {% endif %}
+            {% endwith %}
+            <div class="mb-3 form-check">
+              <input type="checkbox" class="form-check-input" id="willbehave" name="willbehave" onchange="checkFormValidity()">
+              <label class="form-check-label" for="willbehave">I promise to behave and act kindly, the channel owner is aware of me doing this</label>
+            </div>
+            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+              <a href="{{ url_for('broadcasters') }}" class="btn btn-secondary me-md-2">Cancel</a>
+              <button type="submit" id="saveButton" class="btn btn-primary" disabled>Save Broadcaster</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+    
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5>Help & Tips</h5>
+        </div>
+        <div class="card-body">
+          <p>A Broadcaster can have multiple channels associated with it, both YouTube and Twitch.</p>
+          <ul>
+            <li>Twitch channels require partner/affiliate to be added</li>
+            <li>You have to own or be moderator of a channel to add it to a broadcaster</li>
+            <li>More options will become available after the broadcaster is created</li>
+          </ul>
+          <p>Adding a new broadcaster will allow you to:</p>
+          <ul>
+            <li>Allow VODs to be transcribed after livestreams and make them searchable</li>
+            <li>Set up bot to watch Twitch/Discord for clips to be added to clip queue</li>
+            <li>Manage settings and clip queue on behalf of the broadcaster</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function updateBroadcasterName() {
+    const channelSelect = document.getElementById('twitch_channel');
+    const nameInput = document.getElementById('name');
+    const channelIdInput = document.getElementById('channel_id');
+    const channelNameInput = document.getElementById('channel_name');
+    
+    if (channelSelect.value) {
+      const [channelId, channelName] = channelSelect.value.split('|');
+      nameInput.value = channelName;
+      channelIdInput.value = channelId;
+      channelNameInput.value = channelName;
+    }
+    
+    // Check form validity after updating broadcaster name
+    checkFormValidity();
+  }
+  
+  function checkFormValidity() {
+    const saveButton = document.getElementById('saveButton');
+    const willbehaveCheckbox = document.getElementById('willbehave');
+    const channelSelect = document.getElementById('twitch_channel');
+    
+    // Get the selected option
+    const selectedOption = channelSelect.options[channelSelect.selectedIndex];
+    
+    // Check if a valid option is selected (not the disabled default one)
+    const hasValidChannel = channelSelect.selectedIndex > 0 && !selectedOption.disabled;
+    
+    // Enable the save button only if the willbehave checkbox is checked
+    // and a valid channel is selected
+    if (willbehaveCheckbox.checked && hasValidChannel) {
+      saveButton.disabled = false;
+    } else {
+      saveButton.disabled = true;
+    }
+  }
+  
+  // Initialize form validation when the page loads
+  document.addEventListener('DOMContentLoaded', function() {
+    checkFormValidity();
+  });
+</script>
+{% endblock %}

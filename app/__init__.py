@@ -48,7 +48,13 @@ StorageManager.add_storage("thumbnails", thumbnail_container)
 
 @login_manager.user_loader
 def load_user(oauth_id: int):
-    return db.session.query(OAuth).filter_by(user_id=int(oauth_id)).one().user
+    try:
+        return db.session.query(OAuth).filter_by(user_id=int(oauth_id)).one().user
+    except NoResultFound:
+        logger.error(f"User not found for OAuth ID: {oauth_id}")
+        return None
+        
+        
 
 def create_app():
     init_storage()

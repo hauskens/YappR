@@ -126,13 +126,6 @@
             </div>
           </div>
           <div class="card-footer bg-transparent d-flex justify-content-end">
-            <div class="autoplay-toggle d-flex align-items-center gap-2 mb-3 me-3">
-              <label class="switch">
-                <input type="checkbox" id="autoplay-toggle">
-                <span class="slider"></span>
-              </label>
-              <span>Autoplay</span>
-            </div>
             <button class="btn btn-success" id="mark-watched-btn" data-bs-toggle="tooltip" title="Mark as watched and play next clip">Next</button>
           </div>
         </div>
@@ -263,7 +256,7 @@ socket.on('message', function(msg) {
   var player = null;
   var currentItem = null;
   var playerType = null; // 'youtube' or 'twitch'
-  var autoplayEnabled = true;
+  var autoplayEnabled = false;
   
   // Initialize autoplay toggle
   const autoplayToggle = document.getElementById('autoplay-toggle');
@@ -328,7 +321,7 @@ socket.on('message', function(msg) {
   }
   
   function isTwitchClipUrl(url) {
-    return url.includes('clips.twitch.tv/') || url.includes('twitch.tv/videos/');
+    return url.includes('clips.twitch.tv/') || url.includes('twitch.tv/videos/') || (url.includes('twitch.tv/') && url.includes('/clip/'));
   }
   
   function createYouTubePlayer(url) {
@@ -413,11 +406,20 @@ socket.on('message', function(msg) {
     var videoId = '';
     var timestamp = '';
     var embedUrl = '';
+    var hostname = window.location.hostname || 'localhost';
     
     if (url.includes('clips.twitch.tv/')) {
       // For clips format: https://clips.twitch.tv/ClipName
       clipId = url.split('clips.twitch.tv/')[1].split('?')[0];
-      embedUrl = `https://clips.twitch.tv/embed?clip=${clipId}&parent=${window.location.hostname}`;
+      embedUrl = `https://clips.twitch.tv/embed?clip=${clipId}&parent=${hostname}`;
+    } else if (url.includes('twitch.tv/') && url.includes('/clip/')) {
+      // For new clip format: https://www.twitch.tv/broadcaster/clip/ClipName
+      const parts = url.split('/');
+      const clipIndex = parts.indexOf('clip');
+      if (clipIndex !== -1 && clipIndex + 1 < parts.length) {
+        clipId = parts[clipIndex + 1].split('?')[0];
+        embedUrl = `https://clips.twitch.tv/embed?clip=${clipId}&parent=${hostname}&preload=auto&muted=false`;
+      }
     } else if (url.includes('twitch.tv/videos/')) {
       // For videos format: https://www.twitch.tv/videos/123456789?t=1h2m3s
       videoId = url.split('twitch.tv/videos/')[1].split('?')[0];
@@ -427,7 +429,7 @@ socket.on('message', function(msg) {
         timestamp = url.split('?t=')[1];
       }
       
-      embedUrl = `https://player.twitch.tv/?video=${videoId}&parent=${window.location.hostname}`;
+      embedUrl = `https://player.twitch.tv/?video=${videoId}&parent=${hostname}`;
       if (timestamp) {
         embedUrl += `&time=${timestamp}`;
       }
@@ -435,7 +437,7 @@ socket.on('message', function(msg) {
     
     // Create iframe for Twitch
     document.getElementById('player-container').innerHTML = 
-      `<iframe src="${embedUrl}" allowfullscreen="true" autoplay="true"></iframe>`;
+      `<iframe src="${embedUrl}" allowfullscreen height="100%" width="100%"></iframe>`;
     
     // Reset YouTube player if it exists
     if (player && playerType === 'youtube') {

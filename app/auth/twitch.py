@@ -1,5 +1,4 @@
 
-import logging
 from flask_dance.contrib.twitch import make_twitch_blueprint # type: ignore
 from flask_dance.consumer.storage.sqla import SQLAlchemyStorage # type: ignore
 from flask_dance.consumer import oauth_authorized # type: ignore
@@ -9,8 +8,7 @@ from ..models.config import config
 from sqlalchemy.exc import NoResultFound
 from datetime import timedelta, datetime
 from twitchAPI.twitch import Twitch, AuthScope
-
-logger = logging.getLogger("custom_logger")
+from app.logger import logger
 
 blueprint = make_twitch_blueprint(
     client_id=config.twitch_client_id,

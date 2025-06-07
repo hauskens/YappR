@@ -1,12 +1,10 @@
 """
 Twitch API client
 """
-import logging
 import asyncio
 from twitchAPI.twitch import Twitch, AuthScope
 from .models.config import config
-
-logger = logging.getLogger("custom_logger")
+from app.logger import logger
 
 class TwitchApiClient:
     """Twitch API client wrapper"""

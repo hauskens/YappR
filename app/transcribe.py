@@ -1,19 +1,16 @@
-import logging
 import json
 from .models.config import config
-
-
-logger = logging.getLogger("custom_logger")
+from app.logger import logger
 
 
 def transcribe(path: str) -> str:
     import whisperx
-    logger.info(f"Got path: {path}")
     device = config.transcription_device  # cuda
     batch_size = config.transcription_batch_size  # reduce if low on GPU mem
     compute_type = config.transcription_compute_type
     load_model = config.transcription_model
 
+    logger.info("Got path: %s, starting to transcribe with model %s, device %s, compute type %s, batch size %s", path, load_model, device, compute_type, batch_size)
     model_dir = f"{config.cache_location}/models/"
     model = whisperx.load_model(
         load_model,

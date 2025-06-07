@@ -1,4 +1,4 @@
-import logging
+from app.logger import logger
 from flask import (
     send_from_directory,
     render_template,
@@ -19,8 +19,6 @@ import mimetypes
 from . import app, limiter, rate_limit_exempt
 from datetime import datetime
 from .models.config import config
-from app import twitch_client
-from app.twitch_api import create_clip
 from .retrievers import (
     get_users,
     get_broadcaster,
@@ -67,8 +65,6 @@ from .search import search_v2
 from .utils import get_valid_date
 import asyncio
 
-logger = logging.getLogger("custom_logger")
-
 
 def check_banned():
     if current_user.is_anonymous == False and current_user.banned == True:
@@ -82,7 +78,7 @@ def index():
     if check_banned():
         return render_template("banned.html", user=current_user)
     broadcasters = get_broadcasters()
-    logger.info("Loaded search.html")
+    logger.info("Loaded frontpage")
     return render_template("search.html", broadcasters=broadcasters)
 
 
@@ -93,6 +89,7 @@ def login():
 @app.route("/admin")
 @limiter.shared_limit("10000 per hour", exempt_when=rate_limit_exempt, scope="images")
 def access_denied():
+    logger.warning("Access denied")
     return send_from_directory("static", "401.jpg")
 
 @app.route("/logout")
@@ -118,9 +115,9 @@ def users():
 @app.route("/management")
 @login_required
 def management():
+    logger.info("Loaded management.html")
     if check_banned():
         return render_template("banned.html", user=current_user)
-    logger.info("Loaded management.html")
     moderated_channels = get_moderated_channels(current_user.id)
     bots = None
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
@@ -137,11 +134,11 @@ def management():
     
     broadcaster_id = request.args.get('broadcaster_id', type=int)
     if broadcaster_id is None and current_user.is_broadcaster():
-        logger.info(f"User {current_user.id} is accessing management without broadcaster_id, using broadcaster_id {current_user.get_broadcaster().id}")
+
         broadcaster_id = current_user.get_broadcaster().id
     
     queue_items = get_content_queue(broadcaster_id, include_skipped=True, include_watched=True)
-    logger.info(f"User {current_user.id} is accessing management with broadcaster_id {broadcaster_id}, queue_items: {queue_items}")
+    logger.info(f"User is accessing management page", extra={"broadcaster_id": broadcaster_id, "queue_items": len(queue_items)})
     return render_template(
         "management.html", bots=bots, broadcasters=broadcasters, selected_broadcaster_id=broadcaster_id, queue_items=queue_items
     )
@@ -169,13 +166,13 @@ def user_edit(user_id: int):
                 user.broadcaster_id = broadcaster_id
                 db.session.commit()
                 logger.info(
-                    f"User {user.id}, changing broadcaster_id to: '{broadcaster_id}'"
+                    f"Changing broadcaster_id to: %s", broadcaster_id
                 )
                 return redirect(request.referrer)
             except:
                 user.broadcaster_id = None
                 db.session.commit()
-                logger.info(f"User {user.id}, changing broadcaster_id to: None")
+                logger.info("Changing broadcaster_id to: None")
                 return redirect(request.referrer)
 
     else:
@@ -188,7 +185,7 @@ def user_edit(user_id: int):
 def grant_permission(user_id: int, permission_name: str):
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         logger.info(
-            f"User {current_user.id} is granting '{permission_name}' to {user_id}"
+            "Granting '%s' to %s", permission_name, user_id
         )
 
         user = get_user_by_id(user_id)
@@ -243,7 +240,7 @@ def search_word():
         for channel in broadcaster.channels
         if channel.platform.name.lower() == channel_type or channel_type == "all"
     ]
-    logger.info(f"channels: {len(channels)}")
+    logger.info("channels: %s", len(channels))
     video_result = search_v2(search_term, channels, start_date, end_date)
     return render_template(
         "result.html",
@@ -321,19 +318,20 @@ def platforms():
 @app.route("/broadcaster/delete/<int:broadcaster_id>", methods=["GET"])
 @login_required
 def broadcaster_delete(broadcaster_id: int):
-    logger.info(f"User {current_user.id} - {current_user.name} is attempting to delete broadcaster {broadcaster_id}")
+    logger.warning("Attempting to delete broadcaster %s", broadcaster_id)
     if check_banned():
         return render_template("banned.html", user=current_user)
     if current_user.is_anonymous == True:
         flash("You don't have permission to delete broadcasters", "danger")
+        logger.error("Anonymous user is denied deleting broadcaster %s", broadcaster_id)
         return redirect(url_for("broadcasters"))
     if current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster_id) or current_user.is_moderator(broadcaster_id):
         broadcaster = get_broadcaster(broadcaster_id)
-        logger.info(f"User {current_user.id} - {current_user.name} is deleting broadcaster {broadcaster_id} - {broadcaster.name}")
+        logger.info("Deleting broadcaster %s", broadcaster_id)
         broadcaster.delete()
         return redirect(url_for("broadcasters"))
     else:
-        logger.error(f"User {current_user.id} - {current_user.name} is denied deleting broadcaster {broadcaster_id}")
+        logger.error("Access denied deleting broadcaster %s", broadcaster_id)
         return access_denied()
 
 
@@ -344,6 +342,7 @@ def broadcaster_create():
         return render_template("banned.html", user=current_user)
     if current_user.is_anonymous == True:
         flash("You don't have permission to add broadcasters", "danger")
+        logger.error("Anonymous user is denied adding broadcaster")
         return redirect(url_for("broadcasters"))
     if request.method == "GET":
         logger.info("Loaded broadcaster_add.html")
@@ -357,19 +356,22 @@ def broadcaster_create():
             twitch_channel = request.form.get("twitch_channel", "")
             willbehave = "willbehave" in request.form
         
-            logger.info(f"Creating broadcaster: {name}")
+            logger.info("Creating new broadcaster: %s for twitch channel: %s", name, twitch_channel)
             if not willbehave:
                 flash("You must agree to the terms", "danger")
+                logger.warning("Denied adding broadcaster %s - user did not agree to terms", name)
                 return render_template("broadcaster_add.html", form=request.form)
             
             if not twitch_channel:
                 flash("You must select a Twitch channel", "danger")
+                logger.warning("Denied adding broadcaster %s - no twitch channel selected", name)
                 return render_template("broadcaster_add.html", form=request.form)
             
             existing_broadcasters = get_broadcasters()
             for broadcaster in existing_broadcasters:
                 if broadcaster.name.lower() == name.lower():
                     flash("This broadcaster already exists", "error")
+                    logger.warning("Adding broadcaster %s failed - broadcaster already exists", name)
                     return render_template(
                         "broadcaster_add.html",
                         form=request.form
@@ -403,11 +405,11 @@ def broadcaster_create():
                 )
             db.session.commit()
             flash(f"Broadcaster '{name}' was successfully created", "success")
-            logger.info(f"Broadcaster '{name}' was successfully created")
+            logger.info("Broadcaster %s was successfully created", name, extra={"broadcaster_id": new_broadcaster.id})
             return redirect(url_for("broadcaster_edit", id=new_broadcaster.id))
         except Exception as e:
             flash(f"Failed to create broadcaster", "danger")
-            logger.error(f"Failed to create broadcaster: {e}")
+            logger.error("Failed to create broadcaster %s: %s", name, e)
             return redirect(url_for("broadcaster_add"))
 
 
@@ -415,6 +417,7 @@ def broadcaster_create():
 @login_required
 def broadcaster_edit(id: int):
     broadcaster = get_broadcaster(id)
+    logger.info("Loaded broadcaster_edit.html", extra={"broadcaster_id": broadcaster.id})
     return render_template(
         "broadcaster_edit.html",
         broadcaster=broadcaster,
@@ -424,25 +427,25 @@ def broadcaster_edit(id: int):
     )
 
 
-@app.route("/platform/create", methods=["POST"])
-@login_required
-def platform_create():
-    name = request.form["name"]
-    url = request.form["url"]
-    existing_platforms = get_platforms()
-    if existing_platforms is not None:
-        for platform in existing_platforms:
-            if platform.name.lower() == name.lower():
-                flash("This platform already exists", "error")
-                return render_template(
-                    "platforms.html",
-                    form=request.form,
-                    broadcasters=existing_platforms,
-                )
-    abt = Platforms(name=name, url=url)
-    db.session.add(abt)
-    db.session.commit()
-    return redirect(url_for("platforms"))
+# @app.route("/platform/create", methods=["POST"])
+# @login_required
+# def platform_create():
+#     name = request.form["name"]
+#     url = request.form["url"]
+#     existing_platforms = get_platforms()
+#     if existing_platforms is not None:
+#         for platform in existing_platforms:
+#             if platform.name.lower() == name.lower():
+#                 flash("This platform already exists", "error")
+#                 return render_template(
+#                     "platforms.html",
+#                     form=request.form,
+#                     broadcasters=existing_platforms,
+#                 )
+#     abt = Platforms(name=name, url=url)
+#     db.session.add(abt)
+#     db.session.commit()
+#     return redirect(url_for("platforms"))
 
 
 @app.route("/channel/create", methods=["POST"])
@@ -453,16 +456,17 @@ def channel_create():
     platform_id = int(request.form["platform_id"])
     platform_ref = request.form["platform_ref"]
     channel_type = request.form["channel_type"]
-    db.session.add(
-        Channels(
-            name=name,
-            broadcaster_id=broadcaster_id,
-            platform_id=platform_id,
-            platform_ref=platform_ref,
-            main_video_type=channel_type,
-        )
+    logger.info("Creating new channel: %s for broadcaster: %s", name, broadcaster_id, extra={"broadcaster_id": broadcaster_id})
+    new_channel = Channels(
+        name=name,
+        broadcaster_id=broadcaster_id,
+        platform_id=platform_id,
+        platform_ref=platform_ref,
+        main_video_type=channel_type,
     )
+    db.session.add(new_channel)
     db.session.commit()
+    logger.info("Channel %s was successfully created", name, extra={"channel_id": new_channel.id, "broadcaster_id": broadcaster_id})
     return render_template(
         "broadcaster_edit.html",
         broadcaster=broadcaster_id,
@@ -479,6 +483,7 @@ def channel_link(channel_id: int):
         link_channel_id = int(request.form["link_channel_id"])
     except:
         link_channel_id = None
+    logger.info("Linking channel to %s", link_channel_id, extra={"channel_id": channel_id})
     _ = get_channel(channel_id).link_to_channel(link_channel_id)
     return redirect(request.referrer)
 
@@ -487,6 +492,7 @@ def channel_link(channel_id: int):
 @login_required
 def channel_look_for_linked(channel_id: int):
     channel = get_channel(channel_id)
+    logger.info("Looking for linked videos for channel", extra={"channel_id": channel_id})
     # channel.look_for_linked_videos()
     channel.update_thumbnail()
     return redirect(request.referrer)
@@ -495,6 +501,7 @@ def channel_look_for_linked(channel_id: int):
 @app.route("/channel/<int:channel_id>/delete")
 @login_required
 def channel_delete(channel_id: int):
+    logger.warning("Deleting channel", extra={"channel_id": channel_id})
     channel = get_channel(channel_id)
     channel.delete()
     return "ok"
@@ -503,6 +510,7 @@ def channel_delete(channel_id: int):
 @app.route("/channel/<int:channel_id>/videos")
 @login_required
 def channel_get_videos(channel_id: int):
+    logger.info("Getting videos for channel", extra={"channel_id": channel_id})
     channel = get_channel(channel_id)
     return render_template(
         "channel_edit.html",
@@ -518,6 +526,7 @@ def channel_get_videos(channel_id: int):
 @app.route("/channel/<int:channel_id>/fetch_details")
 @login_required
 def channel_fetch_details(channel_id: int):
+    logger.info("Fetching details for channel", extra={"channel_id": channel_id})
     channel = get_channel(channel_id)
     channel.update()
     return render_template(
@@ -532,23 +541,23 @@ def channel_fetch_details(channel_id: int):
 @app.route("/channel/<int:channel_id>/fetch_videos")
 @login_required
 def channel_fetch_videos(channel_id: int):
+    logger.info("Fetching videos for channel", extra={"channel_id": channel_id})
     channel = get_channel(channel_id)
-    logger.info(f"Fetching videos for {channel.name}")
     channel.fetch_latest_videos()
     return redirect(request.referrer)
 
 @app.route("/channel/<int:channel_id>/fetch_videos_all")
 @login_required
 def channel_fetch_videos_all(channel_id: int):
+    logger.info("Fetching all videos for channel", extra={"channel_id": channel_id})
     channel = get_channel(channel_id)
-    logger.info(f"Fetching videos for {channel.name}")
     channel.fetch_videos_all()
     return redirect(request.referrer)
 
 @app.route("/video/<int:video_id>/fecth_details")
 @login_required
 def video_fetch_details(video_id: int):
-    logger.info(f"Fetching details for {video_id}")
+    logger.info("Fetching details for video", extra={"video_id": video_id})
     video = get_video(video_id)
     video.fetch_details()
     return redirect(request.referrer)
@@ -557,7 +566,7 @@ def video_fetch_details(video_id: int):
 @app.route("/video/<int:video_id>/fetch_transcriptions")
 @login_required
 def video_fetch_transcriptions(video_id: int):
-    logger.info(f"Fetching transcriptions for {video_id}")
+    logger.info("Fetching transcriptions for video", extra={"video_id": video_id})
     video = get_video(video_id)
     video.download_transcription(force=True)
     return redirect(request.referrer)
@@ -566,7 +575,7 @@ def video_fetch_transcriptions(video_id: int):
 @app.route("/video/<int:video_id>/archive")
 @login_required
 def video_archive(video_id: int):
-    logger.info(f"Archiving video {video_id}")
+    logger.info("Archiving video", extra={"video_id": video_id})
     video = get_video(video_id)
     video.archive()
     return redirect(request.referrer)
@@ -575,7 +584,7 @@ def video_archive(video_id: int):
 @login_required
 def video_delete(video_id: int):
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
-        logger.info(f"Deleting video {video_id}")
+        logger.warning("Deleting video", extra={"video_id": video_id})
         video = get_video(video_id)
         channel_id = video.channel_id
         video.delete()
@@ -598,6 +607,7 @@ def video_edit(video_id: int):
 @app.route("/video/<int:video_id>/parse_transcriptions")
 @login_required
 def video_parse_transcriptions(video_id: int):
+    logger.info("Requesting transcriptions to be parsed", extra={"video_id": video_id})
     video = get_video(video_id)
     video.process_transcriptions(force=True)
     return redirect(request.referrer)
@@ -619,14 +629,14 @@ def download_transcription(transcription_id: int):
 def clip_queue():
     if check_banned():
         return render_template("banned.html", user=current_user)
-    
+    logger.info("Loading clip queue")
     try:
-        logger.info(f"Loading clip queue for {current_user.external_account_id}")
+        logger.info("Loading clip queue")
         broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
         if broadcaster is None:
             return "No broadcaster found, you need to link a broadcaster to your account, and this is not properly implemented, contact admin"
-        logger.info(f"Found broadcaster {broadcaster.id}")
         queue_items = get_content_queue(broadcaster.id)
+        logger.info("Successfully loaded clip queue", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items)})
         from datetime import datetime
         return render_template(
             "clip_queue.html",
@@ -635,7 +645,7 @@ def clip_queue():
             now=datetime.now(),
         )
     except Exception as e:
-        logger.error(f"Error loading clip queue: {e}")
+        logger.error("Error loading clip queue %s", e)
         return "You do not have access", 403
 
 
@@ -651,9 +661,11 @@ def mark_clip_watched(item_id: int):
         queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
         if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(queue_item.broadcaster_id or current_user.is_moderator(queue_item.broadcaster_id))):
             if queue_item.watched:
+                logger.info("Unmarking clip as watched", extra={"queue_item_id": queue_item.id})
                 queue_item.watched = False
                 queue_item.watched_at = None
             else:
+                logger.info("Marking clip as watched", extra={"queue_item_id": queue_item.id})
                 queue_item.watched = True
                 queue_item.watched_at = datetime.now()
             db.session.commit()
@@ -662,7 +674,7 @@ def mark_clip_watched(item_id: int):
             flash("You do not have access to this clip", "error")
             return access_denied()
     except Exception as e:
-        logger.error(f"Error marking clip as watched: {e}")
+        logger.error("Error marking clip %s as watched %s", item_id, e)
         db.session.rollback()
         flash("Error marking clip as watched", "error")
         return redirect(request.referrer)
@@ -681,15 +693,17 @@ def skip_clip_queue_item(item_id: int):
     
         if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(queue_item.broadcaster_id or current_user.is_moderator(queue_item.broadcaster_id))):
             if queue_item.skipped:
+                logger.info("Unskipping clip", extra={"queue_item_id": queue_item.id})
                 queue_item.skipped = False
             else:
+                logger.info("Skipping clip", extra={"queue_item_id": queue_item.id})
                 queue_item.skipped = True
             db.session.commit()
             return jsonify({"skipped": queue_item.skipped})
         else:
             return access_denied()
     except Exception as e:
-        logger.error(f"Error updating skip status for item {item_id}: {e}")
+        logger.error("Error updating skip status for item %s: %s", item_id, e)
         db.session.rollback()
         flash("Error updating skip status", "error")
         return redirect(request.referrer)
@@ -699,7 +713,9 @@ def skip_clip_queue_item(item_id: int):
 @login_required
 def broadcaster_create_clip(broadcaster_id: int):
     # Check if user has permission to modify this broadcaster
+    logger.info("Attempting to create clip for broadcaster", extra={"broadcaster_id": broadcaster_id})
     if current_user.is_anonymous or not (current_user.broadcaster_id == broadcaster_id or current_user.has_permission(["admin"])):
+        logger.error("User does not have permission to create clip for broadcaster", extra={"broadcaster_id": broadcaster_id})
         return "You do not have permission to modify this broadcaster", 403
     
     # Add clip creation task to Redis queue
@@ -707,11 +723,11 @@ def broadcaster_create_clip(broadcaster_id: int):
     task_id = redis_task_queue.enqueue_clip_creation(str(broadcaster_id))
     
     if task_id:
-        flash(f"Clip creation task queued successfully")
-        logger.info(f"Clip creation task {task_id} queued for broadcaster {broadcaster_id}")
+        flash("Clip creation task queued successfully")
+        logger.info("Clip creation task %s queued for broadcaster", task_id, extra={"broadcaster_id": broadcaster_id})
     else:
         flash("Failed to queue clip creation task", "error")
-        logger.error(f"Failed to queue clip creation task for broadcaster {broadcaster_id}")
+        logger.error("Failed to queue clip creation task for broadcaster", extra={"broadcaster_id": broadcaster_id})
     
     return redirect(request.referrer)
 
@@ -722,27 +738,32 @@ def purge_transcription(transcription_id: int):
     if current_user.is_anonymous == False and current_user.has_permission(
         PermissionType.Admin
     ):
+        logger.info("Purging transcription", extra={"transcription_id": transcription_id})
         transcription = get_transcription(transcription_id)
         transcription.reset()
         return redirect(request.referrer)
     else:
+        logger.error("User does not have permission to purge transcription", extra={"transcription_id": transcription_id})
         return access_denied()
 
 @app.route("/transcription/<int:transcription_id>/delete")
 @login_required
 def delete_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
-    transcription.delete()
-    db.session.commit()
-    return redirect(request.referrer)
+    if current_user.is_anonymous == False and (current_user.has_permission([PermissionType.Admin, PermissionType.Mod]) or current_user.has_broadcaster_id(transcription.video.channel.broadcaster_id)):
+        logger.info("Deleting transcription", extra={"transcription_id": transcription_id, "video_id": transcription.video_id})
+        transcription.delete()
+        db.session.commit()
+        return redirect(request.referrer)
+    else:
+        logger.error("User does not have permission to delete transcription", extra={"transcription_id": transcription_id, "video_id": transcription.video_id})
+        return access_denied()
 
 @app.route("/channel/<int:channel_id>/settings/update", methods=["POST"])
 @login_required
 def channel_settings_update(channel_id: int):
-    channel = get_channel(channel_id)
-    
     # Check if user has permission to modify this channel
-    if current_user.is_anonymous or not (current_user.is_broadcaster() or current_user.is_moderator() or current_user.has_permission(["admin"])):
+    if current_user.is_anonymous or not (current_user.is_broadcaster() or current_user.is_moderator() or current_user.has_permission([PermissionType.Admin])):
         return "You do not have permission to modify this channel", 403
     
     # Get or create channel settings
@@ -755,6 +776,7 @@ def channel_settings_update(channel_id: int):
     content_queue_enabled = 'content_queue_enabled' in request.form
     chat_collection_enabled = 'chat_collection_enabled' in request.form
     
+    logger.info("Updating channel settings, content queue enabled: %s, chat collection enabled: %s", content_queue_enabled, chat_collection_enabled, extra={"channel_id": channel_id})
     # If content queue is enabled, chat collection must also be enabled
     if content_queue_enabled:
         chat_collection_enabled = True
@@ -784,11 +806,13 @@ def broadcaster_settings_update(broadcaster_id: int):
     discord_channel_id = request.form.get('discord_channel_id')
     settings.linked_discord_channel_id = int(discord_channel_id) if discord_channel_id else None
     
+    logger.info("Updating broadcaster settings, linked discord channel id: %s", discord_channel_id, extra={"broadcaster_id": broadcaster_id})
     # Update broadcaster hidden status (admin only)
     if (current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster_id)) and request.form.get('hidden'):
         broadcaster = db.session.query(Broadcaster).filter_by(id=broadcaster_id).first()
         if broadcaster:
             broadcaster.hidden = 'hidden' in request.form
+            logger.info("Updating broadcaster hidden status, hidden: %s", 'hidden' in request.form, extra={"broadcaster_id": broadcaster_id})
     
     db.session.commit()
     flash('Broadcaster settings updated successfully')

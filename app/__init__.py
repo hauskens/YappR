@@ -1,6 +1,4 @@
-import logging
-import os
-from flask import Flask
+from flask import Flask, request, has_request_context, g
 from flask_bootstrap import Bootstrap5
 from flask_login import LoginManager, current_user, login_user
 from flask_dance.consumer import oauth_authorized
@@ -10,6 +8,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from datetime import timedelta
+from uuid import uuid4
 from .models.config import config
 from .models.db import db, OAuth, Users, AccountSource
 from sqlalchemy_file.storage import StorageManager
@@ -20,24 +19,8 @@ from .auth import discord_blueprint, twitch_blueprint, twitch_blueprint_bot
 from .redis_client import RedisTaskQueue
 from flask_cors import CORS, cross_origin
 from flask_socketio import SocketIO, emit, send
-from loki_logger_handler.loki_logger_handler import LokiLoggerHandler
+from app.logger import logger
 
-
-
-logger = logging.getLogger("custom_logger")
-logger.setLevel(config.log_level)
-
-# Add Loki handler if Loki URL is provided
-if config.loki_url:
-    custom_handler = LokiLoggerHandler(
-        url=config.loki_url,
-        labels={"application": "yappr", "environment": config.environment, "service": config.service_name, "version": os.getenv("VERSION", "unknown")},
-        label_keys={},
-        enable_structured_loki_metadata=True,
-        timeout=10,
-    )
-    logger.addHandler(custom_handler)
-    
 socketio = SocketIO()
 def init_storage(container: str = "transcriptions"):
     makedirs(
@@ -66,12 +49,13 @@ def load_user(oauth_id: int):
     try:
         return db.session.query(OAuth).filter_by(user_id=int(oauth_id)).one().user
     except NoResultFound:
-        logger.error(f"User not found for OAuth ID: {oauth_id}")
+        logger.error("User not found for OAuth ID: %s", oauth_id)
         return None
 
         
 
 def create_app():
+    logger.info("Creating app")
     init_storage()
     app = Flask(__name__)
     app.secret_key = config.app_secret
@@ -89,6 +73,19 @@ def create_app():
     environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     if config.debug:
         environ["OAUTHLIB_INSECURE_TRANSPORT"] = "true"
+        
+    # Set up request ID tracking
+    @app.before_request
+    def before_request():
+        g.request_id = request.headers.get("X-Request-Id", str(uuid4()))
+        
+    # Add request ID to response headers
+    @app.after_request
+    def after_request(response):
+        if hasattr(g, 'request_id'):
+            response.headers.set("X-Request-Id", g.request_id)
+        return response
+    
     db.init_app(app)
     login_manager.init_app(app)
     bootstrap.init_app(app)

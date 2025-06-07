@@ -1,7 +1,7 @@
 from datetime import datetime
 from collections.abc import Sequence
 from sqlalchemy import select
-import logging
+from app.logger import logger
 from .models.db import (
     Segments,
     Video,
@@ -15,8 +15,6 @@ from .retrievers import (
     get_segment_by_id,
 )
 from .utils import sanitize_sentence, loosely_sanitize_sentence
-
-logger = logging.getLogger("custom_logger")
 
 
 def search_words_present_in_sentence(
@@ -54,13 +52,11 @@ def search_v2(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
 ) -> list[VideoResult]:
-
-    # video_result: set[Video] = set()
     video_result: list[VideoResult] = []
     segment_result: list[SegmentsResult] = []
     transcriptions = None
     strict_search = search_term.startswith('"') and search_term.endswith('"')
-    logger.info(f"strict search: {strict_search}")
+    logger.info("strict search status: %s", strict_search)
 
     # If dates are found, limit the transcriptions based on dates
     if start_date is None and end_date is None:
@@ -100,7 +96,7 @@ def search_v2(
     if len(search_words) == 0:
         raise ValueError("Search was too short and didnt have any useful words")
 
-    logger.debug(f"Found matches: {len(search_result)}")
+    logger.info("Found matches: %s", len(search_result))
     for segment in search_result:
         # sanitize the users search query with the same function used to sanitize db
         current_sentence: list[str] = (

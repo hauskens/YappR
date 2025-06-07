@@ -1,5 +1,3 @@
-import logging
-import re
 import requests
 from .models.config import config
 from googleapiclient.discovery import build
@@ -14,9 +12,7 @@ from .models.youtube.playlist import PlaylistResourceResponse
 from .models.youtube.search import SearchResourceResponse, SearchResultItem
 from .models.youtube.video import VideoResourceResponse, VideoDetails
 from .models.youtube.captions import CaptionResourceResponse
-
-logger = logging.getLogger("custom_logger")
-
+from app.logger import logger
 
 youtube = (
     build("youtube", "v3", developerKey=config.youtube_api_key)
@@ -37,6 +33,7 @@ ytt_api = YouTubeTranscriptApi(
 
 
 def get_youtube_channel_details(channel_tag: str) -> ChannelItem:
+    logger.info("get_youtube_channel_details: Fetching channel details for tag: %s", channel_tag)
     request = (
         youtube.channels().list(part="id,snippet", forHandle=channel_tag).execute()
     )
@@ -48,6 +45,7 @@ def get_youtube_channel_details(channel_tag: str) -> ChannelItem:
 
 
 def get_youtube_playlist_details(channel_id: str) -> PlaylistResourceResponse:
+    logger.info("get_youtube_playlist_details: Fetching playlist details for channel: %s", channel_id)
     request = (
         youtube.playlists()
         .list(part="snippet,contentDetails", channelId=channel_id, maxResults=25)
@@ -60,6 +58,7 @@ def get_youtube_playlist_details(channel_id: str) -> PlaylistResourceResponse:
 def get_videos_on_channel(
     channel_id: str, next_page_token: str | None = None, max_results: int = 5
 ) -> SearchResourceResponse:
+    logger.info("get_videos_on_channel: Fetching videos on channel: %s", channel_id)
     if next_page_token is None:
         request = (
             youtube.search()
@@ -92,6 +91,7 @@ def get_videos_on_channel(
 
 
 def get_all_videos_on_channel(channel_id: str) -> list[SearchResultItem]:
+    logger.info("get_all_videos_on_channel: Fetching all videos on channel: %s", channel_id)
     next_page_token: str | None = None
     all_videos: list[SearchResultItem] = []
     max_requests = 50  # This is equals to 2500 videos on a channel, which is most likely never the case
@@ -112,11 +112,11 @@ def get_all_videos_on_channel(channel_id: str) -> list[SearchResultItem]:
 
 
 def get_videos(video_ids: list[str]) -> list[VideoDetails]:
-    logger.debug(f"get_videos: Fetching videos for ids: {",".join(video_ids)}")
+    logger.info("get_videos: Fetching videos for ids: %s", ",".join(video_ids))
     all_videos: list[VideoDetails] = []
     for i in range(0, len(video_ids), 50):
         chunk = video_ids[i:i + 50]
-        logger.debug(f"Fetching chunk: {chunk}")
+        logger.debug("Fetching chunk: %s", chunk)
         request = (
             youtube.videos()
             .list(part="snippet,contentDetails", id=",".join(chunk), maxResults=50)
@@ -129,15 +129,14 @@ def get_videos(video_ids: list[str]) -> list[VideoDetails]:
 
 
 def get_captions(video_id: str) -> CaptionResourceResponse:
+    logger.info("get_captions: Fetching captions for video: %s", video_id)
     request = youtube.captions().list(part="snippet", videoId=video_id).execute()
     caption = CaptionResourceResponse.model_validate(request)
     return caption
 
 
 def fetch_transcription(video_id: str) -> FetchedTranscript:
-    logger.info(
-        f"fetch_transcription: trying to fetch transcription for video {video_id}"
-    )
+    logger.info("fetch_transcription: trying to fetch transcription for video %s", video_id)
     try:
         return ytt_api.fetch(video_id)
     except NoTranscriptFound:
@@ -149,9 +148,7 @@ def fetch_transcription(video_id: str) -> FetchedTranscript:
         try:
             return transcript.translate("en").fetch()
         except Exception as e:
-            logger.error(
-                f"Failed to fetch transcription for video {video_id} , exception: {e}"
-            )
+            logger.error("Failed to fetch transcription for video %s , exception: %s", video_id, e)
             raise ValueError("Failed to fetch transcript")
 
 
@@ -163,6 +160,7 @@ def get_youtube_thumbnail_url(url: str, quality: str = "hqdefault") -> str:
                      Options: 'default', 'mqdefault', 'hqdefault', 'sddefault', 'maxresdefault'
     :return: Thumbnail URL or None if invalid
     """
+    logger.info("get_youtube_thumbnail_url: Fetching thumbnail for url: %s", url)
     video_id = get_youtube_video_id(url)
     try:
         if not video_id:
@@ -173,10 +171,11 @@ def get_youtube_thumbnail_url(url: str, quality: str = "hqdefault") -> str:
         logger.error(f"Failed to get thumbnail for url: {url}, exception: {e}")
         raise ValueError(f"Failed to get thumbnail for url: {url}, exception: {e}")
 
-def get_youtube_video_id_from_clip(url: str) -> str:
+def get_youtube_video_id_from_clip(url: str) -> str | None:
     """
     Extracts the YouTube video ID from a given URL.
     """
+    logger.info("get_youtube_video_id_from_clip: Fetching video ID from clip url: %s", url)
     response = requests.get(url)
     partsA = response.text.split('video_id=')
     if len(partsA) >= 2:
@@ -203,6 +202,7 @@ def get_youtube_video_id(url: str) -> str:
     :param url: YouTube video URL
     :return: Video ID or None if not found
     """
+    logger.info("get_youtube_video_id: Fetching video ID from url: %s", url)
     try:
         parsed = urlparse(url)
         hostname = parsed.netloc

@@ -1,6 +1,5 @@
 # originally inspired by https://github.com/lawrencehook/SqueexVodSearch/blob/main/preprocessing/scripts/parse.py
 
-import logging
 import re
 import os
 import requests
@@ -11,6 +10,7 @@ from twitchAPI.twitch import Video
 from typing import Callable, Any, TypeVar, cast
 from functools import wraps
 from flask import request, abort
+from app.logger import logger
 
 if os.getenv("NLTK_ENABLED", "true") == "true":
     import nltk
@@ -24,7 +24,6 @@ if os.getenv("NLTK_ENABLED", "true") == "true":
 
     sw = stopwords.words("english")
     ps = PorterStemmer()
-logger = logging.getLogger("custom_logger")
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -72,8 +71,11 @@ def save_yt_thumbnail(video: VideoDetails, force: bool = False) -> str:
     thumbnail = video.snippet.thumbnails.get("high")
     if thumbnail is None:
         thumbnail = video.snippet.thumbnails.get("default")
-    if thumbnail is not None or force:
-        logger.debug(f"Fetching thumbnail, {thumbnail.url}")
+    if thumbnail is None:
+        logger.error("No thumbnail available for video %s", video.id)
+        raise ValueError(f"No thumbnail available for video {video.id}")
+    if hasattr(thumbnail, "url"):
+        logger.info("Fetching thumbnail, %s", thumbnail.url)
         if not os.path.exists(path):
             response = requests.get(thumbnail.url)
             if response.status_code == 200:
@@ -90,7 +92,7 @@ def save_twitch_thumbnail(video: Video, force: bool = False) -> str:
     thumbnail_url = thumbnail.replace("%{width}", str(320)).replace(
         "%{height}", str(180)
     )
-    logger.debug(f"Fetching thumbnail, {thumbnail_url}")
+    logger.debug("Fetching thumbnail, %s", thumbnail_url)
     if not os.path.exists(path) or force:
         response = requests.get(thumbnail_url)
         if response.status_code == 200:
@@ -106,4 +108,4 @@ def get_valid_date(date_string: str) -> datetime | None:
         return date
     except ValueError:
         logger.warning(f"didnt match date on {date_string}")
-        return
+        return None

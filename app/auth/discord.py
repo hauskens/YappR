@@ -1,4 +1,3 @@
-import logging
 from flask_dance.contrib.discord import make_discord_blueprint # type: ignore
 from flask_dance.consumer.storage.sqla import SQLAlchemyStorage # type: ignore
 from flask_dance.consumer import oauth_authorized # type: ignore
@@ -7,8 +6,7 @@ from ..models.db import db, OAuth, Users, AccountSource
 from ..models.config import config
 from sqlalchemy.exc import NoResultFound
 from datetime import timedelta
-
-logger = logging.getLogger("custom_logger")
+from app.logger import logger
 
 blueprint = make_discord_blueprint(
     client_id=config.discord_client_id,

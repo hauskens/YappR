@@ -2,27 +2,31 @@ import yt_dlp
 from yt_dlp.utils import download_range_func
 import glob
 from .models.yt import VideoData, Thumbnail
-import logging
 import os
 from .models.config import config
 from datetime import datetime
+from app.logger import logger
 
 
-logger = logging.getLogger("custom_logger")
 storage_directory = os.path.abspath(config.cache_location)
 
 
-def get_largest_thumbnail(video: VideoData) -> Thumbnail | None:
+def get_largest_thumbnail(video: VideoData) -> Thumbnail:
     if video.thumbnails:
         if len(video.thumbnails) > 0:
             result = video.thumbnails.pop()
-            logger.debug(f"Found thumbnail, {result}")
+            logger.debug("Found thumbnail %s", result)
             return result
+        else:
+            logger.error("Video has thumbnails list but it's empty")
+            raise ValueError("Video has thumbnails list but it's empty")
     else:
+        logger.error("Video has no thumbnails")
         raise ValueError("Video has no thumbnails")
 
 def find_downloaded_file(storage_directory: str, video_url: str) -> str:
     # if video_url contains youtube, use the video_id
+    logger.debug("Finding downloaded file for %s", video_url)
     if "youtube" in video_url:
         prefix = f"{video_url.split('=')[-1]}s"
     elif "twitch" in video_url:
@@ -33,12 +37,14 @@ def find_downloaded_file(storage_directory: str, video_url: str) -> str:
     matches = glob.glob(search_pattern)
     
     if not matches:
+        logger.error("No file found matching: %s", search_pattern)
         raise FileNotFoundError(f"No file found matching: {search_pattern}")
     
     return matches[0]
 
 def get_yt_segment(video_url: str, start_time: int, duration: int) -> str:
     storage_directory = "."
+    logger.debug("Fetching segment for %s", video_url)
     download_path: str = (
         f"{storage_directory}/{video_url.split('=')[-1]}_{start_time}_{duration}_clip.%(ext)s"
     )
@@ -53,11 +59,17 @@ def get_yt_segment(video_url: str, start_time: int, duration: int) -> str:
     }
     with yt_dlp.YoutubeDL(yt_opts) as ydl:
         logger.info(
-            f"Fetching clip for video: {video_url}, starting at {start_time}s and ending at {duration}s"
+            "Fetching clip for video: %s, starting at %ss and ending at %ss",
+            video_url,
+            start_time,
+            duration,
         )
         _ = ydl.extract_info(video_url)
         logger.info(
-            f"Done: {video_url}, starting at {start_time}s and ending at {duration}s"
+            "Done: %s, starting at %ss and ending at %ss",
+            video_url,
+            start_time,
+            duration,
         )
         return download_path
 
@@ -75,9 +87,8 @@ def get_yt_audio(video_url: str) -> str:
     if os.path.exists(cookie_path):
         yt_opts["cookiefile"] = cookie_path
 
-
+    logger.info("Fetching audio for video: %s", video_url)
     with yt_dlp.YoutubeDL(yt_opts) as ydl:
-        logger.info(f"Fetching audio for video: {video_url}")
         _ = ydl.download(video_url)
         return find_downloaded_file(storage_directory, video_url)
 
@@ -91,7 +102,7 @@ def get_twitch_audio(video_url: str) -> str:
         "outtmpl": download_path,
     }
 
+    logger.info("Fetching audio for video: %s", video_url)
     with yt_dlp.YoutubeDL(twitch_opts) as ydl:
-        logger.info(f"Fetching audio for video: {video_url}")
         _ = ydl.download(video_url)
         return find_downloaded_file(storage_directory, video_url)

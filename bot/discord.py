@@ -1,19 +1,18 @@
 import discord
+from discord import Message
 from discord.ext import commands
 from sqlalchemy import select
-from .shared import ChannelSettingsDict, ContentDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event
-from app.models.db import BroadcasterSettings, Channels, ChannelSettings, ChatLog, Content, ContentQueue, ContentQueueSubmission, ExternalUser, AccountSource
+from .shared import ScopedSession, logger, url_pattern, add_to_content_queue, get_platform, update_submission_weight
+from app.models.db import BroadcasterSettings, ContentQueueSubmissionSource
 import re
 import asyncio
+from typing import Literal
 
-pending_vote_updates = {}
-tracked_messages = set()
-thread_to_message = {}
+pending_vote_updates: dict[int, asyncio.Task] = {}
+tracked_messages: set[int] = set()
+thread_to_message: dict[int, int] = {}
 
-# URL regex pattern (basic)
-URL_REGEX = r'(https?://[^\s]+)'
-
-thread_timeout_minutes = 4320
+thread_timeout_minutes: Literal[60, 1440, 4320, 10080] = 4320
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -25,10 +24,10 @@ session = ScopedSession()
 
 bot = commands.Bot(command_prefix='$', intents=intents)
 
-# Store the ID of the channel to listen to
-listening_channel_id = None
+# Store the IDs of channels to listen to
+active_listening_channels: set[int] = set()
 
-async def schedule_vote_update(message: discord.Message, delay=2.0):
+async def schedule_vote_update(message: Message, delay=2.0):
     # If there's already a task running for this message, skip
     if message.id in pending_vote_updates:
         return
@@ -47,92 +46,127 @@ async def on_ready():
     print(f'We have logged in as {bot.user}')
     query = select(BroadcasterSettings).where(
         BroadcasterSettings.linked_discord_channel_id.isnot(None),
+        BroadcasterSettings.linked_discord_channel_verified == True
     )
     broadcaster_settings = session.execute(query).scalars().all()
-    logger.info(f"Found {len(broadcaster_settings)} broadcaster settings with linked Discord channel")
+    logger.info(f"Found {len(broadcaster_settings)} verified broadcaster settings with linked Discord channel")
+    
+    # Join all verified linked Discord channels
+    for setting in broadcaster_settings:
+        try:
+            channel = bot.get_channel(setting.linked_discord_channel_id)
+            if channel:
+                active_listening_channels.add(setting.linked_discord_channel_id)
+                logger.info(f"Joined verified channel: {channel.name} (ID: {channel.id})")
+            else:
+                logger.warning(f"Could not find channel with ID: {setting.linked_discord_channel_id}")
+        except Exception as e:
+            logger.error(f"Failed to join channel {setting.linked_discord_channel_id}: {e}")
+    
     try:
         synced = await bot.tree.sync()
         logger.info(f"Synced {len(synced)} command(s)")
     except Exception as e:
         logger.error(f"Failed to sync commands: {e}")
 
-# @bot.tree.command(name="hello", description="Test hello command")
-# async def hello(interaction: discord.Interaction, arg: str):
-#     print(arg)
-#     await interaction.response.send_message(f'Hello! {interaction.user.name} I added your clip to the queue!')
 
-# Slash command to start listening to a channel
-@bot.tree.command(name="listen", description="Start listening to this channel for messages")
-async def listen(interaction: discord.Interaction):
-    global listening_channel_id
-    listening_channel_id = interaction.channel_id
-    await interaction.response.send_message(f"✅ Now listening to messages in <#{interaction.channel_id}>")
-    print(f"Listening to channel ID: {interaction.channel_id}")
+# Slash command to start listening to a channel and verify the broadcaster
+@bot.tree.command(name="verify", description="Verify this channel in YappR")
+async def verify(interaction: discord.Interaction):
+    # Find broadcaster settings with this channel ID
+    logger.info(f"Verifying channel {interaction.channel_id}")
+    if interaction.channel_id is not None and interaction.channel_id in active_listening_channels:
+        await interaction.response.send_message(f"✅ This channel is already verified")
+        return
+    
+    query = select(BroadcasterSettings).where(
+        BroadcasterSettings.linked_discord_channel_id == interaction.channel_id
+    )
+    broadcaster_setting = session.execute(query).scalars().first()
+    
+    if broadcaster_setting and interaction.channel_id is not None:
+        # Verify the channel
+        broadcaster_setting.linked_discord_channel_verified = True
+        session.commit()
+        
+        # Add to active listening channels
+        active_listening_channels.add(interaction.channel_id)
+        
+        await interaction.response.send_message(f"✅ Channel verified and now listening to messages in <#{interaction.channel_id}>")
+        logger.info(f"Channel {interaction.channel_id} verified and listening started by {interaction.user.name}", extra={"broadcaster_id": broadcaster_setting.broadcaster_id})
+    else:
+        # No broadcaster found with this channel ID
+        await interaction.response.send_message(f"❌ This discord channel is not linked to a broadcaster. In YappR, go to a broadcaster and add the channel id `{interaction.channel_id}`.")
+        logger.info(f"Channel {interaction.channel_id} is not linked to a broadcaster")
 
 @bot.event
-async def on_message(message):
+async def on_message(message: Message):
     await bot.process_commands(message)
 
     if message.author.bot:
         return
 
-    # Print messages in the listening channel
-    in_listening_channel = (
-        listening_channel_id and message.channel.id == listening_channel_id
-    )
+    # Check if message is in an active listening channel
+    in_listening_channel = message.channel.id in active_listening_channels
 
-    # Or in a thread whose parent is the listening channel
+    # Or in a thread whose parent is an active listening channel
     in_thread_of_listening_channel = (
         isinstance(message.channel, discord.Thread)
-        and message.channel.parent_id == listening_channel_id
+        and message.channel.parent_id in active_listening_channels
     )
 
     if in_listening_channel or in_thread_of_listening_channel:
         logger.info(f"[{message.author.display_name}]: {message.content}")
 
-    # Create thread if it's a URL message in the listening channel
-    if in_listening_channel and re.search(URL_REGEX, message.content):
-        try:
-            await message.add_reaction("👍")
-            await message.add_reaction("👎")
+    # Process URL messages in the listening channel
+    if in_listening_channel and re.search(url_pattern, message.content):
+        query = select(BroadcasterSettings).where(
+            BroadcasterSettings.linked_discord_channel_id == message.channel.id
+        )
+        broadcaster_setting = session.execute(query).scalars().one_or_none()
+        if broadcaster_setting is None:
+            logger.error(f"No broadcaster setting found for channel {message.channel.id}")
+            return
+        
+        # Check for URLs in the message
+        urls = url_pattern.findall(message.content)
+        
+        # Only process URLs if content queue is enabled for this channel
+        if urls:
+            for url in urls:
+                if get_platform(url):
+                    logger.info("Found URL %s in message %s", url, message.content, extra={"channel_id": broadcaster_setting.broadcaster_id})
 
-            thread = await message.create_thread(
-                name=f"Clip from {message.author.display_name}",
-                auto_archive_duration=thread_timeout_minutes,
-            )
-            await thread.send(f"✅ Added to queue \n 👍/👎 will affect queue priority \n 📣 Thread will notified and closed when clip is watched")
-            logger.info(f"Thread created for message ID {message.id}")
-            tracked_messages.add(message.id)
-            thread_to_message[thread.id] = message.id
-        except Exception as e:
-            logger.error(f"Failed to create thread: {e}")
-
-    # Handle "stop" messages in threads
-    if isinstance(message.channel, discord.Thread):
-        if message.content.strip().lower() == "stop":
+                    # Add the URL to the content queue
+                    await add_to_content_queue(url, broadcaster_setting.broadcaster_id, message.author.display_name, str(message.author.id), ContentQueueSubmissionSource.Discord, message.id)
+        
+        # Create a thread if enabled
+        if broadcaster_setting.linked_discord_threads_enabled:
             try:
-                await message.channel.send("🛑 Stopping and closing this thread @here")
-                await message.channel.edit(archived=True)
-                original_msg_id = thread_to_message.pop(message.channel.id, None)
-                if original_msg_id:
-                    tracked_messages.discard(original_msg_id)
-                logger.info(f"Thread '{message.channel.name}' closed by {message.author.display_name}")
+                thread = await message.create_thread(
+                    name=f"Clip from {message.author.display_name}",
+                    auto_archive_duration=thread_timeout_minutes,
+                )
+                logger.info(f"Thread created for message ID {message.id}")
+                tracked_messages.add(message.id)
+                thread_to_message[thread.id] = message.id
             except Exception as e:
-                logger.error(f"Error closing thread: {e}")
+                logger.error(f"Failed to create thread: {e}")
+        else:
+            tracked_messages.add(message.id)
+
 
 async def count_votes(message: discord.Message):
-    votes = {"👍": 0, "👎": 0}
-
+    unique_users = set()
     for reaction in message.reactions:
-        if str(reaction.emoji) in votes:
-            count = 0
-            async for user in reaction.users():
-                if not user.bot:
-                    count += 1
-            votes[str(reaction.emoji)] = count
+        async for user in reaction.users():
+            if not user.bot:
+                unique_users.add(user.id)
 
-    logger.info(f"👍 Votes: {votes['👍']}, 👎 Votes: {votes['👎']}")
-    return votes
+    logger.info(f"Counted {len(unique_users)} unique users for message ID {message.id}")
+    await update_submission_weight(message.id, len(unique_users))
+    return len(unique_users)
+
 
 @bot.event
 async def on_raw_reaction_add(payload):

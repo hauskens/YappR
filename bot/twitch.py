@@ -3,17 +3,13 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import select
 from app.models.db import OAuth, Channels, ChannelSettings, ChatLog, Content, ContentQueue, ContentQueueSubmission, ExternalUser, AccountSource, ContentQueueSubmissionSource
 from app.models.config import config
-from app.twitch_api import parse_clip_id, get_twitch_clips, get_twitch_video_by_ids, get_twitch_video_id, parse_time
-from app.youtube_api import get_youtube_thumbnail_url, get_youtube_video_id, get_videos, get_youtube_video_id_from_clip
-from urllib.parse import urlparse, urlunparse
 import asyncio
 import signal
 import time
 from datetime import datetime
 from twitchAPI.type import AuthScope, ChatEvent
 from twitchAPI.chat import Chat, EventData, ChatMessage
-from .shared import ChannelSettingsDict, ContentDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event, task_manager, start_task_manager
-import re
+from .shared import ChannelSettingsDict, ContentDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event, task_manager, start_task_manager, url_pattern, get_platform, add_to_content_queue
 
 class TwitchBot:
     def __init__(self):
@@ -30,17 +26,6 @@ class TwitchBot:
         self.channel_check_interval = 60  # Check for new channels every 60 seconds
         self.chat = None  # Reference to the chat object
 
-        # URL regex pattern to detect URLs in messages
-        self.URL_PATTERN = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[\w/\-?=%.#&:;]*')
-
-        # Supported platforms and their domain patterns
-        self.SUPPORTED_PLATFORMS = {
-            'youtube': re.compile(r'^https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w\-]{11}'),
-            'youtube_short': re.compile(r'^https?://(?:www\.)?(youtube\.com/shorts/)[\w\-]{11}'),
-            'youtube_clip': re.compile(r'^https?://(?:www\.)?(youtube\.com/clip/)[\w\-]{36}'),
-            'twitch_video': re.compile(r'^https?://(?:www\.)?twitch\.tv/videos/\d+\?t=\d+h\d+m\d+s'),
-            'twitch_clip': re.compile(r'^https?://(?:clips\.twitch\.tv/[\w\-]+|(?:www\.)?twitch\.tv/\w+/clip/[\w\-]+)'),
-        }
         # Use the shared task manager instead of creating a separate Redis queue
         self.task_manager = task_manager
 
@@ -151,213 +136,6 @@ class TwitchBot:
         # Update our connected channels set
         self.connected_channels.update(new_channels)
         logger.info('Now connected to %d channels', len(self.connected_channels))
-
-    async def fetch_youtube_clip_data(self, url: str) -> ContentDict:
-        """Fetches video data from YouTube clip"""
-        try:
-            logger.info("Fetching YouTube clip data for url: %s", url)
-            video_id = get_youtube_video_id_from_clip(url)
-            original_url = f"https://www.youtube.com/watch?v={video_id}"
-            thumbnail_url = get_youtube_thumbnail_url(original_url)
-            if video_id is None:
-                logger.error("Failed to fetch YouTube clip data for url: %s", url)
-                raise ValueError("Failed to fetch YouTube clip data")
-            video_details = get_videos([video_id])
-            return ContentDict(
-                url=url,
-                sanitized_url=self.sanitize_url(url),
-                title=video_details[0].snippet.title,
-                duration=int(video_details[0].contentDetails.duration.total_seconds()),
-                thumbnail_url=thumbnail_url,
-                channel_name=video_details[0].snippet.channelTitle,
-                author=None
-            )
-        except Exception as e:
-            logger.error("Failed to fetch YouTube clip data for url: %s, exception: %s", url, e)
-            raise ValueError("Failed to fetch YouTube clip data")
-
-    async def fetch_youtube_data(self, url: str) -> ContentDict:
-        """Fetches video data from YouTube"""
-        try:
-            logger.info("Fetching YouTube data for url: %s", url)
-            thumbnail_url = get_youtube_thumbnail_url(url)
-            video_id = get_youtube_video_id(url)
-            video_details = get_videos([video_id])
-            return ContentDict(
-                url=url,
-                sanitized_url=self.sanitize_url(url),
-                title=video_details[0].snippet.title,
-                duration=int(video_details[0].contentDetails.duration.total_seconds()),
-                thumbnail_url=thumbnail_url,
-                channel_name=video_details[0].snippet.channelTitle,
-                author=None
-            )
-        except Exception as e:
-            logger.error("Failed to fetch YouTube data for url: %s, exception: %s", url, e)
-            raise ValueError("Failed to fetch YouTube data")
-
-    async def fetch_twitch_video_data(self, url: str) -> ContentDict:
-        """Fetches video data from Twitch"""
-        try:
-            logger.info("Fetching Twitch data for url: %s", url)
-            video_id = get_twitch_video_id(url)
-            video_details = await get_twitch_video_by_ids([video_id], api_client=self.twitch)
-            video = video_details[0]
-            return ContentDict(
-                url=url,
-                sanitized_url=self.sanitize_url(url),
-                title=video.title,
-                duration=parse_time(video.duration),
-                thumbnail_url=video.thumbnail_url,
-                channel_name=video.user_name,
-                author=None
-            )
-        except Exception as e:
-            logger.error("Failed to fetch Twitch data for url: %s, exception: %s", url, e)
-            raise ValueError("Failed to fetch Twitch data")
-
-    async def fetch_twitch_clip_data(self, url: str) -> ContentDict:
-        """Fetches clip data from Twitch"""
-        try:
-            logger.info("Fetching Twitch data for clip url: %s", url)
-            clip_id = parse_clip_id(url)
-            clip_details = await get_twitch_clips([clip_id], api_client=self.twitch)
-            clip = clip_details[0]
-            return ContentDict(
-                url=url,
-                sanitized_url=self.sanitize_url(url),
-                title=clip.title,
-                duration=int(clip.duration),
-                thumbnail_url=clip.thumbnail_url,
-                channel_name=clip.broadcaster_name,
-                author=clip.creator_name
-            )
-        except Exception as e:
-            logger.error("Failed to fetch Twitch data for url: %s, exception: %s", url, e)
-            raise ValueError("Failed to fetch Twitch data")
-        
-    def get_platform(self, url: str) -> str | None:
-        """Returns the platform name if supported, else None"""
-        for platform, pattern in self.SUPPORTED_PLATFORMS.items():
-            if pattern.match(url):
-                return platform
-        return None
-
-    def sanitize_url(self, url: str) -> str:
-        """Remove junk from url"""
-        parsed = urlparse(url)
-        return urlunparse(parsed._replace(query='', fragment=''))
-    
-    async def add_to_content_queue(self, url: str, channel_id: int, username: str, external_user_id: str, user_comment: str | None = None) -> None:
-        """Add a URL to the content queue for a channel and record who submitted it"""
-        session = SessionLocal()
-        try:
-            platform = self.get_platform(url)
-            if not platform:
-                logger.info("URL is not supported: %s, not sure how we got here...", url, extra={"channel_id": channel_id})
-                return
-            # Check if content already exists
-            existing_content = session.execute(
-                select(Content).filter(Content.url == url)
-            ).scalars().one_or_none()
-
-
-            if existing_content is None:
-                logger.info("Content not found in database, fetching data from platform and trying to create it", extra={"channel_id": channel_id})
-                if platform == 'youtube':
-                    platform_video_data = await self.fetch_youtube_data(url)
-                elif platform == 'youtube_short':
-                    platform_video_data = await self.fetch_youtube_data(url)
-                elif platform == 'youtube_clip':
-                    platform_video_data = await self.fetch_youtube_clip_data(url)
-                elif platform == 'twitch_video':
-                    platform_video_data = await self.fetch_twitch_video_data(url)
-                elif platform == 'twitch_clip':
-                    platform_video_data = await self.fetch_twitch_clip_data(url)
-                else:
-                    logger.info("URL is not supported: %s", url, extra={"channel_id": channel_id})
-                    return
-                logger.info("Fetched data for url: %s", url, extra={"channel_id": channel_id})
-                # Create new content entry
-                content = Content(
-                    url=url, 
-                    stripped_url=platform_video_data['sanitized_url'], 
-                    title=platform_video_data['title'], 
-                    duration=platform_video_data['duration'], 
-                    thumbnail_url=platform_video_data['thumbnail_url'], 
-                    channel_name=platform_video_data['channel_name'], 
-                    author=platform_video_data['author']
-                )
-                session.add(content)
-                session.flush()  # Flush to get the content ID
-                logger.info("Created new content: %s", content, extra={"channel_id": channel_id, "content_id": content.id})
-                content_id = content.id
-            else:
-                logger.info("Content already exists in database", extra={"channel_id": channel_id, "content_id": existing_content.id})
-                content_id = existing_content.id
-            
-            # Check if this content is already in the queue for this channel
-            existing_queue_item = session.execute(
-                select(ContentQueue).filter(
-                    ContentQueue.content_id == content_id,
-                    ContentQueue.broadcaster_id == self.channel_settings[channel_id]['broadcaster_id']
-                )
-            ).scalars().one_or_none()
-            
-            # Find or create external user
-            external_user = session.execute(
-                select(ExternalUser).filter(
-                    ExternalUser.external_account_id == int(external_user_id),
-                    ExternalUser.account_type == AccountSource.Twitch
-                )
-            ).scalars().one_or_none()
-            
-            if external_user is None:
-                # Create new external user
-                external_user = ExternalUser(
-                    username=username,
-                    external_account_id=int(external_user_id),
-                    account_type=AccountSource.Twitch,
-                    disabled=False
-                )
-                session.add(external_user)
-                session.flush()  # Flush to get the user ID
-                logger.debug("Created external user: %s", external_user, extra={"channel_id": channel_id})
-            
-            if existing_queue_item is None:
-                # Add to content queue
-                queue_item = ContentQueue(
-                    broadcaster_id=self.channel_settings[channel_id]['broadcaster_id'],
-                    content_id=content_id,
-                )
-                session.add(queue_item)
-                session.flush()  # Flush to get the queue item ID
-                logger.debug("Added new content to content queue", extra={"channel_id": channel_id, "queue_item_id": queue_item.id})
-                
-                # Create submission record
-                submission = ContentQueueSubmission(
-                    content_queue_id=queue_item.id,
-                    content_id=content_id,
-                    user_id=external_user.id,
-                    submitted_at=datetime.now(),
-                    submission_source_type=ContentQueueSubmissionSource.Twitch,
-                    submission_source_id=int(external_user_id),
-                    weight=1.0,
-                    user_comment=user_comment
-                )
-                session.add(submission)
-                
-                # Commit all changes
-                session.commit()
-                logger.info("Added submission id %s to content queue", submission.id, extra={"channel_id": channel_id, "queue_item_id": queue_item.id})
-            else:
-                logger.info("Content already in content queue", extra={"channel_id": channel_id, "queue_item_id": queue_item.id})
-                
-        except Exception as e:
-            session.rollback()
-            logger.error("Error adding URL to content queue: %s", e, extra={"channel_id": channel_id})
-        finally:
-            session.close()
     
     # this will be called whenever a message in a channel was send by either the bot OR another user
     async def on_message(self, msg: ChatMessage):
@@ -374,24 +152,15 @@ class TwitchBot:
             
             channel_id = self.enabled_channels[room_id]
                 
-            # Create a new ChatLog entry
-            chat_log = ChatLog(
-                channel_id=channel_id,
-                timestamp=datetime.fromtimestamp(msg.sent_timestamp / 1000),
-                username=msg.user.name,
-                message=msg.text,
-                external_user_account_id=msg.user.id,
-                imported=False,
-            )
             if self.channel_settings and self.channel_settings[channel_id]['content_queue_enabled']:
 
                 # Check for URLs in the message
-                urls = self.URL_PATTERN.findall(msg.text)
+                urls = url_pattern.findall(msg.text)
                 
                 # Only process URLs if content queue is enabled for this channel
                 if urls:
                     for url in urls:
-                        if self.get_platform(url):
+                        if get_platform(url):
                             logger.info("Found URL %s in message %s", url, msg.text, extra={"channel_id": channel_id})
                             
                             # Extract user's message without the URL or replace URL with <link> based on position
@@ -414,17 +183,30 @@ class TwitchBot:
                             
                             user_comment = user_comment.strip()
                             
-                            await self.add_to_content_queue(
+                            await add_to_content_queue(
                                 url=url, 
-                                channel_id=channel_id,
                                 username=msg.user.name,
                                 external_user_id=msg.user.id,
+                                submission_source_type=ContentQueueSubmissionSource.Twitch,
+                                submission_source_id=int(room_id),
+                                broadcaster_id=self.channel_settings[channel_id]['broadcaster_id'],
                                 user_comment=user_comment if user_comment else None
                             )
             
-            # Add to session and buffer
-            self.session.add(chat_log)
-            self.message_buffer.append(chat_log)
+            if self.channel_settings[channel_id]['chat_collection_enabled']:
+                
+                # Create a new ChatLog entry
+                chat_log = ChatLog(
+                    channel_id=channel_id,
+                    timestamp=datetime.fromtimestamp(msg.sent_timestamp / 1000),
+                    username=msg.user.name,
+                    message=msg.text,
+                    external_user_account_id=msg.user.id,
+                    imported=False,
+                )
+                # Add to session and buffer
+                self.session.add(chat_log)
+                self.message_buffer.append(chat_log)
             
             # Flush to the database but don't commit yet
             self.session.flush()

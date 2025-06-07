@@ -5,7 +5,7 @@ from app.models.config import config
 
 async def main():
     await asyncio.gather(
-        # discord_bot.start(config.discord_bot_token), # todo: shut down bot cleanly
+        discord_bot.start(config.discord_bot_token), # todo: shut down bot cleanly
         twitch_main()
     )
 

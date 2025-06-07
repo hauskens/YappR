@@ -644,26 +644,28 @@ def clip_queue():
 def mark_clip_watched(item_id: int):
     """Mark a content queue item as watched"""
     if check_banned():
-        return jsonify({"success": False, "error": "User is banned"}), 403
+        return access_denied()
     
     try:
         # Get the content queue item
         queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
-    
-        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id)
-        if broadcaster is None or broadcaster.id != queue_item.broadcaster_id:
+        if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(queue_item.broadcaster_id or current_user.is_moderator(queue_item.broadcaster_id))):
+            if queue_item.watched:
+                queue_item.watched = False
+                queue_item.watched_at = None
+            else:
+                queue_item.watched = True
+                queue_item.watched_at = datetime.now()
+            db.session.commit()
+            return jsonify({"watched": queue_item.watched})
+        else:
+            flash("You do not have access to this clip", "error")
             return access_denied()
-        
-        # Mark as watched
-        queue_item.watched = True
-        queue_item.watched_at = datetime.now()
-        db.session.commit()
-        
-        return jsonify({"success": True})
     except Exception as e:
         logger.error(f"Error marking clip as watched: {e}")
         db.session.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
+        flash("Error marking clip as watched", "error")
+        return redirect(request.referrer)
 
 
 @app.route("/clip_queue/item/<int:item_id>/skip", methods=["POST"])
@@ -671,30 +673,26 @@ def mark_clip_watched(item_id: int):
 def skip_clip_queue_item(item_id: int):
     """Toggle the skip status of a content queue item"""
     if check_banned():
-        return jsonify({"success": False, "error": "User is banned"}), 403
+        return access_denied()
     
     try:
-        # Get the skip status from request
-        data = request.get_json()
-        skip_status = data.get('skip', True)  # Default to True if not specified
-        
         # Get the content queue item
         queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
     
-        # Verify user has permission
-        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id)
-        if broadcaster is None or broadcaster.id != queue_item.broadcaster_id:
-            return jsonify({"success": False, "error": "Unauthorized"}), 403
-        
-        # Update skip status
-        queue_item.skipped = skip_status
-        db.session.commit()
-        
-        return jsonify({"success": True, "skipped": skip_status})
+        if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(queue_item.broadcaster_id or current_user.is_moderator(queue_item.broadcaster_id))):
+            if queue_item.skipped:
+                queue_item.skipped = False
+            else:
+                queue_item.skipped = True
+            db.session.commit()
+            return jsonify({"skipped": queue_item.skipped})
+        else:
+            return access_denied()
     except Exception as e:
         logger.error(f"Error updating skip status for item {item_id}: {e}")
         db.session.rollback()
-        return jsonify({"success": False, "error": str(e)}), 500
+        flash("Error updating skip status", "error")
+        return redirect(request.referrer)
 
 
 @app.route("/broadcaster/<int:broadcaster_id>/create_clip")

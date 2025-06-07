@@ -4,7 +4,7 @@ from sqlalchemy import select
 from app.models.db import OAuth, Channels, ChannelSettings, ChatLog, Content, ContentQueue, ContentQueueSubmission, ExternalUser, AccountSource, ContentQueueSubmissionSource
 from app.models.config import config
 from app.twitch_api import parse_clip_id, get_twitch_clips, get_twitch_video_by_ids, get_twitch_video_id, parse_time
-from app.youtube_api import get_youtube_thumbnail_url, get_youtube_video_id, get_videos
+from app.youtube_api import get_youtube_thumbnail_url, get_youtube_video_id, get_videos, get_youtube_video_id_from_clip
 from urllib.parse import urlparse, urlunparse
 import asyncio
 import signal
@@ -34,6 +34,7 @@ class TwitchBot:
         self.SUPPORTED_PLATFORMS = {
             'youtube': re.compile(r'^https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w\-]{11}'),
             'youtube_short': re.compile(r'^https?://(?:www\.)?(youtube\.com/shorts/)[\w\-]{11}'),
+            'youtube_clip': re.compile(r'^https?://(?:www\.)?(youtube\.com/clip/)[\w\-]{36}'),
             'twitch_video': re.compile(r'^https?://(?:www\.)?twitch\.tv/videos/\d+\?t=\d+h\d+m\d+s'),
             'twitch_clip': re.compile(r'^https?://(?:clips\.twitch\.tv/[\w\-]+|(?:www\.)?twitch\.tv/\w+/clip/[\w\-]+)'),
         }
@@ -133,6 +134,27 @@ class TwitchBot:
         logger.info(f'Joining channels: {channels}')
         await ready_event.chat.join_room(channels)
 
+    async def fetch_youtube_clip_data(self, url: str) -> ContentDict:
+        """Fetches video data from YouTube clip"""
+        try:
+            logger.info(f"Fetching YouTube clip data for url: {url}")
+            video_id = get_youtube_video_id_from_clip(url)
+            original_url = f"https://www.youtube.com/watch?v={video_id}"
+            thumbnail_url = get_youtube_thumbnail_url(original_url)
+            video_details = get_videos([video_id])
+            return ContentDict(
+                url=url,
+                sanitized_url=self.sanitize_url(url),
+                title=video_details[0].snippet.title,
+                duration=int(video_details[0].contentDetails.duration.total_seconds()),
+                thumbnail_url=thumbnail_url,
+                channel_name=video_details[0].snippet.channelTitle,
+                author=None
+            )
+        except Exception as e:
+            logger.error(f"Failed to fetch YouTube clip data for url: {url}, exception: {e}")
+            raise ValueError("Failed to fetch YouTube clip data")
+
     async def fetch_youtube_data(self, url: str) -> ContentDict:
         """Fetches video data from YouTube"""
         try:
@@ -222,6 +244,10 @@ class TwitchBot:
             if existing_content is None:
                 if platform == 'youtube':
                     platform_video_data = await self.fetch_youtube_data(url)
+                elif platform == 'youtube_short':
+                    platform_video_data = await self.fetch_youtube_data(url)
+                elif platform == 'youtube_clip':
+                    platform_video_data = await self.fetch_youtube_clip_data(url)
                 elif platform == 'twitch_video':
                     platform_video_data = await self.fetch_twitch_video_data(url)
                 elif platform == 'twitch_clip':

@@ -1,5 +1,6 @@
 import logging
 import re
+import requests
 from .models.config import config
 from googleapiclient.discovery import build
 from urllib.parse import urlparse, parse_qs
@@ -171,6 +172,20 @@ def get_youtube_thumbnail_url(url: str, quality: str = "hqdefault") -> str:
     except Exception as e:
         raise ValueError(f"Failed to get thumbnail for url: {url}, exception: {e}")
 
+def get_youtube_video_id_from_clip(url: str) -> str:
+    """
+    Extracts the YouTube video ID from a given URL.
+    """
+    response = requests.get(url)
+    partsA = response.text.split('video_id=')
+    if len(partsA) >= 2:
+        # split on double quote
+        partsB = partsA[1].split('"')
+        if len(partsB) >= 1:
+            return partsB[0]
+
+    return None
+
 
 def get_youtube_video_id(url: str) -> str:
     """
@@ -180,6 +195,8 @@ def get_youtube_video_id(url: str) -> str:
     - https://youtu.be/VIDEO_ID
     - https://www.youtube.com/watch?v=VIDEO_ID
     - https://www.youtube.com/embed/VIDEO_ID
+    - https://www.youtube.com/shorts/VIDEO_ID
+    - https://www.youtube.com/clip/CLIP_ID
     - With extra query params like ?t=17
 
     :param url: YouTube video URL
@@ -187,20 +204,26 @@ def get_youtube_video_id(url: str) -> str:
     """
     try:
         parsed = urlparse(url)
+        hostname = parsed.netloc
+        path = parsed.path
         video_id = None
 
-        # Handle short URL (youtu.be)
-        if parsed.netloc in ["youtu.be"]:
-            video_id = parsed.path.lstrip("/")
+        if hostname in ["youtu.be"]:
+            video_id = path.lstrip("/")
 
-        # Handle long URL (youtube.com)
-        elif parsed.netloc in ["www.youtube.com", "youtube.com", "m.youtube.com"]:
-            query = parse_qs(parsed.query)
-            video_id = query.get("v", [None])[0]
+        elif hostname in ["www.youtube.com", "youtube.com", "m.youtube.com"]:
+            if path.startswith("/watch"):
+                query = parse_qs(parsed.query)
+                video_id = query.get("v", [None])[0]
+            elif path.startswith("/embed/") or path.startswith("/shorts/"):
+                video_id = path.split("/")[2] if len(path.split("/")) > 2 else None
+            elif path.startswith("/clip/"):
+                video_id = path.split("/")[2] if len(path.split("/")) > 2 else None
 
         if not video_id:
-            raise ValueError("Failed to get video ID")
+            raise ValueError("Could not extract video ID.")
 
         return video_id
+
     except Exception as e:
         raise ValueError(f"Failed to get video ID for url: {url}, exception: {e}")

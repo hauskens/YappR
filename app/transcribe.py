@@ -3,7 +3,7 @@ import json
 from .models.config import config
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 
 
 def transcribe(path: str) -> str:

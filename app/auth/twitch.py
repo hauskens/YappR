@@ -10,7 +10,7 @@ from sqlalchemy.exc import NoResultFound
 from datetime import timedelta, datetime
 from twitchAPI.twitch import Twitch, AuthScope
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 
 blueprint = make_twitch_blueprint(
     client_id=config.twitch_client_id,

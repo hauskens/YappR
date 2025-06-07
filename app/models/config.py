@@ -53,6 +53,9 @@ class Config:
         self.api_key: str = os.environ.get("API_KEY", "not_a_secure_key!11")
         self.hf_token: str | None = os.environ.get("HF_TOKEN")
         self.discord_bot_token: str | None = os.environ.get("DISCORD_BOT_TOKEN")
+        self.environment: str = os.environ.get("ENVIRONMENT", "development")
+        self.service_name: str = os.environ.get("SERVICE_NAME", "app")
+        self.loki_url: str | None = os.environ.get("LOKI_URL") # example: http://localhost:4040/loki/api/v1/push
 
 
 _ = load_dotenv()

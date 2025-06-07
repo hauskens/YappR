@@ -6,8 +6,7 @@ import logging
 from typing import Optional, Union
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("custom_logger")
 CEST = ZoneInfo("Europe/Oslo")
 
 # MESSAGE_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\] (\w+): (.+)$")

@@ -16,7 +16,7 @@ from .retrievers import (
 )
 from .utils import sanitize_sentence, loosely_sanitize_sentence
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 
 
 def search_words_present_in_sentence(

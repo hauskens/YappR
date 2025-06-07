@@ -8,7 +8,7 @@ from ..models.config import config
 from sqlalchemy.exc import NoResultFound
 from datetime import timedelta
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 
 blueprint = make_discord_blueprint(
     client_id=config.discord_client_id,

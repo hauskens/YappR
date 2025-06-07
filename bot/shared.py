@@ -2,11 +2,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, scoped_session
 from app.models.config import config
 import asyncio
-import logging
 from typing import TypedDict
 from app.redis_client import RedisTaskQueue
-
-logger = logging.getLogger("custom_logger")
+from app.logger import logger
 
 engine = create_engine(config.database_uri)
 SessionLocal = sessionmaker(bind=engine)

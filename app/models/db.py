@@ -25,10 +25,10 @@ from sqlalchemy_file import FileField, File
 from datetime import datetime
 from twitchAPI.twitch import ChannelModerator
 from io import BytesIO
-import logging
 import webvtt
 import re
 import asyncio
+from app.logger import logger
 
 from .transcription import TranscriptionResult
 from .config import config
@@ -50,9 +50,6 @@ from ..twitch_api import get_twitch_user, get_twitch_user_by_id, get_latest_broa
 
 from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
-
-
-logger = logging.getLogger("custom_logger")
 
 
 class Base(DeclarativeBase):

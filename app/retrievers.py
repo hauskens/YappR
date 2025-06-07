@@ -1,4 +1,3 @@
-import logging
 from collections.abc import Sequence
 from sqlalchemy import select, func
 from .models.db import (
@@ -20,8 +19,7 @@ from .tasks import (
     get_yt_audio,
 )
 from datetime import datetime
-
-logger = logging.getLogger("custom_logger")
+from app.logger import logger
 
 
 def get_broadcasters() -> Sequence[Broadcaster]:

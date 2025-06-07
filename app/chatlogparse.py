@@ -2,11 +2,10 @@ import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from .models.db import ChatLog, ChannelEvent, db
-import logging
 from typing import Optional, Union
 from pathlib import Path
+from app.logger import logger
 
-logger = logging.getLogger("custom_logger")
 CEST = ZoneInfo("Europe/Oslo")
 
 # MESSAGE_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\] (\w+): (.+)$")

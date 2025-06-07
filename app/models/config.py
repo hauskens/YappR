@@ -2,7 +2,6 @@ import os
 import logging
 from dotenv import load_dotenv
 
-
 class Config:
     def __init__(self):
         self.app_secret: str = os.environ.get("APP_SECRET", "ajsdlfknsdkfjnsdafiouswe")

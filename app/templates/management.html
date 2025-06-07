@@ -51,80 +51,220 @@
     <p> WTF are you doing here?</p>
   {% endif %}
 <hr>
-<div class="container mt-4">
-  <h1>Content Queue</h1>
+<div class="container">
+  <h1 class="mb-2">Content Queue Management</h1>
   
-  <div class="row mb-4">
-    <div class="col-md-6">
-      <form method="get" action="{{ url_for('management') }}" class="d-flex">
-        <select name="broadcaster_id" class="form-select me-2" onchange="this.form.submit()">
-          <option value="">All Broadcasters</option>
-          {% for broadcaster in broadcasters %}
-            <option value="{{ broadcaster.id }}" {% if selected_broadcaster_id == broadcaster.id %}selected{% endif %}>
-              {{ broadcaster.name }}
-            </option>
-          {% endfor %}
-        </select>
-        <button type="submit" class="btn btn-primary">Filter</button>
-      </form>
+  <!-- Filter and Controls Row -->
+  <div class="row mb-6">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="mb-0">Filters & Controls</h5>
+        </div>
+        <div class="card-body">
+          <form method="get" action="{{ url_for('management') }}" class="row g-3">
+            <div class="col-md-4">
+              <label for="broadcaster-select" class="form-label">Broadcaster</label>
+              <select id="broadcaster-select" name="broadcaster_id" class="form-select">
+                <option value="">All Broadcasters</option>
+                {% for broadcaster in broadcasters %}
+                  <option value="{{ broadcaster.id }}" {% if selected_broadcaster_id == broadcaster.id %}selected{% endif %}>
+                    {{ broadcaster.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-md-3">
+              <label class="form-label">Sort By</label>
+              <select class="form-select" name="sort_by">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="most_submitted">Most Submitted</option>
+              </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+              <button type="submit" class="btn btn-primary">Apply Filters</button>
+            </div>
+           <hr> 
+            <div class="col-md-3">
+              <label class="form-label">Status Filter</label>
+              <div class="d-flex gap-2">
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="show-watched" name="show_watched" checked>
+                  <label class="form-check-label" for="show-watched">Watched</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="checkbox" id="show-skipped" name="show_skipped" checked>
+                  <label class="form-check-label" for="show-skipped">Skipped</label>
+                </div>
+              </div>
+            </div>
+            
+            
+          </form>
+        </div>
+      </div>
     </div>
   </div>
-
+  <hr>
+  <div class="container">
+    
+  
+  <!-- Content Queue Cards -->
   {% if queue_items %}
-    <div class="table-responsive">
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Broadcaster</th>
-            <th>Content URL</th>
-            <th>Submission Count</th>
-            <th>Watched</th>
-            <th>Watched At</th>
-            <th>Skipped</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for item in queue_items %}
-            <tr>
-              <td>{{ item.id }}</td>
-              <td>{{ item.broadcaster.name }}</td>
-              <td>
-                <a href="{{ item.content.url }}" target="_blank" rel="noopener noreferrer">
-                  {{ item.content.url }}
-                </a>
-              </td>
-              <td>{{ item.submissions|length }}</td>
-              <td>
-                {% if item.watched %}
-                  <span class="badge bg-success">Yes</span>
-                {% else %}
-                  <span class="badge bg-danger">No</span>
-                {% endif %}
-              </td>
-              <td>
-                {% if item.watched_at %}
-                  {{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}
-                {% else %}
-                  -
-                {% endif %}
-              </td>
-              <td>
-                {% if item.skipped %}
-                  <span class="badge bg-danger">Yes</span>
-                {% else %}
-                  <span class="badge bg-success">No</span>
-                {% endif %}
-              </td>
-            </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+    <div class="row mb-1">
+  {% for item in queue_items %}
+    <div class="col">
+      <div class="card mb-3 {% if item.watched %}border-success{% elif item.skipped %}border-warning{% endif %}" style="width: 242px;">
+          {% if item.content.thumbnail_url %}
+            <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="rounded-2" style="max-height: 136px; width: 240px; object-position: center; object-fit: cover;">
+          {% else %}
+            <div class="bg-light d-flex align-items-center justify-content-center" style="max-height: 136px; width: 240px;">
+              <i class="bi bi-play-circle fs-1"></i>
+            </div>
+          {% endif %}
+            
+          <div class="position-absolute top-0 end-0 p-2">
+            {% if item.watched %}<span class="badge bg-success">Watched</span>
+            {% elif item.skipped %}<span class="badge bg-warning text-dark">Skipped</span>{% endif %} 
+          </div>
+          
+          <div class="position-absolute start-0 p-2" style="top: 100px;">
+            {% if item.content.get_platform() == 'youtube' %}
+              <span class="badge" style="background-color: #FF0000;">{{ item.content.channel_name | truncate(15) }}</span>
+            {% elif item.content.get_platform() == 'twitch' %}
+              <span class="badge" style="background-color: #9147FF;">{{ item.content.channel_name | truncate(15) }}</span>
+            {% endif %}
+            {% if item.content.duration %}
+              {% set minutes = (item.content.duration // 60)|int %}
+              {% set seconds = (item.content.duration % 60)|int %}
+              <span class="badge bg-dark">{{ "%d:%02d"|format(minutes, seconds) }}</span>
+            {% endif %}
+          </div>
+        
+        <div class="card-body">
+          <h6 class="card-title text-truncate" title="{{ item.content.title }}">{{ item.content.title|truncate(40) }}</h6>
+          <h6 class="card-title text-truncate" title="{{ item.content.url }}">Queue: {{ item.broadcaster.name }}</h6>
+          
+          <div class="d-flex flex-wrap gap-1 mb-1">
+            {% for submission in item.submissions[:3] %}
+              <span class="badge {% if submission.submission_source_type.name == 'Twitch' %}bg-purple{% else %}bg-primary{% endif %}" 
+                    data-bs-toggle="tooltip" 
+                    title="{{ submission.user_comment or '' }}">
+                {{ submission.user.username }}{{ '*' if submission.user_comment }}
+              </span>
+            {% endfor %}
+            {% if item.submissions|length > 3 %}
+              <span class="badge bg-secondary">+{{ item.submissions|length - 3 }}</span>
+            {% endif %}
+          </div>
+        </div>
+        
+        <div class="card-footer bg-transparent">
+          <div class="d-flex justify-content-between">
+            <a href="{{ item.content.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-play-fill"></i> Open
+            </a>
+            <div>
+              <card>
+                
+              <form method="post" action="{{ url_for('mark_clip_watched', item_id=item.id) }}" class="js-background-post" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-outline-{% if item.watched %}secondary{% else %}success{% endif %}" title="{% if item.watched %}Mark as unwatched{% else %}Mark as watched{% endif %}">
+                  <i class="bi bi-{% if item.watched %}arrow-counterclockwise{% else %}check{% endif %}"></i>
+                </button>
+              </form>
+              </card>
+              {% if not item.watched %}
+              <card>
+              <form method="post" action="{{ url_for('skip_clip_queue_item', item_id=item.id) }}" class="js-background-post" style="display: inline;">
+                <button type="submit" class="btn btn-sm btn-outline-{% if item.skipped %}secondary{% else %}warning{% endif %}" title="{% if item.skipped %}Reset watch/skip status{% else %}Skip{% endif %}">
+                  <i class="bi bi-{% if item.skipped %}arrow-counterclockwise{% else %}skip-forward{% endif %}"></i>
+                </button>
+              </form>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+</div>
     </div>
   {% else %}
     <div class="alert alert-info">
-      No content queue items found{% if selected_broadcaster_id %} for the selected broadcaster{% endif %}.
+      <i class="bi bi-info-circle me-2"></i> No content queue items found{% if selected_broadcaster_id %} for the selected broadcaster{% endif %}.
     </div>
   {% endif %}
 </div>
+</div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-success" role="alert">
+          {% for message in messages %}
+            {{ message }}
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
 {% endblock %}
+{% block extra_scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('form.js-background-post').forEach(function (form, idx) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const button = form.querySelector('button');
+      if (button) button.disabled = true;
+
+      const card = form.closest('.card');
+      if (!card) return;
+
+      const actionType = form.action.includes('mark_clip_watched') ? 'watched' : 'skipped';
+
+      const formData = new FormData(form);
+      fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'X-Requested-With': 'XMLHttpRequest',
+        }
+      }).then(response => response.json())
+        .then(data => {
+          form.style.display = 'none';
+
+          const badgeContainer = card.querySelector('.position-absolute.top-0.end-0.p-2');
+          if (!badgeContainer) return;
+
+          if (actionType === 'watched') {
+            card.classList.remove('border-success');
+            if (!badgeContainer.querySelector('.badge.bg-success')) {
+              const badge = document.createElement('span');
+              badge.className = 'badge bg-success';
+              badge.textContent = 'Watched';
+              badgeContainer.appendChild(badge);
+            }
+
+            const skipForm = card.querySelector('form[action*="skip"]');
+            if (skipForm) skipForm.style.display = 'none';
+          } else if (actionType === 'skipped') {
+            card.classList.remove('border-warning');
+            if (!badgeContainer.querySelector('.badge.bg-warning')) {
+              const badge = document.createElement('span');
+              badge.className = 'badge bg-warning text-dark';
+              badge.textContent = 'Skipped';
+              badgeContainer.appendChild(badge);
+            }
+          }
+        })
+        .catch(err => {
+          console.error("Background POST failed", err);
+          if (button) button.disabled = false;
+        });
+    });
+  });
+});
+</script>
+{% endblock %}
+

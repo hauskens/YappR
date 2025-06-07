@@ -144,6 +144,7 @@
                      data-id="{{ item.id }}" 
                      data-url="{{ item.content.url }}" 
                      data-title="{{ item.content.title }}"
+                     data-thumbnail="{{ item.content.thumbnail_url }}"
                      data-watched="{{ item.watched|lower }}"
                      data-skipped="{{ item.skipped|lower }}">
                   <div class="queue-item-content d-flex align-items-center flex-grow-1 min-width-0 cursor-pointer" onclick="playContent(this.parentElement)">
@@ -222,30 +223,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js" integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA==" crossorigin="anonymous"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', (event) => {
-console.log('hello');
-var socket = io('http://localhost:5000');
-
-socket.on('connect', function() {
-
-    socket.send('User has connected!');
-
-});
-
-socket.on('message', function(msg) {
-
-    var p = document.createElement('p');
-
-    p.innerText = msg;
-
-    document.body.appendChild(p);
-
-});
-
-});
-</script>
 <script>
   // YouTube API
   var tag = document.createElement('script');
@@ -275,7 +252,7 @@ socket.on('message', function(msg) {
   }
   
   function playContent(element) {
-    // Update active item styling
+    // Remove active class from all items
     document.querySelectorAll('.queue-item').forEach(item => {
       item.classList.remove('active');
       item.classList.remove('bg-primary-subtle');
@@ -295,12 +272,28 @@ socket.on('message', function(msg) {
     var contentUrl = element.getAttribute('data-url');
     var contentTitle = element.getAttribute('data-title');
     var contentId = element.getAttribute('data-id');
+    var thumbnailUrl = element.getAttribute('data-thumbnail');
     
     // Update title
     document.getElementById('current-title').textContent = contentTitle;
     
     // Determine content type and create appropriate player
-    if (isYouTubeUrl(contentUrl)) {
+    if (contentUrl.includes('youtube.com/clip/')) {
+      // Special handling for YouTube clips - they can't be embedded
+      document.getElementById('player-container').innerHTML = `
+        <div class="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center">
+          <div class="text-center">
+            <div class="position-relative mb-4">
+              <img src="${thumbnailUrl}" class="img-fluid" alt="Video thumbnail">
+            </div>
+            <a href="${contentUrl}" target="_blank" class="btn btn-danger btn-lg">
+              <i class="bi bi-youtube me-2"></i>Open YouTube Clip
+            </a>
+            <p class="text-light mt-3"><small>YouTube clips cannot be embedded and must be viewed on YouTube</small></p>
+          </div>
+        </div>`;
+      playerType = 'youtube_clip';
+    } else if (isYouTubeUrl(contentUrl)) {
       createYouTubePlayer(contentUrl);
       playerType = 'youtube';
     } else if (isTwitchClipUrl(contentUrl)) {
@@ -317,7 +310,7 @@ socket.on('message', function(msg) {
   }
   
   function isYouTubeUrl(url) {
-    return url.includes('youtube.com/watch') || url.includes('youtu.be/');
+    return url.includes('youtube.com') || url.includes('youtu.be');
   }
   
   function isTwitchClipUrl(url) {
@@ -376,6 +369,11 @@ socket.on('message', function(msg) {
         }
       }
     }
+    else if (url.includes('youtube.com/shorts')) {
+      videoId = url.split('youtube.com/shorts/')[1];   
+    }
+    
+    
     
     // Create a div with an ID for the YouTube player
     document.getElementById('player-container').innerHTML = '<div id="youtube-player"></div>';
@@ -521,14 +519,16 @@ socket.on('message', function(msg) {
     })
     .then(response => response.json())
     .then(data => {
-      if (data.success) {
-        console.log('Successfully marked as watched in database');
         
         // Find the specific item by ID and update its UI
         const itemToUpdate = document.querySelector(`.queue-item[data-id="${itemId}"]`);
         if (itemToUpdate) {
           console.log('Updating UI for item:', itemId);
           itemToUpdate.setAttribute('data-watched', 'true');
+          
+          // Make the item transparent 
+          itemToUpdate.classList.add('watched');
+          itemToUpdate.style.opacity = '0.6';
           
           // Add a watched badge if it doesn't exist
           let watchedBadgeExists = false;
@@ -578,7 +578,6 @@ socket.on('message', function(msg) {
         } else {
           console.error('Could not find item with ID:', itemId);
         }
-      }
     })
     .catch(error => console.error('Error marking as watched:', error));
   }
@@ -592,7 +591,7 @@ socket.on('message', function(msg) {
   // Mark as skipped button
   document.getElementById('mark-skipped-btn').addEventListener('click', function() {
     if (currentItem) {
-      console.log('Skipping itemsss:', currentItem.getAttribute('data-id'));
+      console.log('Skipping item:', currentItem.getAttribute('data-id'));
       skipItem(currentItem.getAttribute('data-id'));
     }
   });
@@ -606,18 +605,12 @@ socket.on('message', function(msg) {
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest'
     },
-    body: JSON.stringify({})
   })
   .then(response => {
     if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
     return response.json();
   })
   .then(data => {
-    if (!data.success) {
-      console.error('Backend responded with success=false');
-      return;
-    }
-
     const item = document.querySelector(`.queue-item[data-id="${itemId}"]`);
     if (!item) {
       console.error('Could not find item element for ID:', itemId);
@@ -657,20 +650,6 @@ socket.on('message', function(msg) {
   tooltipTriggerList.map(function (tooltipTriggerEl) {
     return new bootstrap.Tooltip(tooltipTriggerEl);
   });
-  
-  // // WebSocket connection for live updates
-  // const socket = io();
-  
-  // // Connect to WebSocket server
-  // socket.on('connect', function() {
-  //   console.log('Connected to WebSocket server');
-  //   // Request current queue items
-  // });
-  
-  // // Handle disconnection
-  // socket.on('disconnect', function() {
-  //   console.log('Disconnected from WebSocket server');
-  // });
   
 </script>
 {% endblock %}

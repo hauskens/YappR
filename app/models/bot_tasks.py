@@ -3,14 +3,13 @@ Communications between the bot and the main application
 """
 import json
 from dataclasses import dataclass
-from typing import Dict, Any, Optional
 
 
 @dataclass
 class ClipCreationTask:
     """Task for creating a Twitch clip"""
     broadcaster_id: str
-    task_id: Optional[str] = None
+    task_id: str | None = None
     
     def to_json(self) -> str:
         """Convert task to JSON string"""

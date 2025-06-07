@@ -1,24 +1,20 @@
-from flask import Flask, request, has_request_context, g
-from flask_bootstrap import Bootstrap5
-from flask_login import LoginManager, current_user, login_user
-from flask_dance.consumer import oauth_authorized
-from flask_dance.contrib.discord import make_discord_blueprint
-from flask_dance.consumer.storage.sqla import SQLAlchemyStorage
+from flask import Flask, request, g
+from flask_bootstrap import Bootstrap5 # type: ignore
+from flask_login import LoginManager, current_user # type: ignore
 from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
-from datetime import timedelta
 from uuid import uuid4
 from .models.config import config
-from .models.db import db, OAuth, Users, AccountSource
+from .models.db import db, OAuth
 from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from .auth import discord_blueprint, twitch_blueprint, twitch_blueprint_bot
 from .redis_client import RedisTaskQueue
-from flask_cors import CORS, cross_origin
-from flask_socketio import SocketIO, emit, send
+from flask_cors import CORS
+from flask_socketio import SocketIO
 from app.logger import logger
 
 socketio = SocketIO()

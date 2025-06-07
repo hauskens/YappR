@@ -86,7 +86,7 @@ class BotTaskManager:
         from app.twitch_api import create_clip
         
         try:
-            logger.info(f"Processing clip creation task {task.task_id} for broadcaster {task.broadcaster_id}")
+            logger.info("Processing clip creation task %s", task.task_id, extra={"broadcaster_id": task.broadcaster_id})
             
             # Get the Twitch component
             twitch_bot = self.components.get('twitch')
@@ -97,10 +97,10 @@ class BotTaskManager:
             # Create the clip using the Twitch component's client
             clip = await create_clip(task.broadcaster_id, twitch_bot.twitch)
             
-            logger.info(f"Clip created successfully: {clip.id} - {clip.edit_url}")
+            logger.info("Clip created successfully: %s - %s", clip.id, clip.edit_url, extra={"broadcaster_id": task.broadcaster_id})
             return clip
         except Exception as e:
-            logger.error(f"Error creating clip: {e}")
+            logger.error("Error creating clip: %s", e, extra={"broadcaster_id": task.broadcaster_id})
             return None
     
     async def process_task(self, task):
@@ -118,7 +118,7 @@ class BotTaskManager:
         if task_type in self.task_handlers:
             return await self.task_handlers[task_type](task)
         else:
-            logger.warning(f"Unknown task type: {task_type}")
+            logger.error("Unknown task type: %s", task_type)
             return None
     
     async def run(self):
@@ -139,7 +139,7 @@ class BotTaskManager:
                     await asyncio.sleep(self.poll_interval)
             
             except Exception as e:
-                logger.error(f"Error in bot task manager loop: {e}")
+                logger.error("Error in bot task manager loop: %s", e)
                 await asyncio.sleep(self.poll_interval)
         
         logger.info("Bot task manager loop stopped")
@@ -166,10 +166,10 @@ class BotTaskManager:
         try:
             task = ClipCreationTask(broadcaster_id=broadcaster_id, task_id=task_id)
             self.redis_queue.enqueue_clip_creation(task)
-            logger.info(f"Enqueued clip creation task {task.task_id} from bot component")
+            logger.info("Enqueued clip creation task %s from bot component", task.task_id, extra={"broadcaster_id": broadcaster_id})
             return task
         except Exception as e:
-            logger.error(f"Error enqueueing clip creation task: {e}")
+            logger.error("Error enqueueing clip creation task: %s", e, extra={"broadcaster_id": broadcaster_id})
             return None
 
 
@@ -187,6 +187,6 @@ async def start_task_manager():
     try:
         await task_manager.run()
     except Exception as e:
-        logger.error(f"Error in task manager: {e}")
+        logger.error("Error in task manager: %s", e)
     finally:
         task_manager.stop()

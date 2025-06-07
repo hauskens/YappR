@@ -1,5 +1,5 @@
-import yt_dlp
-from yt_dlp.utils import download_range_func
+import yt_dlp # type: ignore
+from yt_dlp.utils import download_range_func # type: ignore
 import glob
 from .models.yt import VideoData, Thumbnail
 import os

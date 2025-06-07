@@ -78,7 +78,8 @@ class TwitchBot:
                     'refresh_token': oauth.token['refresh_token']
             }
             except NoResultFound:
-                return None
+                logger.error("No bot OAuth token found in DB")
+                raise Exception("No bot OAuth token found in DB")
 
     async def save_refresh_token(self, token: str, refresh_token: str):
         async with self.lock:
@@ -92,7 +93,7 @@ class TwitchBot:
                     session.commit()
                     logger.info("Bot token refreshed and saved.")
                 except Exception as e:
-                    logger.error(f"Error saving refreshed token: {e}")
+                    logger.error("Error saving refreshed token: %s", str(e))
 
 
     # this will be called when the event READY is triggered, which will be on bot start
@@ -124,7 +125,7 @@ class TwitchBot:
                     broadcaster_id=channel.broadcaster_id,
                 )
                 
-            logger.info(f"Stored {len(self.enabled_channels)} enabled channels in memory with settings")
+            logger.debug("Stored %d enabled channels in memory with settings", len(self.enabled_channels))
             return [channel.platform_ref for channel in channels]
         finally:
             session.close()
@@ -144,20 +145,23 @@ class TwitchBot:
             logger.info('Already connected to all enabled channels')
             return
             
-        logger.info(f'Joining channels: {new_channels}')
+        logger.info('Joining channels: %s', new_channels)
         await ready_event.chat.join_room(new_channels)
         
         # Update our connected channels set
         self.connected_channels.update(new_channels)
-        logger.info(f'Now connected to {len(self.connected_channels)} channels')
+        logger.info('Now connected to %d channels', len(self.connected_channels))
 
     async def fetch_youtube_clip_data(self, url: str) -> ContentDict:
         """Fetches video data from YouTube clip"""
         try:
-            logger.info(f"Fetching YouTube clip data for url: {url}")
+            logger.info("Fetching YouTube clip data for url: %s", url)
             video_id = get_youtube_video_id_from_clip(url)
             original_url = f"https://www.youtube.com/watch?v={video_id}"
             thumbnail_url = get_youtube_thumbnail_url(original_url)
+            if video_id is None:
+                logger.error("Failed to fetch YouTube clip data for url: %s", url)
+                raise ValueError("Failed to fetch YouTube clip data")
             video_details = get_videos([video_id])
             return ContentDict(
                 url=url,
@@ -169,13 +173,13 @@ class TwitchBot:
                 author=None
             )
         except Exception as e:
-            logger.error(f"Failed to fetch YouTube clip data for url: {url}, exception: {e}")
+            logger.error("Failed to fetch YouTube clip data for url: %s, exception: %s", url, e)
             raise ValueError("Failed to fetch YouTube clip data")
 
     async def fetch_youtube_data(self, url: str) -> ContentDict:
         """Fetches video data from YouTube"""
         try:
-            logger.info(f"Fetching YouTube data for url: {url}")
+            logger.info("Fetching YouTube data for url: %s", url)
             thumbnail_url = get_youtube_thumbnail_url(url)
             video_id = get_youtube_video_id(url)
             video_details = get_videos([video_id])
@@ -189,13 +193,13 @@ class TwitchBot:
                 author=None
             )
         except Exception as e:
-            logger.error(f"Failed to fetch YouTube data for url: {url}, exception: {e}")
+            logger.error("Failed to fetch YouTube data for url: %s, exception: %s", url, e)
             raise ValueError("Failed to fetch YouTube data")
 
     async def fetch_twitch_video_data(self, url: str) -> ContentDict:
         """Fetches video data from Twitch"""
         try:
-            logger.info(f"Fetching Twitch data for url: {url}")
+            logger.info("Fetching Twitch data for url: %s", url)
             video_id = get_twitch_video_id(url)
             video_details = await get_twitch_video_by_ids([video_id], api_client=self.twitch)
             video = video_details[0]
@@ -209,13 +213,13 @@ class TwitchBot:
                 author=None
             )
         except Exception as e:
-            logger.error(f"Failed to fetch Twitch data for url: {url}, exception: {e}")
+            logger.error("Failed to fetch Twitch data for url: %s, exception: %s", url, e)
             raise ValueError("Failed to fetch Twitch data")
 
     async def fetch_twitch_clip_data(self, url: str) -> ContentDict:
         """Fetches clip data from Twitch"""
         try:
-            logger.info(f"Fetching Twitch data for clip url: {url}")
+            logger.info("Fetching Twitch data for clip url: %s", url)
             clip_id = parse_clip_id(url)
             clip_details = await get_twitch_clips([clip_id], api_client=self.twitch)
             clip = clip_details[0]
@@ -229,7 +233,7 @@ class TwitchBot:
                 author=clip.creator_name
             )
         except Exception as e:
-            logger.error(f"Failed to fetch Twitch data for url: {url}, exception: {e}")
+            logger.error("Failed to fetch Twitch data for url: %s, exception: %s", url, e)
             raise ValueError("Failed to fetch Twitch data")
         
     def get_platform(self, url: str) -> str | None:
@@ -244,13 +248,13 @@ class TwitchBot:
         parsed = urlparse(url)
         return urlunparse(parsed._replace(query='', fragment=''))
     
-    async def add_to_content_queue(self, url: str, channel_id: int, username: str, external_user_id: str, user_comment: str = None) -> None:
+    async def add_to_content_queue(self, url: str, channel_id: int, username: str, external_user_id: str, user_comment: str | None = None) -> None:
         """Add a URL to the content queue for a channel and record who submitted it"""
         session = SessionLocal()
         try:
             platform = self.get_platform(url)
             if not platform:
-                logger.info(f"URL is not supported: {url}, not sure how we got here...")
+                logger.info("URL is not supported: %s, not sure how we got here...", url, extra={"channel_id": channel_id})
                 return
             # Check if content already exists
             existing_content = session.execute(
@@ -259,6 +263,7 @@ class TwitchBot:
 
 
             if existing_content is None:
+                logger.info("Content not found in database, fetching data from platform and trying to create it", extra={"channel_id": channel_id})
                 if platform == 'youtube':
                     platform_video_data = await self.fetch_youtube_data(url)
                 elif platform == 'youtube_short':
@@ -270,9 +275,9 @@ class TwitchBot:
                 elif platform == 'twitch_clip':
                     platform_video_data = await self.fetch_twitch_clip_data(url)
                 else:
-                    logger.info(f"URL is not supported: {url}")
+                    logger.info("URL is not supported: %s", url, extra={"channel_id": channel_id})
                     return
-                logger.info(f"Fetched data for url: {url}, data: {platform_video_data}")
+                logger.info("Fetched data for url: %s", url, extra={"channel_id": channel_id})
                 # Create new content entry
                 content = Content(
                     url=url, 
@@ -285,8 +290,10 @@ class TwitchBot:
                 )
                 session.add(content)
                 session.flush()  # Flush to get the content ID
+                logger.info("Created new content: %s", content, extra={"channel_id": channel_id, "content_id": content.id})
                 content_id = content.id
             else:
+                logger.info("Content already exists in database", extra={"channel_id": channel_id, "content_id": existing_content.id})
                 content_id = existing_content.id
             
             # Check if this content is already in the queue for this channel
@@ -315,6 +322,7 @@ class TwitchBot:
                 )
                 session.add(external_user)
                 session.flush()  # Flush to get the user ID
+                logger.debug("Created external user: %s", external_user, extra={"channel_id": channel_id})
             
             if existing_queue_item is None:
                 # Add to content queue
@@ -324,6 +332,7 @@ class TwitchBot:
                 )
                 session.add(queue_item)
                 session.flush()  # Flush to get the queue item ID
+                logger.debug("Added new content to content queue", extra={"channel_id": channel_id, "queue_item_id": queue_item.id})
                 
                 # Create submission record
                 submission = ContentQueueSubmission(
@@ -340,27 +349,27 @@ class TwitchBot:
                 
                 # Commit all changes
                 session.commit()
-                logger.info(f"Added URL to content queue: {url} for channel ID: {channel_id} by user: {username}")
+                logger.info("Added submission id %s to content queue", submission.id, extra={"channel_id": channel_id, "queue_item_id": queue_item.id})
             else:
-                logger.info(f"URL already in content queue: {url} for channel ID: {channel_id}")
+                logger.info("Content already in content queue", extra={"channel_id": channel_id, "queue_item_id": queue_item.id})
                 
         except Exception as e:
             session.rollback()
-            logger.error(f"Error adding URL to content queue: {e}")
+            logger.error("Error adding URL to content queue: %s", e, extra={"channel_id": channel_id})
         finally:
             session.close()
     
     # this will be called whenever a message in a channel was send by either the bot OR another user
     async def on_message(self, msg: ChatMessage):
         if msg.room is None:
-            logger.warning(f"Received message from unknown room: {msg}")
+            logger.warning("Received message from unknown room: %s", msg)
             return
         try:
             room_id = msg.room.room_id
             
             # Look up channel_id from our in-memory dictionary
             if room_id not in self.enabled_channels:
-                logger.warning(f"Received message from untracked room id: {room_id} - {msg.room.name}")
+                logger.warning("Received message from untracked room id: %s - %s", room_id, msg.room.name)
                 return
             
             channel_id = self.enabled_channels[room_id]
@@ -374,49 +383,44 @@ class TwitchBot:
                 external_user_account_id=msg.user.id,
                 imported=False,
             )
-            
-            # Check for URLs in the message
-            urls = self.URL_PATTERN.findall(msg.text)
-            
-            # Only process URLs if content queue is enabled for this channel
-            if urls and channel_id in self.channel_settings and self.channel_settings[channel_id]['content_queue_enabled']:
-                for url in urls:
-                    if self.get_platform(url):
-                        logger.info(f"Found supported URL in message: {url}")
-                        
-                        # Extract user's message without the URL or replace URL with <link> based on position
-                        user_comment = msg.text
-                        
-                        for found_url in urls:
-                            # Check if the URL is at the start, end, or middle of the message
-                            start_pos = user_comment.find(found_url)
-                            end_pos = start_pos + len(found_url)
+            if self.channel_settings and self.channel_settings[channel_id]['content_queue_enabled']:
+
+                # Check for URLs in the message
+                urls = self.URL_PATTERN.findall(msg.text)
+                
+                # Only process URLs if content queue is enabled for this channel
+                if urls:
+                    for url in urls:
+                        if self.get_platform(url):
+                            logger.info("Found URL %s in message %s", url, msg.text, extra={"channel_id": channel_id})
                             
-                            # If URL is at the start of the message (accounting for possible whitespace)
-                            if start_pos <= len(user_comment.strip()) - len(user_comment.strip().lstrip()):
-                                user_comment = user_comment.replace(found_url, "", 1)
-                            # If URL is at the end of the message (accounting for possible whitespace)
-                            elif end_pos >= len(user_comment.rstrip()):
-                                user_comment = user_comment.replace(found_url, "", 1)
-                            # If URL is in the middle of the message
-                            else:
-                                user_comment = user_comment.replace(found_url, "<link>", 1)
-                        
-                        user_comment = user_comment.strip()
-                        
-                        # Only store non-empty comments
-                        if not user_comment or user_comment == "<link>":
-                            user_comment = None
+                            # Extract user's message without the URL or replace URL with <link> based on position
+                            user_comment = msg.text
                             
-                        await self.add_to_content_queue(
-                            url=url, 
-                            channel_id=channel_id,
-                            username=msg.user.name,
-                            external_user_id=msg.user.id,
-                            user_comment=user_comment
-                        )
-            elif urls:
-                logger.debug(f"Found URLs but content queue is disabled for channel {channel_id}")
+                            for found_url in urls:
+                                # Check if the URL is at the start, end, or middle of the message
+                                start_pos = user_comment.find(found_url)
+                                end_pos = start_pos + len(found_url)
+                                
+                                # If URL is at the start of the message (accounting for possible whitespace)
+                                if start_pos <= len(user_comment.strip()) - len(user_comment.strip().lstrip()):
+                                    user_comment = user_comment.replace(found_url, "", 1)
+                                # If URL is at the end of the message (accounting for possible whitespace)
+                                elif end_pos >= len(user_comment.rstrip()):
+                                    user_comment = user_comment.replace(found_url, "", 1)
+                                # If URL is in the middle of the message
+                                else:
+                                    user_comment = user_comment.replace(found_url, "<link>", 1)
+                            
+                            user_comment = user_comment.strip()
+                            
+                            await self.add_to_content_queue(
+                                url=url, 
+                                channel_id=channel_id,
+                                username=msg.user.name,
+                                external_user_id=msg.user.id,
+                                user_comment=user_comment if user_comment else None
+                            )
             
             # Add to session and buffer
             self.session.add(chat_log)
@@ -429,10 +433,8 @@ class TwitchBot:
             if len(self.message_buffer) >= self.max_buffer_size:
                 await self.commit_messages()
                 
-            # Log at debug level to avoid excessive logging
-            logger.debug(f'Processed chat message from {msg.user.name} in {msg.room.name}')
         except Exception as e:
-            logger.error(f'Error processing chat message: {e} - {msg}')
+            logger.error("Error processing chat message: %s - %s", e, msg)
             self.session.rollback()
 
     async def periodic_commit(self):
@@ -452,7 +454,7 @@ class TwitchBot:
                     await self.commit_messages()
                 break
             except Exception as e:
-                logger.error(f"Error in periodic commit: {e}")
+                logger.error("Error in periodic commit: %s", e)
     
     async def commit_messages(self):
         """Commit buffered messages to the database"""
@@ -464,13 +466,13 @@ class TwitchBot:
             
             # Log the commit
             count = len(self.message_buffer)
-            logger.info(f'Committed {count} chat messages to database')
+            logger.info("Committed %s chat messages to database", count)
             
             # Clear the buffer and update the last commit time
             self.message_buffer.clear()
             self.last_commit_time = time.time()
         except Exception as e:
-            logger.error(f'Error committing messages: {e}')
+            logger.error("Error committing messages: %s", e)
             self.session.rollback()
     
     async def periodic_channel_check(self):
@@ -483,17 +485,17 @@ class TwitchBot:
                 
                 # Make sure we have a chat reference
                 if not self.chat:
-                    logger.error('Chat reference not available')
+                    logger.error("Chat reference not available")
                     continue
                 
                 # Get current enabled channels
                 channels = self.get_enabled_twitch_channels()
                 if not channels:
-                    logger.info('No channels with chat collection enabled found')
+                    logger.info("No channels with chat collection enabled found")
                     # If we're connected to any channels, we should disconnect from all of them
                     if self.connected_channels:
                         channels_to_leave = list(self.connected_channels)
-                        logger.info(f'Leaving all channels: {channels_to_leave}')
+                        logger.info("Leaving all channels: %s", channels_to_leave)
                         await self.chat.leave_room(channels_to_leave)
                         self.connected_channels.clear()
                     continue
@@ -506,26 +508,26 @@ class TwitchBot:
                 
                 # Join new channels if any
                 if new_channels:
-                    logger.info(f'Joining new channels: {new_channels}')
+                    logger.info("Joining new channels: %s", new_channels)
                     await self.chat.join_room(new_channels)
                     self.connected_channels.update(new_channels)
                 
                 # Leave channels that are no longer enabled
                 if channels_to_leave:
-                    logger.info(f'Leaving channels: {channels_to_leave}')
+                    logger.info("Leaving channels: %s", channels_to_leave)
                     await self.chat.leave_room(channels_to_leave)
                     for channel in channels_to_leave:
                         self.connected_channels.remove(channel)
                 
                 if new_channels or channels_to_leave:
-                    logger.info(f'Now connected to {len(self.connected_channels)} channels')
+                    logger.info("Now connected to %s channels", len(self.connected_channels))
                 else:
-                    logger.debug('No changes to channel connections needed')
+                    logger.debug("No changes to channel connections needed")
                 
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                logger.error(f"Error in periodic channel check: {e}")
+                logger.error("Error in periodic channel check: %s", e)
     
     async def cleanup(self):
         """Clean up resources"""

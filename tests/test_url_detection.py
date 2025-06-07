@@ -5,11 +5,11 @@ import asyncio
 from unittest.mock import MagicMock, patch
 from datetime import datetime
 
-# Add parent directory to path to import bot module
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
+# # Add parent directory to path to import bot module
+# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
-from bot.main import TwitchBot
-from twitchAPI.chat import ChatMessage
+from bot.twitch import TwitchBot
+from twitchAPI.chat import ChatMessage # type: ignore
 
 
 class TestUrlDetection(unittest.TestCase):
@@ -27,7 +27,7 @@ class TestUrlDetection(unittest.TestCase):
         self.bot.enabled_channels = {self.room_id: self.channel_id}
         
         # Mock the database session
-        self.patcher = patch('bot.main.SessionLocal', self.session_mock)
+        self.patcher = patch('bot.twitch.SessionLocal', self.session_mock)
         self.patcher.start()
         
         # Create a mock for the session buffer
@@ -128,11 +128,11 @@ class TestUrlDetection(unittest.TestCase):
         
         # We need to patch the select function and the Content/ExternalUser/ContentQueue classes
         # to avoid SQLAlchemy errors
-        with patch('bot.main.select') as mock_select, \
-             patch('bot.main.Content') as mock_content_class, \
-             patch('bot.main.ContentQueue') as mock_queue_class, \
-             patch('bot.main.ExternalUser') as mock_user_class, \
-             patch('bot.main.ContentQueueSubmission') as mock_submission_class:
+        with patch('bot.twitch.select') as mock_select, \
+             patch('bot.twitch.Content') as mock_content_class, \
+             patch('bot.twitch.ContentQueue') as mock_queue_class, \
+             patch('bot.twitch.ExternalUser') as mock_user_class, \
+             patch('bot.twitch.ContentQueueSubmission') as mock_submission_class:
             
             # Configure the mocks to return our mock objects
             mock_content_class.return_value = mock_content
@@ -164,7 +164,7 @@ class TestUrlDetection(unittest.TestCase):
             # Verify session was committed
             self.session_mock_instance.commit.assert_called_once()
 
-    @patch('bot.main.TwitchBot.add_to_content_queue')
+    @patch('bot.twitch.TwitchBot.add_to_content_queue')
     def test_on_message_with_url(self, mock_add_to_queue):
         """Test handling a message containing a URL"""
         # Create a mock ChatMessage

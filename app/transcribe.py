@@ -4,7 +4,7 @@ from app.logger import logger
 
 
 def transcribe(path: str) -> str:
-    import whisperx
+    import whisperx # type: ignore
     device = config.transcription_device  # cuda
     batch_size = config.transcription_batch_size  # reduce if low on GPU mem
     compute_type = config.transcription_compute_type

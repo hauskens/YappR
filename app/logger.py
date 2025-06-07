@@ -1,9 +1,9 @@
 import logging
-from loki_logger_handler.loki_logger_handler import LokiLoggerHandler
+from loki_logger_handler.loki_logger_handler import LokiLoggerHandler # type: ignore
 import contextvars
 from .models.config import config
 from flask import has_request_context, request, g
-from flask_login import current_user
+from flask_login import current_user # type: ignore
 import os
 _in_filter_flag = contextvars.ContextVar("_in_filter_flag", default=False)
 

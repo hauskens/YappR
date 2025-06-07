@@ -26,6 +26,9 @@ class TwitchBot:
         self.enabled_channels: dict[str, int] = {}  # Store channel info: {room_id: channel_id}
         self.channel_settings: dict[int, ChannelSettingsDict] = {}  # Store channel settings: {channel_id: settings_dict}
         self.last_commit_time = time.time()
+        self.connected_channels = set()  # Keep track of channels we're already connected to
+        self.channel_check_interval = 60  # Check for new channels every 60 seconds
+        self.chat = None  # Reference to the chat object
 
         # URL regex pattern to detect URLs in messages
         self.URL_PATTERN = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[\w/\-?=%.#&:;]*')
@@ -60,6 +63,9 @@ class TwitchBot:
         
         # Start the background commit task
         asyncio.create_task(self.periodic_commit())
+        
+        # Start the periodic channel check task
+        asyncio.create_task(self.periodic_channel_check())
         
         logger.info("Bot initialized")
 
@@ -131,8 +137,19 @@ class TwitchBot:
             logger.info('No channels with chat collection enabled found')
             return
         
-        logger.info(f'Joining channels: {channels}')
-        await ready_event.chat.join_room(channels)
+        # Filter out channels we're already connected to
+        new_channels = [channel for channel in channels if channel not in self.connected_channels]
+        
+        if not new_channels:
+            logger.info('Already connected to all enabled channels')
+            return
+            
+        logger.info(f'Joining channels: {new_channels}')
+        await ready_event.chat.join_room(new_channels)
+        
+        # Update our connected channels set
+        self.connected_channels.update(new_channels)
+        logger.info(f'Now connected to {len(self.connected_channels)} channels')
 
     async def fetch_youtube_clip_data(self, url: str) -> ContentDict:
         """Fetches video data from YouTube clip"""
@@ -456,6 +473,60 @@ class TwitchBot:
             logger.error(f'Error committing messages: {e}')
             self.session.rollback()
     
+    async def periodic_channel_check(self):
+        """Periodically check for new channels to join and disconnect from channels no longer needed"""
+        logger.info("Starting periodic channel check")
+        while True:
+            try:
+                # Wait for the check interval
+                await asyncio.sleep(self.channel_check_interval)
+                
+                # Make sure we have a chat reference
+                if not self.chat:
+                    logger.error('Chat reference not available')
+                    continue
+                
+                # Get current enabled channels
+                channels = self.get_enabled_twitch_channels()
+                if not channels:
+                    logger.info('No channels with chat collection enabled found')
+                    # If we're connected to any channels, we should disconnect from all of them
+                    if self.connected_channels:
+                        channels_to_leave = list(self.connected_channels)
+                        logger.info(f'Leaving all channels: {channels_to_leave}')
+                        await self.chat.leave_room(channels_to_leave)
+                        self.connected_channels.clear()
+                    continue
+                
+                # Find channels to join (new channels)
+                new_channels = [channel for channel in channels if channel not in self.connected_channels]
+                
+                # Find channels to leave (no longer in the enabled list)
+                channels_to_leave = [channel for channel in self.connected_channels if channel not in channels]
+                
+                # Join new channels if any
+                if new_channels:
+                    logger.info(f'Joining new channels: {new_channels}')
+                    await self.chat.join_room(new_channels)
+                    self.connected_channels.update(new_channels)
+                
+                # Leave channels that are no longer enabled
+                if channels_to_leave:
+                    logger.info(f'Leaving channels: {channels_to_leave}')
+                    await self.chat.leave_room(channels_to_leave)
+                    for channel in channels_to_leave:
+                        self.connected_channels.remove(channel)
+                
+                if new_channels or channels_to_leave:
+                    logger.info(f'Now connected to {len(self.connected_channels)} channels')
+                else:
+                    logger.debug('No changes to channel connections needed')
+                
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"Error in periodic channel check: {e}")
+    
     async def cleanup(self):
         """Clean up resources"""
         logger.info("Cleaning up resources")
@@ -489,6 +560,9 @@ async def main():
     chat.register_event(ChatEvent.READY, bot.on_ready)
     chat.register_event(ChatEvent.MESSAGE, bot.on_message)
     chat.start()
+    
+    # Store chat reference in the bot for periodic channel check
+    bot.chat = chat
     
     # Start the task manager in a background task
     task_manager_task = asyncio.create_task(start_task_manager())

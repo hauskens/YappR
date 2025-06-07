@@ -33,6 +33,8 @@ ytt_api = YouTubeTranscriptApi(
 
 
 def get_youtube_channel_details(channel_tag: str) -> ChannelItem:
+    if youtube is None:
+        raise Exception("Youtube API key not found")
     logger.info("get_youtube_channel_details: Fetching channel details for tag: %s", channel_tag)
     request = (
         youtube.channels().list(part="id,snippet", forHandle=channel_tag).execute()
@@ -45,6 +47,8 @@ def get_youtube_channel_details(channel_tag: str) -> ChannelItem:
 
 
 def get_youtube_playlist_details(channel_id: str) -> PlaylistResourceResponse:
+    if youtube is None:
+        raise Exception("Youtube API key not found")
     logger.info("get_youtube_playlist_details: Fetching playlist details for channel: %s", channel_id)
     request = (
         youtube.playlists()
@@ -58,6 +62,8 @@ def get_youtube_playlist_details(channel_id: str) -> PlaylistResourceResponse:
 def get_videos_on_channel(
     channel_id: str, next_page_token: str | None = None, max_results: int = 5
 ) -> SearchResourceResponse:
+    if youtube is None:
+        raise Exception("Youtube API key not found")
     logger.info("get_videos_on_channel: Fetching videos on channel: %s", channel_id)
     if next_page_token is None:
         request = (
@@ -91,6 +97,8 @@ def get_videos_on_channel(
 
 
 def get_all_videos_on_channel(channel_id: str) -> list[SearchResultItem]:
+    if youtube is None:
+        raise Exception("Youtube API key not found")
     logger.info("get_all_videos_on_channel: Fetching all videos on channel: %s", channel_id)
     next_page_token: str | None = None
     all_videos: list[SearchResultItem] = []
@@ -112,6 +120,8 @@ def get_all_videos_on_channel(channel_id: str) -> list[SearchResultItem]:
 
 
 def get_videos(video_ids: list[str]) -> list[VideoDetails]:
+    if youtube is None:
+        raise Exception("Youtube API key not found")
     logger.info("get_videos: Fetching videos for ids: %s", ",".join(video_ids))
     all_videos: list[VideoDetails] = []
     for i in range(0, len(video_ids), 50):
@@ -129,6 +139,8 @@ def get_videos(video_ids: list[str]) -> list[VideoDetails]:
 
 
 def get_captions(video_id: str) -> CaptionResourceResponse:
+    if youtube is None:
+        raise Exception("Youtube API key not found")
     logger.info("get_captions: Fetching captions for video: %s", video_id)
     request = youtube.captions().list(part="snippet", videoId=video_id).execute()
     caption = CaptionResourceResponse.model_validate(request)
@@ -136,6 +148,8 @@ def get_captions(video_id: str) -> CaptionResourceResponse:
 
 
 def fetch_transcription(video_id: str) -> FetchedTranscript:
+    if youtube is None:
+        raise Exception("Youtube API key not found")
     logger.info("fetch_transcription: trying to fetch transcription for video %s", video_id)
     try:
         return ytt_api.fetch(video_id)

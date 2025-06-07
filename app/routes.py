@@ -750,7 +750,7 @@ def purge_transcription(transcription_id: int):
 @login_required
 def delete_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
-    if current_user.is_anonymous == False and (current_user.has_permission([PermissionType.Admin, PermissionType.Mod]) or current_user.has_broadcaster_id(transcription.video.channel.broadcaster_id)):
+    if current_user.is_anonymous == False and (current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]) or current_user.has_broadcaster_id(transcription.video.channel.broadcaster_id)):
         logger.info("Deleting transcription", extra={"transcription_id": transcription_id, "video_id": transcription.video_id})
         transcription.delete()
         db.session.commit()

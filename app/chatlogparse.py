@@ -5,12 +5,10 @@ from .models.db import ChatLog, ChannelEvent, db
 from typing import Optional, Union
 from pathlib import Path
 from app.logger import logger
+from app.models.config import config
 
-CEST = ZoneInfo("Europe/Oslo")
+CEST = ZoneInfo(config.timezone)
 
-# MESSAGE_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\] (\w+): (.+)$")
-# MESSAGE_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\]\s+(\w+): (.+)$")
-# MESSAGE_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\]\s+([^\]:]+): (.+)$")
 MESSAGE_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\]\s+(.+): (.+)$")
 
 START_LINE_REGEX = re.compile(r"# Start logging at (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})")

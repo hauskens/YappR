@@ -1,22 +1,22 @@
-from flask_login import current_user, login_required
+import redis
+import requests
+import os
+import json
+import tempfile
+import mimetypes
+from flask_login import current_user, login_required # type: ignore
 from flask import (
     Flask,
     render_template,
     request,
     redirect,
-    jsonify,
 )
-import time
-import redis
-import json
-from celery import Celery, Task, group, chain
+from celery import Celery, Task, chain
 from .models.db import (
     PermissionType,
     db,
     Channels,
 )
-import requests
-import os
 from .transcribe import transcribe
 from .models.config import config
 from .retrievers import get_transcription, get_video
@@ -24,9 +24,6 @@ from app.routes import *
 from app import app, login_manager, socketio
 from .models.db import TranscriptionSource
 from .utils import require_api_key
-import tempfile
-import mimetypes
-import json
 from urllib.parse import unquote
 from celery.schedules import crontab
 from .chatlogparse import parse_logs
@@ -38,7 +35,7 @@ def celery_init_app(app: Flask) -> Celery:
     class FlaskTask(Task):
         def __call__(self, *args: object, **kwargs: object) -> object:
             with app.app_context():
-                return self.run(*args, **kwargs)
+                return self.run(*args, **kwargs) # type: ignore
 
     celery_app = Celery(app.name, task_cls=FlaskTask)
     celery_app.config_from_object(app.config["CELERY"])

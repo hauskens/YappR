@@ -13,11 +13,11 @@ from flask import request, abort
 from app.logger import logger
 
 if os.getenv("NLTK_ENABLED", "true") == "true":
-    import nltk
-    from nltk.corpus import stopwords
-    from nltk.tag import pos_tag
-    from nltk.tokenize import word_tokenize
-    from nltk.stem import PorterStemmer
+    import nltk # type: ignore
+    from nltk.corpus import stopwords # type: ignore
+    from nltk.tag import pos_tag # type: ignore
+    from nltk.tokenize import word_tokenize # type: ignore
+    from nltk.stem import PorterStemmer # type: ignore
     _ = nltk.download("stopwords")
     _ = nltk.download("averaged_perceptron_tagger_eng")
     _ = nltk.download("punkt_tab")
@@ -107,5 +107,5 @@ def get_valid_date(date_string: str) -> datetime | None:
         date = datetime.strptime(date_string, "%Y-%m-%d")
         return date
     except ValueError:
-        logger.warning(f"didnt match date on {date_string}")
+        logger.warning("didnt match date on %s", date_string)
         return None

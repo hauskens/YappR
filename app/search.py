@@ -4,7 +4,6 @@ from sqlalchemy import select
 from app.logger import logger
 from .models.db import (
     Segments,
-    Video,
     Channels,
     db,
 )

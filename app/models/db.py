@@ -1,5 +1,5 @@
 import enum
-from typing import Union, Iterable
+from typing import Iterable
 from sqlalchemy import (
     Boolean,
     ForeignKey,
@@ -16,16 +16,15 @@ from sqlalchemy import (
 )
 from sqlalchemy import select
 from flask_sqlalchemy import SQLAlchemy
-from flask_dance.consumer.storage.sqla import OAuthConsumerMixin
-from flask_login import UserMixin
-from sqlalchemy.dialects.postgresql import ARRAY
+from flask_dance.consumer.storage.sqla import OAuthConsumerMixin # type: ignore
+from flask_login import UserMixin # type: ignore
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
-from sqlalchemy_utils.types.ts_vector import TSVectorType
+from sqlalchemy_utils.types.ts_vector import TSVectorType # type: ignore
 from sqlalchemy_file import FileField, File
 from datetime import datetime
-from twitchAPI.twitch import ChannelModerator
+from twitchAPI.twitch import ChannelModerator as TwitchChannelModerator
 from io import BytesIO
-import webvtt
+import webvtt # type: ignore
 import re
 import asyncio
 from app.logger import logger
@@ -202,7 +201,7 @@ class Users(Base, UserMixin):
             db.session.commit()
             logger.info(f"Granted {permission_type.name} to {self.name}!")
 
-    def update_moderated_channels(self) -> list[ChannelModerator]:
+    def update_moderated_channels(self) -> list[TwitchChannelModerator]:
         if self.account_type == AccountSource.Twitch:
             try:
                 oauth = db.session.query(OAuth).filter_by(user_id=self.id).one_or_none()
@@ -452,7 +451,7 @@ class Channels(Base):
 
     def fetch_latest_videos(self, process: bool = False) -> int | None:
         if (
-            self.platform.name.lower() == "youtube"
+            self.platform.name.lower() == "youtube" and self.platform_channel_id is not None
         ):
             latest_videos = get_videos_on_channel(self.platform_channel_id)
             videos_result: list[SearchResultItem] = []
@@ -481,7 +480,7 @@ class Channels(Base):
                 )
             db.session.commit()
         elif (
-            self.platform.name.lower() == "twitch"
+            self.platform.name.lower() == "twitch" and self.platform_channel_id is not None
         ):
             logger.info(f"Fetching latest videos for twitch channel: {self.name} - Process: {process}")
             limit = 1 if process else 100

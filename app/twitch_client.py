@@ -2,7 +2,7 @@
 Twitch API client
 """
 import asyncio
-from twitchAPI.twitch import Twitch, AuthScope
+from twitchAPI.twitch import Twitch
 from .models.config import config
 from app.logger import logger
 

@@ -88,6 +88,7 @@ class BroadcasterSettings(Base):
     linked_discord_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     linked_discord_channel_verified: Mapped[bool] = mapped_column(Boolean, default=False)
     linked_discord_disable_voting: Mapped[bool] = mapped_column(Boolean, default=False)
+    linked_discord_threads_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     
 
 class Platforms(Base):

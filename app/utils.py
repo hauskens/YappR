@@ -24,7 +24,7 @@ if os.getenv("NLTK_ENABLED", "true") == "true":
 
     sw = stopwords.words("english")
     ps = PorterStemmer()
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 
 F = TypeVar("F", bound=Callable[..., Any])
 

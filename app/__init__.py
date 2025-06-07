@@ -1,4 +1,5 @@
 import logging
+import os
 from flask import Flask
 from flask_bootstrap import Bootstrap5
 from flask_login import LoginManager, current_user, login_user
@@ -19,11 +20,25 @@ from .auth import discord_blueprint, twitch_blueprint, twitch_blueprint_bot
 from .redis_client import RedisTaskQueue
 from flask_cors import CORS, cross_origin
 from flask_socketio import SocketIO, emit, send
+from loki_logger_handler.loki_logger_handler import LokiLoggerHandler
 
 
-logger = logging.getLogger(__name__)
+
+logger = logging.getLogger("custom_logger")
+logger.setLevel(config.log_level)
+
+# Add Loki handler if Loki URL is provided
+if config.loki_url:
+    custom_handler = LokiLoggerHandler(
+        url=config.loki_url,
+        labels={"application": "yappr", "environment": config.environment, "service": config.service_name, "version": os.getenv("VERSION", "unknown")},
+        label_keys={},
+        enable_structured_loki_metadata=True,
+        timeout=10,
+    )
+    logger.addHandler(custom_handler)
+    
 socketio = SocketIO()
-
 def init_storage(container: str = "transcriptions"):
     makedirs(
         config.storage_location + "/" + container, 0o777, exist_ok=True
@@ -53,7 +68,7 @@ def load_user(oauth_id: int):
     except NoResultFound:
         logger.error(f"User not found for OAuth ID: {oauth_id}")
         return None
-        
+
         
 
 def create_app():

@@ -1459,6 +1459,15 @@ wheels = [
 ]
 
 [[package]]
+name = "loki-logger-handler"
+version = "1.1.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ea/60/6c212ae881abf82e6b85fddd6ef338404c4dbf812c3b1cb88527903c7633/loki_logger_handler-1.1.2.tar.gz", hash = "sha256:b3b588903420197ac9bb477f9c8fd6c18edf3e475b94f3d27d2aeed3930eb5d1", size = 15986 }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/09/00/93631b307a801d8fe48867e20923fdb161f5d0aa165ca322b71544c35b96/loki_logger_handler-1.1.2-py3-none-any.whl", hash = "sha256:7ee10259162caf6aa21b784d753dc2f73102225517857bb40051b7e933cfd07d", size = 14272 },
+]
+
+[[package]]
 name = "mako"
 version = "1.3.10"
 source = { registry = "https://pypi.org/simple" }
@@ -3547,6 +3556,7 @@ dependencies = [
     { name = "langchain", extra = ["ollama"] },
     { name = "langchain-community" },
     { name = "langchain-postgres" },
+    { name = "loki-logger-handler" },
     { name = "nltk" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -3599,6 +3609,7 @@ requires-dist = [
     { name = "langchain", extras = ["ollama"], specifier = ">=0.3.25" },
     { name = "langchain-community", specifier = ">=0.3.23" },
     { name = "langchain-postgres", specifier = ">=0.0.13" },
+    { name = "loki-logger-handler", specifier = ">=1.1.2" },
     { name = "nltk", specifier = ">=3.9.1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.6" },
     { name = "pydantic", specifier = ">=2.11.3" },

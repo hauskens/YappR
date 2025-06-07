@@ -6,8 +6,7 @@ import logging
 from typing import TypedDict
 from app.redis_client import RedisTaskQueue
 
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("custom_logger")
 
 engine = create_engine(config.database_uri)
 SessionLocal = sessionmaker(bind=engine)

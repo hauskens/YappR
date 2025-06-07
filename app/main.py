@@ -49,8 +49,8 @@ def celery_init_app(app: Flask) -> Celery:
 
 celery = celery_init_app(app)
 r = redis.Redis.from_url(config.redis_uri)
-logger = logging.getLogger(__name__)
-logging.basicConfig(level=config.log_level)
+logger = logging.getLogger("custom_logger")
+logger.info(f"Service started")
 
 @celery.on_after_configure.connect
 def setup_periodic_tasks(sender: Celery, **kwargs):

@@ -27,6 +27,7 @@ dependencies = [
     "langchain-community>=0.3.23",
     "langchain-postgres>=0.0.13",
     "langchain[ollama]>=0.3.25",
+    "loki-logger-handler>=1.1.2",
     "nltk>=3.9.1",
     "psycopg[binary]>=3.2.6",
     "pydantic>=2.11.3",

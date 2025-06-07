@@ -21,7 +21,7 @@ from .tasks import (
 )
 from datetime import datetime
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 
 
 def get_broadcasters() -> Sequence[Broadcaster]:

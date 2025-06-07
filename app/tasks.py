@@ -8,7 +8,7 @@ from .models.config import config
 from datetime import datetime
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 storage_directory = os.path.abspath(config.cache_location)
 
 

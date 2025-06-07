@@ -52,7 +52,7 @@ from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 
 
 class Base(DeclarativeBase):

@@ -37,18 +37,22 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev --group worker
 
 ENV PATH="/src/.venv/bin:$PATH"
+ENV SERVICE_NAME="worker-gpu"
 ENTRYPOINT ["celery"]
 CMD ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1", "-Q", "gpu-queue"]
 
 FROM main AS worker
+ENV SERVICE_NAME="worker"
 ENTRYPOINT ["celery"]
 CMD ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1"]
 
 FROM main AS app
+ENV SERVICE_NAME="app"
 EXPOSE 5000
 ENTRYPOINT ["/src/entrypoint.sh"]
 
 FROM base AS bot
+ENV SERVICE_NAME="bot"
 ADD . .
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev --group bot

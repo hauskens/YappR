@@ -8,7 +8,7 @@ from typing import Optional
 from .models.bot_tasks import ClipCreationTask
 from .models.config import config
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 
 class RedisTaskQueue:
     """Redis-based task queue manager"""

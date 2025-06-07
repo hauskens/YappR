@@ -67,7 +67,7 @@ from .search import search_v2
 from .utils import get_valid_date
 import asyncio
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("custom_logger")
 
 
 def check_banned():

@@ -1,8 +1,6 @@
-import sys
-import os
 import unittest
-import asyncio
-from unittest.mock import MagicMock, patch
+from unittest import IsolatedAsyncioTestCase
+from unittest.mock import MagicMock, patch, AsyncMock
 from datetime import datetime
 
 # # Add parent directory to path to import bot module
@@ -10,9 +8,10 @@ from datetime import datetime
 
 from bot.twitch import TwitchBot
 from twitchAPI.chat import ChatMessage # type: ignore
+from app.models.db import Content
 
 
-class TestUrlDetection(unittest.TestCase):
+class TestUrlDetection(IsolatedAsyncioTestCase):
     def setUp(self):
         """Set up test environment before each test"""
         self.bot = TwitchBot()
@@ -25,6 +24,9 @@ class TestUrlDetection(unittest.TestCase):
         self.channel_id = 123
         self.room_id = "456"
         self.bot.enabled_channels = {self.room_id: self.channel_id}
+        
+        # Set up channel settings with content_queue_enabled = True
+        self.bot.channel_settings = {self.channel_id: {'content_queue_enabled': True, 'chat_collection_enabled': True, 'broadcaster_id': '789'}}
         
         # Mock the database session
         self.patcher = patch('bot.twitch.SessionLocal', self.session_mock)
@@ -77,6 +79,10 @@ class TestUrlDetection(unittest.TestCase):
             "https://www.youtube.com/watch?v=SfT4FMkh1-w",
             "https://www.twitch.tv/videos/123456789?t=10h01m21s",
             "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+            "https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM",
+            "https://www.youtube.com/shorts/-enuIBVmKy4",
+            "http://www.youtube.com/shorts/-enuIBVmKy4",
+            "http://youtube.com/shorts/-enuIBVmKy4",
         ]
         
         for url in supported_urls:
@@ -102,7 +108,7 @@ class TestUrlDetection(unittest.TestCase):
                 f"URL should be identified as unsupported: {url}"
             )
 
-    def test_add_to_content_queue(self):
+    async def test_add_to_content_queue(self):
         """Test adding a URL to the content queue"""
         # Create test data
         url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -126,18 +132,33 @@ class TestUrlDetection(unittest.TestCase):
         mock_scalars = MagicMock()
         mock_scalars.return_value = mock_none_result
         
+        # Mock the platform data fetching methods
+        platform_data = {
+            'sanitized_url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'title': 'Test Video',
+            'duration': 212,
+            'thumbnail_url': 'https://example.com/thumbnail.jpg',
+            'channel_name': 'Test Channel',
+            'author': None
+        }
+        
+        # Create a mock for fetch_youtube_data that/test_add_to_content_queue (test_url_detection.TestUrlDetection.test_add_to_content_queue)
+        self.bot.fetch_youtube_data = AsyncMock(return_value=platform_data)
+        
         # We need to patch the select function and the Content/ExternalUser/ContentQueue classes
         # to avoid SQLAlchemy errors
         with patch('bot.twitch.select') as mock_select, \
              patch('bot.twitch.Content') as mock_content_class, \
              patch('bot.twitch.ContentQueue') as mock_queue_class, \
              patch('bot.twitch.ExternalUser') as mock_user_class, \
-             patch('bot.twitch.ContentQueueSubmission') as mock_submission_class:
+             patch('bot.twitch.ContentQueueSubmission') as mock_submission_class, \
+             patch('bot.twitch.SessionLocal') as mock_session_local:
             
             # Configure the mocks to return our mock objects
             mock_content_class.return_value = mock_content
             mock_queue_class.return_value = mock_queue_item
             mock_user_class.return_value = mock_user
+            mock_session_local.return_value = self.session_mock_instance
             
             # Make select() return a mock query object that can be used in filter()
             mock_query = MagicMock()
@@ -148,13 +169,13 @@ class TestUrlDetection(unittest.TestCase):
             self.session_mock_instance.execute.return_value.scalars.return_value.one_or_none.return_value = None
             
             # Call the method
-            self.bot.add_to_content_queue(url, self.channel_id, username, external_user_id)
+            await self.bot.add_to_content_queue(url, self.channel_id, username, external_user_id)
             
             # Verify select was called
             mock_select.assert_called()
             
             # Verify Content was created with the right URL
-            mock_content_class.assert_called_once_with(url=url)
+            mock_content_class.assert_called_once_with(url=url, stripped_url=url, title="Test Video", duration=212, thumbnail_url="https://example.com/thumbnail.jpg", channel_name="Test Channel", author=None)
             
             # Verify objects were added to the session
             self.session_mock_instance.add.assert_any_call(mock_content)
@@ -165,7 +186,7 @@ class TestUrlDetection(unittest.TestCase):
             self.session_mock_instance.commit.assert_called_once()
 
     @patch('bot.twitch.TwitchBot.add_to_content_queue')
-    def test_on_message_with_url(self, mock_add_to_queue):
+    async def test_on_message_with_url(self, mock_add_to_queue):
         """Test handling a message containing a URL"""
         # Create a mock ChatMessage
         mock_message = MagicMock(spec=ChatMessage)
@@ -178,15 +199,16 @@ class TestUrlDetection(unittest.TestCase):
         mock_message.text = "Check out this video: https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         mock_message.sent_timestamp = int(datetime.now().timestamp() * 1000)
         
-        # Call on_message using asyncio.run
-        asyncio.run(self.bot.on_message(mock_message))
+        # Call on_message using await
+        await self.bot.on_message(mock_message)
         
         # Verify add_to_content_queue was called with correct parameters
         mock_add_to_queue.assert_called_once_with(
             url="https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             channel_id=self.channel_id,
             username="test_user",
-            external_user_id="12345"
+            external_user_id="12345",
+            user_comment="Check out this video:"
         )
         
         # Verify chat log was added to session

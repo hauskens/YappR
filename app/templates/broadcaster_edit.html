@@ -86,7 +86,6 @@
                   </div>
                 </form>
               {% endfor %}
-              {% if current_user.has_permission(["admin"]) %}
               <form action="{{ url_for('broadcaster_settings_update', broadcaster_id=broadcaster.id) }}" method="post">
                 <div class="modal-body">
                   <h5 class="modal-title">Discord bot settings</h5>
@@ -95,7 +94,7 @@
                     <input type="number" class="form-control" id="discord_channel_id" name="discord_channel_id" 
                            value="{{ broadcaster.settings.linked_discord_channel_id if broadcaster.settings else '' }}" 
                            placeholder="Enter Discord Channel ID">
-                    <div class="form-text">The ID of the Discord channel where clips should be picked up by the <a href="https://discord.com/oauth2/authorize?client_id=1359399600733290586">YappR Discord bot</a></div>
+                    <div class="form-text">The ID of the Discord channel where clips should be picked up by YappR discord bot. <a href="https://discord.com/oauth2/authorize?client_id=1359399600733290586">Add the bot to your</a> to your server, then go in one of your discord channels and type <code>/verify</code> to verify your server.</div>
                   </div>
                 </div>
                 <div class="modal-footer">
@@ -103,7 +102,6 @@
                   <button type="submit" class="btn btn-primary">Save changes</button>
                 </div>
               </form>
-              {% endif %}
               {% if current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster.id) %}
                 <hr>
                 <div class="container mb-3 mt-3"> 

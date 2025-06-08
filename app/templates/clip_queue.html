@@ -252,6 +252,18 @@
   }
   
   function playContent(element) {
+    // If there's a current item playing and it's different from the one being clicked
+    if (currentItem && currentItem !== element) {
+      // Mark the current item as watched before switching to the new one
+      const currentItemId = currentItem.getAttribute('data-id');
+      const isCurrentWatched = currentItem.getAttribute('data-watched') === 'true';
+      
+      // Only mark as watched if it's not already watched
+      if (!isCurrentWatched) {
+        markAsWatched(currentItemId, false); // false means don't auto-play next
+      }
+    }
+    
     // Remove active class from all items
     document.querySelectorAll('.queue-item').forEach(item => {
       item.classList.remove('active');
@@ -486,8 +498,11 @@
     var items = document.querySelectorAll('.queue-item');
     var foundCurrent = false;
     
+    // First try to find an unwatched and non-skipped item after the current one
     for (var i = 0; i < items.length; i++) {
-      if (foundCurrent && items[i].getAttribute('data-watched') === 'false') {
+      if (foundCurrent && 
+          items[i].getAttribute('data-watched') === 'false' && 
+          items[i].getAttribute('data-skipped') === 'false') {
         return items[i];
       }
       
@@ -496,61 +511,72 @@
       }
     }
     
-    // If no unwatched items after current, return first unwatched
+    // If no unwatched and non-skipped items after current, look from the beginning
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].getAttribute('data-watched') === 'false' && 
+          items[i].getAttribute('data-skipped') === 'false') {
+        return items[i];
+      }
+    }
+    
+    // If all items are either watched or skipped, check if there are any unwatched but skipped items
+    // This is a fallback if all non-skipped items are watched
     for (var i = 0; i < items.length; i++) {
       if (items[i].getAttribute('data-watched') === 'false') {
         return items[i];
       }
     }
     
-    return null; // No unwatched items
+    return null; // No unwatched items at all
   }
   
-  function markAsWatched(itemId) {
-    console.log('Marking item as watched:', itemId);
-    
-    // Send AJAX request to mark item as watched
-    fetch(`/clip_queue/mark_watched/${itemId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
-      }
-    })
-    .then(response => response.json())
-    .then(data => {
+  function markAsWatched(itemId, autoPlayNext = true) {
+  console.log('Marking item as watched:', itemId);
+  
+  // Send AJAX request to mark item as watched
+  fetch(`/clip_queue/mark_watched/${itemId}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Requested-With': 'XMLHttpRequest'
+    }
+  })
+  .then(response => response.json())
+  .then(data => {
+      
+      // Find the specific item by ID and update its UI
+      const itemToUpdate = document.querySelector(`.queue-item[data-id="${itemId}"]`);
+      if (itemToUpdate) {
+        console.log('Updating UI for item:', itemId);
+        itemToUpdate.setAttribute('data-watched', 'true');
         
-        // Find the specific item by ID and update its UI
-        const itemToUpdate = document.querySelector(`.queue-item[data-id="${itemId}"]`);
-        if (itemToUpdate) {
-          console.log('Updating UI for item:', itemId);
-          itemToUpdate.setAttribute('data-watched', 'true');
-          
-          // Make the item transparent 
-          itemToUpdate.classList.add('watched');
-          itemToUpdate.style.opacity = '0.6';
-          
-          // Add a watched badge if it doesn't exist
-          let watchedBadgeExists = false;
-          const badges = itemToUpdate.querySelectorAll('.badge');
-          badges.forEach(badge => {
-            if (badge.textContent === 'Watched') {
-              watchedBadgeExists = true;
-              badge.classList.remove('bg-danger');
-              badge.classList.add('bg-success');
-            }
-          });
-          
-          if (!watchedBadgeExists) {
-            const metaDiv = itemToUpdate.querySelector('.queue-meta .d-flex:first-child');
-            if (metaDiv) {
-              const watchedBadge = document.createElement('span');
-              watchedBadge.className = 'badge bg-success';
-              watchedBadge.textContent = 'Watched';
-              metaDiv.prepend(watchedBadge);
-            }
+        // Make the item transparent 
+        itemToUpdate.classList.add('watched');
+        itemToUpdate.style.opacity = '0.6';
+        
+        // Add a watched badge if it doesn't exist
+        let watchedBadgeExists = false;
+        const badges = itemToUpdate.querySelectorAll('.badge');
+        badges.forEach(badge => {
+          if (badge.textContent === 'Watched') {
+            watchedBadgeExists = true;
+            badge.classList.remove('bg-danger');
+            badge.classList.add('bg-success');
           }
-          
+        });
+        
+        if (!watchedBadgeExists) {
+          const metaDiv = itemToUpdate.querySelector('.queue-meta .d-flex:first-child');
+          if (metaDiv) {
+            const watchedBadge = document.createElement('span');
+            watchedBadge.className = 'badge bg-success';
+            watchedBadge.textContent = 'Watched';
+            metaDiv.prepend(watchedBadge);
+          }
+        }
+        
+        // Only auto-play next if requested (default behavior)
+        if (autoPlayNext) {
           const nextItem = findNextUnwatched();
           if (nextItem) {
             console.log('Auto-playing next unwatched item');
@@ -575,12 +601,13 @@
           } else {
             console.log('No more unwatched items in queue');
           }
-        } else {
-          console.error('Could not find item with ID:', itemId);
         }
-    })
-    .catch(error => console.error('Error marking as watched:', error));
-  }
+      } else {
+        console.error('Could not find item with ID:', itemId);
+      }
+  })
+  .catch(error => console.error('Error marking as watched:', error));
+}
   
   // Mark as watched button
   document.getElementById('mark-watched-btn').addEventListener('click', function() {

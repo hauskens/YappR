@@ -123,9 +123,11 @@ def management():
         bots = get_bots()
         broadcasters = get_broadcasters()
 
-    elif current_user.is_anonymous == False and moderated_channels is not None:
+    elif current_user.is_anonymous == False and (moderated_channels is not None or current_user.is_broadcaster()):
         # Convert moderated channels to a list of broadcasters
         broadcaster_ids = [channel.channel.broadcaster_id for channel in moderated_channels]
+        if current_user.is_broadcaster():
+            broadcaster_ids.append(current_user.get_broadcaster().id)
         broadcasters = db.session.query(Broadcaster).filter(Broadcaster.id.in_(broadcaster_ids)).all()
     
     if moderated_channels is None and not (current_user.has_permission(PermissionType.Admin) or current_user.is_broadcaster()):

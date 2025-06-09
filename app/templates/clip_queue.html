@@ -138,77 +138,7 @@
             <h5 class="mb-0">Up Next</h5>
           </div>
           <div class="card-body p-0">
-            <div class="queue-list overflow-auto">
-              {% for item in queue_items %}
-                <div class="queue-item position-relative d-flex mb-2 p-2 border border-light-subtle rounded cursor-pointer{% if loop.first %} active bg-primary-subtle border-start border-2 border-primary-subtle{% endif %}{% if item.skipped %} skipped{% endif %}" 
-                     data-id="{{ item.id }}" 
-                     data-url="{{ item.content.url }}" 
-                     data-title="{{ item.content.title }}"
-                     data-thumbnail="{{ item.content.thumbnail_url }}"
-                     data-watched="{{ item.watched|lower }}"
-                     data-skipped="{{ item.skipped|lower }}">
-                  <div class="queue-item-content d-flex align-items-center flex-grow-1 min-width-0 cursor-pointer" onclick="playContent(this.parentElement)">
-                  {% if item.content.thumbnail_url %}
-                  <div class="queue-thumbnail me-3 d-flex align-items-center justify-content-center text-muted" style="background-color: transparent;">
-                    <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid rounded ">
-                  </div>
-                  {% endif %}
-                  <div class="queue-content flex-grow-1 min-width-0">
-                    <div class="queue-title fw-bold mb-1 text-truncate">{{ item.content.title|truncate(50) }}</div>
-                    <div class="queue-meta fs-6 text-muted">
-                      <div class="d-flex flex-wrap align-items-center gap-2">
-                        {% if item.content.get_platform() == 'youtube' %}
-                          <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000" alt="YouTube logo badge">
-                        {% elif item.content.get_platform() == 'twitch' %}
-                          <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D" alt="Twitch badge">
-                        {% endif %}
-
-                        {% if item.content.duration %}
-                          {% set minutes = (item.content.duration // 60)|int %}
-                          {% set seconds = (item.content.duration % 60)|int %}
-                          <span class="badge bg-secondary">{{ "%d:%02d"|format(minutes, seconds) }}</span>
-                        {% endif %}
-                        {% if item.submissions %}
-                          {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
-                          {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
-                          {% set minutes_diff = (seconds_diff / 60)|int %}
-                          {% set hours_diff = (seconds_diff / 3600)|int %}
-                          {% set days_diff = (hours_diff / 24)|int %}
-                          <span class="text-muted">•</span>
-                          <span class="text-muted" data-bs-toggle="tooltip" 
-                                title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
-                            Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{ hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1 %}s{% endif %}{% endif %} ago
-                          </span>
-                        {% endif %}
-                      </div>
-                      <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
-                        {% if item.watched %}
-                          <span class="badge bg-success">Watched</span>
-                        {% endif %}
-                        {% for submission in item.submissions %}
-                          {% if submission.submission_source_type.name == "Twitch" %}
-                            <span class="badge" style="background-color: #9147FF; color: white;" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
-                              {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
-                            </span>
-                          {% elif submission.submission_source_type.name == "Discord" %}
-                            <span class="badge" style="background-color: #7289da; color: white;" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
-                              {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
-                            </span>
-                          {% endif %}
-                        {% endfor %}
-                      </div>
-                    </div>
-                  </div>
-                  </div><div class="queue-actions ms-auto px-2 d-flex align-items-center">
-                    <button class="btn btn-sm btn-outline-secondary skip-btn" 
-                            onclick="event.stopPropagation(); skipItem({{ item.id }})"
-                            data-bs-toggle="tooltip" 
-                            title="Skip this clip">
-                      <i class="bi bi-skip-forward"></i>
-                    </button>
-                  </div>
-                </div>
-              {% endfor %}
+            <div id="test" hx-get="/clip_queue/items" hx-trigger="load, queue_update from:body" hx-swap="innerHTML">
             </div>
           </div>
         </div>
@@ -223,6 +153,27 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<!-- HTMX, HTMX-WS Extension, and Socket.IO -->
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+  htmx.config.wsReconnectDelay = function (retryCount) {
+      const base   = 1000;          // 5 000 ms = 5 s
+      const delay  = base * Math.pow(2, retryCount); // exponential
+      const capped = Math.min(delay, 60000);         // never more than 1 min
+      return capped;
+  };
+  const sock  = io();                       // default connects to same host:port
+
+  // tell the server which room we care about
+  sock.on("connect", () => sock.emit("join_queue"));
+
+  // when the server announces an update, trigger htmx to re-fetch
+  sock.on("queue_update", payload => {
+    console.log("Queue updated");
+      htmx.trigger(document.body, "queue_update");
+    });
+</script>
 <script>
   // YouTube API
   var tag = document.createElement('script');
@@ -678,5 +629,25 @@
     return new bootstrap.Tooltip(tooltipTriggerEl);
   });
   
+  // // Socket.io event handling for queue updates
+  // document.addEventListener('DOMContentLoaded', function() {
+  //   const socket = io();
+  //   const broadcasterId = "{{ broadcaster.id }}";
+    
+  //   socket.on('queue_update', function(data) {
+  //     if (data.broadcaster_id.toString() === broadcasterId) {
+  //       // Dispatch a custom event that htmx will listen for
+  //       document.body.dispatchEvent(new CustomEvent('queue_update'));
+        
+  //       // Re-initialize tooltips after content is updated
+  //       setTimeout(function() {
+  //         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  //         tooltipTriggerList.map(function (tooltipTriggerEl) {
+  //           return new bootstrap.Tooltip(tooltipTriggerEl);
+  //         });
+  //       }, 100);
+  //     }
+  //   });
+  // });
 </script>
 {% endblock %}

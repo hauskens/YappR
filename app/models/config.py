@@ -52,6 +52,9 @@ class Config:
         self.api_key: str = os.environ.get("API_KEY", "not_a_secure_key!11")
         self.hf_token: str | None = os.environ.get("HF_TOKEN")
         self.discord_bot_token: str | None = os.environ.get("DISCORD_BOT_TOKEN")
+        self.bot_discord_enabled: bool = bool(os.environ.get("BOT_DISCORD_ENABLED", False))
+        self.bot_discord_admin_guild: int | None = os.environ.get("BOT_DISCORD_ADMIN_GUILD")
+        self.bot_twitch_enabled: bool = bool(os.environ.get("BOT_TWITCH_ENABLED", False))
         self.environment: str = os.environ.get("ENVIRONMENT", "development")
         self.service_name: str = os.environ.get("SERVICE_NAME", "app")
         self.loki_url: str | None = os.environ.get("LOKI_URL") # example: http://localhost:4040/loki/api/v1/push

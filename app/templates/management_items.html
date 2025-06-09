@@ -1,0 +1,88 @@
+{% if queue_items %}
+  <div class="row mb-1">
+  {% for item in queue_items %}
+    <div class="col">
+      <div class="card mb-3 {% if item.watched %}border-success{% elif item.skipped %}border-warning{% endif %}" id="item-{{ item.id }}" style="width: 242px;">
+          {% if item.content.thumbnail_url %}
+            <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="rounded-2" style="max-height: 136px; width: 240px; object-position: center; object-fit: cover;">
+          {% else %}
+            <div class="bg-light d-flex align-items-center justify-content-center" style="max-height: 136px; width: 240px;">
+              <i class="bi bi-play-circle fs-1"></i>
+            </div>
+          {% endif %}
+            
+          <div class="position-absolute top-0 end-0 p-2">
+            {% if item.watched %}<span class="badge bg-success">Watched</span>
+            {% elif item.skipped %}<span class="badge bg-warning text-dark">Skipped</span>{% endif %} 
+          </div>
+          
+          <div class="position-absolute start-0 p-2" style="top: 100px;">
+            {% if item.content.get_platform() == 'youtube' %}
+              <span class="badge" style="background-color: #FF0000;">{{ item.content.channel_name | truncate(15) }}</span>
+            {% elif item.content.get_platform() == 'twitch' %}
+              <span class="badge" style="background-color: #9147FF;">{{ item.content.channel_name | truncate(15) }}</span>
+            {% endif %}
+            {% if item.content.duration %}
+              {% set minutes = (item.content.duration // 60)|int %}
+              {% set seconds = (item.content.duration % 60)|int %}
+              <span class="badge bg-dark">{{ "%d:%02d"|format(minutes, seconds) }}</span>
+            {% endif %}
+          </div>
+        
+        <div class="card-body">
+          <h6 class="card-title text-truncate" title="{{ item.content.title }}">{{ item.content.title|truncate(40) }}</h6>
+          <h6 class="card-title text-truncate" title="{{ item.content.url }}">Queue: {{ item.broadcaster.name }}</h6>
+          <span class="badge bg-dark">User weight: {{ item.submissions|sum(attribute='weight') }}</span>
+          <div class="d-flex flex-wrap gap-1 mb-1">
+            {% for submission in item.submissions[:3] %}
+              <span class="badge {% if submission.submission_source_type.name == 'Twitch' %}bg-twitch{% else %}bg-discord{% endif %}" 
+                    data-bs-toggle="tooltip" 
+                    title="{{ submission.user_comment or '' }}">
+                {{ submission.user.username }}{{ '*' if submission.user_comment }}
+              </span>
+            {% endfor %}
+            {% if item.submissions|length > 3 %}
+              <span class="badge bg-secondary">+{{ item.submissions|length - 3 }}</span>
+            {% endif %}
+          </div>
+        </div>
+        
+        <div class="card-footer bg-transparent">
+          <div class="d-flex justify-content-between">
+            <a href="{{ item.content.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+              <i class="bi bi-play-fill"></i> Open
+            </a>
+            <div>
+              <button class="btn btn-sm btn-outline-{% if item.watched %}secondary{% else %}success{% endif %}" 
+                      hx-post="{{ url_for('mark_clip_watched', item_id=item.id) }}" 
+                      hx-target="body"
+                      hx-swap="none"
+                      hx-trigger="click"
+                      hx-on::after-request="htmx.trigger('#queue-items-container', 'queue_update')"
+                      title="{% if item.watched %}Mark as unwatched{% else %}Mark as watched{% endif %}">
+                <i class="bi bi-{% if item.watched %}arrow-counterclockwise{% else %}check{% endif %}"></i>
+              </button>
+              
+              {% if not item.watched %}
+              <button class="btn btn-sm btn-outline-{% if item.skipped %}secondary{% else %}warning{% endif %}" 
+                      hx-post="{{ url_for('skip_clip_queue_item', item_id=item.id) }}"
+                      hx-target="body"
+                      hx-swap="none"
+                      hx-trigger="click"
+                      hx-on::after-request="htmx.trigger('#queue-items-container', 'queue_update')"
+                      title="{% if item.skipped %}Reset watch/skip status{% else %}Skip{% endif %}">
+                <i class="bi bi-{% if item.skipped %}arrow-counterclockwise{% else %}skip-forward{% endif %}"></i>
+              </button>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+  </div>
+{% else %}
+  <div class="alert alert-info">
+    <i class="bi bi-info-circle me-2"></i> No content queue items found{% if selected_broadcaster_id %} for the selected broadcaster{% endif %}.
+  </div>
+{% endif %}

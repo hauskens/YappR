@@ -133,14 +133,75 @@ def management():
     
     broadcaster_id = request.args.get('broadcaster_id', type=int)
     if broadcaster_id is None and current_user.is_broadcaster():
-
         broadcaster_id = current_user.get_broadcaster().id
     
-    queue_items = get_content_queue(broadcaster_id, include_skipped=True, include_watched=True)
-    logger.info(f"User is accessing management page", extra={"broadcaster_id": broadcaster_id, "queue_items": len(queue_items)})
+    logger.info(f"User is accessing management page", extra={"broadcaster_id": broadcaster_id})
     return render_template(
-        "management.html", bots=bots, broadcasters=broadcasters, selected_broadcaster_id=broadcaster_id, queue_items=queue_items
+        "management.html", bots=bots, broadcasters=broadcasters, selected_broadcaster_id=broadcaster_id
     )
+
+@app.route("/management/items")
+@login_required
+def management_items():
+    logger.info("Loading management items with htmx")
+    if check_banned():
+        return render_template("banned.html", user=current_user)
+    
+    try:
+        # Get filter parameters from request
+        broadcaster_id = request.args.get('broadcaster_id', type=int)
+        sort_by = request.args.get('sort_by', 'newest')
+        
+        # Handle checkbox values - checkboxes only send values when checked
+        show_watched_param = request.args.get('show_watched')
+        show_skipped_param = request.args.get('show_skipped')
+        
+        # Convert to boolean - 'false' string should be treated as False
+        show_watched = show_watched_param != 'false' if show_watched_param is not None else False
+        show_skipped = show_skipped_param != 'false' if show_skipped_param is not None else False
+        
+        # Debug log the received parameters
+        logger.debug(f"Filter params: broadcaster_id={broadcaster_id}, sort_by={sort_by}, show_watched={show_watched}, show_skipped={show_skipped}")
+        logger.debug(f"All request args: {request.args}")
+        
+        
+        # If no broadcaster_id is provided and user is a broadcaster, use their broadcaster_id
+        if broadcaster_id is None and current_user.is_broadcaster():
+            broadcaster_id = current_user.get_broadcaster().id
+        
+        # Get queue items with filters
+        queue_items = get_content_queue(
+            broadcaster_id, 
+            include_watched=show_watched, 
+            include_skipped=show_skipped
+        )
+        
+        # Apply sorting
+        if sort_by == 'oldest':
+            # Sort by oldest first (based on first submission date)
+            queue_items = sorted(queue_items, key=lambda x: min(s.submitted_at for s in x.submissions) if x.submissions else datetime.now())
+        elif sort_by == 'most_submitted':
+            # Sort by number of submissions (most first)
+            queue_items = sorted(queue_items, key=lambda x: len(x.submissions), reverse=True)
+        else:  # 'newest' is default
+            # Sort by newest first (based on first submission date)
+            queue_items = sorted(queue_items, key=lambda x: min(s.submitted_at for s in x.submissions) if x.submissions else datetime.now(), reverse=True)
+        
+        logger.info("Successfully loaded management items", extra={
+            "broadcaster_id": broadcaster_id, 
+            "queue_items": len(queue_items),
+            "filters": {"show_watched": show_watched, "show_skipped": show_skipped, "sort_by": sort_by}
+        })
+        
+        return render_template(
+            "management_items.html",
+            queue_items=queue_items,
+            selected_broadcaster_id=broadcaster_id,
+            now=datetime.now(),
+        )
+    except Exception as e:
+        logger.error("Error loading management items: %s", e)
+        return "Error loading management items", 500
 
 @app.route("/user/<int:user_id>/edit", methods=["GET", "POST"])
 @login_required
@@ -424,27 +485,6 @@ def broadcaster_edit(id: int):
         platforms=get_platforms(),
         video_types=VideoType,
     )
-
-
-# @app.route("/platform/create", methods=["POST"])
-# @login_required
-# def platform_create():
-#     name = request.form["name"]
-#     url = request.form["url"]
-#     existing_platforms = get_platforms()
-#     if existing_platforms is not None:
-#         for platform in existing_platforms:
-#             if platform.name.lower() == name.lower():
-#                 flash("This platform already exists", "error")
-#                 return render_template(
-#                     "platforms.html",
-#                     form=request.form,
-#                     broadcasters=existing_platforms,
-#                 )
-#     abt = Platforms(name=name, url=url)
-#     db.session.add(abt)
-#     db.session.commit()
-#     return redirect(url_for("platforms"))
 
 
 @app.route("/channel/create", methods=["POST"])

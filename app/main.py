@@ -29,6 +29,7 @@ from celery.schedules import crontab
 from .chatlogparse import parse_logs
 from flask_socketio import emit, send
 from app.logger import logger
+from flask_socketio import emit, join_room, leave_room, send
 
 def celery_init_app(app: Flask) -> Celery:
     # todo: getting a type error here
@@ -345,16 +346,42 @@ def connected():
 def error_handler(e):
     logger.error(f'An error occurred: {e}')
 
+@socketio.on("join_queue")
+@login_required
+def handle_join():
+    """Browser tells us which broadcaster it cares about."""
+    broadcaster_id = current_user.get_broadcaster().id
+    if broadcaster_id is None:
+        logger.warning("User has no broadcaster id", extra={"user_id": current_user.id})
+        return
+    join_room(f"queue-{broadcaster_id}")
+    logger.info("Client has joined queue %s", broadcaster_id, extra={"user_id": current_user.id})
+
 @socketio.on('message')
 @login_required
 def handleMessage(msg):
     if current_user.is_anonymous == False and current_user.banned == False:
-        logger.info('Message: ' + msg)
-        logger.info(current_user.permissions)
+        logger.info('Message: ' + msg, extra={"user_id": current_user.id})
+        logger.info(current_user.permissions, extra={"user_id": current_user.id})
         send(msg, broadcast=True)
     else:
         logger.warning("User is anonymous or banned")
         return False
+
+@socketio.on("connect")
+@login_required
+def my_event():
+    logger.info("Client has connected", extra={"user_id": current_user.id})
+
+@socketio.on("disconnect")
+@login_required
+def handle_disconnect(_):
+    broadcaster_id = current_user.get_broadcaster().id
+    if broadcaster_id is None:
+        logger.warning("User has no broadcaster id", extra={"user_id": current_user.id})
+        return
+    leave_room(f"queue-{broadcaster_id}")
+    logger.info("Client has disconnected %s", broadcaster_id, extra={"user_id": current_user.id})
 
 
 if __name__ == "__main__":

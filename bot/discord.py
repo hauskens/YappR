@@ -6,6 +6,7 @@ from .shared import ScopedSession, logger, url_pattern, add_to_content_queue, ge
 from app.models.db import BroadcasterSettings, ContentQueueSubmissionSource
 import re
 import asyncio
+import os
 from typing import Literal
 import signal
 import typing
@@ -35,21 +36,21 @@ class DiscordBot(commands.Bot):
         )
         
         # Runtime options
-        self.allow_thread_creation = not config.environment == "development"
-        self.allow_send_message = not config.environment == "development"
-        self.allow_reaction = not config.environment == "development"
+        self.allow_thread_creation = not config.debug
+        self.allow_send_message = not config.debug
+        self.allow_reaction = not config.debug
 
         # Database session
         self.session = ScopedSession()
         
         # Store the IDs of channels to listen to
-        self.active_listening_channels = set()
+        self.active_listening_channels: set[int] = set()
         
         # Thread management
         self.thread_timeout_minutes: Literal[60, 1440, 4320, 10080] = 4320
-        self.pending_vote_updates = {}
-        self.tracked_messages = set()
-        self.thread_to_message = {}
+        self.pending_vote_updates: dict[int, asyncio.Task] = {}
+        self.tracked_messages: set[int] = set()
+        self.thread_to_message: dict[int, int] = {}
         
         # Use the shared task manager
         self.task_manager = task_manager
@@ -62,6 +63,11 @@ class DiscordBot(commands.Bot):
         # Sync the command tree
         await self.add_cog(VerifyCommand(self))
         await self.add_cog(AdminCommands(self))
+        if os.getenv("BOT_DISCORD_FORCE_SYNC"):
+            try:
+                await self.tree.sync()
+            except Exception as e:
+                logger.error(f"Failed to sync commands: {e}")
     
     async def schedule_vote_update(self, message: Message, delay=2.0):
         """Schedule a debounced vote update for a message"""
@@ -249,35 +255,43 @@ class VerifyCommand(commands.Cog):
         """Verify a channel for the bot to listen to"""
         # Find broadcaster settings with this channel ID
         logger.info(f"Verifying channel {interaction.channel_id}")
-        if interaction.channel_id is not None and interaction.channel_id in self.bot.active_listening_channels:
-            if self.bot.allow_send_message:
-                await interaction.response.send_message(f"✅ This channel is already verified")
-                logger.info(f"Channel {interaction.channel_id} is already verified")
-            return
-        
-        query = select(BroadcasterSettings).where(
-            BroadcasterSettings.linked_discord_channel_id == interaction.channel_id
-        )
-        broadcaster_setting = self.bot.session.execute(query).scalars().first()
-        
-        if broadcaster_setting and interaction.channel_id is not None:
-            # Verify the channel
-            broadcaster_setting.linked_discord_channel_verified = True
-            self.bot.session.commit()
+        try:
+            query = select(BroadcasterSettings).where(
+                BroadcasterSettings.linked_discord_channel_id == interaction.channel_id
+            )
+            broadcaster_setting = self.bot.session.execute(query).scalars().one_or_none()
             
-            # Add to active listening channels
-            self.bot.active_listening_channels.add(interaction.channel_id)
+            if interaction.channel_id is not None and interaction.channel_id in self.bot.active_listening_channels and broadcaster_setting is not None:
+                if broadcaster_setting.linked_discord_channel_verified:
+                    logger.info(f"Channel {interaction.channel_id} is already verified", extra={"discord_channel_id": interaction.channel_id})
+                    if self.bot.allow_send_message:
+                        await interaction.response.send_message(f"✅ This channel is already verified")
+                    return
+            elif interaction.channel_id is not None and broadcaster_setting is not None:
+                # Verify the channel
+                broadcaster_setting.linked_discord_channel_verified = True
+                self.bot.session.commit()
+                
+                # Add to active listening channels
+                self.bot.active_listening_channels.add(interaction.channel_id)
+                if self.bot.allow_send_message:
+                    await interaction.response.send_message(f"✅ Channel verified and now listening to messages in <#{interaction.channel_id}>, clips posted here will be added to the content queue.")
+                logger.info("Channel is verified", 
+                        extra={"broadcaster_id": broadcaster_setting.broadcaster_id, "discord_channel_id": interaction.channel_id})
+                return
+            else:
+                # No broadcaster found with this channel ID
+                if self.bot.allow_send_message:
+                    await interaction.response.send_message(
+                        f"❌ This discord channel is not linked to a broadcaster. In YappR, go to a Broadcaster > Broadcast Settings > Linked Discord Channel and add the channel id: `{interaction.channel_id}`."
+                    )
+                logger.info("Channel is not linked to a broadcaster", extra={"discord_channel_id": interaction.channel_id})
+                return
+        except Exception as e:
+            logger.error(f"Failed to verify channel: {e}")
             if self.bot.allow_send_message:
-                await interaction.response.send_message(f"✅ Channel verified and now listening to messages in <#{interaction.channel_id}>")
-            logger.info(f"Channel {interaction.channel_id} verified and listening started by {interaction.user.name}", 
-                    extra={"broadcaster_id": broadcaster_setting.broadcaster_id})
-        else:
-            # No broadcaster found with this channel ID
-            if self.bot.allow_send_message:
-                await interaction.response.send_message(
-                    f"❌ This discord channel is not linked to a broadcaster. In YappR, go to a broadcaster and add the channel id `{interaction.channel_id}`."
-                )
-            logger.info(f"Channel {interaction.channel_id} is not linked to a broadcaster")
+                await interaction.response.send_message(f"❌ Failed to verify channel: {e}")
+            return
 
 class AdminCommands(commands.Cog):
     def __init__(self, bot: DiscordBot):

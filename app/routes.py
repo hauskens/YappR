@@ -16,9 +16,8 @@ from flask_login import current_user, login_required, logout_user # type: ignore
 from .utils import require_api_key
 from io import BytesIO
 import mimetypes
-from . import app, limiter, rate_limit_exempt
+from . import app, limiter, rate_limit_exempt, socketio
 from datetime import datetime
-from .models.config import config
 from .retrievers import (
     get_users,
     get_broadcaster,
@@ -699,6 +698,10 @@ def skip_clip_queue_item(item_id: int):
                 logger.info("Skipping clip", extra={"queue_item_id": queue_item.id})
                 queue_item.skipped = True
             db.session.commit()
+            socketio.emit(
+                "queue_update",
+                to=f"queue-{queue_item.broadcaster_id}",
+            )
             return jsonify({"skipped": queue_item.skipped})
         else:
             return access_denied()
@@ -707,6 +710,28 @@ def skip_clip_queue_item(item_id: int):
         db.session.rollback()
         flash("Error updating skip status", "error")
         return redirect(request.referrer)
+
+
+@app.route("/clip_queue/items")
+@login_required
+def get_queue_items():
+    logger.info("Loading clip queue with htmx")
+    try:
+        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
+        if broadcaster is None:
+            return "No broadcaster found, you need to link a broadcaster to your account, and this is not properly implemented, contact admin"
+        queue_items = get_content_queue(broadcaster.id)
+        logger.info("Successfully loaded clip queue", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items)})
+        from datetime import datetime
+        return render_template(
+            "clip_queue_items.html",
+            queue_items=queue_items,
+            broadcaster=broadcaster,
+            now=datetime.now(),
+        )
+    except Exception as e:
+        logger.error("Error loading clip queue %s", e)
+        return "Error loading clip queue", 500
 
 
 @app.route("/broadcaster/<int:broadcaster_id>/create_clip")

@@ -154,8 +154,6 @@
 
 {% block extra_scripts %}
 <!-- HTMX, HTMX-WS Extension, and Socket.IO -->
-<script src="https://unpkg.com/htmx.org@1.9.10"></script>
-<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
   htmx.config.wsReconnectDelay = function (retryCount) {
       const base   = 1000;          // 5 000 ms = 5 s
@@ -211,7 +209,7 @@
       
       // Only mark as watched if it's not already watched
       if (!isCurrentWatched) {
-        markAsWatched(currentItemId, false); // false means don't auto-play next
+        markAsWatched(currentItemId, true); // false means don't auto-play next
       }
     }
     
@@ -352,7 +350,7 @@
       videoId: videoId,
       playerVars: {
         start: startTime,
-        autoplay: 1
+        autoplay: autoplayEnabled ? 1 : 0
       },
       events: {
         'onReady': onPlayerReady,

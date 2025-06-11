@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip, CreatedClip, ChannelModerator, AuthScope
+from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip, CreatedClip, ChannelModerator, AuthScope, Stream
 from twitchAPI.helper import first
 from .models.config import config
 from pytimeparse.timeparse import timeparse # type: ignore
@@ -97,6 +97,31 @@ async def get_twitch_user_by_id(twitch_user_id: str, api_client: Twitch | None =
     else:
         return users
 
+async def get_current_live_streams(twitch_user_ids: list[str], api_client: Twitch | None = None) -> list[Stream]:
+    if api_client is None:
+        twitch = await get_twitch_client()
+    else:
+        twitch = api_client
+    logger.info("Getting twitch users by ids: %s", twitch_user_ids)
+    streams = twitch.get_streams(user_id=twitch_user_ids)
+    if streams is None:
+        logger.error("Twitch users not found: %s", twitch_user_ids)
+        raise ValueError(f"Twitch users not found{twitch_user_ids}")
+    else:
+        return [stream async for stream in streams]
+
+async def get_twitch_users_by_ids(twitch_user_ids: list[str], api_client: Twitch | None = None) -> list[TwitchUser]:
+    if api_client is None:
+        twitch = await get_twitch_client()
+    else:
+        twitch = api_client
+    logger.info("Getting twitch users by ids: %s", twitch_user_ids)
+    users = twitch.get_users(user_ids=twitch_user_ids)
+    if users is None:
+        logger.error("Twitch users not found: %s", twitch_user_ids)
+        raise ValueError(f"Twitch users not found{twitch_user_ids}")
+    else:
+        return [user async for user in users]
 
 async def get_latest_broadcasts(twitch_user_id: str, limit: int = 100, api_client: Twitch | None = None) -> Sequence[Video]:
     if api_client is None:

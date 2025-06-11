@@ -38,9 +38,9 @@ from .retrievers import (
     get_bots,
     get_content_queue,
     get_moderated_channels,
-    get_all_twitch_channels,
     get_broadcaster_by_external_id,
 )
+from app.twitch_api import get_twitch_user
 
 from .models.db import (
     Broadcaster,
@@ -49,13 +49,9 @@ from .models.db import (
     Channels,
     ChannelSettings,
     PermissionType,
-    Transcription,
-    TranscriptionSource,
     ContentQueue,
-    Content,
     db,
     BroadcasterSettings,
-    Platforms,
     ChannelModerator,
 )
 
@@ -497,6 +493,7 @@ def channel_create():
     platform_id = int(request.form["platform_id"])
     platform_ref = request.form["platform_ref"]
     channel_type = request.form["channel_type"]
+    channel_id = request.form.get("channel_id", None)
     logger.info("Creating new channel: %s for broadcaster: %s", name, broadcaster_id, extra={"broadcaster_id": broadcaster_id})
     new_channel = Channels(
         name=name,
@@ -504,13 +501,14 @@ def channel_create():
         platform_id=platform_id,
         platform_ref=platform_ref,
         main_video_type=channel_type,
+        platform_channel_id=channel_id,
     )
     db.session.add(new_channel)
     db.session.commit()
     logger.info("Channel %s was successfully created", name, extra={"channel_id": new_channel.id, "broadcaster_id": broadcaster_id})
     return render_template(
         "broadcaster_edit.html",
-        broadcaster=broadcaster_id,
+        broadcaster=get_broadcaster(broadcaster_id),
         channels=get_broadcaster_channels(broadcaster_id=broadcaster_id),
         platforms=get_platforms(),
         video_types=VideoType,
@@ -884,3 +882,27 @@ def broadcaster_settings_update(broadcaster_id: int):
     db.session.commit()
     flash('Broadcaster settings updated successfully')
     return redirect(request.referrer)
+
+
+@app.route("/api/lookup_twitch_id")
+@login_required
+def lookup_twitch_id():
+    """API endpoint to look up a Twitch user ID by username"""
+    if check_banned():
+        return jsonify({"success": False, "error": "You are banned"})
+    if current_user.is_anonymous:
+        return jsonify({"success": False, "error": "You must be logged in to use this endpoint"})
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"success": False, "error": "No username provided"})
+    
+    try:
+        # Use the existing Twitch API function to look up the user
+        user = asyncio.run(get_twitch_user(username))
+        if user:
+            return jsonify({"success": True, "user_id": user.id, "display_name": user.display_name})
+        else:
+            return jsonify({"success": False, "error": "User not found"})
+    except Exception as e:
+        logger.error(f"Error looking up Twitch user: {e}")
+        return jsonify({"success": False, "error": str(e)})

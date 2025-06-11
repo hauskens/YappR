@@ -19,17 +19,20 @@ from .models.db import (
 )
 from .transcribe import transcribe
 from .models.config import config
-from .retrievers import get_transcription, get_video
+from .retrievers import get_transcription, get_video, get_all_twitch_channels
 from app.routes import *
 from app import app, login_manager, socketio
-from .models.db import TranscriptionSource
+from .models.db import TranscriptionSource, Transcription
 from .utils import require_api_key
+from .twitch_api import get_current_live_streams
+import asyncio
 from urllib.parse import unquote
 from celery.schedules import crontab
 from .chatlogparse import parse_logs
 from flask_socketio import emit, send
 from app.logger import logger
 from flask_socketio import emit, join_room, leave_room, send
+from datetime import datetime, timedelta
 
 def celery_init_app(app: Flask) -> Celery:
     # todo: getting a type error here
@@ -58,7 +61,8 @@ def setup_periodic_tasks(sender: Celery, **kwargs):
         for channel in channels:
             if channel.platform.name.lower() == "twitch":
                 logger.info("Setting up tasks for channel", extra={"channel_id": channel.id})
-                sender.add_periodic_task(crontab(hour="*", minute="*/30"), full_processing_task.s(channel.id), name=f'look for new videos every 30 minutes - {channel.name}')
+                sender.add_periodic_task(crontab(hour="*", minute="*/15"), full_processing_task.s(channel.id), name=f'look for new videos every 15 minutes - {channel.name}')
+        sender.add_periodic_task(crontab(hour="*", minute="*/5"), update_channels_last_active.s(), name=f'update channels last active every 5 minutes')
                 
 def get_extension_from_response(response):
     # Try to extract filename from Content-Disposition header
@@ -87,6 +91,10 @@ def redirect_unauthorized():
 def full_processing_task(channel_id: int):
     logger.info("Processing channel", extra={"channel_id": channel_id})
     channel = get_channel(channel_id)
+    if channel.last_active is not None and channel.last_active > datetime.now() - timedelta(minutes=10):
+        logger.info("Channel was active less than 10 minutes ago, skipping", extra={"channel_id": channel_id})
+        return
+    logger.info("Channel was active more than 10 minutes ago, processing", extra={"channel_id": channel_id})
     video = channel.fetch_latest_videos(process=True)
     if video is not None:
         _ = chain(task_fetch_audio.s(video), task_transcribe_audio.s(), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)
@@ -180,6 +188,19 @@ def task_fetch_transcription(video_id: int):
     _ = video.download_transcription()
     return video_id
 
+@celery.task
+def update_channels_last_active():
+    channels = get_all_twitch_channels()
+    twitch_user_ids = [channel.platform_channel_id for channel in channels]
+    if len(twitch_user_ids) > 0:
+        streams = asyncio.run(get_current_live_streams(twitch_user_ids))
+        for stream in streams:
+            for channel in channels:
+                if channel.platform_channel_id == stream.user_id:
+                    channel.last_active = datetime.now()
+    db.session.commit()
+    
+    
 
 @celery.task
 def task_transcribe_audio(video_id: int, force: bool = False):

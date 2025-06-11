@@ -316,6 +316,7 @@ class Channels(Base):
         back_populates="channel",
         cascade="all, delete-orphan"
     )
+    last_active: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
     def update_thumbnail(self):
@@ -366,8 +367,12 @@ class Channels(Base):
         db.session.query(ChatLog).filter_by(channel_id=self.id).delete()
         db.session.query(ChannelSettings).filter_by(channel_id=self.id).delete()
         db.session.query(ChannelModerator).filter_by(channel_id=self.id).delete()
-        db.session.query(ContentQueueSubmission).filter_by(broadcaster_id=self.id).delete()
-        db.session.query(ContentQueue).filter_by(broadcaster_id=self.id).delete()
+        if self.broadcaster_id is not None:
+            queue = db.session.query(ContentQueue).filter_by(broadcaster_id=self.broadcaster_id).one_or_none()
+            if queue is not None:
+                db.session.query(ContentQueueSubmission).filter_by(queue_id=queue.id).delete()
+                db.session.query(ContentQueue).filter_by(id=queue.id).delete()
+
         _ = db.session.query(Channels).filter_by(id=self.id).delete()
         db.session.commit()
 

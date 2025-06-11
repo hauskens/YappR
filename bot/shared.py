@@ -450,9 +450,9 @@ async def update_submission_weight(submission_source_id: int, weight: float):
         if existing_submission is None:
             logger.error("Submission not found")
             raise ValueError("Submission not found")
-        existing_submission.weight = weight
+        existing_submission.weight = max(1, 1 + weight)
         session.commit()
-        logger.debug("Submission weight updated", extra={"submission_id": existing_submission.id})
+        logger.debug("Submission weight updated, new weight: %s", existing_submission.weight, extra={"submission_id": existing_submission.id})
     except Exception as e:
         session.rollback()
         logger.error("Error updating submission weight: %s", e, extra={"submission_source_id": submission_source_id})

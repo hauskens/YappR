@@ -1,9 +1,9 @@
 import discord
 from discord import Message, app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from sqlalchemy import select
 from .shared import ScopedSession, logger, url_pattern, add_to_content_queue, get_platform, update_submission_weight
-from app.models.db import BroadcasterSettings, ContentQueueSubmissionSource
+from app.models.db import BroadcasterSettings, ContentQueueSubmission, ContentQueueSubmissionSource, ContentQueue
 import re
 import asyncio
 import os
@@ -39,7 +39,10 @@ class DiscordBot(commands.Bot):
         self.allow_thread_creation = not config.debug
         self.allow_send_message = not config.debug
         self.allow_reaction = not config.debug
-
+        logger.info(f"Debug mode: {config.debug}")
+        logger.info(f"Allow thread creation: {self.allow_thread_creation}")
+        logger.info(f"Allow send message: {self.allow_send_message}")
+        logger.info(f"Allow reaction: {self.allow_reaction}")
         # Database session
         self.session = ScopedSession()
         
@@ -48,42 +51,42 @@ class DiscordBot(commands.Bot):
         
         # Thread management
         self.thread_timeout_minutes: Literal[60, 1440, 4320, 10080] = 4320
-        self.pending_vote_updates: dict[int, asyncio.Task] = {}
+        self.pending_vote_messages: set[discord.RawReactionActionEvent] = set()
+        self.pending_test: set[str] = set()
         self.tracked_messages: set[int] = set()
         self.thread_to_message: dict[int, int] = {}
         
         # Use the shared task manager
         self.task_manager = task_manager
 
-    # async def on_error(self, event_method: str, *args: typing.Any, **kwargs: typing.Any) -> None:
-    #     logger.error(f"An error occurred in {event_method}.\n{traceback.format_exc()}")
-
     async def setup_hook(self):
         """Called when the client is done preparing the data received from Discord"""
         # Sync the command tree
         await self.add_cog(VerifyCommand(self))
-        await self.add_cog(AdminCommands(self))
         if os.getenv("BOT_DISCORD_FORCE_SYNC"):
             try:
+                logger.warning("Syncing commands forcefully")
                 await self.tree.sync()
             except Exception as e:
                 logger.error(f"Failed to sync commands: {e}")
     
-    async def schedule_vote_update(self, message: Message, delay=2.0):
+    @tasks.loop(seconds=5)
+    async def schedule_vote_update(self):
         """Schedule a debounced vote update for a message"""
-        # If there's already a task running for this message, skip
-        if message.id in self.pending_vote_updates:
-            return
+        await asyncio.sleep(5)
+        pending_message = self.pending_vote_messages.pop()
+        logger.info("Processing vote update for message %s", pending_message.message_id)
+        await self.count_votes(pending_message)
 
-        async def debounced():
-            await asyncio.sleep(delay)
-            await self.count_votes(message)
-            del self.pending_vote_updates[message.id]
+        if len(self.pending_vote_messages) == 0:
+            logger.info("No more pending vote updates, stopping loop")
+            self.schedule_vote_update.stop()
 
-        # Schedule the debounced vote count
-        task = asyncio.create_task(debounced())
-        self.pending_vote_updates[message.id] = task
-    
+    def add_pending_vote(self, payload: discord.RawReactionActionEvent):
+        if len(self.pending_vote_messages) == 0:
+            self.schedule_vote_update.start()
+        self.pending_vote_messages.add(payload)
+
     async def on_ready(self):
         """Handler for when the bot is ready"""
         print(f'We have logged in as {self.user}')
@@ -115,6 +118,23 @@ class DiscordBot(commands.Bot):
                     logger.warning(f"Could not find channel with ID: {setting.linked_discord_channel_id}")
             except Exception as e:
                 logger.error(f"Failed to join channel {setting.linked_discord_channel_id}: {e}")
+
+        # Get all message IDs that are in the content queue but not yet watched or skipped
+        tracked_messages_query = select(ContentQueueSubmission.submission_source_id).join(
+            ContentQueue,
+            ContentQueueSubmission.content_queue_id == ContentQueue.id
+        ).where(
+            ContentQueueSubmission.submission_source_type == ContentQueueSubmissionSource.Discord,
+            ContentQueue.watched == False,
+            ContentQueue.skipped == False
+        )
+        
+        # Execute the query and add the message IDs to tracked_messages
+        result = self.session.execute(tracked_messages_query).scalars().all()
+        for message_id in result:
+            logger.info(f"Tracking message ID: {message_id}")
+            self.tracked_messages.add(message_id)
+        logger.info(f"Tracking {len(self.tracked_messages)} messages for vote updates")
     
     
     async def on_message(self, message: Message):
@@ -201,39 +221,47 @@ class DiscordBot(commands.Bot):
             else:
                 self.tracked_messages.add(message.id)
     
-    async def count_votes(self, message: discord.Message):
+    async def count_votes(self, payload: discord.RawReactionActionEvent):
         """Count unique users who reacted to a message"""
         unique_users = set()
-        for reaction in message.reactions:
-            async for user in reaction.users():
-                if not user.bot and user.id != message.author.id:
-                    unique_users.add(user.id)
-
-        logger.info(f"Counted {len(unique_users)} unique users for message ID {message.id}")
-        await update_submission_weight(message.id, len(unique_users))
-        return len(unique_users)
+        logger.info(f"Counting votes for message ID {payload.message_id}")
+        try:
+            channel = self.get_channel(payload.channel_id)
+            if channel is None:
+                channel = await self.fetch_channel(payload.channel_id)
+        
+            if channel is None:
+                logger.error(f"Could not find channel {payload.channel_id}")
+                return
+        
+            # Handle different channel types
+            if isinstance(channel, (discord.TextChannel, discord.Thread)):
+                # These channel types support fetch_message
+                message = await channel.fetch_message(payload.message_id)
+                for reaction in message.reactions:
+                    async for user in reaction.users():
+                        if not user.bot and user.id != message.author.id:
+                            unique_users.add(user.id)
+                logger.debug(f"Counted {len(unique_users)} unique users for message ID {message.id}")
+                await update_submission_weight(payload.message_id, len(unique_users))
+            else:
+                logger.error(f"Channel type {type(channel).__name__} does not support fetch_message")
+                return
+        except Exception as e:
+            logger.error(f"Failed to count votes: {e}")
     
-    async def on_raw_reaction_add(self, payload):
+    async def on_raw_reaction_add(self, payload: discord.RawReactionActionEvent):
         """Handler for when a reaction is added to a message"""
-        if payload.user_id == self.user.id:
-            return
         if payload.message_id not in self.tracked_messages:
             return
-
-        channel = await self.fetch_channel(payload.channel_id)
-        message = await channel.fetch_message(payload.message_id)
-        await self.schedule_vote_update(message)
+        await self.add_pending_vote(payload)
     
-    async def on_raw_reaction_remove(self, payload):
+    async def on_raw_reaction_remove(self, payload: discord.RawReactionActionEvent):
         """Handler for when a reaction is removed from a message"""
-        if payload.user_id == self.user.id:
-            return
         if payload.message_id not in self.tracked_messages:
             return
 
-        channel = await self.fetch_channel(payload.channel_id)
-        message = await channel.fetch_message(payload.message_id)
-        await self.schedule_vote_update(message)
+        await self.add_pending_vote(payload)
     
     async def cleanup(self):
         """Clean up resources"""
@@ -253,6 +281,7 @@ class VerifyCommand(commands.Cog):
     @app_commands.command(name="verify", description="Verify a channel for the bot to listen to")
     async def verify_command(self, interaction: discord.Interaction):
         """Verify a channel for the bot to listen to"""
+        await interaction.response.defer(ephemeral=True, thinking=True)
         # Find broadcaster settings with this channel ID
         logger.info(f"Verifying channel {interaction.channel_id}")
         try:
@@ -265,8 +294,8 @@ class VerifyCommand(commands.Cog):
                 if broadcaster_setting.linked_discord_channel_verified:
                     logger.info(f"Channel {interaction.channel_id} is already verified", extra={"discord_channel_id": interaction.channel_id})
                     if self.bot.allow_send_message:
-                        await interaction.response.send_message(f"✅ This channel is already verified")
-                    return
+                        await interaction.followup.send(f"✅ This channel is already verified")
+                    return 
             elif interaction.channel_id is not None and broadcaster_setting is not None:
                 # Verify the channel
                 broadcaster_setting.linked_discord_channel_verified = True
@@ -275,14 +304,15 @@ class VerifyCommand(commands.Cog):
                 # Add to active listening channels
                 self.bot.active_listening_channels.add(interaction.channel_id)
                 if self.bot.allow_send_message:
-                    await interaction.response.send_message(f"✅ Channel verified and now listening to messages in <#{interaction.channel_id}>, clips posted here will be added to the content queue.")
+                    await interaction.followup.send(f"✅ Channel verified and now listening to messages in <#{interaction.channel_id}>, clips posted here will be added to the content queue.")
+                    return
                 logger.info("Channel is verified", 
                         extra={"broadcaster_id": broadcaster_setting.broadcaster_id, "discord_channel_id": interaction.channel_id})
                 return
             else:
                 # No broadcaster found with this channel ID
                 if self.bot.allow_send_message:
-                    await interaction.response.send_message(
+                    await interaction.followup.send(
                         f"❌ This discord channel is not linked to a broadcaster. In YappR, go to a Broadcaster > Broadcast Settings > Linked Discord Channel and add the channel id: `{interaction.channel_id}`."
                     )
                 logger.info("Channel is not linked to a broadcaster", extra={"discord_channel_id": interaction.channel_id})
@@ -290,8 +320,34 @@ class VerifyCommand(commands.Cog):
         except Exception as e:
             logger.error(f"Failed to verify channel: {e}")
             if self.bot.allow_send_message:
-                await interaction.response.send_message(f"❌ Failed to verify channel: {e}")
+                await interaction.followup.send(f"❌ Failed to verify channel: {e}")
             return
+
+    @app_commands.command(name="test")
+    @app_commands.guilds(discord.Object(id=config.bot_discord_admin_guild)) # type: ignore
+    async def test(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        logger.info("Test command: allow_send_message: %s", self.bot.allow_send_message)
+        # if self.bot.allow_send_message == True:
+        await interaction.followup.send("Test command")
+
+    @app_commands.command(name="sync")
+    @app_commands.guilds(discord.Object(id=config.bot_discord_admin_guild)) # type: ignore
+    async def sync(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        logger.info("Syncing command tree")
+        try:
+            if config.environment == "development":
+                logger.info("Syncing command tree to guild")
+                await self.bot.tree.sync(guild=self.bot.admin_guild)
+                await interaction.followup.send(f"{config.environment}: Synced command tree to guild")
+            else:
+                logger.info("Syncing command tree to all guilds")
+                await self.bot.tree.sync()
+                await interaction.followup.send(f"{config.environment}: Synced command tree to all guilds")
+        except Exception as e:
+            logger.error(f"Failed to sync commands: {e}")
+            await interaction.followup.send(f"{config.environment}: Failed to sync commands, check logs")
 
 class AdminCommands(commands.Cog):
     def __init__(self, bot: DiscordBot):
@@ -299,25 +355,28 @@ class AdminCommands(commands.Cog):
     @app_commands.command(name="test")
     @app_commands.guilds(discord.Object(id=config.bot_discord_admin_guild)) # type: ignore
     async def test(self, interaction: discord.Interaction) -> None:
-        logger.info("Test command")
-        await interaction.response.send_message("Test command")
+        await interaction.response.defer(ephemeral=True, thinking=True)
+        logger.info("Test command: allow_send_message: %s", self.bot.allow_send_message)
+        # if self.bot.allow_send_message == True:
+        await interaction.followup.send("Test command")
 
     @app_commands.command(name="sync")
     @app_commands.guilds(discord.Object(id=config.bot_discord_admin_guild)) # type: ignore
     async def sync(self, interaction: discord.Interaction) -> None:
+        await interaction.response.defer(ephemeral=True, thinking=True)
         logger.info("Syncing command tree")
         try:
             if config.environment == "development":
                 logger.info("Syncing command tree to guild")
                 await self.bot.tree.sync(guild=self.bot.admin_guild)
-                await interaction.response.send_message(f"{config.environment}: Synced command tree to guild")
+                await interaction.followup.send(f"{config.environment}: Synced command tree to guild")
             else:
                 logger.info("Syncing command tree to all guilds")
                 await self.bot.tree.sync()
-                await interaction.response.send_message(f"{config.environment}: Synced command tree to all guilds")
+                await interaction.followup.send(f"{config.environment}: Synced command tree to all guilds")
         except Exception as e:
             logger.error(f"Failed to sync commands: {e}")
-            await interaction.response.send_message(f"{config.environment}: Failed to sync commands, check logs")
+            await interaction.followup.send(f"{config.environment}: Failed to sync commands, check logs")
 
 # Create a global instance of the bot
 bot = DiscordBot()
@@ -330,18 +389,7 @@ async def main():
     signal.signal(signal.SIGINT, handle_shutdown)
     discord.utils.setup_logging(level=DEBUG)
     
-    # Initialize the task manager
-    task_manager.init()
-    
-    # Register the bot with the task manager
-    task_manager.register_component('discord', bot)
-
-    # Start the task manager in a background task
-    task_manager_task = asyncio.create_task(start_task_manager())
-
-    # Start the bot
     try:
-        from app.models.config import config
         await bot.start(config.discord_bot_token)
     except Exception as e:
         logger.error(f"Error starting Discord bot: {e}")
@@ -352,13 +400,5 @@ async def main():
         
         # Clean up resources
         await bot.cleanup()
-        
-        # Cancel the task manager task
-        if not task_manager_task.done():
-            task_manager_task.cancel()
-            try:
-                await task_manager_task
-            except asyncio.CancelledError:
-                pass
         
         logger.info("Discord bot stopped")

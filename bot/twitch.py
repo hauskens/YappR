@@ -303,8 +303,6 @@ class TwitchBot:
                 
                 if new_channels or channels_to_leave:
                     logger.info("Now connected to %s channels", len(self.connected_channels))
-                else:
-                    logger.debug("No changes to channel connections needed")
                 
             except asyncio.CancelledError:
                 break

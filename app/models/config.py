@@ -11,7 +11,7 @@ class Config:
             "postgresql+psycopg://postgres:mysecretpassword@postgres-db:5432/postgres",
         )
         self.log_level: str | int = os.environ.get("LOG_LEVEL", logging.DEBUG)
-        self.debug: bool = bool(os.environ.get("DEBUG", False))
+        self.debug: bool = bool(os.environ.get("DEBUG", "false").lower() == "true")
         self.storage_location: str = os.environ.get(
             "STORAGE_LOCATION", "/var/lib/yappr/data"
         )
@@ -52,9 +52,9 @@ class Config:
         self.api_key: str = os.environ.get("API_KEY", "not_a_secure_key!11")
         self.hf_token: str | None = os.environ.get("HF_TOKEN")
         self.discord_bot_token: str | None = os.environ.get("DISCORD_BOT_TOKEN")
-        self.bot_discord_enabled: bool = bool(os.environ.get("BOT_DISCORD_ENABLED", False))
+        self.bot_discord_enabled: bool = bool(os.environ.get("BOT_DISCORD_ENABLED", "false").lower() == "true")
         self.bot_discord_admin_guild: int | None = os.environ.get("BOT_DISCORD_ADMIN_GUILD")
-        self.bot_twitch_enabled: bool = bool(os.environ.get("BOT_TWITCH_ENABLED", False))
+        self.bot_twitch_enabled: bool = bool(os.environ.get("BOT_TWITCH_ENABLED", "false").lower() == "true")
         self.environment: str = os.environ.get("ENVIRONMENT", "development")
         self.service_name: str = os.environ.get("SERVICE_NAME", "app")
         self.loki_url: str | None = os.environ.get("LOKI_URL") # example: http://localhost:4040/loki/api/v1/push

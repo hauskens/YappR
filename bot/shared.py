@@ -439,20 +439,25 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
         session.close()
 
 async def update_submission_weight(submission_source_id: int, weight: float):
-    logger.info("Updating submission weight", extra={"submission_source_id": submission_source_id})
+    logger.debug("Updating submission weight", extra={"submission_source_id": submission_source_id})
     session = SessionLocal()
-    existing_submission = session.execute(
-        select(ContentQueueSubmission).filter(
-            ContentQueueSubmission.submission_source_id == submission_source_id,
-        )
-    ).scalars().one_or_none()
-    if existing_submission is None:
-        logger.error("Submission not found")
-        raise ValueError("Submission not found")
-    existing_submission.weight = weight
-    session.commit()
-    logger.info("Submission weight updated", extra={"submission_id": existing_submission.id})
-    session.close()
+    try:
+        existing_submission = session.execute(
+            select(ContentQueueSubmission).filter(
+                ContentQueueSubmission.submission_source_id == submission_source_id,
+            )
+        ).scalars().one_or_none()
+        if existing_submission is None:
+            logger.error("Submission not found")
+            raise ValueError("Submission not found")
+        existing_submission.weight = weight
+        session.commit()
+        logger.debug("Submission weight updated", extra={"submission_id": existing_submission.id})
+    except Exception as e:
+        session.rollback()
+        logger.error("Error updating submission weight: %s", e, extra={"submission_source_id": submission_source_id})
+    finally:
+        session.close()
 
 # Singleton instance of the task manager
 task_manager = BotTaskManager()

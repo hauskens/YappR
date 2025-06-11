@@ -129,7 +129,7 @@
 
         <form action="{{ url_for('channel_create') }}" method="post">
           <label for="platform_id">Platform:</label>
-          <select id="platform_id" name="platform_id" class="form-select">
+          <select id="platform_id" name="platform_id" class="form-select" onchange="toggleTwitchLookup()">
             {% for platform in platforms %}
               <option value="{{ platform.id }}">{{ platform.name }}</option>
             {% endfor %}
@@ -144,6 +144,17 @@
 
           <label for="name">Display Name:</label>
           <input type="text" id="name" name="name" class="form-control" pattern="[A-Za-z0-9_.][A-Za-z0-9_. ]*" required placeholder="Testies VOD channel" required title="Only A-Z, _ and numbers allowed">
+          
+          <div id="twitch-lookup-container" style="display: none;" class="mt-2 mb-2">
+            <label for="twitch_username">Twitch Username:</label>
+            <div class="input-group">
+              <input type="text" id="twitch_username" class="form-control" placeholder="Enter Twitch username">
+              <button type="button" id="lookup-twitch-id" class="btn btn-primary">Look up ID</button>
+              <span id="twitch-lookup-status" class="ms-2 d-flex align-items-center" style="display: none;"></span>
+            </div>
+            <small class="form-text text-muted">Enter the Twitch username to fetch the channel ID</small>
+          </div>
+          
           <label for="platform_ref">Channel ID in platform</label>
           <input type="text" id="platform_ref" name="platform_ref" class="form-control" pattern="[A-Za-z0-9_.][A-Za-z0-9_.]*" required placeholder="" required title="Only A-Z or numbers allowed, remove @ from youtube tag">
 
@@ -152,6 +163,12 @@
             id="broadcaster_id"
             name="broadcaster_id"
             value="{{ broadcaster.id }}"
+          >
+          <input
+            type="hidden"
+            id="channel_id"
+            name="channel_id"
+            value=""
           >
           </br>
           <button type="submit" class="btn btn-primary">Save</button>
@@ -167,4 +184,84 @@
   {% else %}
     <p> What are you doing here?</p>
   {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Find the Twitch platform ID when the page loads
+  let twitchPlatformId = null;
+  document.addEventListener('DOMContentLoaded', function() {
+    const platformSelect = document.getElementById('platform_id');
+    const options = platformSelect.options;
+    
+    for (let i = 0; i < options.length; i++) {
+      if (options[i].text.toLowerCase() === 'twitch') {
+        twitchPlatformId = options[i].value;
+        break;
+      }
+    }
+    
+    // Check if Twitch is selected by default
+    toggleTwitchLookup();
+    
+    // Set up the lookup button event handler
+    document.getElementById('lookup-twitch-id').addEventListener('click', lookupTwitchId);
+  });
+  
+  function toggleTwitchLookup() {
+    const platformSelect = document.getElementById('platform_id');
+    const lookupContainer = document.getElementById('twitch-lookup-container');
+    
+    if (platformSelect.value === twitchPlatformId) {
+      lookupContainer.style.display = 'block';
+    } else {
+      lookupContainer.style.display = 'none';
+    }
+  }
+  
+  function lookupTwitchId() {
+    const username = document.getElementById('twitch_username').value.trim();
+    const statusElement = document.getElementById('twitch-lookup-status');
+    const platformRefInput = document.getElementById('platform_ref');
+    const channelIdInput = document.getElementById('channel_id');
+    
+    if (!username) {
+      alert('Please enter a Twitch username');
+      return;
+    }
+    
+    // Show loading indicator
+    statusElement.innerHTML = '<div class="spinner-border spinner-border-sm text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+    statusElement.style.display = 'inline-block';
+    
+    // Make API request to lookup endpoint
+    fetch(`/api/lookup_twitch_id?username=${encodeURIComponent(username)}`)
+      .then(response => response.json())
+      .then(data => {
+        if (data.success && data.user_id) {
+          // Success - show checkmark and fill in the ID
+          statusElement.innerHTML = '<i class="bi bi-check-circle-fill text-success" style="font-size: 1.5rem;"></i>';
+          platformRefInput.value = data.user_id;
+          channelIdInput.value = data.user_id; // Also set the hidden channel_id field
+          
+          // If we have a display name, update the name field if it's empty
+          const nameInput = document.getElementById('name');
+          if (nameInput && nameInput.value.trim() === '' && data.display_name) {
+            nameInput.value = data.display_name;
+          }
+        } else {
+          // Error - show X mark
+          statusElement.innerHTML = '<i class="bi bi-x-circle-fill text-danger" style="font-size: 1.5rem;"></i>';
+          if (data.error) {
+            console.error('Error looking up Twitch ID:', data.error);
+          }
+        }
+      })
+      .catch(error => {
+        // Network error - show X mark
+        statusElement.innerHTML = '<i class="bi bi-x-circle-fill text-danger" style="font-size: 1.5rem;"></i>';
+        console.error('Error looking up Twitch ID:', error);
+      });
+  }
+</script>
 {% endblock %}

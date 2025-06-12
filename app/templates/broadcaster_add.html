@@ -20,7 +20,7 @@
               <select id="twitch_channel" name="twitch_channel" class="form-select" onchange="updateBroadcasterName()" required>
                 <option value="" disabled selected>-- Select a channel --</option>
                 {% if current_user.external_account_id %}
-                  <option value="{{ current_user.external_account_id }}|{{ current_user.name }}" {{ "disabled" if own_channel_type is none else ""}}>Your channel{{ ' is not partner/affiliate' if own_channel_type is none else ''}}: {{ current_user.name }}</option>
+                  <option value="{{ current_user.external_account_id }}|{{ current_user.name }}" {{ "" if own_channel_type == "partner" or own_channel_type == "regular" else "disabled" }}>Your channel{{ '' if own_channel_type != "partner" or own_channel_type != "regular" else ' is not partner/affiliate'}}: {{ current_user.name }}</option>
                 {% endif %}
                 
                 {% if moderated_channels %}
@@ -53,15 +53,41 @@
             </div>
 
             <hr>
-            {% with messages = get_flashed_messages(with_categories=true) %}
-              {% if messages %}
-                {% for category, message in messages %}
-                  <div class="alert alert-{{ category if category != 'message' else 'info' }}" role="alert">
-                    {{ message }}
-                  </div>
-                {% endfor %}
-              {% endif %}
-            {% endwith %}
+            <h5>Initial Settings</h5>
+            <div class="card mb-3">
+              <div class="card-header">
+                <h6>Twitch Bot Settings</h6>
+              </div>
+              <div class="card-body">
+                <div class="mb-3 form-check">
+                  <input type="checkbox" class="form-check-input" id="chat_collection_enabled" name="chat_collection_enabled">
+                  <label class="form-check-label" for="chat_collection_enabled" title="This collect chat logs for this channel">Enable Chat Collection</label>
+                  <div class="form-text">Collect chat logs for this channel</div>
+                </div>
+                <div class="mb-3 form-check">
+                  <input type="checkbox" class="form-check-input" id="content_queue_enabled" name="content_queue_enabled">
+                  <label class="form-check-label" for="content_queue_enabled" title="This will look for clips in twitch chat on this channel">Enable Content Queue</label>
+                  <div class="form-text">Look for clips in twitch chat on this channel, automatically enables Chat Collection</div>
+                </div>
+              </div>
+            </div>
+            
+            <div class="card mb-3">
+              <div class="card-header">
+                <h6>Discord Integration (Optional)</h6>
+              </div>
+              <div class="card-body">
+                <div class="mb-3">
+                  <label for="discord_channel_id">Discord Channel ID</label>
+                  <input type="number" class="form-control" id="discord_channel_id" name="discord_channel_id" 
+                         placeholder="Leave empty to set up later">
+                  <div class="form-text">Connect a Discord channel to collect clips shared in your server</div>
+                  <div class="form-text">To set up: <a href="https://discord.com/oauth2/authorize?client_id=1359399600733290586">Add the YappR bot</a> to your server, then type <code>/verify</code> in your desired channel to get its ID</div>
+                </div>
+              </div>
+            </div>
+
+            <hr>
             <div class="mb-3 form-check">
               <input type="checkbox" class="form-check-input" id="willbehave" name="willbehave" onchange="checkFormValidity()">
               <label class="form-check-label" for="willbehave">I promise to behave and act kindly, the channel owner is aware of me doing this</label>
@@ -73,6 +99,15 @@
           </form>
         </div>
       </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category if category != 'message' else 'info' }}" role="alert">
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
     </div>
     
     <div class="col-md-4">

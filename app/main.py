@@ -4,6 +4,7 @@ import os
 import json
 import tempfile
 import mimetypes
+import asyncio
 from flask_login import current_user, login_required # type: ignore
 from flask import (
     Flask,
@@ -12,23 +13,22 @@ from flask import (
     redirect,
 )
 from celery import Celery, Task, chain
-from .models.db import (
+from app.models.db import (
     PermissionType,
     db,
     Channels,
 )
-from .transcribe import transcribe
-from .models.config import config
-from .retrievers import get_transcription, get_video, get_all_twitch_channels
+from app.transcribe import transcribe
+from app.models.config import config
+from app.retrievers import get_transcription, get_video, get_all_twitch_channels
 from app.routes import *
 from app import app, login_manager, socketio
-from .models.db import TranscriptionSource, Transcription
-from .utils import require_api_key
-from .twitch_api import get_current_live_streams
-import asyncio
+from app.models.db import TranscriptionSource, Transcription, TranscriptionResult
+from app.permissions import require_api_key
+from app.twitch_api import get_current_live_streams
 from urllib.parse import unquote
 from celery.schedules import crontab
-from .chatlogparse import parse_logs
+from app.chatlogparse import parse_logs
 from flask_socketio import emit, send
 from app.logger import logger
 from flask_socketio import emit, join_room, leave_room, send

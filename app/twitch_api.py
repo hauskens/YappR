@@ -1,7 +1,7 @@
 from collections.abc import Sequence
 from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip, CreatedClip, ChannelModerator, AuthScope, Stream
 from twitchAPI.helper import first
-from .models.config import config
+from app.models.config import config
 from pytimeparse.timeparse import timeparse # type: ignore
 from urllib.parse import urlparse
 import re

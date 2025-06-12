@@ -1,0 +1,66 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-5">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      
+      <div class="alert alert-info text-center" role="alert">
+        <h2 class="alert-heading">Welcome to YappR! 👋 Looking for clip queue?</h2>
+        <hr>
+        {% if current_user.is_anonymous %}
+        <p class="mb-0">Log in to get clip queue and more features!</p>
+        {% else %}
+        <p class="mb-0">You are almost there! </p>
+        <p>We just need you to link a broadcaster to your account so we know which twitch chat to look at!</p>
+        {% endif %}
+      </div>
+
+      <div class="card shadow-sm mt-4">
+        <div class="card-body">
+          <p>🛠️ <strong>YappR</strong> is a <strong>free</strong> and <a href="https://github.com/hauskens/YappR" target="_blank">open source</a> project, licensed under the <strong>GNU GPL v2.0</strong>.</p>
+          <p>📋 <strong>Key Features of YappR's Clip Queue:</strong></p>
+            <ul>
+                <li>🤖 Integrated <strong>Twitch</strong> and <strong>Discord</strong> bots that can listen for clip links</li>
+                <li>🙌 Great for hands-off highlight curation powered by your community</li>
+                <li>🌙 <strong>24/7 clip submissions</strong> — users can share clips even when you're offline</li>
+                <li>🛡️ <strong>Twitch moderators</strong> have automatic permissions to manage your queue</li>
+                <li>📊 Community-driven <strong>voting system</strong> — reactions weigh in more popular clips</li>
+            </ul>
+          <hr>
+        {% if current_user.is_anonymous %}
+          <p>🔒Twitch and Discord are used for authentication, <strong>no passwords</strong> are ever exchanged with YappR.</p>
+          <p>👀 The only info we access is your <strong>profile ID, username, and avatar</strong>—nothing more.</p>
+          
+          <p>🚀 Ready to dive in? Just click one of the <strong>login buttons below</strong>. Once you're in, you're all set to go!</p>
+
+
+          <div class="text-center mt-4">
+            <a href="{{ url_for('twitch.login') }}">
+              <img
+                id="twitch"
+                src="https://img.shields.io/badge/Twitch-Login-9146ff?style=for-the-badge&labelColor=black&logo=Twitch"
+                alt="Login with Twitch"
+              />
+            </a>
+          </div>
+          <div class="text-center mt-4">
+            <a href="{{ url_for('discord.login') }}">
+              <img
+                id="discord"
+                src="https://img.shields.io/badge/Discord-Login-7289da?style=for-the-badge&labelColor=black&logo=Discord"
+                alt="Login with Discord"
+              />
+            </a>
+          </div>
+        </div>
+        {% else %}
+            <p class="mb-0">You are almost there! </p>
+            <br></br>
+            <p>You, or a Twitch Moderator need to <a href="{{ url_for('broadcaster_create') }}">create a new broadcaster</a></p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

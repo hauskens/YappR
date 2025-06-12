@@ -118,10 +118,14 @@
             <h5 class="mb-0" id="current-title">Now Playing</h5>
           </div>
           <div class="card-body p-0">
-            <div class="player-container" id="player-container">
+            <div class="player-container" id="player-container" style="display: none;">
               <!-- Player will be inserted here via JavaScript -->
-              <div class="d-flex justify-content-center align-items-center h-100 bg-light">
-                <p class="text-muted">Select a clip to start playing</p>
+            </div>
+            <!-- Initial message that shows until a clip is selected -->
+            <div id="initial-message" class="d-flex justify-content-center align-items-center h-100" style="min-height: 300px;">
+              <div class="text-center p-4">
+                <p class="lead">Select a clip from the "Up Next" list to start watching</p>
+                <p id="motd" class="lead text-muted">{{ motd }}</p>
               </div>
             </div>
           </div>
@@ -194,13 +198,18 @@
   }
   
   function onYouTubeIframeAPIReady() {
-    // YouTube API is ready
-    if (document.querySelector('.queue-item')) {
-      playContent(document.querySelector('.queue-item'));
-    }
+    // YouTube API is ready, but don't auto-play anything
+    // Let the user select a clip to start playing
   }
   
   function playContent(element) {
+    // Hide the initial message and show the player container when a clip is selected
+    if (document.getElementById('initial-message')) {
+      document.getElementById('initial-message').classList.add('d-none');
+    }
+    if (document.getElementById('player-container')) {
+      document.getElementById('player-container').style.display = 'block';
+    }
     // If there's a current item playing and it's different from the one being clicked
     if (currentItem && currentItem !== element) {
       // Mark the current item as watched before switching to the new one
@@ -209,7 +218,7 @@
       
       // Only mark as watched if it's not already watched
       if (!isCurrentWatched) {
-        markAsWatched(currentItemId, true); // false means don't auto-play next
+        markAsWatched(currentItemId, false); // false means don't auto-play next
       }
     }
     
@@ -350,7 +359,7 @@
       videoId: videoId,
       playerVars: {
         start: startTime,
-        autoplay: autoplayEnabled ? 1 : 0
+        autoplay: 1  // Always autoplay when clicked
       },
       events: {
         'onReady': onPlayerReady,

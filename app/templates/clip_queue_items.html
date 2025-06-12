@@ -1,5 +1,5 @@
 {% for item in queue_items %}
-  <div class="queue-item position-relative d-flex mb-2 p-2 border border-light-subtle rounded cursor-pointer{% if loop.first %} active bg-primary-subtle border-start border-2 border-primary-subtle{% endif %}{% if item.skipped %} skipped{% endif %}" 
+  <div id="queue-item-{{ item.id }}" class="queue-item position-relative d-flex mb-2 p-2 border border-light-subtle rounded cursor-pointer{% if loop.first %} active bg-primary-subtle border-start border-2 border-primary-subtle{% endif %}{% if item.skipped %} skipped{% endif %}" 
        data-id="{{ item.id }}" 
        data-url="{{ item.content.url }}" 
        data-title="{{ item.content.title }}"

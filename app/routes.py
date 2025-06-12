@@ -491,7 +491,7 @@ def broadcaster_create():
                         submitted_at=datetime.now(),
                         submission_source_type=ContentQueueSubmissionSource.Twitch,
                         submission_source_id=external_user.id,
-                        weight=1,
+                        weight=69,
                         user_comment="lmao gottem"
                     )
                     db.session.add(submission)

@@ -28,6 +28,7 @@ import webvtt # type: ignore
 import re
 import asyncio
 from app.logger import logger
+from typing import Literal
 
 from .transcription import TranscriptionResult
 from .config import config
@@ -74,6 +75,8 @@ class Broadcaster(Base):
         for channel in self.channels:
             channel.delete()
         db.session.query(Users).filter_by(broadcaster_id=self.id).update({"broadcaster_id": None})
+        db.session.flush()
+        db.session.query(BroadcasterSettings).filter_by(broadcaster_id=self.id).delete()
         db.session.flush()
         db.session.query(Broadcaster).filter_by(id=self.id).delete()
         db.session.commit()
@@ -260,13 +263,13 @@ class Users(Base, UserMixin):
         else:
             return []
 
-    def get_twitch_account_type(self) -> str | None:
+    def get_twitch_account_type(self) -> Literal["partner", "affiliate", "regular"]:
         if self.account_type == AccountSource.Twitch:
             user = asyncio.run(get_twitch_user_by_id("596031520"))
             logger.info(user.broadcaster_type)
             if user.id == self.external_account_id:
                 return user.broadcaster_type
-        return None
+        return "regular"
     
         
 class ChannelModerator(Base):
@@ -368,10 +371,10 @@ class Channels(Base):
         db.session.query(ChannelSettings).filter_by(channel_id=self.id).delete()
         db.session.query(ChannelModerator).filter_by(channel_id=self.id).delete()
         if self.broadcaster_id is not None:
-            queue = db.session.query(ContentQueue).filter_by(broadcaster_id=self.broadcaster_id).one_or_none()
-            if queue is not None:
-                db.session.query(ContentQueueSubmission).filter_by(queue_id=queue.id).delete()
-                db.session.query(ContentQueue).filter_by(id=queue.id).delete()
+            queue = db.session.query(ContentQueue).filter_by(broadcaster_id=self.broadcaster_id).all()
+            for q_item in queue:
+                db.session.query(ContentQueueSubmission).filter_by(content_queue_id=q_item.id).delete()
+            db.session.query(ContentQueue).filter_by(broadcaster_id=self.broadcaster_id).delete()
 
         _ = db.session.query(Channels).filter_by(id=self.id).delete()
         db.session.commit()

@@ -4,12 +4,9 @@ import re
 import os
 import requests
 from datetime import datetime, timedelta
-from .models.youtube.video import VideoDetails
-from .models.config import config
+from app.models.youtube.video import VideoDetails
+from app.models.config import config
 from twitchAPI.twitch import Video
-from typing import Callable, Any, TypeVar, cast
-from functools import wraps
-from flask import request, abort
 from app.logger import logger
 
 if os.getenv("NLTK_ENABLED", "true") == "true":
@@ -25,16 +22,6 @@ if os.getenv("NLTK_ENABLED", "true") == "true":
     sw = stopwords.words("english")
     ps = PorterStemmer()
 
-F = TypeVar("F", bound=Callable[..., Any])
-
-def require_api_key(func: F) -> F:
-    @wraps(func)
-    def wrapper(*args: Any, **kwargs: Any) -> Any:
-        key: str | None = request.headers.get("X-API-Key")
-        if key != config.api_key:
-            abort(401, description="Invalid or missing API key.")
-        return func(*args, **kwargs)
-    return cast(F, wrapper)
 
 # This function is used by both parsing and searching to ensure we are getting good search results.
 def sanitize_sentence(sentence: str) -> list[str]:

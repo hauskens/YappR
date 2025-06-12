@@ -265,7 +265,7 @@ class Users(Base, UserMixin):
 
     def get_twitch_account_type(self) -> Literal["partner", "affiliate", "regular"]:
         if self.account_type == AccountSource.Twitch:
-            user = asyncio.run(get_twitch_user_by_id("596031520"))
+            user = asyncio.run(get_twitch_user_by_id(self.external_account_id))
             logger.info(user.broadcaster_type)
             if user.id == self.external_account_id:
                 return user.broadcaster_type

@@ -757,7 +757,6 @@ def clip_queue():
         logger.info("Loading clip queue", extra={"user_id": current_user.id})
         broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
         if broadcaster is None:
-            flash("No broadcaster found, you need to link a broadcaster to your account, and this is not properly implemented, contact admin", "error")
             return render_template("promo.html")
         queue_items = get_content_queue(broadcaster.id)
         logger.info("Successfully loaded clip queue", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})
@@ -837,17 +836,18 @@ def get_queue_items():
     logger.info("Loading clip queue with htmx")
     try:
         broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
-        if broadcaster is None:
-            return "No broadcaster found, you need to link a broadcaster to your account, and this is not properly implemented, contact admin"
-        queue_items = get_content_queue(broadcaster.id)
-        logger.info("Successfully loaded clip queue", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})
-        from datetime import datetime
-        return render_template(
-            "clip_queue_items.html",
-            queue_items=queue_items,
-            broadcaster=broadcaster,
-            now=datetime.now(),
-        )
+        if broadcaster is not None:
+            queue_items = get_content_queue(broadcaster.id)
+            logger.info("Successfully loaded clip queue", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})
+            from datetime import datetime
+            return render_template(
+                "clip_queue_items.html",
+                queue_items=queue_items,
+                broadcaster=broadcaster,
+                now=datetime.now(),
+            )
+        else:
+            return "You do not have access, no broadcaster_id found on you", 403
     except Exception as e:
         logger.error("Error loading clip queue %s", e, extra={"user_id": current_user.id})
         return "Error loading clip queue", 500

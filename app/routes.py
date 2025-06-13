@@ -17,7 +17,7 @@ from app.permissions import require_api_key, require_permission
 from io import BytesIO
 import mimetypes
 from app import app, limiter, rate_limit_exempt, socketio
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.retrievers import (
     get_users,
     get_broadcaster,
@@ -62,6 +62,7 @@ from app.models.db import (
     ExternalUser,
     ContentQueueSubmissionSource,
     AccountSource,
+    ChatLog,
 )
 
 from app.search import search_v2
@@ -688,6 +689,28 @@ def video_edit(video_id: int):
         "video_edit.html",
         transcriptions=video.transcriptions,
         video=video,
+    )
+
+@app.route("/video/<int:video_id>/chatlogs")
+@login_required
+@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+def video_chatlogs(video_id: int):
+    video = get_video(video_id)
+    
+    # Get chat messages from the channel during the video timeframe
+    start_time = video.uploaded
+    end_time = video.uploaded + timedelta(seconds=video.duration)
+    
+    chat_logs = db.session.query(ChatLog).filter(
+        ChatLog.channel_id == video.channel_id,
+        ChatLog.timestamp >= start_time,
+        ChatLog.timestamp <= end_time
+    ).order_by(ChatLog.timestamp).all()
+    
+    return render_template(
+        "video_chatlogs.html",
+        chat_logs=chat_logs,
+        video=video
     )
 
 

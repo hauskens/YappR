@@ -27,6 +27,7 @@ from io import BytesIO
 import webvtt # type: ignore
 import re
 import asyncio
+import json
 from app.logger import logger
 from typing import Literal
 
@@ -776,6 +777,122 @@ class Transcription(Base):
             _ = self.parse_json()
         self.processed = True
         db.session.commit()
+        
+    def to_srt(self) -> str:
+        """
+        Convert the transcription to SRT format.
+        
+        Returns:
+            str: The transcription in SRT format
+        """
+        if not self.processed:
+            self.process_transcription()
+            
+        segments = self.get_segments_sorted()
+        srt_content = []
+        
+        for i, segment in enumerate(segments, 1):
+            # Format timestamps as HH:MM:SS,mmm
+            start_time = self._format_timestamp(segment.start)
+            end_time = self._format_timestamp(segment.end)
+            
+            # Add entry to SRT content
+            srt_content.append(f"{i}\n{start_time} --> {end_time}\n{segment.text}\n")
+            
+        return "\n".join(srt_content)
+    
+    def to_json(self) -> str:
+        """
+        Convert the transcription to JSON format.
+        
+        Returns:
+            str: The transcription in JSON format
+        """
+        if not self.processed:
+            self.process_transcription()
+            
+        segments = self.get_segments_sorted()
+        json_segments = []
+        
+        for segment in segments:
+            json_segments.append({
+                "text": segment.text,
+                "start": segment.start,
+                "end": segment.end
+            })
+            
+        result = {
+            "segments": json_segments,
+            "language": self.language
+        }
+        
+        return json.dumps(result, ensure_ascii=False)
+    
+    def save_as_srt(self, output_path: str = None) -> str:
+        """
+        Convert the transcription to SRT format and save it to a file.
+        
+        Args:
+            output_path: Path to save the SRT file. If None, a path will be generated
+                        based on the video ID and transcription ID.
+                        
+        Returns:
+            str: Path to the saved SRT file
+        """
+        srt_content = self.to_srt()
+        
+        if output_path is None:
+            # Generate a filename based on video ID and transcription ID
+            output_path = f"transcription_{self.video_id}_{self.id}.srt"
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(srt_content)
+            
+        logger.info(f"Saved SRT file to {output_path}")
+        return output_path
+        
+    def save_as_json(self, output_path: str = None) -> str:
+        """
+        Convert the transcription to JSON format and save it to a file.
+        
+        Args:
+            output_path: Path to save the JSON file. If None, a path will be generated
+                        based on the video ID and transcription ID.
+                        
+        Returns:
+            str: Path to the saved JSON file
+        """
+        json_content = self.to_json()
+        
+        if output_path is None:
+            # Generate a filename based on video ID and transcription ID
+            output_path = f"transcription_{self.video_id}_{self.id}.json"
+        
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(json_content)
+            
+        logger.info(f"Saved JSON file to {output_path}")
+        return output_path
+    
+    def _format_timestamp(self, seconds: float) -> str:
+        """
+        Format seconds to SRT timestamp format (HH:MM:SS,mmm).
+        
+        Args:
+            seconds: Time in seconds (can be a float)
+            
+        Returns:
+            str: Formatted timestamp
+        """
+        # Convert to milliseconds for more precise formatting
+        milliseconds = int((seconds % 1) * 1000)
+        total_seconds = int(seconds)
+        
+        hours = total_seconds // 3600
+        minutes = (total_seconds % 3600) // 60
+        secs = total_seconds % 60
+        
+        return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds:03d}"
 
     def parse_json(self):
         logger.info(f"Processing json transcription: {self.id}")

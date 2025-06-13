@@ -712,6 +712,30 @@ def download_transcription(transcription_id: int):
         download_name=f"{transcription.id}.{transcription.file_extention}",
     )
 
+@app.route("/transcription/<int:transcription_id>/download_srt")
+@login_required
+@require_permission()
+def download_transcription_srt(transcription_id: int):
+    transcription = get_transcription(transcription_id)
+    srt_content = transcription.to_srt()
+    return send_file(
+        BytesIO(srt_content.encode('utf-8')),
+        mimetype="text/plain",
+        download_name=f"{transcription.id}.srt",
+    )
+
+@app.route("/transcription/<int:transcription_id>/download_json")
+@login_required
+@require_permission()
+def download_transcription_json(transcription_id: int):
+    transcription = get_transcription(transcription_id)
+    json_content = transcription.to_json()
+    return send_file(
+        BytesIO(json_content.encode('utf-8')),
+        mimetype="application/json",
+        download_name=f"{transcription.id}.json",
+    )
+
 @app.route("/clip_queue")
 @login_required
 @require_permission()

@@ -74,7 +74,18 @@
             <td>{{ t.processed }}</td>
             <td>{{ t.segments|length }}</td>
             <td title="{{ 'Users that are not logged in are not allowed to download transcriptions' if current_user is undefined else 'Download transcription' }}">
-              <a class="btn btn-primary {{ 'disabled' if current_user is undefined else '' }}" role="button" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Download</a>
+              <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle {{ 'disabled' if current_user is undefined else '' }}" type="button" id="downloadDropdown{{ t.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                  Download
+                </button>
+                <ul class="dropdown-menu" aria-labelledby="downloadDropdown{{ t.id }}">
+                  {% if t.file_extention != "json" %}
+                  <li><a class="dropdown-item" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Original ({{ t.file_extention }} Format)</a></li>
+                  {% endif %}
+                  <li><a class="dropdown-item" href="{{ url_for('download_transcription_srt', transcription_id=t.id) }}" download="{{ t.id }}.srt">SRT Format</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('download_transcription_json', transcription_id=t.id) }}" download="{{ t.id }}.json">JSON Format</a></li>
+                </ul>
+              </div>
             </td>
             <td>
             {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}

@@ -10,6 +10,8 @@
         <hr>
         {% if current_user.is_anonymous %}
         <p class="mb-0">Log in to get clip queue and more features!</p>
+        {% elif current_user.is_moderator() %}
+        <p class="mb-0">Seems like you are a Twitch Moderator, head over to <a href="{{ url_for('management') }}">management page</a> to manage your broadcaster's clip queue!</p>
         {% else %}
         <p class="mb-0">You are almost there! </p>
         <p>We just need you to link a broadcaster to your account so we know which twitch chat to look at!</p>
@@ -56,7 +58,7 @@
         </div>
         {% else %}
             <p class="mb-0">You are almost there! </p>
-            <br></br>
+            <br>
             <p>You, or a Twitch Moderator need to <a href="{{ url_for('broadcaster_create') }}">create a new broadcaster</a></p>
         {% endif %}
       </div>

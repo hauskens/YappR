@@ -1,6 +1,13 @@
 {% extends 'base.html' %}
 
 {% block content %}
+  <!-- Highlight style -->
+  <style>
+    .highlight {
+      background-color: #ffff00;
+      font-weight: bold;
+    }
+  </style>
   {% if video.active == False %}
     <div class="container">
       <h1>Video is not active</h1>
@@ -11,21 +18,83 @@
     
     <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
     <hr>
-    <div class="container">
-      <h1>{{ video.title }}</h1>
-      {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
-        <div class="container mb-2">
-          <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_details', video_id=video.id) }}">Fetch video details from platform</a>
+    <div class="row">
+      <!-- Left side: Video details and controls -->
+      <div class="col-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3>{{ video.title }}</h3>
+          {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
+            <div class="dropdown">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="adminActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-three-dots-vertical"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminActionsDropdown">
+                <li><a class="dropdown-item" href="{{ url_for('video_fetch_details', video_id=video.id) }}">Fetch video details</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  {% if video.audio.filename is defined %}
+                    <a class="dropdown-item" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process audio: {{ video.audio.filename }}</a>
+                  {% else %}
+                    <a class="dropdown-item" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>
+                  {% endif %}
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a></li>
+              </ul>
+            </div>
+          {% endif %}
         </div>
-        <div class="container mb-2">
-          <p>Audio file: {% if video.audio.filename is defined %}<a class="btn btn-primary" role="button" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process {{ video.audio.filename }}</a>{% else %} <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>{% endif %}</p>
+        <div class="mt-3 mb-3">
+          <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="Video thumbnail" style="max-width:100%; max-height:250px;">
         </div>
-        <div class="container mb-2">
-          <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions for this video</a>
+      </div>
+      
+      <!-- Right side: Chat Messages Section -->
+      <div class="col-md-7">
+        <div class="mb-3 mt-3">
+          <h3>Chat Messages</h3>
+          
+          <!-- Search and filter controls -->
+          <div class="mb-3">
+            <div class="row">
+              <div class="col-md-8">
+                <!-- Search bar for messages -->
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-search"></i></span>
+                  <input type="text" id="chatSearchInput" class="form-control" placeholder="Search in messages..." aria-label="Search messages">
+                  <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn">Clear</button>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <!-- Username filter dropdown -->
+                <select id="userFilter" class="form-select">
+                  <option value="">All users</option>
+                  <!-- Will be populated dynamically -->
+                </select>
+              </div>
+            </div>
+            <div class="mt-1">
+              <small class="text-muted">Found: <span id="matchCount">0</span> messages</small>
+            </div>
+          </div>
+          
+          <div class="border rounded p-2" style="height: 500px; overflow-y: auto;">
+            <div id="chat-messages-container" 
+                 hx-get="{{ url_for('video_chatlogs', video_id=video.id) }}" 
+                 hx-trigger="load"
+                 hx-swap="innerHTML"
+                 hx-indicator="#loading-indicator">
+              <div id="loading-indicator" class="text-center p-3">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p>Loading chat messages...</p>
+              </div>
+            </div>
+          </div>
         </div>
-      {% endif %}
-      <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
-      <br></br>
+      </div>
+      
 
       {% if video.transcriptions|length == 0 and video.active == True %}
         {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
@@ -88,13 +157,19 @@
               </div>
             </td>
             <td>
+            <div class="dropdown">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="adminActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-three-dots-vertical"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminActionsDropdown">
             {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
-              <button type="button" class="btn btn-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('delete_transcription', transcription_id=t.id) }}"> Delete transcription</button>
+              <li><a type="button" class="btn btn-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('delete_transcription', transcription_id=t.id) }}"> Delete transcription</a></li>
             {% endif %}
             {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
-              <a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a>
-              <a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('purge_transcription', transcription_id=t.id) }}">Remove from search</a>
+              <li><a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a></li>
+              <li><a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('purge_transcription', transcription_id=t.id) }}">Remove from search</a></li>
             {% endif %}
+            </ul>
             </td>
           </tr>
         {% endfor %}
@@ -104,8 +179,25 @@
 
       {% for t in transcriptions %} 
         {% if t.processed == true %}
+          <h3>Transcription</h3>
+          <!-- Search bar for transcription segments -->
+          <div class="mb-3">
+            <div class="row">
+              <div class="col-md-8">
+                <div class="input-group">
+                  <span class="input-group-text"><i class="bi bi-search"></i></span>
+                  <input type="text" id="transcriptSearchInput" class="form-control" placeholder="Search in transcription..." aria-label="Search transcription">
+                  <button class="btn btn-outline-secondary" type="button" id="clearTranscriptSearchBtn">Clear</button>
+                </div>
+              </div>
+              <div class="col-md-4">
+                <small class="text-muted">Found: <span id="transcriptMatchCount">0</span> segments</small>
+              </div>
+            </div>
+          </div>
+          
           <div class="table-responsive">
-          <table class="table table-striped">
+          <table class="table table-striped" id="transcription-table">
             <thead>
               <tr>
                 <th scope="col" width="10%">Timestamp link</th>
@@ -116,11 +208,11 @@
             </thead>
             <tbody>
               {% for s in t.get_segments_sorted() %}
-              <tr>
+              <tr class="transcript-row">
                 <td><a href={{s.get_url_timestamped()}}>Link</a></td>
                 <td>{{ s.start }}</td>
                 <td>{{ s.end }}</td>
-                <td>{{ s.text }}</td>
+                <td class="transcript-text">{{ s.text }}</td>
               </tr>
               {% endfor %}
             </tbody>
@@ -129,16 +221,204 @@
         {% endif %}
       {% endfor %}
 
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="alert alert-success" role="alert">
-          {% for message in messages %}
-            {{ message }}
-          {% endfor %}
-        </div>
-      {% endif %}
-    {% endwith %}
 
   </div>
 {% endif %}
+{% endblock %}
+{% block scripts %}
+      <!-- Search functionality -->
+      <script>
+        document.addEventListener('htmx:afterSwap', function(event) {
+          // Only run if the chat messages container was swapped
+          if (event.detail.target.id === 'chat-messages-container') {
+            initChatSearch();
+          }
+        });
+        
+        // Initialize all search functionality when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+          initChatSearch();
+          initTranscriptSearch();
+        });
+        
+        function initTranscriptSearch() {
+          const searchInput = document.getElementById('transcriptSearchInput');
+          const clearBtn = document.getElementById('clearTranscriptSearchBtn');
+          const matchCount = document.getElementById('transcriptMatchCount');
+          const table = document.getElementById('transcription-table');
+          
+          if (!table) return; // Exit if table doesn't exist yet
+          
+          const rows = Array.from(table.querySelectorAll('.transcript-row'));
+          const totalSegments = rows.length;
+          
+          // Update initial count
+          matchCount.textContent = totalSegments;
+          
+          // Function to filter transcript rows based on search input
+          function filterTranscript() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+              const text = row.querySelector('.transcript-text').textContent.toLowerCase();
+              
+              // Check if text contains search term
+              const matchesSearch = searchTerm === '' || text.includes(searchTerm);
+              row.style.display = matchesSearch ? '' : 'none';
+              
+              if (matchesSearch) {
+                visibleCount++;
+                
+                // Highlight matching text if there's a search term
+                if (searchTerm) {
+                  highlightText(row, searchTerm);
+                } else {
+                  // Remove any existing highlights
+                  const highlighted = row.querySelectorAll('.highlight');
+                  highlighted.forEach(el => {
+                    el.outerHTML = el.textContent;
+                  });
+                }
+              }
+            });
+            
+            // Update match count
+            matchCount.textContent = visibleCount;
+          }
+          
+          // Function to highlight matching text
+          function highlightText(row, term) {
+            const textCell = row.querySelector('.transcript-text');
+            const text = textCell.textContent;
+            const regex = new RegExp(term, 'gi');
+            textCell.innerHTML = text.replace(regex, match => `<span class="highlight">${match}</span>`);
+          }
+          
+          // Add event listeners
+          if (searchInput) {
+            searchInput.addEventListener('input', filterTranscript);
+          }
+          
+          if (clearBtn) {
+            clearBtn.addEventListener('click', function() {
+              searchInput.value = '';
+              filterTranscript();
+              searchInput.focus();
+            });
+          }
+        }
+        
+        function initChatSearch() {
+          const searchInput = document.getElementById('chatSearchInput');
+          const clearBtn = document.getElementById('clearSearchBtn');
+          const userFilter = document.getElementById('userFilter');
+          const matchCount = document.getElementById('matchCount');
+          const table = document.querySelector('.table');
+          
+          if (!table) return; // Exit if table doesn't exist yet
+          
+          const rows = Array.from(table.querySelectorAll('tbody tr'));
+          const totalMessages = rows.length;
+          
+          // Update initial count
+          matchCount.textContent = totalMessages;
+          
+          // Populate username dropdown
+          populateUserDropdown(rows);
+          
+          // Function to populate the username dropdown
+          function populateUserDropdown(rows) {
+            const usernames = new Set();
+            
+            // Collect all unique usernames
+            rows.forEach(row => {
+              const username = row.querySelector('td:nth-child(2)').textContent.trim();
+              if (username) usernames.add(username);
+            });
+            
+            // Sort usernames alphabetically
+            const sortedUsernames = Array.from(usernames).sort();
+            
+            // Add options to the dropdown
+            sortedUsernames.forEach(username => {
+              const option = document.createElement('option');
+              option.value = username;
+              option.textContent = username;
+              userFilter.appendChild(option);
+            });
+          }
+          
+          // Function to filter table rows based on search input and user filter
+          function filterMessages() {
+            const searchTerm = searchInput.value.toLowerCase().trim();
+            const selectedUser = userFilter.value;
+            let visibleCount = 0;
+            
+            rows.forEach(row => {
+              const username = row.querySelector('td:nth-child(2)').textContent.trim();
+              const message = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
+              
+              // Check if message contains search term AND username matches filter (if any)
+              const matchesSearch = searchTerm === '' || message.includes(searchTerm);
+              const matchesUser = selectedUser === '' || username === selectedUser;
+              const shouldShow = matchesSearch && matchesUser;
+              
+              row.style.display = shouldShow ? '' : 'none';
+              if (shouldShow) visibleCount++;
+              
+              // Highlight matching text in message if there's a search term
+              if (searchTerm && shouldShow) {
+                highlightText(row, searchTerm);
+              } else {
+                // Remove any existing highlights
+                const highlighted = row.querySelectorAll('.highlight');
+                highlighted.forEach(el => {
+                  el.outerHTML = el.textContent;
+                });
+              }
+            });
+            
+            // Update match count
+            matchCount.textContent = visibleCount;
+          }
+          
+          // Function to highlight matching text
+          function highlightText(row, term) {
+            // Only highlight the message cell (3rd column)
+            const messageCell = row.querySelector('td:nth-child(3)');
+            if (!messageCell) return;
+            
+            // Remove existing highlights first
+            const highlighted = messageCell.querySelectorAll('.highlight');
+            highlighted.forEach(el => {
+              el.outerHTML = el.textContent;
+            });
+            
+            // Get the text content to search through
+            const textContent = messageCell.textContent;
+            
+            // Skip if the term isn't in the content
+            if (!textContent.toLowerCase().includes(term)) return;
+            
+            // Replace text with highlighted version
+            const regex = new RegExp(`(${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+            const newHtml = textContent.replace(regex, '<span class="highlight">$1</span>');
+            
+            // Set the new HTML
+            messageCell.innerHTML = newHtml;
+          }
+          
+          // Event listeners
+          searchInput.addEventListener('input', filterMessages);
+          userFilter.addEventListener('change', filterMessages);
+          
+          clearBtn.addEventListener('click', function() {
+            searchInput.value = '';
+            userFilter.value = '';
+            filterMessages();
+          });
+        }
+      </script>
+      
 {% endblock %}

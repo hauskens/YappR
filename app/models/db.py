@@ -612,6 +612,40 @@ class Video(Base):
         elif self.channel.platform.name.lower() == "twitch":
             return f"{url}/videos/{self.platform_ref}"
         raise ValueError(f"Could not generate url for video: {self.id}")
+        
+    def get_url_with_timestamp(self, seconds_offset: float) -> str:
+        """Generate a URL to the video at a specific timestamp.
+        
+        Args:
+            seconds_offset: Number of seconds from the start of the video
+            
+        Returns:
+            URL string with appropriate timestamp format for the platform
+        """
+        base_url = self.get_url()
+        
+        # Ensure seconds_offset is positive and within video duration
+        seconds_offset = max(0, min(seconds_offset, self.duration))
+        
+        # Format timestamp based on platform
+        if self.channel.platform.name.lower() == "youtube":
+            # YouTube uses t=123s format (seconds)
+            return f"{base_url}&t={int(seconds_offset)}s"
+        elif self.channel.platform.name.lower() == "twitch":
+            # Twitch uses t=01h23m45s format
+            hours = int(seconds_offset // 3600)
+            minutes = int((seconds_offset % 3600) // 60)
+            seconds = int(seconds_offset % 60)
+            
+            if hours > 0:
+                timestamp = f"{hours:02d}h{minutes:02d}m{seconds:02d}s"
+            else:
+                timestamp = f"{minutes:02d}m{seconds:02d}s"
+                
+            return f"{base_url}?t={timestamp}"
+        
+        # Default fallback
+        return base_url
 
     def archive(self):
         for video in self.video_refs:

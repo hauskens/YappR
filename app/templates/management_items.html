@@ -49,9 +49,16 @@
         
         <div class="card-footer bg-transparent">
           <div class="d-flex justify-content-between">
-            <a href="{{ item.content.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
-              <i class="bi bi-play-fill"></i> Open
-            </a>
+            <div>
+              <a href="{{ item.content.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+                <i class="bi bi-play-fill"></i> Open
+              </a>
+              {% if item.watched and item.get_video_timestamp_url() %}
+              <a href="{{ item.get_video_timestamp_url() }}" target="_blank" class="btn btn-sm btn-outline-info" title="Go to VOD timestamp">
+                <i class="bi bi-clock-history"></i> VOD
+              </a>
+              {% endif %}
+            </div>
             <div>
               <button class="btn btn-sm btn-outline-{% if item.watched %}secondary{% else %}success{% endif %}" 
                       hx-post="{{ url_for('mark_clip_watched', item_id=item.id) }}" 

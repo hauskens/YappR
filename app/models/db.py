@@ -21,7 +21,7 @@ from flask_login import UserMixin # type: ignore
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy_utils.types.ts_vector import TSVectorType # type: ignore
 from sqlalchemy_file import FileField, File
-from datetime import datetime
+from datetime import datetime, timedelta
 from twitchAPI.twitch import ChannelModerator as TwitchChannelModerator
 from io import BytesIO
 import webvtt # type: ignore
@@ -1114,6 +1114,38 @@ class ContentQueue(Base):
     watched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     skipped: Mapped[bool] = mapped_column(Boolean, default=False)
     submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="content_queue")
+    
+    def get_video_timestamp_url(self) -> str | None:
+        """Find the broadcaster's video that was live when this clip was marked as watched
+        and return a URL with the timestamp.
+        
+        Returns:
+            URL string with timestamp or None if no matching video found
+        """
+        if not self.watched or not self.watched_at:
+            return None
+            
+        # Find videos from this broadcaster's channels that were live when the clip was watched
+        for channel in self.broadcaster.channels:
+            # Look for videos that might include this timestamp
+            # We need to find videos that were live when the clip was watched
+            # SQLite doesn't have great datetime functions, so we'll fetch candidates and filter in Python
+            candidate_videos = db.session.query(Video).filter(
+                Video.channel_id == channel.id,
+                Video.video_type == VideoType.VOD  # Ensure it's a VOD
+            ).all()
+            
+            for video in candidate_videos:
+                # Check if video was live when clip was watched
+                video_end_time = video.uploaded + timedelta(seconds=video.duration)
+                if video.uploaded <= self.watched_at <= video_end_time:
+                    # Calculate seconds from start of video to when clip was watched
+                    seconds_offset = (self.watched_at - video.uploaded).total_seconds()
+                    
+                    # Generate URL with timestamp
+                    return video.get_url_with_timestamp(seconds_offset)
+                
+        return None
     
 class ContentQueueSubmissionSource(enum.Enum):
     Discord = "discord" # Comes from a message in a linked channel based on broadcaster settings

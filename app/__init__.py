@@ -1,7 +1,6 @@
 from flask import Flask, request, g
 from flask_bootstrap import Bootstrap5 # type: ignore
 from flask_login import LoginManager, current_user # type: ignore
-from werkzeug.middleware.proxy_fix import ProxyFix
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from uuid import uuid4
@@ -85,8 +84,8 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     bootstrap.init_app(app)
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-    cors = CORS(app, resources={r"/*": {"origins": "http://localhost:" + str(config.app_port)}})
+    # app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    CORS(app, resources={r"/*": {"origins": config.app_url}}, supports_credentials=True)
     socketio.init_app(app)
     
 

@@ -862,7 +862,7 @@ class Transcription(Base):
         
         return json.dumps(result, ensure_ascii=False)
     
-    def save_as_srt(self, output_path: str = None) -> str:
+    def save_as_srt(self, output_path: str | None = None) -> str:
         """
         Convert the transcription to SRT format and save it to a file.
         
@@ -885,7 +885,7 @@ class Transcription(Base):
         logger.info(f"Saved SRT file to {output_path}")
         return output_path
         
-    def save_as_json(self, output_path: str = None) -> str:
+    def save_as_json(self, output_path: str | None = None) -> str:
         """
         Convert the transcription to JSON format and save it to a file.
         
@@ -1115,7 +1115,7 @@ class ContentQueue(Base):
     skipped: Mapped[bool] = mapped_column(Boolean, default=False)
     submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="content_queue")
     
-    def get_video_timestamp_url(self) -> str | None:
+    def get_video_timestamp_url(self, time_shift: float = 30) -> str | None:
         """Find the broadcaster's video that was live when this clip was marked as watched
         and return a URL with the timestamp.
         
@@ -1140,7 +1140,7 @@ class ContentQueue(Base):
                 video_end_time = video.uploaded + timedelta(seconds=video.duration)
                 if video.uploaded <= self.watched_at <= video_end_time:
                     # Calculate seconds from start of video to when clip was watched
-                    seconds_offset = (self.watched_at - video.uploaded).total_seconds()
+                    seconds_offset = (self.watched_at - video.uploaded - timedelta(seconds=time_shift)).total_seconds()
                     
                     # Generate URL with timestamp
                     return video.get_url_with_timestamp(seconds_offset)

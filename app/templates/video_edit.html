@@ -434,5 +434,29 @@
           });
         }
       </script>
+<script>
+  function convertTimestampsToLocal() {
+    const links = document.querySelectorAll(".timestamp-link");
+
+    links.forEach(link => {
+      const utcTime = link.dataset.utc;
+      if (!utcTime) return;
+
+      const localDate = new Date(utcTime);
+      const localTimeStr = localDate.toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      });
+      link.textContent = localTimeStr;
+      const fullStr = localDate.toLocaleString();
+      link.title = fullStr;
+    });
+  }
+  document.body.addEventListener("htmx:afterSwap", function(evt) {
+    // Runs after HTMX swaps new content into the DOM
+    convertTimestampsToLocal();
+  });
+</script>
       
 {% endblock %}

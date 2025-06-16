@@ -12,8 +12,12 @@
         <tr>
           <td>
             {% set seconds_since_start = (log.timestamp - video.uploaded).total_seconds() %}
-            <a href="{{ video.get_url_with_timestamp(seconds_since_start) }}" target="_blank" title="Jump to this point in the video">
-              {{ log.timestamp.strftime('%H:%M:%S') }}
+            <a href="{{ video.get_url_with_timestamp(seconds_since_start) }}" 
+              target="_blank" 
+              title="Jump to this point in the video"
+              class="timestamp-link" 
+              data-utc="{{ log.timestamp.isoformat() }}Z">
+              Loading time...
             </a>
           </td>
           <td>{{ log.username }}</td>

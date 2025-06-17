@@ -12,6 +12,7 @@ class Config:
         )
         self.log_level: str | int = os.environ.get("LOG_LEVEL", logging.DEBUG)
         self.debug: bool = os.environ.get("DEBUG", "").lower() == "true"
+        self.debug_broadcaster_id: int | None = os.environ.get("DEBUG_BROADCASTER_ID")
         self.storage_location: str = os.environ.get(
             "STORAGE_LOCATION", "/var/lib/yappr/data"
         )

@@ -14,7 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     BigInteger,
 )
-from sqlalchemy import select
+from sqlalchemy import select, func
 from flask_sqlalchemy import SQLAlchemy
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin # type: ignore
 from flask_login import UserMixin # type: ignore
@@ -81,6 +81,9 @@ class Broadcaster(Base):
         db.session.flush()
         db.session.query(Broadcaster).filter_by(id=self.id).delete()
         db.session.commit()
+
+    def last_active(self) -> datetime | None:
+        return db.session.query(func.max(Channels.last_active)).filter_by(broadcaster_id=self.id).scalar()
         
         
 
@@ -266,6 +269,8 @@ class Users(Base, UserMixin):
 
     def get_twitch_account_type(self) -> Literal["partner", "affiliate", "regular"]:
         if self.account_type == AccountSource.Twitch:
+            if config.debug == True and config.debug_broadcaster_id is not None and self.external_account_id == str(config.debug_broadcaster_id):
+                return "partner"
             user = asyncio.run(get_twitch_user_by_id(self.external_account_id))
             logger.info(user.broadcaster_type)
             if user.id == self.external_account_id:

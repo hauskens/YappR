@@ -104,12 +104,17 @@
   .queue-item {
     transition: all 0.2s;
   }
+  .motd {
+    font-size: x-small;
+    font-weight: bold;
+    margin-bottom: 1rem;
+    opacity: 0.2;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid mt-4">
-  {% if queue_items %}
     <div class="row">
       <!-- Video Player Column -->
       <div class="col-lg-8 mb-4">
@@ -125,7 +130,7 @@
             <div id="initial-message" class="d-flex justify-content-center align-items-center h-100" style="min-height: 300px;">
               <div class="text-center p-4">
                 <p class="lead">Select a clip from the "Up Next" list to start watching</p>
-                <p id="motd" class="lead text-muted">{{ motd }}</p>
+                <p id="motd" class="motd">{{ motd }}</p>
               </div>
             </div>
           </div>
@@ -148,11 +153,6 @@
         </div>
       </div>
     </div>
-  {% else %}
-    <div class="alert alert-info">
-      <p>Your clip queue is empty. When people share YouTube videos or Twitch clips in your chat, they'll appear here.</p>
-    </div>
-  {% endif %}
 </div>
 {% endblock %}
 

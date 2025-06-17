@@ -14,10 +14,10 @@ from flask import (
 )
 from flask_login import current_user, login_required, logout_user # type: ignore
 from app.permissions import require_api_key, require_permission
+from datetime import datetime, timedelta
 from io import BytesIO
 import mimetypes
 from app import app, limiter, rate_limit_exempt, socketio
-from datetime import datetime, timedelta
 from app.retrievers import (
     get_users,
     get_broadcaster,
@@ -39,6 +39,7 @@ from app.retrievers import (
     get_content_queue,
     get_moderated_channels,
     get_broadcaster_by_external_id,
+    get_broadcaster,
 )
 from app.twitch_api import get_twitch_user
 import random
@@ -171,12 +172,19 @@ def management_items():
         if broadcaster_id is None and current_user.is_broadcaster():
             broadcaster_id = current_user.get_broadcaster().id
         
+        if broadcaster_id is not None:
+            broadcaster = get_broadcaster(broadcaster_id)
+            if broadcaster is None:
+                return "Broadcaster not found", 404
+        
         # Get queue items with filters
         queue_items = get_content_queue(
             broadcaster_id, 
             include_watched=show_watched, 
             include_skipped=show_skipped
         )
+        if broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10):
+            queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
         
         # Apply sorting
         if sort_by == 'oldest':
@@ -768,13 +776,15 @@ def clip_queue():
         "Hi mom :)",
         "Don't forget to thank your local server admin",
         "Wow, streamer is *that* desperate for clips?",
-        "Mods asleep, post frogs.",
+        "Mods asleep, post frogs",
         "Reminder to hydrate",
         "Posture check",
-        "This is your sign to touch some grass.",
+        "It's probably time to touch some grass",
         "If you are reading this, VI VON ZULUL",
         "You just lost the game",
         "Out of content again, are we?",
+        "You are now breathing manually",
+        "The cake is a lie, the cake is a lie, the cake is a...",
     ]
     try:
         logger.info("Loading clip queue", extra={"user_id": current_user.id})
@@ -782,8 +792,9 @@ def clip_queue():
         if broadcaster is None:
             return render_template("promo.html")
         queue_items = get_content_queue(broadcaster.id)
+        if broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10):
+            queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
         logger.info("Successfully loaded clip queue", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})
-        from datetime import datetime
         return render_template(
             "clip_queue.html",
             queue_items=queue_items,
@@ -859,16 +870,26 @@ def get_queue_items():
     logger.info("Loading clip queue with htmx")
     try:
         broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
-        if broadcaster is not None:
+        queue_enabled = False
+        for channel in broadcaster.channels:
+            if channel.platform.name.lower() == "twitch" and channel.settings.content_queue_enabled:
+                queue_enabled = True
+                break
+        if broadcaster is not None and queue_enabled:
             queue_items = get_content_queue(broadcaster.id)
+            if broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10):
+                queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
+            if len(queue_items) == 0:
+                return "No more clips :("
             logger.info("Successfully loaded clip queue", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})
-            from datetime import datetime
             return render_template(
                 "clip_queue_items.html",
                 queue_items=queue_items,
                 broadcaster=broadcaster,
                 now=datetime.now(),
             )
+        elif broadcaster is not None and not queue_enabled:
+            return "You have disabled the queue, visit <a href='/broadcaster/edit/" + str(broadcaster.id) + "'>broadcaster settings</a> to enable it"
         else:
             return "You do not have access, no broadcaster_id found on you", 403
     except Exception as e:

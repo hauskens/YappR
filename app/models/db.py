@@ -23,6 +23,7 @@ from sqlalchemy_utils.types.ts_vector import TSVectorType # type: ignore
 from sqlalchemy_file import FileField, File
 from datetime import datetime, timedelta
 from twitchAPI.twitch import ChannelModerator as TwitchChannelModerator
+from app.cache import cache
 from io import BytesIO
 import webvtt # type: ignore
 import re
@@ -696,7 +697,7 @@ class Video(Base):
                 self.audio = None
                 self.duration = parse_time(twitch_result.duration)
             self.title = twitch_result.title
-            self.uploaded = twitch_result.created_at
+            self.uploaded = twitch_result.published_at
             # if self.thumbnail is None or force:
             tn = save_twitch_thumbnail(twitch_result)
             self.thumbnail = open(tn, "rb") # type: ignore

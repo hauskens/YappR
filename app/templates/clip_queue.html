@@ -119,14 +119,10 @@
       <!-- Video Player Column -->
       <div class="col-lg-8 mb-4">
         <div class="card">
-          <div class="card-header">
-            <h5 class="mb-0" id="current-title">Now Playing</h5>
-          </div>
           <div class="card-body p-0">
             <div class="player-container" id="player-container" style="display: none;">
               <!-- Player will be inserted here via JavaScript -->
             </div>
-            <!-- Initial message that shows until a clip is selected -->
             <div id="initial-message" class="d-flex justify-content-center align-items-center h-100" style="min-height: 300px;">
               <div class="text-center p-4">
                 <p class="lead">Select a clip from the "Up Next" list to start watching</p>
@@ -134,7 +130,12 @@
               </div>
             </div>
           </div>
-          <div class="card-footer bg-transparent d-flex justify-content-end">
+          <div class="card-footer bg-transparent d-flex justify-content-between">
+            <div id="clip-details" hx-get="" hx-trigger="none" hx-swap="innerHTML">
+              <!-- Clip details will be loaded here via HTMX -->
+              <h5 class="mb-0">Content Title</h5>
+              <p>Select a clip to start watching</p>
+            </div>
             <button class="btn btn-success" id="mark-watched-btn" data-bs-toggle="tooltip" title="Mark as watched and play next clip">Next</button>
           </div>
         </div>
@@ -240,12 +241,10 @@
     
     currentItem = element;
     var contentUrl = element.getAttribute('data-url');
-    var contentTitle = element.getAttribute('data-title');
     var contentId = element.getAttribute('data-id');
     var thumbnailUrl = element.getAttribute('data-thumbnail');
     
-    // Update title
-    document.getElementById('current-title').textContent = contentTitle;
+    // Clip details are now loaded via HTMX attributes in the HTML
     
     // Determine content type and create appropriate player
     if (contentUrl.includes('youtube.com/clip/')) {
@@ -567,17 +566,33 @@
   .catch(error => console.error('Error marking as watched:', error));
 }
   
-  // Mark as watched button
-  document.getElementById('mark-watched-btn').addEventListener('click', function() {
-    if (currentItem) {
-      markAsWatched(currentItem.getAttribute('data-id'));
-    }
-  });
-  // Mark as skipped button
-  document.getElementById('mark-skipped-btn').addEventListener('click', function() {
-    if (currentItem) {
-      console.log('Skipping item:', currentItem.getAttribute('data-id'));
-      skipItem(currentItem.getAttribute('data-id'));
+  // Set up event listeners when DOM is loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    // Set up the mark-watched button
+    document.getElementById('mark-watched-btn').addEventListener('click', function() {
+      if (currentItem) {
+        markAsWatched(currentItem.getAttribute('data-id'));
+      }
+    });
+    
+    // Load the first clip's details if available
+    setTimeout(function() {
+      const firstItemContent = document.querySelector('.queue-item .queue-item-content');
+      if (firstItemContent) {
+        // Trigger a click on the first item to load its details
+        firstItemContent.click();
+      }
+    }, 300); // Small delay to ensure the queue items have loaded
+    
+    // Mark as skipped button (if it exists)
+    const skipButton = document.getElementById('mark-skipped-btn');
+    if (skipButton) {
+      skipButton.addEventListener('click', function() {
+        if (currentItem) {
+          console.log('Skipping item:', currentItem.getAttribute('data-id'));
+          skipItem(currentItem.getAttribute('data-id'));
+        }
+      });
     }
   });
 

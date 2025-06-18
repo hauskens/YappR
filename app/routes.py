@@ -17,6 +17,7 @@ from app.permissions import require_api_key, require_permission
 from datetime import datetime, timedelta
 from io import BytesIO
 import mimetypes
+from app.cache import cache, make_cache_key
 from app import app, limiter, rate_limit_exempt, socketio
 from app.retrievers import (
     get_users,
@@ -45,6 +46,7 @@ from app.twitch_api import get_twitch_user
 import random
 from flask import redirect, url_for, flash, request
 from sqlalchemy import select
+
 
 from app.models.db import (
     Broadcaster,
@@ -244,7 +246,6 @@ def user_edit(user_id: int):
 
     else:
         return access_denied()
-    return "Something went wrong", 503
 
 
 @app.route("/permissions/<int:user_id>/<permission_name>")
@@ -264,6 +265,7 @@ def grant_permission(user_id: int, permission_name: str):
 
 
 @app.route("/stats")
+@cache.cached(timeout=120)
 @limiter.limit("100 per day, 5 per minute", exempt_when=rate_limit_exempt)
 def stats():
     logger.info("Loaded stats.html")
@@ -275,7 +277,6 @@ def stats():
         transcriptions_count="{:,}".format(get_stats_transcriptions()),
         transcriptions_hq_count="{:,}".format(get_stats_high_quality_transcriptions()),
     )
-
 
 @app.route("/search")
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
@@ -318,6 +319,7 @@ def search_word():
 @app.route("/broadcasters")
 @login_required
 @require_permission()
+@cache.memoize(timeout=60)
 def broadcasters():
     broadcasters = get_broadcasters()
     logger.info("Loaded broadcasters.html")
@@ -325,6 +327,7 @@ def broadcasters():
 
 
 @app.route("/thumbnails/<int:video_id>")
+@cache.memoize(timeout=120)
 @limiter.shared_limit("10000 per hour", exempt_when=rate_limit_exempt, scope="images")
 def serve_thumbnails(video_id: int):
     try:
@@ -371,6 +374,32 @@ def serve_audio(video_id: int):
         logger.error(f"Failed to serve audio for video {video_id}: {e}")
         abort(500, description="Internal Server Error")
 
+@app.route("/video/<int:video_id>/debug_audio")
+@login_required
+@require_permission(permissions=[PermissionType.Admin])
+def serve_debug_audio(video_id: int):
+    try:
+        video = get_video(video_id)
+        if not video or not video.audio:
+            abort(404, description="Audio not found")
+
+        # Detect MIME type from the file or store it explicitly
+        filename = video.audio.file.filename  # assuming you store this
+        mimetype, _ = mimetypes.guess_type(filename)
+        mimetype = mimetype or "application/octet-stream"
+        content = video.audio.file.read()
+
+        return send_file(
+            BytesIO(content),
+            mimetype=mimetype,
+            as_attachment=True,
+            download_name=filename,
+        )
+
+    except Exception as e:
+        # Log the error to aid debugging
+        logger.error(f"Failed to serve audio for video {video_id}: {e}")
+        abort(500, description="Internal Server Error")
 
 
 @app.route("/broadcaster/delete/<int:broadcaster_id>", methods=["GET"])
@@ -387,6 +416,7 @@ def broadcaster_delete(broadcaster_id: int):
 @app.route("/broadcaster/create", methods=["POST", "GET"])
 @login_required
 @require_permission()
+@cache.cached(timeout=60, make_cache_key=make_cache_key)
 def broadcaster_create():
     if request.method == "GET":
         logger.info("Loaded broadcaster_add.html")
@@ -519,6 +549,7 @@ def broadcaster_create():
 @app.route("/broadcaster/edit/<int:id>", methods=["GET"])
 @login_required
 @require_permission()
+@cache.cached(timeout=10, make_cache_key=make_cache_key)
 def broadcaster_edit(id: int):
     broadcaster = get_broadcaster(id)
     logger.info("Loaded broadcaster_edit.html", extra={"broadcaster_id": broadcaster.id})
@@ -599,6 +630,8 @@ def channel_delete(channel_id: int):
 
 @app.route("/channel/<int:channel_id>/videos")
 @login_required
+@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@cache.cached(timeout=10, make_cache_key=make_cache_key)
 def channel_get_videos(channel_id: int):
     logger.info("Getting videos for channel", extra={"channel_id": channel_id})
     channel = get_channel(channel_id)
@@ -691,6 +724,7 @@ def video_delete(video_id: int):
 @app.route("/video/<int:video_id>/edit")
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@cache.cached(timeout=10, make_cache_key=make_cache_key)
 def video_edit(video_id: int):
     video = get_video(video_id)
     return render_template(
@@ -702,7 +736,9 @@ def video_edit(video_id: int):
 @app.route("/video/<int:video_id>/chatlogs")
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@cache.memoize(timeout=600)
 def video_chatlogs(video_id: int):
+    logger.info("Getting chatlogs for video", extra={"video_id": video_id})
     video = get_video(video_id)
     
     # Get chat messages from the channel during the video timeframe

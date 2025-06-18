@@ -1,9 +1,11 @@
 from flask import Flask, request, g
 from flask_bootstrap import Bootstrap5 # type: ignore
 from flask_login import LoginManager, current_user # type: ignore
+from flask_caching import Cache
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from uuid import uuid4
+from .cache import cache
 from .models.config import config
 from .models.db import db, OAuth
 from sqlalchemy_file.storage import StorageManager
@@ -83,6 +85,7 @@ def create_app():
             response.headers.set("X-Request-Id", g.request_id)
         return response
     
+    cache.init_app(app)
     db.init_app(app)
     login_manager.init_app(app)
     bootstrap.init_app(app)

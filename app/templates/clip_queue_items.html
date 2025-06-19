@@ -1,13 +1,35 @@
 {% for item in queue_items %}
-  <div id="queue-item-{{ item.id }}" class="queue-item position-relative d-flex mb-2 p-2 border border-light-subtle rounded cursor-pointer{% if loop.first %} active bg-primary-subtle border-start border-2 border-primary-subtle{% endif %}{% if item.skipped %} skipped{% endif %}" 
+  <div class="queue-item list-group-item list-group-item-action d-flex align-items-center gap-2 py-2 {{ 'watched' if item.watched }} {{ 'skipped' if item.skipped }}" 
        data-id="{{ item.id }}" 
+       data-watched="{{ 'true' if item.watched else 'false' }}" 
+       data-skipped="{{ 'true' if item.skipped else 'false' }}" 
        data-url="{{ item.content.url }}" 
-       data-title="{{ item.content.title }}"
-       data-channel="{{ item.content.channel_name }}"
-       data-thumbnail="{{ item.content.thumbnail_url }}"
-       data-watched="{{ item.watched|lower }}"
-       data-skipped="{{ item.skipped|lower }}">
-    <div class="queue-item-content d-flex align-items-center flex-grow-1 min-width-0 cursor-pointer" onclick="playContent(this.parentElement)">
+       hx-get="/clip_queue/player/{{ item.id }}" 
+       hx-target="#player-container" 
+       hx-swap="innerHTML" 
+       hx-trigger="click"
+       hx-on::after-request="
+         // Show player container and hide initial message
+         document.getElementById('player-container').style.display = 'block';
+         document.getElementById('initial-message').classList.add('d-none');
+         
+         // Show the Next button
+         document.getElementById('mark-watched-btn').style.display = 'block';
+         
+         // Update clip details after player loads
+         fetch('/clip_queue/details/{{ item.id }}')
+           .then(response => response.text())
+           .then(html => {
+             document.getElementById('clip-details').innerHTML = html;
+           });
+         // Initialize player after content loads
+         initPlayer();
+       "
+       _="on click 
+          -- Update active state
+          remove .active .bg-primary-subtle .border-start .border-2 .border-primary-subtle from .queue-item then
+          add .active .bg-primary-subtle .border-start .border-2 .border-primary-subtle to me">
+    <div class="queue-item-content d-flex align-items-center flex-grow-1 min-width-0 cursor-pointer">
     {% if item.content.thumbnail_url %}
     <div class="queue-thumbnail me-3 d-flex align-items-center justify-content-center text-muted" style="background-color: transparent;">
       <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid rounded ">
@@ -62,9 +84,13 @@
     </div>
     <div class="queue-actions d-flex flex-column justify-content-center ms-2">
       <button class="btn btn-sm btn-outline-danger skip-btn" 
-              onclick="skipItem('{{ item.id }}', event)" 
+              hx-post="/clip_queue/item/{{ item.id }}/skip"
+              hx-target="#queue-items"
+              hx-trigger="click"
+              hx-swap="innerHTML"
               data-bs-toggle="tooltip" 
-              title="{% if item.skipped %}Unskip{% else %}Skip{% endif %} this clip">
+              title="{% if item.skipped %}Unskip{% else %}Skip{% endif %} this clip"
+              onclick="event.stopPropagation();">
         <i class="bi {% if item.skipped %}bi-skip-start-fill{% else %}bi-skip-start{% endif %}"></i>
       </button>
     </div>

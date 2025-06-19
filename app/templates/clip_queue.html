@@ -82,9 +82,8 @@
   
   /* Thumbnail container with fixed dimensions */
   .queue-thumbnail {
-    width: 120px;
-    height: 68px;
-    background-color: #f8f9fa;
+    width: 130px;
+    height: 72px;
     flex-shrink: 0;
     overflow: hidden;
   }
@@ -102,8 +101,34 @@
   
   /* Transition for queue items */
   .queue-item {
-    transition: all 0.2s;
+    transition: all 0.2s ease;
+    opacity: 1;
   }
+  
+  .queue-item:hover {
+    background-color: rgba(var(--bs-primary-rgb), 0.05);
+  }
+  
+  .queue-item.active {
+    background-color: rgba(var(--bs-primary-rgb), 0.1);
+  }
+  
+  .queue-content {
+    overflow: hidden;
+  }
+  
+  .cursor-pointer {
+    cursor: pointer;
+  }
+  
+  .skipped {
+    opacity: 0.5;
+  }
+  
+  .watched {
+    opacity: 0.6;
+  }
+  
   .motd {
     font-size: x-small;
     font-weight: bold;
@@ -120,23 +145,26 @@
       <div class="col-lg-8 mb-4">
         <div class="card">
           <div class="card-body p-0">
-            <div class="player-container" id="player-container" style="display: none;">
-              <!-- Player will be inserted here via JavaScript -->
-            </div>
-            <div id="initial-message" class="d-flex justify-content-center align-items-center h-100" style="min-height: 300px;">
-              <div class="text-center p-4">
-                <p class="lead">Select a clip from the "Up Next" list to start watching</p>
-                <p id="motd" class="motd">{{ motd }}</p>
+            <div id="player-area">
+              <div class="player-container" id="player-container" style="display: none;" hx-swap-oob="true">
+                <!-- Player will be loaded here via HTMX -->
+              </div>
+              <div id="initial-message" class="d-flex justify-content-center align-items-center h-100" style="min-height: 300px;">
+                <div class="text-center p-4">
+                  <p class="lead">Select a clip from the "Up Next" list to start watching</p>
+                  <p id="motd" class="motd">{{ motd }}</p>
+                </div>
               </div>
             </div>
           </div>
           <div class="card-footer bg-transparent d-flex justify-content-between">
-            <div id="clip-details" hx-get="" hx-trigger="none" hx-swap="innerHTML">
-              <!-- Clip details will be loaded here via HTMX -->
-              <h5 class="mb-0">Content Title</h5>
-              <p>Select a clip to start watching</p>
+            <div id="clip-details" hx-swap="innerHTML">
+              <!-- Placeholder for when no clip is selected -->
+              <p class="text-muted mb-0">Select a clip to view details</p>
             </div>
-            <button class="btn btn-success" id="mark-watched-btn" data-bs-toggle="tooltip" title="Mark as watched and play next clip">Next</button>
+            <button class="btn btn-success" id="mark-watched-btn" data-bs-toggle="tooltip" title="Mark as watched and play next clip" hx-on:click="markWatchedAndNext()" style="display: none;">
+              Next
+            </button>
           </div>
         </div>
       </div>
@@ -144,11 +172,12 @@
       <!-- Queue List Column -->
       <div class="col-lg-4">
         <div class="card">
-          <div class="card-header">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <h5 class="mb-0">Up Next</h5>
           </div>
           <div class="card-body p-0">
-            <div id="test" hx-get="/clip_queue/items" hx-trigger="load, queue_update from:body" hx-swap="innerHTML">
+            <div id="queue-items" hx-get="/clip_queue/items" hx-trigger="load, queue_update from:body" hx-swap="innerHTML">
+              <!-- Queue items will be loaded here via HTMX -->
             </div>
           </div>
         </div>
@@ -178,11 +207,13 @@
     });
 </script>
 <script>
-  // YouTube API
-  var tag = document.createElement('script');
-  tag.src = "https://www.youtube.com/iframe_api";
-  var firstScriptTag = document.getElementsByTagName('script')[0];
-  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  // Load YouTube IFrame API
+  if (!window.YT) {
+    var tag = document.createElement('script');
+    tag.src = "https://www.youtube.com/iframe_api";
+    var firstScriptTag = document.getElementsByTagName('script')[0];
+    firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+  }
   
   var player = null;
   var currentItem = null;
@@ -190,94 +221,69 @@
   var autoplayEnabled = false;
   
   // Initialize autoplay toggle
+  // Check if autoplay is enabled from localStorage
+  var autoplayEnabled = localStorage.getItem('autoplayEnabled') === 'true';
   const autoplayToggle = document.getElementById('autoplay-toggle');
   if (autoplayToggle) {
-    autoplayToggle.addEventListener('change', function(e) {
-      autoplayEnabled = e.target.checked;
-      console.log('Autoplay ' + (autoplayEnabled ? 'enabled' : 'disabled'));
+    autoplayToggle.checked = autoplayEnabled;
+    
+    // Toggle autoplay setting
+    autoplayToggle.addEventListener('change', function() {
+      autoplayEnabled = this.checked;
+      localStorage.setItem('autoplayEnabled', autoplayEnabled);
     });
+  }
+  
+  document.addEventListener('DOMContentLoaded', function() {
+    // Set up the mark-watched button
+    const markWatchedBtn = document.getElementById('mark-watched-btn');
+    if (markWatchedBtn) {
+      markWatchedBtn.addEventListener('click', function() {
+        const activeItem = document.querySelector('.queue-item.active');
+        if (activeItem) {
+          const itemId = activeItem.getAttribute('data-id');
+          markWatchedBtn.setAttribute('hx-post', `/clip_queue/mark_watched/${itemId}`);
+          
+          // Find next unwatched item
+          const nextItem = findNextUnwatched();
+          if (nextItem) {
+            // Trigger click on next item after marking current as watched
+            setTimeout(() => {
+              nextItem.click();
+            }, 100);
+          }
+        }
+      });
+    }
+  });
+  
+  // Function to initialize player after htmx loads it
+  function initPlayer() {
+    const youtubePlayer = document.getElementById('youtube-player');
+    if (youtubePlayer && youtubePlayer.getAttribute('data-video-url')) {
+      createYouTubePlayer(youtubePlayer.getAttribute('data-video-url'));
+      playerType = 'youtube';
+    }
   }
   
   function onYouTubeIframeAPIReady() {
     // YouTube API is ready, but don't auto-play anything
     // Let the user select a clip to start playing
-  }
-  
-  function playContent(element) {
-    // Hide the initial message and show the player container when a clip is selected
-    if (document.getElementById('initial-message')) {
-      document.getElementById('initial-message').classList.add('d-none');
-    }
-    if (document.getElementById('player-container')) {
-      document.getElementById('player-container').style.display = 'block';
-    }
-    // If there's a current item playing and it's different from the one being clicked
-    if (currentItem && currentItem !== element) {
-      // Mark the current item as watched before switching to the new one
-      const currentItemId = currentItem.getAttribute('data-id');
-      const isCurrentWatched = currentItem.getAttribute('data-watched') === 'true';
-      
-      // Only mark as watched if it's not already watched
-      if (!isCurrentWatched) {
-        markAsWatched(currentItemId, false); // false means don't auto-play next
+    console.log('YouTube API Ready');
+    
+    // If there's already an active item with a YouTube player waiting to be initialized
+    const activeItem = document.querySelector('.queue-item.active');
+    const youtubePlayer = document.getElementById('youtube-player');
+    
+    if (activeItem && youtubePlayer) {
+      const videoUrl = activeItem.getAttribute('data-url');
+      if (videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'))) {
+        createYouTubePlayer(videoUrl);
       }
     }
-    
-    // Remove active class from all items
-    document.querySelectorAll('.queue-item').forEach(item => {
-      item.classList.remove('active');
-      item.classList.remove('bg-primary-subtle');
-      item.classList.remove('border-start');
-      item.classList.remove('border-2');
-      item.classList.remove('border-primary-subtle');
-    });
-    
-    // Add active class and related Bootstrap classes to the clicked item
-    element.classList.add('active');
-    element.classList.add('bg-primary-subtle');
-    element.classList.add('border-start');
-    element.classList.add('border-2');
-    element.classList.add('border-primary-subtle');
-    
-    currentItem = element;
-    var contentUrl = element.getAttribute('data-url');
-    var contentId = element.getAttribute('data-id');
-    var thumbnailUrl = element.getAttribute('data-thumbnail');
-    
-    // Clip details are now loaded via HTMX attributes in the HTML
-    
-    // Determine content type and create appropriate player
-    if (contentUrl.includes('youtube.com/clip/')) {
-      // Special handling for YouTube clips - they can't be embedded
-      document.getElementById('player-container').innerHTML = `
-        <div class="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center">
-          <div class="text-center">
-            <div class="position-relative mb-4">
-              <img src="${thumbnailUrl}" class="img-fluid" alt="Video thumbnail">
-            </div>
-            <a href="${contentUrl}" target="_blank" class="btn btn-danger btn-lg">
-              <i class="bi bi-youtube me-2"></i>Open YouTube Clip
-            </a>
-            <p class="text-light mt-3"><small>YouTube clips cannot be embedded and must be viewed on YouTube</small></p>
-          </div>
-        </div>`;
-      playerType = 'youtube_clip';
-    } else if (isYouTubeUrl(contentUrl)) {
-      createYouTubePlayer(contentUrl);
-      playerType = 'youtube';
-    } else if (isTwitchClipUrl(contentUrl)) {
-      createTwitchClipPlayer(contentUrl);
-      playerType = 'twitch';
-    } else {
-      // Fallback for unsupported URLs
-      document.getElementById('player-container').innerHTML = 
-        `<div class="d-flex justify-content-center align-items-center h-100 bg-light">
-          <p class="text-muted">Unsupported content type</p>
-         </div>`;
-      playerType = null;
-    }
   }
   
+  // Keep these utility functions for detecting video types
   function isYouTubeUrl(url) {
     return url.includes('youtube.com') || url.includes('youtu.be');
   }
@@ -286,6 +292,7 @@
     return url.includes('clips.twitch.tv/') || url.includes('twitch.tv/videos/') || (url.includes('twitch.tv/') && url.includes('/clip/'));
   }
   
+  // Simplified YouTube player creation
   function createYouTubePlayer(url) {
     // Extract video ID and timestamp from URL
     var videoId = '';
@@ -334,22 +341,12 @@
           } else {
             startTime = parseInt(timeParam);
           }
-          console.log('Using start time:', startTime, 'seconds');
         }
       }
     }
     else if (url.includes('youtube.com/shorts')) {
-      videoId = url.split('youtube.com/shorts/')[1];   
+      videoId = url.split('youtube.com/shorts/')[1].split('?')[0];   
     }
-    
-    
-    
-    // Create a div with an ID for the YouTube player
-    document.getElementById('player-container').innerHTML = '<div id="youtube-player"></div>';
-    
-    // Make sure the container has the right dimensions
-    document.getElementById('youtube-player').style.width = '100%';
-    document.getElementById('youtube-player').style.height = '100%';
     
     // Create YouTube player
     player = new YT.Player('youtube-player', {
@@ -424,35 +421,35 @@
     if (event.data === YT.PlayerState.ENDED) {
       console.log('Video ended, marking as watched');
       
-      // Make sure currentItem is defined
-      if (currentItem) {
-        const currentItemId = currentItem.getAttribute('data-id');
-        console.log('Marking item as watched:', currentItemId);
+      // Get the active item
+      const activeItem = document.querySelector('.queue-item.active');
+      if (activeItem) {
+        const itemId = activeItem.getAttribute('data-id');
+        console.log('Marking item as watched:', itemId);
         
-        // Mark the current item as watched
-        markAsWatched(currentItemId);
+        // Use htmx to mark as watched
+        htmx.ajax('POST', `/clip_queue/mark_watched/${itemId}`, { target: '#queue-items', swap: 'innerHTML' });
         
         // Only proceed with autoplay if it's enabled
         if (autoplayEnabled) {
           // Find next unwatched item
           var nextItem = findNextUnwatched();
-          // Only play next item if it's different from the current item
-          if (nextItem && (!currentItem || nextItem.getAttribute('data-id') !== currentItemId)) {
-            playContent(nextItem);
+          if (nextItem) {
+            // Trigger click on next item
+            setTimeout(() => {
+              nextItem.click();
+            }, 100);
           } else {
-            console.log('No more unwatched items in queue or reached the last item');
+            console.log('No more unwatched items in queue');
           }
-        } else {
-          console.log('Autoplay is disabled');
         }
-      } else {
-        console.error('No current item defined');
       }
     }
   }
   
   function findNextUnwatched() {
     var items = document.querySelectorAll('.queue-item');
+    var activeItem = document.querySelector('.queue-item.active');
     var foundCurrent = false;
     
     // First try to find an unwatched and non-skipped item after the current one
@@ -463,7 +460,7 @@
         return items[i];
       }
       
-      if (items[i] === currentItem) {
+      if (items[i] === activeItem) {
         foundCurrent = true;
       }
     }
@@ -487,189 +484,267 @@
     return null; // No unwatched items at all
   }
   
-  function markAsWatched(itemId, autoPlayNext = true) {
-  console.log('Marking item as watched:', itemId);
-  
-  // Send AJAX request to mark item as watched
-  fetch(`/clip_queue/mark_watched/${itemId}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest'
-    }
-  })
-  .then(response => response.json())
-  .then(data => {
-      
-      // Find the specific item by ID and update its UI
-      const itemToUpdate = document.querySelector(`.queue-item[data-id="${itemId}"]`);
-      if (itemToUpdate) {
-        console.log('Updating UI for item:', itemId);
-        itemToUpdate.setAttribute('data-watched', 'true');
-        
-        // Make the item transparent 
-        itemToUpdate.classList.add('watched');
-        itemToUpdate.style.opacity = '0.6';
-        
-        // Add a watched badge if it doesn't exist
-        let watchedBadgeExists = false;
-        const badges = itemToUpdate.querySelectorAll('.badge');
-        badges.forEach(badge => {
-          if (badge.textContent === 'Watched') {
-            watchedBadgeExists = true;
-            badge.classList.remove('bg-danger');
-            badge.classList.add('bg-success');
-          }
-        });
-        
-        if (!watchedBadgeExists) {
-          const metaDiv = itemToUpdate.querySelector('.queue-meta .d-flex:first-child');
-          if (metaDiv) {
-            const watchedBadge = document.createElement('span');
-            watchedBadge.className = 'badge bg-success';
-            watchedBadge.textContent = 'Watched';
-            metaDiv.prepend(watchedBadge);
-          }
-        }
-        
-        // Only auto-play next if requested (default behavior)
-        if (autoPlayNext) {
-          const nextItem = findNextUnwatched();
-          if (nextItem) {
-            console.log('Auto-playing next unwatched item');
-            // Remove active class from all items before adding it to the next item
-            document.querySelectorAll('.queue-item').forEach(item => {
-              item.classList.remove('active');
-              item.classList.remove('bg-primary-subtle');
-              item.classList.remove('border-start');
-              item.classList.remove('border-2');
-              item.classList.remove('border-primary-subtle');
-            });
-            
-            // Add active class and related Bootstrap classes to the next item
-            nextItem.classList.add('active');
-            nextItem.classList.add('bg-primary-subtle');
-            nextItem.classList.add('border-start');
-            nextItem.classList.add('border-2');
-            nextItem.classList.add('border-primary-subtle');
-            
-            // Play the next content
-            playContent(nextItem);
-          } else {
-            console.log('No more unwatched items in queue');
-          }
-        }
-      } else {
-        console.error('Could not find item with ID:', itemId);
-      }
-  })
-  .catch(error => console.error('Error marking as watched:', error));
-}
-  
   // Set up event listeners when DOM is loaded
   document.addEventListener('DOMContentLoaded', function() {
-    // Set up the mark-watched button
-    document.getElementById('mark-watched-btn').addEventListener('click', function() {
-      if (currentItem) {
-        markAsWatched(currentItem.getAttribute('data-id'));
+    
+    // Initialize tooltips after content updates
+    htmx.on('htmx:afterSwap', function(e) {
+      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+      tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+      });
+      
+      // Restore active state if queue items were updated
+      if (e.detail.target.id === 'queue-items') {
+        const activeItemId = localStorage.getItem('activeQueueItemId');
+        if (activeItemId) {
+          console.log('Restoring active state for item:', activeItemId);
+          // Remove active class from all items
+          document.querySelectorAll('.queue-item').forEach(item => {
+            item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+          });
+          // Add active class to the previously active item
+          const activeItem = document.querySelector(`.queue-item[data-id="${activeItemId}"]`);
+          if (activeItem) {
+            activeItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+          }
+        }
+      }
+      
+      // Check if we swapped in a YouTube player and initialize it
+      if (e.detail.target.id === 'player-container' && document.getElementById('youtube-player')) {
+        const activeItem = document.querySelector('.queue-item.active');
+        if (activeItem) {
+          const videoUrl = activeItem.getAttribute('data-url');
+          if (videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'))) {
+            // Wait a bit for YouTube API to be ready if needed
+            if (typeof YT !== 'undefined' && YT.Player) {
+              createYouTubePlayer(videoUrl);
+            } else {
+              // If YouTube API isn't ready yet, wait for it
+              window.onYouTubeIframeAPIReady = function() {
+                createYouTubePlayer(videoUrl);
+              };
+            }
+          }
+        }
       }
     });
     
-    // Load the first clip's details if available
-    setTimeout(function() {
-      const firstItemContent = document.querySelector('.queue-item .queue-item-content');
-      if (firstItemContent) {
-        // Trigger a click on the first item to load its details
-        firstItemContent.click();
-      }
-    }, 300); // Small delay to ensure the queue items have loaded
+    // Function to handle marking previous item as watched when clicking a new one
+    function setupQueueItemClickHandlers() {
+      console.log('Setting up queue item click handlers');
+      
+      // Use event delegation on the document level to ensure it works with htmx content swaps
+      document.addEventListener('click', function(event) {
+        // Find the clicked queue item
+        const clickedItem = event.target.closest('.queue-item');
+        if (!clickedItem) return; // Not a queue item click
+        
+        // Store the clicked item ID in localStorage so we can restore active state after htmx updates
+        const clickedItemId = clickedItem.getAttribute('data-id');
+        localStorage.setItem('activeQueueItemId', clickedItemId);
+        console.log('Setting active item ID:', clickedItemId);
+        
+        // Find the currently active item
+        const activeItem = document.querySelector('.queue-item.active');
+        if (activeItem && activeItem !== clickedItem && activeItem.getAttribute('data-watched') === 'false') {
+          // Mark the active item as watched before switching
+          const itemId = activeItem.getAttribute('data-id');
+          console.log('Marking previous item as watched:', itemId);
+          
+          fetch(`/clip_queue/mark_watched/${itemId}`, {
+            method: 'POST'
+          }).then(response => {
+            if (response.ok) {
+              // Update UI to show watched state
+              activeItem.classList.add('watched');
+              activeItem.setAttribute('data-watched', 'true');
+              
+              const watchedIndicator = activeItem.querySelector('.watched-indicator');
+              if (watchedIndicator) {
+                watchedIndicator.classList.remove('d-none');
+              }
+            }
+          });
+        }
+        
+        // Update active state immediately
+        document.querySelectorAll('.queue-item').forEach(item => {
+          item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+        });
+        clickedItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+      }, true); // Use capture to ensure this runs before htmx processing
+    }
     
-    // Mark as skipped button (if it exists)
-    const skipButton = document.getElementById('mark-skipped-btn');
-    if (skipButton) {
-      skipButton.addEventListener('click', function() {
-        if (currentItem) {
-          console.log('Skipping item:', currentItem.getAttribute('data-id'));
-          skipItem(currentItem.getAttribute('data-id'));
+    // Set up the click handlers
+    setupQueueItemClickHandlers();
+  });
+
+  // Function to mark current clip as watched and play next clip
+  function markWatchedAndNext() {
+    const activeItem = document.querySelector('.queue-item.active');
+    if (activeItem) {
+      const itemId = activeItem.getAttribute('data-id');
+      console.log('Marking as watched and playing next:', itemId);
+      
+      // First check if this is the last unwatched clip
+      let isLastClip = true;
+      document.querySelectorAll('.queue-item').forEach(item => {
+        if (item !== activeItem && item.getAttribute('data-watched') === 'false' && item.getAttribute('data-skipped') !== 'true') {
+          isLastClip = false;
         }
       });
+      
+      // Only mark as watched if it's not already watched
+      if (activeItem.getAttribute('data-watched') === 'false') {
+        // Use fetch API instead of htmx to avoid full queue refresh
+        fetch(`/clip_queue/mark_watched/${itemId}`, {
+          method: 'POST'
+        }).then(response => {
+          if (response.ok) {
+            // Update the UI to reflect watched state
+            activeItem.classList.add('watched');
+            activeItem.setAttribute('data-watched', 'true');
+            
+            // Update any watched indicators in the UI
+            const watchedIndicator = activeItem.querySelector('.watched-indicator');
+            if (watchedIndicator) {
+              watchedIndicator.classList.remove('d-none');
+            }
+            
+            if (isLastClip) {
+              // If this was the last clip, hide player and show completion message
+              document.getElementById('player-container').style.display = 'none';
+              document.getElementById('initial-message').classList.remove('d-none');
+              
+              // Update the initial message to show completion
+              document.getElementById('initial-message').innerHTML = `
+                <div class="text-center p-4">
+                  <i class="bi bi-check-circle-fill text-success mb-3" style="font-size: 3rem;"></i>
+                  <h4>All clips watched!</h4>
+                  <p>You've watched all the clips in the queue.</p>
+                </div>`;
+              
+              // Clear clip details
+              document.getElementById('clip-details').innerHTML = `
+                <h5 class="mb-0">All clips watched</h5>
+                <p class="mb-0">No more clips in queue</p>
+              `;
+              
+              // Clear active state
+              document.querySelectorAll('.queue-item').forEach(item => {
+                item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+              });
+              localStorage.removeItem('activeQueueItemId');
+              
+              // Hide the Next button
+              document.getElementById('mark-watched-btn').style.display = 'none';
+            } else {
+              // If there's another unwatched clip, play it
+              playNextUnwatched();
+            }
+          }
+        });
+      } else if (!isLastClip) {
+        // If already watched and not the last clip, just find and play next unwatched
+        playNextUnwatched();
+      } else {
+        // If already watched and is the last clip, show completion message
+        document.getElementById('player-container').style.display = 'none';
+        document.getElementById('initial-message').classList.remove('d-none');
+        
+        // Update the initial message to show completion
+        document.getElementById('initial-message').innerHTML = `
+          <div class="text-center p-4">
+            <i class="bi bi-check-circle-fill text-success mb-3" style="font-size: 3rem;"></i>
+            <h4>All clips watched!</h4>
+            <p>You've watched all the clips in the queue.</p>
+          </div>`;
+        
+        // Clear clip details
+        document.getElementById('clip-details').innerHTML = `
+          <h5 class="mb-0">All clips watched</h5>
+          <p class="mb-0">No more clips in queue</p>
+        `;
+        
+        // Clear active state
+        document.querySelectorAll('.queue-item').forEach(item => {
+          item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+        });
+        localStorage.removeItem('activeQueueItemId');
+        
+        // Hide the Next button
+        document.getElementById('mark-watched-btn').style.display = 'none';
+      }
     }
-  });
-
-  function skipItem(itemId) {
-  console.log('Toggling skip for item:', itemId);
-
-  fetch(`/clip_queue/item/${itemId}/skip`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-  })
-  .then(response => {
-    if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-    return response.json();
-  })
-  .then(data => {
-    const item = document.querySelector(`.queue-item[data-id="${itemId}"]`);
-    if (!item) {
-      console.error('Could not find item element for ID:', itemId);
-      return;
+  }
+  
+  // Function to find and play the next unwatched clip
+  function playNextUnwatched() {
+    const nextItem = findNextUnwatched();
+    if (nextItem) {
+      // Get the item ID for updating clip details
+      const nextItemId = nextItem.getAttribute('data-id');
+      
+      // Update active state
+      document.querySelectorAll('.queue-item').forEach(item => {
+        item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+      });
+      nextItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+      
+      // Load the player content
+      fetch(`/clip_queue/player/${nextItemId}`)
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById('player-container').innerHTML = html;
+          document.getElementById('initial-message').classList.add('d-none');
+          document.getElementById('player-container').style.display = 'block';
+          
+          // Initialize the player
+          initPlayer();
+          
+          // Update clip details
+          return fetch(`/clip_queue/details/${nextItemId}`);
+        })
+        .then(response => response.text())
+        .then(html => {
+          document.getElementById('clip-details').innerHTML = html;
+        });
+    } else {
+      // If no more unwatched items, hide the player and show the initial message
+      document.getElementById('player-container').style.display = 'none';
+      document.getElementById('initial-message').classList.remove('d-none');
+      
+      // Update the initial message to show completion
+      document.getElementById('initial-message').innerHTML = `
+        <div class="text-center p-4">
+          <i class="bi bi-check-circle-fill text-success mb-3" style="font-size: 3rem;"></i>
+          <h4>All clips watched!</h4>
+          <p>You've watched all the clips in the queue.</p>
+        </div>`;
+      
+      // Clear clip details when all clips are watched
+      document.getElementById('clip-details').innerHTML = `
+        <h5 class="mb-0">All clips watched</h5>
+        <p class="mb-0">No more clips in queue</p>
+      `;
+      
+      // Clear active state
+      document.querySelectorAll('.queue-item').forEach(item => {
+        item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+      });
+      localStorage.removeItem('activeQueueItemId');
+      
+      // Hide the Next button
+      document.getElementById('mark-watched-btn').style.display = 'none';
     }
-
-    const skipBtn = item.querySelector('.skip-btn');
-    const isSkipped = item.getAttribute('data-skipped') === 'true';
-
-    // Toggle skipped state
-    item.setAttribute('data-skipped', String(!isSkipped));
-    item.classList.toggle('skipped', !isSkipped);
-
-    if (skipBtn) {
-      skipBtn.classList.toggle('btn-outline-secondary', isSkipped);
-      skipBtn.classList.toggle('btn-outline-danger', !isSkipped);
-      skipBtn.innerHTML = isSkipped
-        ? '<i class="bi bi-fast-forward-fill"></i>'  // original skip icon
-        : '<i class="bi bi-x-lg"></i>';               // skipped icon
-      skipBtn.setAttribute('title', isSkipped ? 'Skip' : 'Undo skip');
-
-      // Fully reinitialize tooltip
-      const oldTooltip = bootstrap.Tooltip.getInstance(skipBtn);
-      if (oldTooltip) oldTooltip.dispose();
-      new bootstrap.Tooltip(skipBtn);
-    }
-
-    console.log(`${isSkipped ? 'Unskipped' : 'Skipped'} item in UI:`, itemId);
-  })
-  .catch(error => {
-    console.error('Error toggling skip:', error);
-  });
-}
-
+  }
+  
   // Initialize tooltips
   var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
   tooltipTriggerList.map(function (tooltipTriggerEl) {
     return new bootstrap.Tooltip(tooltipTriggerEl);
   });
-  
-  // // Socket.io event handling for queue updates
-  // document.addEventListener('DOMContentLoaded', function() {
-  //   const socket = io();
-  //   const broadcasterId = "{{ broadcaster.id }}";
-    
-  //   socket.on('queue_update', function(data) {
-  //     if (data.broadcaster_id.toString() === broadcasterId) {
-  //       // Dispatch a custom event that htmx will listen for
-  //       document.body.dispatchEvent(new CustomEvent('queue_update'));
-        
-  //       // Re-initialize tooltips after content is updated
-  //       setTimeout(function() {
-  //         var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-  //         tooltipTriggerList.map(function (tooltipTriggerEl) {
-  //           return new bootstrap.Tooltip(tooltipTriggerEl);
-  //         });
-  //       }, 100);
-  //     }
-  //   });
-  // });
 </script>
 {% endblock %}

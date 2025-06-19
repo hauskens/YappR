@@ -265,7 +265,7 @@ def grant_permission(user_id: int, permission_name: str):
 
 
 @app.route("/stats")
-@cache.cached(timeout=120)
+@cache.cached(timeout=600, make_cache_key=make_cache_key)
 @limiter.limit("100 per day, 5 per minute", exempt_when=rate_limit_exempt)
 def stats():
     logger.info("Loaded stats.html")
@@ -736,7 +736,7 @@ def video_edit(video_id: int):
 @app.route("/video/<int:video_id>/chatlogs")
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
-@cache.memoize(timeout=600)
+@cache.cached(timeout=600)
 def video_chatlogs(video_id: int):
     logger.info("Getting chatlogs for video", extra={"video_id": video_id})
     video = get_video(video_id)
@@ -931,6 +931,39 @@ def get_queue_items():
     except Exception as e:
         logger.error("Error loading clip queue %s", e, extra={"user_id": current_user.id})
         return "Error loading clip queue", 500
+
+
+@app.route("/clip_queue/details/<int:item_id>")
+@login_required
+@require_permission()
+def get_clip_details(item_id: int):
+    """Get details for a specific clip to display in the player area"""
+    try:
+        queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
+        return render_template(
+            "clip_details.html",
+            item=queue_item,
+            now=datetime.now(),
+        )
+    except Exception as e:
+        logger.error("Error loading clip details %s", e, extra={"item_id": item_id, "user_id": current_user.id})
+        return "Error loading clip details", 500
+
+
+@app.route("/clip_queue/player/<int:item_id>")
+@login_required
+@require_permission()
+def get_clip_player(item_id: int):
+    """Get the player HTML for a specific clip"""
+    try:
+        queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
+        return render_template(
+            "clip_player.html",
+            item=queue_item,
+        )
+    except Exception as e:
+        logger.error("Error loading clip player %s", e, extra={"item_id": item_id, "user_id": current_user.id})
+        return "Error loading clip player", 500
 
 
 @app.route("/broadcaster/<int:broadcaster_id>/create_clip")

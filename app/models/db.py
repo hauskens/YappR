@@ -697,7 +697,7 @@ class Video(Base):
                 self.audio = None
                 self.duration = parse_time(twitch_result.duration)
             self.title = twitch_result.title
-            self.uploaded = twitch_result.published_at
+            self.uploaded = twitch_result.created_at
             # if self.thumbnail is None or force:
             tn = save_twitch_thumbnail(twitch_result)
             self.thumbnail = open(tn, "rb") # type: ignore

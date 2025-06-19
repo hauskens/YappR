@@ -1,0 +1,13 @@
+<!-- Clip details template for htmx loading -->
+<h5 class="mb-0">{{ item.content.title }}</h5>
+<p class="mb-0">{{ item.content.channel_name }}</p>
+{% if item.submissions %}
+  {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
+  {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
+  {% set minutes_diff = (seconds_diff / 60)|int %}
+  {% set hours_diff = (seconds_diff / 3600)|int %}
+  {% set days_diff = (hours_diff / 24)|int %}
+  <small class="text-muted">
+    Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{ hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1 %}s{% endif %}{% endif %} ago by {{ earliest.user.username }}
+  </small>
+{% endif %}

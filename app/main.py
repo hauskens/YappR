@@ -91,10 +91,10 @@ def redirect_unauthorized():
 def full_processing_task(channel_id: int):
     logger.info("Processing channel", extra={"channel_id": channel_id})
     channel = get_channel(channel_id)
-    if channel.last_active is not None and channel.last_active > datetime.now() - timedelta(minutes=10):
-        logger.info("Channel was active less than 10 minutes ago, skipping", extra={"channel_id": channel_id})
+    if channel.last_active is not None and channel.last_active > datetime.now() - timedelta(minutes=15):
+        logger.info("Channel was active less than 15 minutes ago, skipping", extra={"channel_id": channel_id})
         return
-    logger.info("Channel was active more than 10 minutes ago, processing", extra={"channel_id": channel_id})
+    logger.info("Channel was active more than 15 minutes ago, processing", extra={"channel_id": channel_id})
     video = channel.fetch_latest_videos(process=True)
     if video is not None:
         _ = chain(task_fetch_audio.s(video), task_transcribe_audio.s(), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)

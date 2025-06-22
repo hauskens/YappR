@@ -1,98 +1,153 @@
-{% for item in queue_items %}
-  <div class="queue-item list-group-item list-group-item-action d-flex align-items-center gap-2 py-2 {{ 'watched' if item.watched }} {{ 'skipped' if item.skipped }}" 
-       data-id="{{ item.id }}" 
-       data-watched="{{ 'true' if item.watched else 'false' }}" 
-       data-skipped="{{ 'true' if item.skipped else 'false' }}" 
-       data-url="{{ item.content.url }}" 
-       hx-get="/clip_queue/player/{{ item.id }}" 
-       hx-target="#player-container" 
-       hx-swap="innerHTML" 
-       hx-trigger="click"
-       hx-on::after-request="
-         // Show player container and hide initial message
-         document.getElementById('player-container').style.display = 'block';
-         document.getElementById('initial-message').classList.add('d-none');
-         
-         // Show the Next button
-         document.getElementById('mark-watched-btn').style.display = 'block';
-         
-         // Update clip details after player loads
-         fetch('/clip_queue/details/{{ item.id }}')
-           .then(response => response.text())
-           .then(html => {
-             document.getElementById('clip-details').innerHTML = html;
-           });
-         // Initialize player after content loads
-         initPlayer();
-       "
-       _="on click 
-          -- Update active state
-          remove .active .bg-primary-subtle .border-start .border-2 .border-primary-subtle from .queue-item then
-          add .active .bg-primary-subtle .border-start .border-2 .border-primary-subtle to me">
-    <div class="queue-item-content d-flex align-items-center flex-grow-1 min-width-0 cursor-pointer">
-    {% if item.content.thumbnail_url %}
-    <div class="queue-thumbnail me-3 d-flex align-items-center justify-content-center text-muted" style="background-color: transparent;">
-      <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid rounded ">
-    </div>
-    {% endif %}
-    <div class="queue-content flex-grow-1 min-width-0">
-      <div class="queue-title fw-bold mb-1 text-truncate">{{ item.content.title|truncate(50) }}</div>
-      <div class="queue-meta fs-6 text-muted">
-        <div class="d-flex flex-wrap align-items-center gap-2">
-          {% if item.content.get_platform() == 'youtube' %}
-            <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000" alt="YouTube logo badge">
-          {% elif item.content.get_platform() == 'twitch' %}
-            <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D" alt="Twitch badge">
-          {% endif %}
+<style>
+  /* Custom styles for queue items */
+  .watched-item, .skipped-item {
+    opacity: 0.6;
+  }
+  
+  /* Ensure dropdown components are always visible */
+  .queue-item .dropdown,
+  .queue-item .dropdown-menu,
+  .queue-item .dropdown-item {
+    opacity: 1;
+  }
 
-          {% if item.content.duration %}
-            {% set minutes = (item.content.duration // 60)|int %}
-            {% set seconds = (item.content.duration % 60)|int %}
-            <span class="badge bg-secondary">{{ "%d:%02d"|format(minutes, seconds) }}</span>
-          {% endif %}
-          {% if item.submissions %}
-            {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
-            {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
-            {% set minutes_diff = (seconds_diff / 60)|int %}
-            {% set hours_diff = (seconds_diff / 3600)|int %}
-            {% set days_diff = (hours_diff / 24)|int %}
-            <span class="text-muted">•</span>
-            <span class="text-muted" data-bs-toggle="tooltip" 
-                  title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
-              Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{ hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1 %}s{% endif %}{% endif %} ago
-            </span>
-          {% endif %}
-        </div>
-        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
-          {% if item.watched %}
-            <span class="badge bg-success">Watched</span>
-          {% endif %}
-          {% for submission in item.submissions %}
-            {% if submission.submission_source_type.name == "Twitch" %}
-              <span class="badge" style="background-color: #9147FF; color: white;" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
-                {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
-              </span>
-            {% elif submission.submission_source_type.name == "Discord" %}
-              <span class="badge" style="background-color: #7289da; color: white;" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
-                {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
-              </span>
-            {% endif %}
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-    </div>
-    <div class="queue-actions d-flex flex-column justify-content-center ms-2">
-      <button class="btn btn-sm btn-outline-danger skip-btn" 
-              hx-post="/clip_queue/item/{{ item.id }}/skip"
-              hx-target="#queue-items"
-              hx-trigger="click"
-              hx-swap="innerHTML"
-              data-bs-toggle="tooltip" 
-              title="{% if item.skipped %}Unskip{% else %}Skip{% endif %} this clip"
-              onclick="event.stopPropagation();">
-        <i class="bi {% if item.skipped %}bi-skip-start-fill{% else %}bi-skip-start{% endif %}"></i>
-      </button>
-    </div>
+  /* Enhanced hover effect for queue items */
+  .list-group-item.hover-darker:hover,
+  .list-group-item-action.hover-darker:hover {
+    background-color: rgba(0, 0, 0, 0.2);
+    transition: background-color 0.1s ease;
+  }
+</style>
+
+{% for item in queue_items %}
+<div class="position-relative d-flex">
+  <!-- Main queue item content with opacity styling when watched/skipped -->
+  <div class="queue-item list-group-item list-group-item-action py-2 d-flex flex-column gap-2 hover-darker {{ 'watched-item' if item.watched }} {{ 'skipped-item' if item.skipped }} flex-grow-1"
+  data-id="{{ item.id }}"
+  data-watched="{{ 'true' if item.watched else 'false' }}"
+  data-skipped="{{ 'true' if item.skipped else 'false' }}"
+  data-url="{{ item.content.url }}"
+  hx-get="/clip_queue/player/{{ item.id }}"
+  hx-target="#player-container"
+  hx-swap="innerHTML"
+  hx-trigger="click"
+  hx-on:click="
+    // Store the clicked item ID in localStorage
+    localStorage.setItem('activeQueueItemId', this.getAttribute('data-id'));
+    
+    // Find the currently active item
+    const activeItem = document.querySelector('.queue-item.active');
+    if (activeItem && activeItem !== this && activeItem.getAttribute('data-watched') === 'false') {
+      // Mark the active item as watched before switching
+      const itemId = activeItem.getAttribute('data-id');
+      
+      fetch(`/clip_queue/mark_watched/${itemId}`, {
+        method: 'POST'
+      }).then(response => {
+        if (response.ok) {
+          // Update UI to show watched state
+          activeItem.classList.add('watched-item');
+          activeItem.setAttribute('data-watched', 'true');
+          
+        }
+      });
+    }
+    
+    // Update active state immediately
+    document.querySelectorAll('.queue-item').forEach(item => {
+      item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+    });
+    this.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+  "
+  hx-on::after-request="
+    document.getElementById('player-container').style.display = 'block';
+    document.getElementById('initial-message').classList.add('d-none');
+    document.getElementById('mark-watched-btn').style.display = 'block';
+    fetch('/clip_queue/details/{{ item.id }}')
+      .then(response => response.text())
+      .then(html => { document.getElementById('clip-details').innerHTML = html; });
+    initPlayer();">
+
+  <!-- Metadata -->
+  <div class="queue-content flex-grow-1 min-width-0">
+  <!-- Title Row -->
+  <div class="queue-title fw-bold text-truncate px-2" title="{{ item.content.title }}">
+  {{ item.content.title }}
   </div>
+
+<!-- Content Row -->
+<div class="d-flex align-items-start px-2">
+{% if item.content.thumbnail_url %}
+<div class="queue-thumbnail me-3 flex-shrink-0" style="width: 100px;">
+ <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid rounded">
+</div>
+{% endif %}
+ <div class="queue-meta fs-6 text-muted mb-1 d-flex flex-wrap align-items-center gap-2">
+   {% if item.content.get_platform() == 'youtube' %}
+     <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000" alt="YouTube badge">
+   {% elif item.content.get_platform() == 'twitch' %}
+     <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D" alt="Twitch badge">
+   {% endif %}
+
+   {% if item.content.duration %}
+     {% set minutes = (item.content.duration // 60)|int %}
+     {% set seconds = (item.content.duration % 60)|int %}
+     <span class="badge bg-secondary">{{ "%d:%02d"|format(minutes, seconds) }}</span>
+   {% endif %}
+
+ </div>
+
+ <!-- Submission badges -->
+ <div class="d-flex flex-wrap align-items-center gap-1">
+   {% if item.submissions %}
+     {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
+     {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
+     {% set minutes_diff = (seconds_diff / 60)|int %}
+     {% set hours_diff = (seconds_diff / 3600)|int %}
+     {% set days_diff = (hours_diff / 24)|int %}
+     <span class="text-muted">•</span>
+     <span class="text-muted" data-bs-toggle="tooltip" title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+       Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{ hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1 %}s{% endif %}{% endif %} ago by:
+     </span>
+   {% endif %}
+   {% if item.watched %}
+     <span class="badge bg-success">Watched</span>
+   {% endif %}
+   {% if item.submissions|length > 0 %}
+     {% set submission = item.submissions[0] %}
+     {% set color = '#9147FF' if submission.submission_source_type.name == 'Twitch' else '#7289da' %}
+     <span class="badge" style="background-color: {{ color }}; color: white;" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
+       {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
+     </span>
+     {% if item.submissions|length > 1 %}
+       <span class="badge bg-secondary" data-bs-toggle="tooltip" title="{% for s in item.submissions[1:] %}{{ s.user.username }}{% if not loop.last %}, {% endif %}{% endfor %}">
+         +{{ item.submissions|length - 1 }} other{{ 's' if item.submissions|length > 2 else '' }}
+       </span>
+     {% endif %}
+   {% endif %}
+ </div>
+</div>
+  </div>
+  </div> 
+  
+  <div class="dropdown" style="position: absolute; top: 0px; right: 0px; z-index: 100;" onclick="event.stopPropagation();">
+    <button class="btn btn-lg p-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="event.stopPropagation();">
+      <i class="bi bi-three-dots-vertical fs-5"></i>
+    </button>
+    <ul class="dropdown-menu">
+      <li><a class="dropdown-item" href="javascript:void(0)" 
+             hx-post="/clip_queue/mark_watched/{{ item.id }}" 
+             hx-swap="none" 
+             hx-on::after-request="htmx.trigger(document.body, 'queue_update')"
+             hx-target="this">
+             Mark as Watched</a></li>
+      <li><a class="dropdown-item" href="javascript:void(0)" 
+             hx-post="/clip_queue/item/{{ item.id }}/skip" 
+             hx-swap="none" 
+             hx-on::after-request="htmx.trigger(document.body, 'queue_update')"
+             hx-target="this">
+             Skip</a></li>
+    </ul>
+  </div>
+</div> 
 {% endfor %}

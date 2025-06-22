@@ -74,22 +74,28 @@
     // Store the clicked item ID in localStorage
     localStorage.setItem('activeQueueItemId', this.getAttribute('data-id'));
     
-    // Find the currently active item
-    const activeItem = document.querySelector('.queue-item.active');
-    if (activeItem && activeItem !== this && activeItem.getAttribute('data-watched') === 'false') {
-      // Mark the active item as watched before switching
-      const itemId = activeItem.getAttribute('data-id');
-      
-      fetch(`/clip_queue/mark_watched/${itemId}`, {
-        method: 'POST'
-      }).then(response => {
-        if (response.ok) {
-          // Update UI to show watched state
-          activeItem.classList.add('watched-item');
-          activeItem.setAttribute('data-watched', 'true');
-          htmx.trigger(document.body, 'queue_update'); 
-        }
-      });
+    // Check if we're in history mode
+    const isHistoryMode = {{ 'true' if show_history else 'false' }};
+    
+    // Only mark previous clips as watched if we're not in history mode
+    if (!isHistoryMode) {
+      // Find the currently active item
+      const activeItem = document.querySelector('.queue-item.active');
+      if (activeItem && activeItem !== this && activeItem.getAttribute('data-watched') === 'false') {
+        // Mark the active item as watched before switching
+        const itemId = activeItem.getAttribute('data-id');
+        
+        fetch(`/clip_queue/mark_watched/${itemId}`, {
+          method: 'POST'
+        }).then(response => {
+          if (response.ok) {
+            // Update UI to show watched state
+            activeItem.classList.add('watched-item');
+            activeItem.setAttribute('data-watched', 'true');
+            htmx.trigger(document.body, 'queue_update'); 
+          }
+        });
+      }
     }
     
     // Update active state immediately
@@ -101,7 +107,18 @@
   hx-on::after-request="
     document.getElementById('player-container').style.display = 'block';
     document.getElementById('initial-message').classList.add('d-none');
-    document.getElementById('mark-watched-btn').style.display = 'block';
+    
+    // Check if we're in history mode or if the item is already watched
+    const isHistoryMode = {{ 'true' if show_history else 'false' }};
+    const isWatched = this.getAttribute('data-watched') === 'true';
+    
+    // Only show the Next button if we're not in history mode and the clip isn't already watched
+    if (!isHistoryMode && !isWatched) {
+      document.getElementById('mark-watched-btn').style.display = 'block';
+    } else {
+      document.getElementById('mark-watched-btn').style.display = 'none';
+    }
+    
     fetch('/clip_queue/details/{{ item.id }}')
       .then(response => response.text())
       .then(html => { document.getElementById('clip-details').innerHTML = html; });
@@ -174,7 +191,15 @@
           {% endif %}
         {% endif %}
       </div>
+      {% if item.watched %}
+        <span class="text-muted">• You watched this at {% if item.get_video_timestamp_url() %}<a href="{{ item.get_video_timestamp_url() }}" target="_blank">{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }} VOD</a>{% else %}{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %} </span>
+      {% endif %}
     </div>
+    {% if item.watched and item.get_video_timestamp_url() %}
+    <a href="{{ item.get_video_timestamp_url() }}" target="_blank" class="btn btn-sm btn-outline-info" title="Go to VOD timestamp">
+      <i class="bi bi-clock-history"></i> VOD
+    </a>
+    {% endif %}
   </div>
   
   <div class="dropdown" style="position: absolute; top: 0px; right: 0px; z-index: 100;" onclick="event.stopPropagation();">

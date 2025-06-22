@@ -907,6 +907,10 @@ def skip_clip_queue_item(item_id: int):
 def get_queue_items():
     logger.info("Loading clip queue items")
     try:
+        # Check if we should show history (watched clips)
+        show_history = request.args.get('show_history', 'false').lower() == 'true'
+        prefer_shorter = request.args.get('prefer_shorter', 'false').lower() == 'true'
+        
         broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
         queue_enabled = False
         for channel in broadcaster.channels:
@@ -914,19 +918,40 @@ def get_queue_items():
                 queue_enabled = True
                 break
         if broadcaster is not None and queue_enabled:
-            queue_items = get_content_queue(broadcaster.id, include_watched=config.debug)
+            # Include watched clips if show_history is True
+            queue_items = get_content_queue(broadcaster.id, include_watched=show_history)
+            
+            # Filter out rickroll if not active and not admin/mod
             if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):
                 queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
+            
+            # Sort items - for history tab, we might want to sort differently
             now = datetime.now(timezone.utc)
-            queue_items.sort(key=lambda item: clip_score(item, now=now, prefer_shorter=True), reverse=True)
+            if show_history:
+                # For history, sort by watched_at time (most recent first)
+                queue_items = sorted(queue_items, key=lambda item: item.watched_at if item.watched_at else datetime.min, reverse=True)
+            else:
+                # For upcoming queue, sort by score
+                queue_items.sort(key=lambda item: clip_score(item, now=now, prefer_shorter=prefer_shorter), reverse=True)
+                
             if len(queue_items) == 0:
-                return "No more clips :("
-            logger.info("Successfully loaded clip queue items", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})
+                return "No clips found" if show_history else "No more clips :("
+                
+            logger.info("Successfully loaded clip queue items", extra={
+                "broadcaster_id": broadcaster.id, 
+                "queue_items": len(queue_items), 
+                "user_id": current_user.id,
+                "show_history": show_history,
+                "prefer_shorter": prefer_shorter
+            })
+            
             return render_template(
                 "clip_queue_items.html",
                 queue_items=queue_items,
                 broadcaster=broadcaster,
                 now=datetime.now(),
+                show_history=show_history,
+                prefer_shorter=prefer_shorter
             )
         elif broadcaster is not None and not queue_enabled:
             return "You have disabled the queue, visit <a href='/broadcaster/edit/" + str(broadcaster.id) + "'>broadcaster settings</a> to enable it"

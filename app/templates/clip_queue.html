@@ -157,49 +157,42 @@
   var playerType = null; // 'youtube' or 'twitch'
   var autoplayEnabled = false;
   
-  // Initialize autoplay toggle
-  // Check if autoplay is enabled from localStorage
+  // Initialize autoplay setting from localStorage
   var autoplayEnabled = localStorage.getItem('autoplayEnabled') === 'true';
-  const autoplayToggle = document.getElementById('autoplay-toggle');
-  if (autoplayToggle) {
-    autoplayToggle.checked = autoplayEnabled;
-    
-    // Toggle autoplay setting
-    autoplayToggle.addEventListener('change', function() {
-      autoplayEnabled = this.checked;
-      localStorage.setItem('autoplayEnabled', autoplayEnabled);
-    });
-  }
   
+  // Set up autoplay toggle when DOM is loaded
   document.addEventListener('DOMContentLoaded', function() {
-    // Set up the mark-watched button
-    const markWatchedBtn = document.getElementById('mark-watched-btn');
-    if (markWatchedBtn) {
-      markWatchedBtn.addEventListener('click', function() {
-        const activeItem = document.querySelector('.queue-item.active');
-        if (activeItem) {
-          const itemId = activeItem.getAttribute('data-id');
-          markWatchedBtn.setAttribute('hx-post', `/clip_queue/mark_watched/${itemId}`);
-          
-          // Find next unwatched item
-          const nextItem = findNextUnwatched();
-          if (nextItem) {
-            // Trigger click on next item after marking current as watched
-            setTimeout(() => {
-              nextItem.click();
-            }, 100);
-          }
-        }
+    const autoplayToggle = document.getElementById('autoplay-toggle');
+    if (autoplayToggle) {
+      autoplayToggle.checked = autoplayEnabled;
+      
+      // Toggle autoplay setting
+      autoplayToggle.addEventListener('change', function() {
+        autoplayEnabled = this.checked;
+        localStorage.setItem('autoplayEnabled', autoplayEnabled);
       });
     }
   });
   
+  // Player setup and initialization is now handled through htmx events
+  
   // Function to initialize player after htmx loads it
   function initPlayer() {
+    // Clear any existing player
+    player = null;
+    
     const youtubePlayer = document.getElementById('youtube-player');
-    if (youtubePlayer && youtubePlayer.getAttribute('data-video-url')) {
-      createYouTubePlayer(youtubePlayer.getAttribute('data-video-url'));
+    const twitchPlayer = document.getElementById('twitch-player');
+    
+    if (youtubePlayer) {
       playerType = 'youtube';
+      const videoUrl = document.querySelector('.queue-item.active')?.getAttribute('data-url');
+      if (videoUrl) {
+        createYouTubePlayer(videoUrl);
+      }
+    } else if (twitchPlayer) {
+      playerType = 'twitch';
+      // Twitch embedding is automatically handled by their script
     }
   }
   
@@ -352,59 +345,31 @@
   }
   
   function onPlayerStateChange(event) {
-    console.log('Player state changed to:', event.data);
-    
     // Auto-mark as watched when video ends
     if (event.data === YT.PlayerState.ENDED) {
-      console.log('Video ended, marking as watched');
+      console.log('Video ended, auto-marking as watched');
       
-      // Get the active item
-      const activeItem = document.querySelector('.queue-item.active');
-      if (activeItem) {
-        const itemId = activeItem.getAttribute('data-id');
-        console.log('Marking item as watched:', itemId);
-        
-        // Use fetch API to mark as watched
-        fetch(`/clip_queue/mark_watched/${itemId}`, {
-          method: 'POST'
-        }).then(response => response.json())
-          .then(data => {
-            if (data.status === "success") {
-              // Update UI to reflect watched state
-              activeItem.classList.add('watched');
-              activeItem.setAttribute('data-watched', 'true');
-              
-              const watchedIndicator = activeItem.querySelector('.watched-indicator');
-              if (watchedIndicator) {
-                watchedIndicator.classList.remove('d-none');
-              }
-              
-              // Only proceed with autoplay if it's enabled
-              if (autoplayEnabled) {
-                // Find next unwatched item
-                var nextItem = findNextUnwatched();
-                if (nextItem) {
-                  // Trigger click on next item
-                  setTimeout(() => {
-                    nextItem.click();
-                  }, 100);
-                } else {
-                  console.log('No more unwatched items in queue');
-                }
-              }
-            }
-          });
+      // Simply trigger the mark-watched-btn click which handles everything
+      const markWatchedBtn = document.getElementById('mark-watched-btn');
+      if (markWatchedBtn) {
+        markWatchedBtn.click();
       }
     }
   }
   
-  function findNextUnwatched() {
+  function findNextUnwatched(excludeCurrentItem = false) {
     var items = document.querySelectorAll('.queue-item');
     var activeItem = document.querySelector('.queue-item.active');
     var foundCurrent = false;
     
     // First try to find an unwatched and non-skipped item after the current one
     for (var i = 0; i < items.length; i++) {
+      // Skip the current active item if excludeCurrentItem is true
+      if (excludeCurrentItem && items[i] === activeItem) {
+        foundCurrent = true;
+        continue;
+      }
+      
       if (foundCurrent && 
           items[i].getAttribute('data-watched') === 'false' && 
           items[i].getAttribute('data-skipped') === 'false') {
@@ -418,6 +383,11 @@
     
     // If no unwatched and non-skipped items after current, look from the beginning
     for (var i = 0; i < items.length; i++) {
+      // Skip the current active item if excludeCurrentItem is true
+      if (excludeCurrentItem && items[i] === activeItem) {
+        continue;
+      }
+      
       if (items[i].getAttribute('data-watched') === 'false' && 
           items[i].getAttribute('data-skipped') === 'false') {
         return items[i];
@@ -427,6 +397,11 @@
     // If all items are either watched or skipped, check if there are any unwatched but skipped items
     // This is a fallback if all non-skipped items are watched
     for (var i = 0; i < items.length; i++) {
+      // Skip the current active item if excludeCurrentItem is true
+      if (excludeCurrentItem && items[i] === activeItem) {
+        continue;
+      }
+      
       if (items[i].getAttribute('data-watched') === 'false') {
         return items[i];
       }
@@ -435,52 +410,33 @@
     return null; // No unwatched items at all
   }
   
-  // Set up event listeners when DOM is loaded
-  document.addEventListener('DOMContentLoaded', function() {
-    
-    // Initialize tooltips after content updates
-    htmx.on('htmx:afterSwap', function(e) {
-      var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-      tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
-      });
-      
-      // Restore active state if queue items were updated
-      if (e.detail.target.id === 'queue-items') {
-        const activeItemId = localStorage.getItem('activeQueueItemId');
-        if (activeItemId) {
-          console.log('Restoring active state for item:', activeItemId);
-          // Remove active class from all items
-          document.querySelectorAll('.queue-item').forEach(item => {
-            item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-          });
-          // Add active class to the previously active item
-          const activeItem = document.querySelector(`.queue-item[data-id="${activeItemId}"]`);
-          if (activeItem) {
-            activeItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-          }
-        }
-      }
-      
-      // Check if we swapped in a YouTube player and initialize it
-      if (e.detail.target.id === 'player-container' && document.getElementById('youtube-player')) {
-        const activeItem = document.querySelector('.queue-item.active');
-        if (activeItem) {
-          const videoUrl = activeItem.getAttribute('data-url');
-          if (videoUrl && (videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be'))) {
-            // Wait a bit for YouTube API to be ready if needed
-            if (typeof YT !== 'undefined' && YT.Player) {
-              createYouTubePlayer(videoUrl);
-            } else {
-              // If YouTube API isn't ready yet, wait for it
-              window.onYouTubeIframeAPIReady = function() {
-                createYouTubePlayer(videoUrl);
-              };
-            }
-          }
-        }
-      }
+  // Set up htmx event handlers
+  htmx.on('htmx:afterSwap', function(e) {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl);
     });
+    
+    // Restore active state if queue items were updated
+    if (e.detail.target.id === 'queue-items') {
+      const activeItemId = localStorage.getItem('activeQueueItemId');
+      if (activeItemId) {
+        // Remove active class from all items
+        document.querySelectorAll('.queue-item').forEach(item => {
+          item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+        });
+        // Add active class to the previously active item
+        const activeItem = document.querySelector(`.queue-item[data-id="${activeItemId}"]`);
+        if (activeItem) {
+          activeItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+        }
+      }
+    }
+    
+    // Initialize player if needed after swapping
+    if (e.detail.target.id === 'player-container') {
+      initPlayer();
+    }
   });
 
   // Function to mark current clip as watched and play next clip
@@ -490,69 +446,12 @@
       const itemId = activeItem.getAttribute('data-id');
       console.log('Marking as watched and playing next:', itemId);
       
-      // First check if this is the last unwatched clip
-      let isLastClip = true;
-      document.querySelectorAll('.queue-item').forEach(item => {
-        if (item !== activeItem && item.getAttribute('data-watched') === 'false' && item.getAttribute('data-skipped') !== 'true') {
-          isLastClip = false;
-        }
-      });
+      // Check if this is the last unwatched clip by excluding the current item from search
+      const nextUnwatchedItem = findNextUnwatched(true); // true = exclude current item
+      let isLastClip = !nextUnwatchedItem;
       
-      // Only mark as watched if it's not already watched
-      if (activeItem.getAttribute('data-watched') === 'false') {
-        // Use fetch API instead of htmx to avoid full queue refresh
-        fetch(`/clip_queue/mark_watched/${itemId}`, {
-          method: 'POST'
-        }).then(response => {
-          if (response.ok) {
-            // Update the UI to reflect watched state
-            activeItem.classList.add('watched');
-            activeItem.setAttribute('data-watched', 'true');
-            
-            // Update any watched indicators in the UI
-            const watchedIndicator = activeItem.querySelector('.watched-indicator');
-            if (watchedIndicator) {
-              watchedIndicator.classList.remove('d-none');
-            }
-            
-            if (isLastClip) {
-              // If this was the last clip, hide player and show completion message
-              document.getElementById('player-container').style.display = 'none';
-              document.getElementById('initial-message').classList.remove('d-none');
-              
-              // Update the initial message to show completion
-              document.getElementById('initial-message').innerHTML = `
-                <div class="text-center p-4">
-                  <i class="bi bi-check-circle-fill text-success mb-3" style="font-size: 3rem;"></i>
-                  <h4>All clips watched!</h4>
-                  <p>You've watched all the clips in the queue.</p>
-                </div>`;
-              
-              // Clear clip details
-              document.getElementById('clip-details').innerHTML = `
-                <h5 class="mb-0">All clips watched</h5>
-                <p class="mb-0">No more clips in queue</p>
-              `;
-              
-              // Clear active state
-              document.querySelectorAll('.queue-item').forEach(item => {
-                item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-              });
-              localStorage.removeItem('activeQueueItemId');
-              
-              // Hide the Next button
-              document.getElementById('mark-watched-btn').style.display = 'none';
-            } else {
-              // If there's another unwatched clip, play it
-              playNextUnwatched();
-            }
-          }
-        });
-      } else if (!isLastClip) {
-        // If already watched and not the last clip, just find and play next unwatched
-        playNextUnwatched();
-      } else {
-        // If already watched and is the last clip, show completion message
+      // Function to show completion message when all clips are watched
+      function showCompletionMessage() {
         document.getElementById('player-container').style.display = 'none';
         document.getElementById('initial-message').classList.remove('d-none');
         
@@ -579,6 +478,25 @@
         // Hide the Next button
         document.getElementById('mark-watched-btn').style.display = 'none';
       }
+      
+      // Only mark as watched if it's not already watched
+      if (activeItem.getAttribute('data-watched') === 'false' && isLastClip) {
+        // Use fetch API instead of htmx to avoid full queue refresh
+        fetch(`/clip_queue/mark_watched/${itemId}`, {
+          method: 'POST'
+        }).then(response => {
+          if (response.ok) {
+            htmx.trigger(document.body, 'queue_update');
+            showCompletionMessage();
+          }
+        });
+      } else if (!isLastClip) {
+        // If already watched and not the last clip, just find and play next unwatched
+        playNextUnwatched();
+      } else {
+        // If already watched and is the last clip, show completion message
+        showCompletionMessage();
+      }
     }
   }
   
@@ -586,33 +504,9 @@
   function playNextUnwatched() {
     const nextItem = findNextUnwatched();
     if (nextItem) {
-      // Get the item ID for updating clip details
-      const nextItemId = nextItem.getAttribute('data-id');
-      
-      // Update active state
-      document.querySelectorAll('.queue-item').forEach(item => {
-        item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-      });
-      nextItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-      
-      // Load the player content
-      fetch(`/clip_queue/player/${nextItemId}`)
-        .then(response => response.text())
-        .then(html => {
-          document.getElementById('player-container').innerHTML = html;
-          document.getElementById('initial-message').classList.add('d-none');
-          document.getElementById('player-container').style.display = 'block';
-          
-          // Initialize the player
-          initPlayer();
-          
-          // Update clip details
-          return fetch(`/clip_queue/details/${nextItemId}`);
-        })
-        .then(response => response.text())
-        .then(html => {
-          document.getElementById('clip-details').innerHTML = html;
-        });
+      // Just trigger a click on the next unwatched item
+      // The htmx click handler will take care of loading the player and updating UI
+      htmx.trigger(nextItem, 'click');
     } else {
       // If no more unwatched items, hide the player and show the initial message
       document.getElementById('player-container').style.display = 'none';

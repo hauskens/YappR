@@ -1,13 +1,47 @@
 <!-- Clip details template for htmx loading -->
-<h5 class="mb-0">{{ item.content.title }}</h5>
-<p class="mb-0">{{ item.content.channel_name }}</p>
-{% if item.submissions %}
+<div class="d-flex flex-column equal-col overflow-hidden" style="min-width:30%">
+  <div class="queue-title fw-bold text-truncate w-100" title="{{ item.content.title }}">
+    {{ item.content.title }}
+  </div>
+  <div class="mt-1">
+    {% if item.content.get_platform() == 'youtube' %}
+    <img
+      src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000"
+      alt="YouTube badge">
+    {% elif item.content.get_platform() == 'twitch' %}
+    <img
+      src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D"
+      alt="Twitch badge">
+    {% endif %}
+    <a href="{{ item.content.url }}" target="_blank">link to video</a>
+  </div>
+</div>
+<div class="vr mx-2 flex-shrink-0"></div>
+<div class="d-flex flex-wrap align-items-center gap-1 mt-1 equal-col">
+  {% if item.submissions %}
   {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
   {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
   {% set minutes_diff = (seconds_diff / 60)|int %}
   {% set hours_diff = (seconds_diff / 3600)|int %}
   {% set days_diff = (hours_diff / 24)|int %}
-  <small class="text-muted">
-    Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{ hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1 %}s{% endif %}{% endif %} ago by {{ earliest.user.username }}
-  </small>
-{% endif %}
+  <span class="text-muted">•</span>
+  <span class="text-muted" data-bs-toggle="tooltip" title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+    Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{
+    hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1
+    %}s{% endif %}{% endif %} ago by:
+  </span>
+  {% endif %}
+  {% if item.submissions|length > 0 %}
+  {% set submission = item.submissions[0] %}
+  {% set badge_class = 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge' %}
+  <span class="badge {{ badge_class }} opacity-50" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
+    {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
+  </span>
+  {% if item.submissions|length > 1 %}
+  <span class="badge bg-secondary opacity-50" data-bs-toggle="tooltip"
+    title="{% for s in item.submissions[1:] %}{{ s.user.username }}{% if not loop.last %}, {% endif %}{% endfor %}">
+    +{{ item.submissions|length - 1 }} other{{ 's' if item.submissions|length > 2 else '' }}
+  </span>
+  {% endif %}
+  {% endif %}
+</div>

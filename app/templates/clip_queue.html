@@ -94,14 +94,21 @@
               </div>
             </div>
           </div>
-          <div class="card-footer bg-transparent d-flex justify-content-between">
-            <div id="clip-details" hx-swap="innerHTML">
-              <!-- Placeholder for when no clip is selected -->
-              <p class="text-muted mb-0">Select a clip to view details</p>
+          <div class="card-footer bg-transparent p-0">
+            <div id="clip-strip"
+                 class="d-flex align-items-stretch flex-nowrap overflow-hidden">
+              <div id="clip-details"
+                   class="d-flex align-items-stretch flex-nowrap overflow-hidden flex-grow-1"
+                   hx-swap="innerHTML">
+              </div>
+              <button class="btn btn-success flex-shrink-0 ms-2 align-self-center"
+                      id="mark-watched-btn"
+                      data-bs-toggle="tooltip"
+                      hx-on:click="markWatchedAndNext()"
+                      style="display:none">
+                Next
+              </button>
             </div>
-            <button class="btn btn-success" id="mark-watched-btn" data-bs-toggle="tooltip" hx-on:click="markWatchedAndNext()" style="display: none;">
-              Next
-            </button>
           </div>
         </div>
       </div>
@@ -109,12 +116,34 @@
       <!-- Queue List Column -->
       <div class="col-lg-4">
         <div class="card">
-          <div class="card-header d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">Up Next</h5>
+          <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center">
+              <ul class="nav nav-tabs card-header-tabs" id="queue-tabs">
+                <li class="nav-item">
+                  <a class="nav-link active" id="upcoming-tab" data-bs-toggle="tab" href="#upcoming" role="tab" aria-controls="upcoming" aria-selected="true">Up Next</a>
+                </li>
+                <li class="nav-item">
+                  <a class="nav-link" id="history-tab" data-bs-toggle="tab" href="#history" role="tab" aria-controls="history" aria-selected="false">History</a>
+                </li>
+              </ul>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="prefer-short-toggle" hx-on:click="togglePreferShort()" checked>
+                <label class="form-check-label small" for="prefer-short-toggle">Prefer short content</label>
+              </div>
+            </div>
           </div>
           <div class="card-body p-0">
-            <div id="queue-items" class="overflow-auto custom-scrollbar" style="max-height: calc(90vh - 200px);" hx-get="/clip_queue/items" hx-trigger="load, queue_update from:body" hx-swap="innerHTML">
-              <!-- Queue items will be loaded here via HTMX -->
+            <div class="tab-content" id="queue-tabs-content">
+              <div class="tab-pane fade show active" id="upcoming" role="tabpanel" aria-labelledby="upcoming-tab">
+                <div id="queue-items" class="overflow-auto custom-scrollbar" style="max-height: calc(95vh - 200px);" hx-get="/clip_queue/items" hx-trigger="load, queue_update from:body" hx-swap="innerHTML" hx-vals='js:{"prefer_shorter": document.getElementById("prefer-short-toggle") ? document.getElementById("prefer-short-toggle").checked : true}'>
+                  <!-- Queue items will be loaded here via HTMX -->
+                </div>
+              </div>
+              <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
+                <div id="history-items" class="overflow-auto custom-scrollbar" style="max-height: calc(95vh - 200px);" hx-get="/clip_queue/items?show_history=true" hx-trigger="click from:#history-tab, history_update from:body" hx-swap="innerHTML">
+                  <!-- History items will be loaded here via HTMX -->
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -126,6 +155,30 @@
 {% block extra_scripts %}
 <!-- HTMX, HTMX-WS Extension, and Socket.IO -->
 <script>
+  // Initialize the toggle state from localStorage on page load
+  document.addEventListener('DOMContentLoaded', function() {
+    const preferShortToggle = document.getElementById('prefer-short-toggle');
+    if (preferShortToggle) {
+      const savedPreference = localStorage.getItem('preferShortContent');
+      // If no preference is saved yet, default to true (checked)
+      if (savedPreference === null) {
+        localStorage.setItem('preferShortContent', 'true');
+        preferShortToggle.checked = true;
+      } else {
+        preferShortToggle.checked = savedPreference === 'true';
+      }
+    }
+  });
+  
+  // Function to toggle the prefer short content setting
+  function togglePreferShort() {
+    const toggle = document.getElementById('prefer-short-toggle');
+    // Save preference to localStorage
+    localStorage.setItem('preferShortContent', toggle.checked);
+    // Trigger a refresh of the queue items
+    htmx.trigger(document.body, 'queue_update');
+  }
+  
   htmx.config.wsReconnectDelay = function (retryCount) {
       const base   = 1000;          // 5 000 ms = 5 s
       const delay  = base * Math.pow(2, retryCount); // exponential
@@ -441,10 +494,20 @@
 
   // Function to mark current clip as watched and play next clip
   function markWatchedAndNext() {
+    // Check if we're in history tab
+    const isHistoryTab = document.getElementById('history-tab').classList.contains('active');
+    
     const activeItem = document.querySelector('.queue-item.active');
     if (activeItem) {
       const itemId = activeItem.getAttribute('data-id');
       console.log('Marking as watched and playing next:', itemId);
+      
+      // Don't mark as watched if we're in history tab
+      if (isHistoryTab) {
+        console.log('In history tab, not marking as watched');
+        playNextUnwatched();
+        return;
+      }
       
       // Check if this is the last unwatched clip by excluding the current item from search
       const nextUnwatchedItem = findNextUnwatched(true); // true = exclude current item
@@ -459,15 +522,12 @@
         document.getElementById('initial-message').innerHTML = `
           <div class="text-center p-4">
             <i class="bi bi-check-circle-fill text-success mb-3" style="font-size: 3rem;"></i>
-            <h4>All clips watched!</h4>
-            <p>You've watched all the clips in the queue.</p>
+            <h4>Good job!</h4>
+            <p>You've watched all the clips in the queue, i'm sure your chat is proud of you!</p>
           </div>`;
         
         // Clear clip details
-        document.getElementById('clip-details').innerHTML = `
-          <h5 class="mb-0">All clips watched</h5>
-          <p class="mb-0">No more clips in queue</p>
-        `;
+        document.getElementById('clip-details').innerHTML = ``;
         
         // Clear active state
         document.querySelectorAll('.queue-item').forEach(item => {

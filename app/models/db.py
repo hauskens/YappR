@@ -1133,7 +1133,7 @@ class ContentQueue(Base):
             return 0.0
         return sum(submission.weight for submission in self.submissions)
     
-    def get_video_timestamp_url(self, time_shift: float = 30) -> str | None:
+    def get_video_timestamp_url(self, time_shift: float = 60) -> str | None:
         """Find the broadcaster's video that was live when this clip was marked as watched
         and return a URL with the timestamp.
         

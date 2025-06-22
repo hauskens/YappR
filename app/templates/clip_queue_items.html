@@ -48,7 +48,7 @@
           // Update UI to show watched state
           activeItem.classList.add('watched-item');
           activeItem.setAttribute('data-watched', 'true');
-          
+          htmx.trigger(document.body, 'queue_update'); 
         }
       });
     }

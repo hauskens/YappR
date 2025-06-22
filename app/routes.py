@@ -67,6 +67,7 @@ from app.models.db import (
     AccountSource,
     ChatLog,
 )
+from app.models.config import config
 
 from app.search import search_v2
 from app.utils import get_valid_date
@@ -185,7 +186,7 @@ def management_items():
             include_watched=show_watched, 
             include_skipped=show_skipped
         )
-        if broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10):
+        if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):
             queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
         
         # Apply sorting
@@ -903,7 +904,7 @@ def skip_clip_queue_item(item_id: int):
 @login_required
 @require_permission()
 def get_queue_items():
-    logger.info("Loading clip queue with htmx")
+    logger.info("Loading clip queue items")
     try:
         broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
         queue_enabled = False
@@ -912,12 +913,12 @@ def get_queue_items():
                 queue_enabled = True
                 break
         if broadcaster is not None and queue_enabled:
-            queue_items = get_content_queue(broadcaster.id)
-            if broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10):
+            queue_items = get_content_queue(broadcaster.id, include_watched=config.debug)
+            if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):
                 queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
             if len(queue_items) == 0:
                 return "No more clips :("
-            logger.info("Successfully loaded clip queue", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})
+            logger.info("Successfully loaded clip queue items", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})
             return render_template(
                 "clip_queue_items.html",
                 queue_items=queue_items,
@@ -929,8 +930,8 @@ def get_queue_items():
         else:
             return "You do not have access, no broadcaster_id found on you", 403
     except Exception as e:
-        logger.error("Error loading clip queue %s", e, extra={"user_id": current_user.id})
-        return "Error loading clip queue", 500
+        logger.error("Error loading clip queue items %s", e, extra={"user_id": current_user.id})
+        return "Error loading clip queue items", 500
 
 
 @app.route("/clip_queue/details/<int:item_id>")

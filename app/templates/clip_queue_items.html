@@ -17,12 +17,51 @@
     background-color: rgba(0, 0, 0, 0.2);
     transition: background-color 0.1s ease;
   }
+  
+  /* Submission badge styles */
+  .twitch-badge {
+    background-color: #9147FF;
+    color: white;
+  }
+  
+  .discord-badge {
+    background-color: #7289da;
+    color: white;
+  }
+  
+  /* Thumbnail container with fixed height */
+  .queue-thumbnail {
+    width: 140px;
+    height: 78px; /* 16:9 aspect ratio for 140px width */
+    overflow: hidden;
+    position: relative;
+  }
+  
+  .queue-thumbnail img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Cover the container while maintaining aspect ratio */
+    object-position: center; /* Center the image */
+  }
+  
+  /* Prevent horizontal scrollbar */
+  .queue-content {
+    min-width: 0;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+  
+  /* Ensure queue items don't overflow their container */
+  .queue-item {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
 </style>
 
 {% for item in queue_items %}
-<div class="position-relative d-flex">
-  <!-- Main queue item content with opacity styling when watched/skipped -->
-  <div class="queue-item list-group-item list-group-item-action py-2 d-flex flex-column gap-2 hover-darker {{ 'watched-item' if item.watched }} {{ 'skipped-item' if item.skipped }} flex-grow-1"
+<div class="position-relative mb-2">
+  <div class="queue-item list-group-item list-group-item-action py-2 hover-darker {{ 'watched-item' if item.watched }} {{ 'skipped-item' if item.skipped }}"
   data-id="{{ item.id }}"
   data-watched="{{ 'true' if item.watched else 'false' }}"
   data-skipped="{{ 'true' if item.skipped else 'false' }}"
@@ -68,67 +107,75 @@
       .then(html => { document.getElementById('clip-details').innerHTML = html; });
     initPlayer();">
 
-  <!-- Metadata -->
-  <div class="queue-content flex-grow-1 min-width-0">
-  <!-- Title Row -->
-  <div class="queue-title fw-bold text-truncate px-2" title="{{ item.content.title }}">
-  {{ item.content.title }}
+  <div class="d-flex px-2 flex-nowrap">
+    <!-- Left column: Thumbnail and badges -->
+    <div class="me-2 d-flex flex-column align-items-start" style="width: 140px; flex-shrink: 0;">
+      {% if item.content.thumbnail_url %} 
+      <div class="queue-thumbnail mb-2 rounded">
+        <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail">
+      </div>
+      {% endif %}
+      
+      <!-- Duration and status badges -->
+      <div class="d-flex flex-wrap align-items-center gap-1 mb-1">
+        {% if item.content.duration %}
+          {% set minutes = (item.content.duration // 60)|int %}
+          {% set seconds = (item.content.duration % 60)|int %}
+          <span class="badge bg-secondary">{{ "%d:%02d"|format(minutes, seconds) }}</span>
+        {% endif %}
+        {% if item.watched %}
+          <span class="badge bg-success">Watched</span>
+        {% endif %}
+        {% if item.skipped %}
+          <span class="badge bg-warning text-dark">Skipped</span>
+        {% endif %}
+      </div>
+    </div>
+    
+    <!-- Right column: Title and other info -->
+    <div class="queue-content flex-grow-1 d-flex flex-column overflow-hidden">
+      <!-- Title Row -->
+      <div class="queue-title fw-bold text-truncate" title="{{ item.content.title }}">
+        {{ item.content.title }}
+      </div>
+      
+      <!-- Channel badge -->
+      <div class="mt-1">
+        {% if item.content.get_platform() == 'youtube' %}
+          <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000" alt="YouTube badge">
+        {% elif item.content.get_platform() == 'twitch' %}
+          <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D" alt="Twitch badge">
+        {% endif %}
+      </div>
+
+      <!-- Submission badges -->
+      <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+        {% if item.submissions %}
+          {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
+          {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
+          {% set minutes_diff = (seconds_diff / 60)|int %}
+          {% set hours_diff = (seconds_diff / 3600)|int %}
+          {% set days_diff = (hours_diff / 24)|int %}
+          <span class="text-muted">•</span>
+          <span class="text-muted" data-bs-toggle="tooltip" title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+            Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{ hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1 %}s{% endif %}{% endif %} ago by:
+          </span>
+        {% endif %}
+        {% if item.submissions|length > 0 %}
+          {% set submission = item.submissions[0] %}
+          {% set badge_class = 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge' %}
+          <span class="badge {{ badge_class }} opacity-50" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
+            {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
+          </span>
+          {% if item.submissions|length > 1 %}
+            <span class="badge bg-secondary opacity-50" data-bs-toggle="tooltip" title="{% for s in item.submissions[1:] %}{{ s.user.username }}{% if not loop.last %}, {% endif %}{% endfor %}">
+              +{{ item.submissions|length - 1 }} other{{ 's' if item.submissions|length > 2 else '' }}
+            </span>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
   </div>
-
-<!-- Content Row -->
-<div class="d-flex align-items-start px-2">
-{% if item.content.thumbnail_url %}
-<div class="queue-thumbnail me-3 flex-shrink-0" style="width: 100px;">
- <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="img-fluid rounded">
-</div>
-{% endif %}
- <div class="queue-meta fs-6 text-muted mb-1 d-flex flex-wrap align-items-center gap-2">
-   {% if item.content.get_platform() == 'youtube' %}
-     <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000" alt="YouTube badge">
-   {% elif item.content.get_platform() == 'twitch' %}
-     <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D" alt="Twitch badge">
-   {% endif %}
-
-   {% if item.content.duration %}
-     {% set minutes = (item.content.duration // 60)|int %}
-     {% set seconds = (item.content.duration % 60)|int %}
-     <span class="badge bg-secondary">{{ "%d:%02d"|format(minutes, seconds) }}</span>
-   {% endif %}
-
- </div>
-
- <!-- Submission badges -->
- <div class="d-flex flex-wrap align-items-center gap-1">
-   {% if item.submissions %}
-     {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
-     {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
-     {% set minutes_diff = (seconds_diff / 60)|int %}
-     {% set hours_diff = (seconds_diff / 3600)|int %}
-     {% set days_diff = (hours_diff / 24)|int %}
-     <span class="text-muted">•</span>
-     <span class="text-muted" data-bs-toggle="tooltip" title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
-       Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{ hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1 %}s{% endif %}{% endif %} ago by:
-     </span>
-   {% endif %}
-   {% if item.watched %}
-     <span class="badge bg-success">Watched</span>
-   {% endif %}
-   {% if item.submissions|length > 0 %}
-     {% set submission = item.submissions[0] %}
-     {% set color = '#9147FF' if submission.submission_source_type.name == 'Twitch' else '#7289da' %}
-     <span class="badge" style="background-color: {{ color }}; color: white;" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
-       {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
-     </span>
-     {% if item.submissions|length > 1 %}
-       <span class="badge bg-secondary" data-bs-toggle="tooltip" title="{% for s in item.submissions[1:] %}{{ s.user.username }}{% if not loop.last %}, {% endif %}{% endfor %}">
-         +{{ item.submissions|length - 1 }} other{{ 's' if item.submissions|length > 2 else '' }}
-       </span>
-     {% endif %}
-   {% endif %}
- </div>
-</div>
-  </div>
-  </div> 
   
   <div class="dropdown" style="position: absolute; top: 0px; right: 0px; z-index: 100;" onclick="event.stopPropagation();">
     <button class="btn btn-lg p-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="event.stopPropagation();">
@@ -140,7 +187,7 @@
              hx-swap="none" 
              hx-on::after-request="htmx.trigger(document.body, 'queue_update')"
              hx-target="this">
-             Mark as Watched</a></li>
+             Mark as {{ 'Unwatched' if item.watched else 'Watched' }}</a></li>
       <li><a class="dropdown-item" href="javascript:void(0)" 
              hx-post="/clip_queue/item/{{ item.id }}/skip" 
              hx-swap="none" 

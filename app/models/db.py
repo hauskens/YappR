@@ -1121,6 +1121,18 @@ class ContentQueue(Base):
     skipped: Mapped[bool] = mapped_column(Boolean, default=False)
     submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="content_queue")
     
+    @property
+    def total_weight(self) -> float:
+        """Calculate the total weight of all related ContentQueueSubmission entries.
+        This is a calculated property and not stored in the database.
+        
+        Returns:
+            float: Sum of all submission weights, or 0 if there are no submissions
+        """
+        if not self.submissions:
+            return 0.0
+        return sum(submission.weight for submission in self.submissions)
+    
     def get_video_timestamp_url(self, time_shift: float = 30) -> str | None:
         """Find the broadcaster's video that was live when this clip was marked as watched
         and return a URL with the timestamp.

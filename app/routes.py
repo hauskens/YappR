@@ -14,7 +14,7 @@ from flask import (
 )
 from flask_login import current_user, login_required, logout_user # type: ignore
 from app.permissions import require_api_key, require_permission
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from io import BytesIO
 import mimetypes
 from app.cache import cache, make_cache_key
@@ -71,6 +71,7 @@ from app.models.config import config
 
 from app.search import search_v2
 from app.utils import get_valid_date
+from app.content_queue import clip_score
 import asyncio
 
 
@@ -916,6 +917,8 @@ def get_queue_items():
             queue_items = get_content_queue(broadcaster.id, include_watched=config.debug)
             if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):
                 queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
+            now = datetime.now(timezone.utc)
+            queue_items.sort(key=lambda item: clip_score(item, now=now, prefer_shorter=True), reverse=True)
             if len(queue_items) == 0:
                 return "No more clips :("
             logger.info("Successfully loaded clip queue items", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})

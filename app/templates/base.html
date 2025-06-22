@@ -138,7 +138,7 @@
           const themeIcon = document.getElementById('themeIcon'); // if using icons
 
           // Get stored theme or system preference
-          let currentTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+          let currentTheme = localStorage.getItem('theme') || 'dark' ;
 
           // Apply initial theme
           document.documentElement.setAttribute('data-bs-theme', currentTheme);

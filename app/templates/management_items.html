@@ -39,7 +39,7 @@
                     data-bs-toggle="tooltip" 
                     title="{{ submission.user_comment or '' }}"
                     style="cursor: pointer;"
-                    hx-get="{{ url_for('external_user', external_user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
+                    hx-get="{{ url_for('users.external_user', external_user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
                     hx-target="#userModalContent"
                     hx-trigger="click"
                     hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()">
@@ -66,7 +66,7 @@
             </div>
             <div>
               <button class="btn btn-sm btn-outline-{% if item.watched %}secondary{% else %}success{% endif %}" 
-                      hx-post="{{ url_for('mark_clip_watched', item_id=item.id) }}" 
+                      hx-post="{{ url_for('clip_queue.mark_clip_watched', item_id=item.id) }}" 
                       hx-target="body"
                       hx-swap="none"
                       hx-trigger="click"
@@ -77,7 +77,7 @@
               
               {% if not item.watched %}
               <button class="btn btn-sm btn-outline-{% if item.skipped %}secondary{% else %}warning{% endif %}" 
-                      hx-post="{{ url_for('skip_clip_queue_item', item_id=item.id) }}"
+                      hx-post="{{ url_for('clip_queue.skip_clip_queue_item', item_id=item.id) }}"
                       hx-target="body"
                       hx-swap="none"
                       hx-trigger="click"

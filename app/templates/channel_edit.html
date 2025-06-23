@@ -17,8 +17,8 @@
           <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
         {% endif %}
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
-        <a class="btn btn-primary" onclick="return confirm('This will look for matches in source channel')" href="{{ url_for('channel_look_for_linked', channel_id=channel.id) }}">Look for linked videos</a>
-        <form action="{{ url_for('channel_link', channel_id=channel.id) }}" method="post">
+        <a class="btn btn-primary" onclick="return confirm('This will look for matches in source channel')" href="{{ url_for('channel.channel_look_for_linked', channel_id=channel.id) }}">Look for linked videos</a>
+        <form action="{{ url_for('channel.channel_link', channel_id=channel.id) }}" method="post">
           <div class="mb-3">
             <label for="name" class="form-label">Connect to channel</label>
             <select id="link_channel_id" name="link_channel_id" class="form-select">
@@ -36,10 +36,10 @@
     {% endif %}
     <hr>
     {% if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(channel.broadcaster_id) or current_user.is_moderator(channel.broadcaster_id)) %}
-        <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a>
+        <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel.channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a>
     {% endif %}
     {% if current_user.is_anonymous == False and (current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(channel.broadcaster_id)) %}
-        <a class="btn btn-primary" onclick="return confirm('This will look all videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel_fetch_videos_all', channel_id=channel.id) }}">Look for all videos on channel</a>
+        <a class="btn btn-primary" onclick="return confirm('This will look all videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel.channel_fetch_videos_all', channel_id=channel.id) }}">Look for all videos on channel</a>
     {% endif %}
     <hr>
     <p>Videos on channel: {{ videos|length }}, Videos with high quality transcriptions: {{ transcription_count }}</p>
@@ -60,7 +60,7 @@
         {% if video.active == true %}
         <tr>
           <td>
-                  <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
+                  <img src="{{url_for('root.index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
           </td>
           <td>{{ video.title }}</td>
           <td>{{ video.get_duration_str() }}</td>
@@ -73,23 +73,18 @@
             {% for t in video.transcriptions %}
                 {{ 'Processed' if t.processed else 'Not processed' }}
             {% endfor %}</td>
-          <td>{% if video.audio.filename is defined %}Has audio attached{%elif video.source_video.id is defined%}<a href="{{ url_for('video_edit', video_id=video.source_video_id) }}">Linked with {{video.source_video.channel.platform.name}}</a>{% endif %}</td>
+          <td>{% if video.audio.filename is defined %}Has audio attached{%elif video.source_video.id is defined%}<a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with {{video.source_video.channel.platform.name}}</a>{% endif %}</td>
           <td>{{ video.uploaded }}</td>
           <td>
             <div class="container mb-2">
-              <a class="btn btn-primary" role="button" href="{{ url_for('video_edit', video_id=video.id) }}">Edit Video</a>
+              <a class="btn btn-primary" role="button" href="{{ url_for('video.video_edit', video_id=video.id) }}">Edit Video</a>
             </div>
             {% if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(channel.broadcaster_id) or current_user.is_moderator(channel.broadcaster_id)) %}
-              <!-- {% if video.transcriptions|length == 0 and channel.platform.name.lower() == "youtube" %}
-                <div class="container mb-2">
-                  <a class="btn btn-primary" role="button" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a>
-                </div>
-              {%endif%} -->
               {% if video.segments|length == 0 and video.transcriptions|length != 0 %}
                 <div class="container mb-2">
                   {% for t in video.transcriptions %}
                     {% if t.processed == false %}
-                      <a class="btn btn-primary" role="button" title="Quick task that parses the transcription and makes it searchable" href="{{ url_for('video_parse_transcriptions', video_id=video.id) }}">Make searchable</a>
+                      <a class="btn btn-primary" role="button" title="Quick task that parses the transcription and makes it searchable" href="{{ url_for('video.video_parse_transcriptions', video_id=video.id) }}">Make searchable</a>
                     {% endif %}
                   {% endfor %}
                 </div>

@@ -58,7 +58,7 @@ def require_permission(
             # Check if user is logged in
             if require_logged_in and current_user.is_anonymous:
                 flash('You must be logged in to access this page', 'error')
-                return redirect(url_for('login'))
+                return redirect(url_for('root.login'))
 
                 
             if isinstance(current_user, Users):

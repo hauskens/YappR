@@ -8,7 +8,7 @@
       <a href="https://github.com/hauskens/yappr"> repo</a>
     </p>
 
-    <form action="{{ url_for('user_edit', user_id=user.id) }}" method="post">
+    <form action="{{ url_for('users.user_edit', user_id=user.id) }}" method="post">
       <div class="mb-3">
         <label for="name" class="form-label">Connect to broadcaster</label>
         <select id="broadcaster_id" name="broadcaster_id" class="form-select">
@@ -39,7 +39,7 @@
       <a
         class="btn btn-primary"
         role="button"
-        href="{{ url_for('grant_permission', user_id=user.id, permission_name=ptype.name) }}"
+        href="{{ url_for('users.grant_permission', user_id=user.id, permission_name=ptype.name) }}"
         >{{ptype.name}}</a
       >
     {% endfor %} 

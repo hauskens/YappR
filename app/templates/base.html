@@ -73,31 +73,29 @@
   <body class="d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-sm bg-body-tertiary sticky-top">
       <div class="container-fluid">
-        <a class="navbar-brand" href="{{ url_for('index') }}">
+        <a class="navbar-brand" href="{{ url_for('search.search_page') }}">
         <img src="{{ url_for('static', filename='logo_48.ico') }}" alt="YappR" width="48" height="48" style="margin-right: 5px;">YappR
         </a>
         {% if current_user.is_anonymous == False %}
           <div class="collapse navbar-collapse" id="navbarScroll">
             <div class="navbar-nav mr-auto">
-              {{ render_nav_item('search_page', 'Search') }}
-              {{ render_nav_item('broadcasters', 'Broadcasters') }}
-              {{ render_nav_item('clip_queue', 'Clip Queue') }}
-              {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
-                {{ render_nav_item('celery_active_tasks_view', 'Worker Status') }}
-              {% endif %}
+              {{ render_nav_item('search.search_page', 'Search') }}
+              {{ render_nav_item('clip_queue.clip_queue', 'Clip Queue') }}
+              {{ render_nav_item('broadcaster.broadcasters', 'Broadcasters')}}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
-                {{ render_nav_item('users', 'Users') }}
+                {{ render_nav_item('root.users', 'Users') }}
               {% endif %}
-              {% if current_user.is_anonymous == False %}
-                {{ render_nav_item('management', 'Management') }}
+              {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
+                {{ render_nav_item('management.management', 'Management') }}
               {% endif %}
-              {{ render_nav_item('stats', 'Stats') }}
+              {{ render_nav_item('root.stats', 'Stats') }}
             </div>
           </div>
         {% else %}
           <div class="collapse navbar-collapse" id="navbarScroll">
             <div class="navbar-nav mr-auto">
-              {{ render_nav_item('search_page', 'Search') }}
+              {{ render_nav_item('search.search_page', 'Search') }}
+              {{ render_nav_item('clip_queue.clip_queue', 'Clip Queue') }}
               {{ render_nav_item('stats', 'Stats') }}
             </div>
           </div>
@@ -119,13 +117,13 @@
               <img width="50" height="50" src="{{ current_user.avatar_url }}" alt="User Icon" class="rounded-circle">
             </summary>
             <div class="dropdown-menu show p-2">
-              <a class="dropdown-item" href="{{ url_for('logout') }}">Log out</a>
+              <a class="dropdown-item" href="{{ url_for('root.logout') }}">Log out</a>
             </div>
           </details>
         {% else %}
           <div class="vr"></div>
           <div class="ms-2">
-            <a href="{{ url_for('login') }}">Login</a>
+            <a href="{{ url_for('root.login') }}">Login</a>
           </div>
         {% endif %}
       </div>

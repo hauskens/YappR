@@ -14,7 +14,7 @@
         {% set moderated_channels = current_user.update_moderated_channels() %}
         {% set own_channel_type = current_user.get_twitch_account_type() %}
         <div class="card-body">
-          <form action="{{ url_for('broadcaster_create') }}" method="post">
+          <form action="{{ url_for('broadcaster.broadcaster_create') }}" method="post">
             <div class="mb-3">
               <label for="twitch_channel" class="form-label">Select Twitch Channel:</label>
               <select id="twitch_channel" name="twitch_channel" class="form-select" onchange="updateBroadcasterName()" required>
@@ -93,7 +93,7 @@
               <label class="form-check-label" for="willbehave">I promise to behave and act kindly, the channel owner is aware of me doing this</label>
             </div>
             <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-              <a href="{{ url_for('broadcasters') }}" class="btn btn-secondary me-md-2">Cancel</a>
+              <a href="{{ url_for('broadcaster.broadcasters') }}" class="btn btn-secondary me-md-2">Cancel</a>
               <button type="submit" id="saveButton" class="btn btn-primary" disabled>Save Broadcaster</button>
             </div>
           </form>

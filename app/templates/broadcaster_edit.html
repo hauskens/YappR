@@ -40,11 +40,11 @@
             <td>{{ channel.main_video_type.name }}</td>
             <td>{{ channel.source_channel.id }}</td>
             <td>
-              <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=channel.id) }}">Go to Channel</a>
+              <a class="btn btn-primary" role="button" href="{{ url_for('channel.channel_get_videos', channel_id=channel.id) }}">Go to Channel</a>
 
               {% if current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster.id) %}
-                <a class="btn btn-primary" role="button" href = "{{ url_for('channel_fetch_details', channel_id=channel.id) }}">Update channel details</button>
-                <a class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this channel? All transcription work will be lost')" role="button" href="{{ url_for('channel_delete', channel_id=channel.id) }}">Delete Channel</a>
+                <a class="btn btn-primary" role="button" href = "{{ url_for('channel.channel_fetch_details', channel_id=channel.id) }}">Update channel details</button>
+                <a class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this channel? All transcription work will be lost')" role="button" href="{{ url_for('channel.channel_delete', channel_id=channel.id) }}">Delete Channel</a>
               {% endif %}
             </td>
           </tr>
@@ -66,7 +66,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
               </div>
               {% for channel in broadcaster.channels %}
-                <form action="{{ url_for('channel_settings_update', channel_id=channel.id) }}" method="post">
+                <form action="{{ url_for('channel.channel_settings_update', channel_id=channel.id) }}" method="post">
                   <div class="modal-body">
                     <h5 class="modal-title" id="broadcasterSettingsModalLabel">Twitch bot settings for {{ channel.name }}</h5>
                     <div class="mb-3 form-check">
@@ -86,7 +86,7 @@
                   </div>
                 </form>
               {% endfor %}
-              <form action="{{ url_for('broadcaster_settings_update', broadcaster_id=broadcaster.id) }}" method="post">
+              <form action="{{ url_for('broadcaster.broadcaster_settings_update', broadcaster_id=broadcaster.id) }}" method="post">
                 <div class="modal-body">
                   <h5 class="modal-title">Discord bot settings</h5>
                   <div class="mb-3">
@@ -127,7 +127,7 @@
         <div class="collapse" id="collapseAddChannel">
         <hr>
 
-        <form action="{{ url_for('channel_create') }}" method="post">
+        <form action="{{ url_for('channel.channel_create') }}" method="post">
           <label for="platform_id">Platform:</label>
           <select id="platform_id" name="platform_id" class="form-select" onchange="toggleTwitchLookup()">
             {% for platform in platforms %}
@@ -176,7 +176,7 @@
       </div>
      {% endif %}
     {% if current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster.id) %}
-      <a class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this broadcaster? All channels and transcription work will be lost')" href="{{ url_for('broadcaster_delete', broadcaster_id=broadcaster.id) }}">Delete Broadcaster</a>
+      <a class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this broadcaster? All channels and transcription work will be lost')" href="{{ url_for('broadcaster.broadcaster_delete', broadcaster_id=broadcaster.id) }}">Delete Broadcaster</a>
     {% elif current_user.has_permission(["mod"]) or current_user.is_moderator(broadcaster.id) %}
       <a class="btn btn-danger" onclick="return confirm('Only broadcasters themselves or administrators can delete broadcasters')" href="#">Delete Broadcaster</a>
     {% endif %}

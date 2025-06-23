@@ -10,14 +10,22 @@ from .models.config import config
 from .models.db import db, OAuth
 from sqlalchemy_file.storage import StorageManager
 from libcloud.storage.drivers.local import LocalStorageDriver
-from flask_limiter import Limiter
-from flask_limiter.util import get_remote_address
 from .auth import discord_blueprint, twitch_blueprint, twitch_blueprint_bot
 from .redis_client import RedisTaskQueue
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from app.logger import logger
+from .routes.root import root_blueprint
+from .routes.clip_queue import clip_queue_blueprint
+from .routes.search import search_blueprint
+from .routes.management import management_blueprint
+from .routes.video import video_blueprint
+from .routes.channel import channel_blueprint
+from .routes.transcription import transcription_blueprint
+from .routes.broadcaster import broadcaster_blueprint
+from .routes.users import users_blueprint
 from werkzeug.middleware.proxy_fix import ProxyFix
+from .rate_limit import limiter
 
 
 socketio = SocketIO()
@@ -93,11 +101,21 @@ def create_app():
     # app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     CORS(app, resources={r"/*": {"origins": config.app_url}}, supports_credentials=True)
     socketio.init_app(app)
+    limiter.init_app(app)
     
 
     app.register_blueprint(discord_blueprint, url_prefix="/login")
     app.register_blueprint(twitch_blueprint, url_prefix="/login")
     app.register_blueprint(twitch_blueprint_bot, url_prefix="/login/bot", name="twitch_bot")
+    app.register_blueprint(root_blueprint)
+    app.register_blueprint(search_blueprint)
+    app.register_blueprint(clip_queue_blueprint)
+    app.register_blueprint(management_blueprint)
+    app.register_blueprint(video_blueprint)
+    app.register_blueprint(channel_blueprint)
+    app.register_blueprint(transcription_blueprint)
+    app.register_blueprint(broadcaster_blueprint)
+    app.register_blueprint(users_blueprint)
     return app
 
 
@@ -106,15 +124,3 @@ app = create_app()
 # Initialize Redis task queue
 redis_task_queue = RedisTaskQueue()
 redis_task_queue.init()
-
-# Configure rate limiter
-limiter = Limiter(
-    app=app,
-    key_func=get_remote_address,
-    default_limits=["2000 per day", "200 per hour"],
-    storage_uri=config.redis_uri
-)
-
-# Custom rate limit exemption for authenticated users
-def rate_limit_exempt():
-    return current_user.is_anonymous == False

@@ -11,6 +11,7 @@ from flask import (
     render_template,
     request,
     redirect,
+    abort,
 )
 from celery import Celery, Task, chain
 from app.models.db import (
@@ -20,8 +21,7 @@ from app.models.db import (
 )
 from app.transcribe import transcribe
 from app.models.config import config
-from app.retrievers import get_transcription, get_video, get_all_twitch_channels
-from app.routes import *
+from app.retrievers import get_transcription, get_video, get_all_twitch_channels, get_channel
 from app import app, login_manager, socketio
 from app.models.db import TranscriptionSource, Transcription, TranscriptionResult
 from app.permissions import require_api_key
@@ -128,7 +128,7 @@ def video_process_full(video_id: int):
         ).apply_async(ignore_result=True)
         return redirect(request.referrer)
     else:
-        return access_denied()
+        return "Unauthorized", 401
 
 
 @app.route("/video/<int:video_id>/fecth_audio")
@@ -140,37 +140,37 @@ def video_fetch_audio(video_id: int):
     return redirect(request.referrer)
 
 
-@app.route("/celery/active-view")
-@login_required
-def celery_active_tasks_view():
-    i = celery.control.inspect()
-    active = i.active() or {}
-    queue_names = ["gpu-queue", "celery"]
-    queued_tasks_by_queue = {}
-    for queue_name in queue_names:
-        queued_tasks = []
-        queue_length = r.llen(queue_name)
-        for i in range(queue_length):
-            task_data = r.lindex(queue_name, i)
-            if task_data:
-                task = json.loads(task_data)
-                # Extract useful info
-                headers = task.get("headers", {})
-                task_name = headers.get("task", "Unknown Task")
-                argsrepr = headers.get("argsrepr", "")
-                queued_tasks.append(
-                    {
-                        "raw": task,
-                        "task_name": task_name,
-                        "argsrepr": argsrepr,
-                    }
-                )
-        queued_tasks_by_queue[queue_name] = queued_tasks
-    return render_template(
-        "active_tasks.html",
-        active_tasks=active,
-        queued_tasks_by_queue=queued_tasks_by_queue,
-    )
+# @app.route("/celery/active-view")
+# @login_required
+# def celery_active_tasks_view():
+#     i = celery.control.inspect()
+#     active = i.active() or {}
+#     queue_names = ["gpu-queue", "celery"]
+#     queued_tasks_by_queue = {}
+#     for queue_name in queue_names:
+#         queued_tasks = []
+#         queue_length = r.llen(queue_name)
+#         for i in range(queue_length):
+#             task_data = r.lindex(queue_name, i)
+#             if task_data:
+#                 task = json.loads(task_data)
+#                 # Extract useful info
+#                 headers = task.get("headers", {})
+#                 task_name = headers.get("task", "Unknown Task")
+#                 argsrepr = headers.get("argsrepr", "")
+#                 queued_tasks.append(
+#                     {
+#                         "raw": task,
+#                         "task_name": task_name,
+#                         "argsrepr": argsrepr,
+#                     }
+#                 )
+#         queued_tasks_by_queue[queue_name] = queued_tasks
+#     return render_template(
+#         "active_tasks.html",
+#         active_tasks=active,
+#         queued_tasks_by_queue=queued_tasks_by_queue,
+#     )
 
 
 @celery.task()

@@ -15,17 +15,17 @@
         {% if not broadcaster.hidden or (broadcaster.hidden and current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(broadcaster.id)) %}
           <tr>
           <td>
-            {{ broadcaster.name }}<a href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}" class="text-primary"></a>
+            {{ broadcaster.name }}<a href="{{ url_for('broadcaster.broadcaster_edit', id=broadcaster.id) }}" class="text-primary"></a>
           </td>
           <td>
-            <a class="btn btn-primary" role="button" href="{{ url_for('broadcaster_edit', id=broadcaster.id) }}">Show</a>
+            <a class="btn btn-primary" role="button" href="{{ url_for('broadcaster.broadcaster_edit', id=broadcaster.id) }}">Show</a>
           </td>
           </tr>
           {% endif %}
       {% endfor %}
       </tbody>
     </table>
-    <a href="{{ url_for('broadcaster_create') }}" class="btn btn-primary">
+    <a href="{{ url_for('broadcaster.broadcaster_create') }}" class="btn btn-primary">
       <i class="fas fa-plus"></i> Create New Broadcaster
     </a>
   </div>

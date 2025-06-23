@@ -31,13 +31,13 @@
         <div class="col">
           <div id="card-{{ v.video.id }}" class="card mb-3" style="width: 325px;">
             {% if loop.index <= 500 %}
-              <img src="{{url_for('index')}}thumbnails/{{v.video.id}}" alt="" style="max-width:100%; max-height:250px;">
+              <img src="{{url_for('root.index')}}thumbnails/{{v.video.id}}" alt="" style="max-width:100%; max-height:250px;">
             {% endif %} 
             <div class="card-body">
               <h5 class="card-title">
                 {{v.video.title}}
               </h5>
-              <a href="{{ url_for('video_edit', video_id=v.video.id) }}">
+              <a href="{{ url_for('video.video_edit', video_id=v.video.id) }}">
                 <img
                   id="{{v.video.channel.platform.name}}"
                   src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{v.video.channel.platform.color}}&logo={{v.video.channel.platform.name}}&logoColor=white"

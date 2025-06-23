@@ -16,7 +16,7 @@
   {% else %}
     <div class="container">
     
-    <a class="btn btn-primary" role="button" href="{{ url_for('channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
+    <a class="btn btn-primary" role="button" href="{{ url_for('channel.channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
     <hr>
     <div class="row">
       <!-- Left side: Video details and controls -->
@@ -29,7 +29,7 @@
                 <i class="bi bi-three-dots-vertical"></i>
               </button>
               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminActionsDropdown">
-                <li><a class="dropdown-item" href="{{ url_for('video_fetch_details', video_id=video.id) }}">Fetch video details</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('video.video_fetch_details', video_id=video.id) }}">Fetch video details</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                   {% if video.audio.filename is defined %}
@@ -39,13 +39,13 @@
                   {% endif %}
                 </li>
                 <li><hr class="dropdown-divider"></li>
-                <li><a class="dropdown-item" href="{{ url_for('video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a></li>
+                <li><a class="dropdown-item" href="{{ url_for('video.video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a></li>
               </ul>
             </div>
           {% endif %}
         </div>
         <div class="mt-3 mb-3">
-          <img src="{{url_for('index')}}thumbnails/{{video.id}}" alt="Video thumbnail" style="max-width:100%; max-height:250px;">
+          <img src="{{url_for('root.index')}}thumbnails/{{video.id}}" alt="Video thumbnail" style="max-width:100%; max-height:250px;">
         </div>
       </div>
       
@@ -80,7 +80,7 @@
           
           <div class="border rounded p-2" style="height: 500px; overflow-y: auto;">
             <div id="chat-messages-container" 
-                 hx-get="{{ url_for('video_chatlogs', video_id=video.id) }}" 
+                 hx-get="{{ url_for('video.video_chatlogs', video_id=video.id) }}" 
                  hx-trigger="load"
                  hx-swap="innerHTML"
                  hx-indicator="#loading-indicator">
@@ -111,10 +111,10 @@
       </a> 
       </br>
       {% if video.source_video.id is defined %}
-        <a href="{{ url_for('video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform.name}}</a>
+        <a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform.name}}</a>
         {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) and video.source_video.transcriptions|length > 0 %}
           </br>
-          <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform.name}} to {{video.channel.platform.name}}')" href="{{ url_for('video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
+          <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform.name}} to {{video.channel.platform.name}}')" href="{{ url_for('video.video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
         {% endif %}
       {% endif %}
       <p>Uploaded: {{ video.uploaded }}</p>
@@ -149,10 +149,10 @@
                 </button>
                 <ul class="dropdown-menu" aria-labelledby="downloadDropdown{{ t.id }}">
                   {% if t.file_extention != "json" %}
-                  <li><a class="dropdown-item" href="{{ url_for('download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Original ({{ t.file_extention }} Format)</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('transcription.download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Original ({{ t.file_extention }} Format)</a></li>
                   {% endif %}
-                  <li><a class="dropdown-item" href="{{ url_for('download_transcription_srt', transcription_id=t.id) }}" download="{{ t.id }}.srt">SRT Format</a></li>
-                  <li><a class="dropdown-item" href="{{ url_for('download_transcription_json', transcription_id=t.id) }}" download="{{ t.id }}.json">JSON Format</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('transcription.download_transcription_srt', transcription_id=t.id) }}" download="{{ t.id }}.srt">SRT Format</a></li>
+                  <li><a class="dropdown-item" href="{{ url_for('transcription.download_transcription_json', transcription_id=t.id) }}" download="{{ t.id }}.json">JSON Format</a></li>
                 </ul>
               </div>
             </td>
@@ -163,11 +163,11 @@
               </button>
               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminActionsDropdown">
             {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
-              <li><a type="button" class="btn btn-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('delete_transcription', transcription_id=t.id) }}"> Delete transcription</a></li>
+              <li><a type="button" class="btn btn-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('transcription.delete_transcription', transcription_id=t.id) }}"> Delete transcription</a></li>
             {% endif %}
             {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
               <li><a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a></li>
-              <li><a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('purge_transcription', transcription_id=t.id) }}">Remove from search</a></li>
+              <li><a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('transcription.purge_transcription', transcription_id=t.id) }}">Remove from search</a></li>
             {% endif %}
             </ul>
             </td>

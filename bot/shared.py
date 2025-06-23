@@ -6,7 +6,7 @@ from typing import TypedDict
 from app.redis_client import RedisTaskQueue
 from app.logger import logger
 import re
-from app.models.db import OAuth, Channels, ChannelSettings, ChatLog, Content, ContentQueue, ContentQueueSubmission, BroadcasterSettings, ExternalUser, AccountSource, ContentQueueSubmissionSource
+from app.models.db import OAuth, Channels, ChannelSettings, ChatLog, Content, ContentQueue, ContentQueueSubmission, BroadcasterSettings, ExternalUser, ExternalUserWeight, AccountSource, ContentQueueSubmissionSource
 from sqlalchemy import select
 from app.twitch_api import get_twitch_video_id, get_twitch_video_by_ids, get_twitch_clips, parse_clip_id, parse_time, Twitch
 from app.youtube_api import get_youtube_video_id, get_youtube_video_id_from_clip, get_videos, get_youtube_thumbnail_url
@@ -376,6 +376,27 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
             session.flush()  # Flush to get the user ID
             logger.debug("Created external user: %s", external_user, extra={"broadcaster_id": broadcaster_id})
         
+        external_user_weight = session.execute(
+            select(ExternalUserWeight).filter(
+                ExternalUserWeight.external_user_id == external_user.id,
+                ExternalUserWeight.broadcaster_id == broadcaster_id,
+            )
+        ).scalars().one_or_none()
+        if external_user_weight is None:
+            # Create new external user weight
+            external_user_weight = ExternalUserWeight(
+                external_user_id=external_user.id,
+                broadcaster_id=broadcaster_id,
+                weight=1.0,
+            )
+            session.add(external_user_weight)
+            session.flush()  # Flush to get the weight ID
+            logger.debug("Created external user weight: %s", external_user_weight, extra={"broadcaster_id": broadcaster_id})
+
+        if external_user_weight.banned:
+            logger.info("External user %s is banned, not adding to content queue", external_user.username, extra={"broadcaster_id": broadcaster_id})
+            return
+
         if existing_queue_item is None:
             # Add to content queue
             queue_item = ContentQueue(
@@ -394,7 +415,7 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
                 submitted_at=datetime.now(),
                 submission_source_type=submission_source_type,
                 submission_source_id=submission_source_id,
-                weight=submission_weight,
+                weight=submission_weight * external_user_weight.weight,
                 user_comment=user_comment
             )
             session.add(submission)
@@ -421,7 +442,7 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
                     submitted_at=datetime.now(),
                     submission_source_type=submission_source_type,
                     submission_source_id=submission_source_id,
-                    weight=submission_weight,
+                    weight=submission_weight * external_user_weight.weight,
                     user_comment=user_comment
                 )
                 session.add(submission)
@@ -429,7 +450,7 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
                 logger.info("Submission added to content queue", extra={"broadcaster_id": broadcaster_id, "queue_item_id": existing_queue_item.id})
             else:
                 logger.info("Submission already exists, updating weight", extra={"broadcaster_id": broadcaster_id, "queue_item_id": existing_queue_item.id})
-                existing_submission.weight = submission_weight
+                existing_submission.weight = submission_weight * external_user_weight.weight
                 session.commit()
             
     except Exception as e:

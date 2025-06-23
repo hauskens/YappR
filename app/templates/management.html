@@ -138,6 +138,12 @@
         </div>
       {% endif %}
     {% endwith %}
+<!-- User Modal Container -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+  <div id="userModalContent">
+    <!-- Content will be loaded here via htmx -->
+  </div>
+</div>
 {% endblock %}
 {% block extra_scripts %}
 <script>

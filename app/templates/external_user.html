@@ -1,0 +1,108 @@
+<!-- External User Modal Template for htmx loading - standalone fragment -->
+<div class="modal-dialog modal-dialog-centered">
+  <div class="modal-content">
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <h5 class="modal-title">User Details</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    
+    {% set user_weight = weights
+        | selectattr('broadcaster_id', 'equalto', broadcaster_id)
+        | first %}
+    <!-- Modal Body -->
+    <div class="modal-body">
+      <div class="row mb-3">
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-body">
+              <h5 class="card-title">{{ external_user.username }}</h5>
+              
+              <!-- User Source Badge -->
+              <div class="mb-3">
+                {% if external_user.account_type.name == 'Twitch' %}
+                <span class="badge" style="background-color: #9147FF;">
+                  <i class="bi bi-twitch"></i> Twitch
+                </span>
+                {% elif external_user.account_type.name == 'Discord' %}
+                <span class="badge" style="background-color: #5865F2;">
+                  <i class="bi bi-discord"></i> Discord
+                </span>
+                {% endif %}
+                <span class="badge bg-secondary">ID: {{ external_user.id }}</span>
+              </div>
+              
+              <!-- User Stats -->
+              <div class="mb-3">
+                <h6>User Statistics</h6>
+                <ul class="list-group list-group-flush">
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Submissions
+                    <span class="badge bg-primary rounded-pill">{{ submissions|length }}</span>
+                  </li>
+                  
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Current Weight
+                    <span class="badge {% if user_weight and user_weight.weight <= 0.5 %}bg-warning{% else %}bg-success{% endif %} rounded-pill">
+                      {{ user_weight.weight }}
+                    </span>
+                  </li>
+                </ul>
+              </div>
+              
+              <!-- Ban Status -->
+              {% if user_weight and user_weight.banned %}
+              <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                <strong>User is banned</strong>
+                {% if user_weight.unban_at %}
+                <p class="mb-0">Ban expires: {{ user_weight.unban_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                {% endif %}
+              </div>
+              {% endif %}
+              
+              <!-- Recent Submissions -->
+              <div class="mb-3">
+                <h6>Recent Submissions</h6>
+                {% if submissions %}
+                <div class="list-group">
+                  {% for submission in submissions[:5] %}
+                  <div class="list-group-item list-group-item-action">
+                    <div class="d-flex w-100 justify-content-between">
+                      <h6 class="mb-1 text-truncate" title="{{ submission.content.title }}">{{ submission.content.title|truncate(30) }}</h6>
+                      <small>{{ submission.submitted_at.strftime('%Y-%m-%d') }}</small>
+                    </div>
+                    {% if submission.user_comment %}
+                    <p class="mb-1 small fst-italic">"{{ submission.user_comment }}"</p>
+                    {% endif %}
+                  </div>
+                  {% endfor %}
+                </div>
+                {% if submissions|length > 5 %}
+                <div class="text-center mt-2">
+                  <small class="text-muted">Showing 5 of {{ submissions|length }} submissions</small>
+                </div>
+                {% endif %}
+                {% else %}
+                <p class="text-muted">No submissions found</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Modal Footer with Penalty Button -->
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      <button type="button" class="btn btn-warning"
+              hx-post="{{ url_for('penalty_external_user', broadcaster_id=broadcaster_id, external_user_id=external_user.id) }}"
+              hx-confirm="Are you sure you want to apply a penalty to this user? This will reduce their weight by 0.2."
+              hx-target="#userModalContent"
+              hx-swap="innerHTML">
+        <i class="bi bi-exclamation-triangle me-1"></i> Apply Penalty
+      </button>
+    </div>
+  </div>
+</div>

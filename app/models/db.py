@@ -1086,7 +1086,19 @@ class ExternalUser(Base):
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
     ignore_weight_penalty: Mapped[bool] = mapped_column(Boolean, default=False)
     submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="user")
+    weights: Mapped[list["ExternalUserWeight"]] = relationship(back_populates="external_user")
     
+class ExternalUserWeight(Base):
+    __tablename__ = "external_user_weights"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    external_user_id: Mapped[int] = mapped_column(ForeignKey("external_users.id"))
+    external_user: Mapped["ExternalUser"] = relationship(back_populates="weights")
+    weight: Mapped[float] = mapped_column(Float, nullable=False)
+    broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
+    broadcaster: Mapped["Broadcaster"] = relationship()
+    banned: Mapped[bool] = mapped_column(Boolean, default=False)
+    banned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    unban_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 class Content(Base):
     __tablename__ = "content"

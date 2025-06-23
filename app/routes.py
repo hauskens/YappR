@@ -66,6 +66,7 @@ from app.models.db import (
     ContentQueueSubmissionSource,
     AccountSource,
     ChatLog,
+    ExternalUserWeight,
 )
 from app.models.config import config
 
@@ -845,6 +846,7 @@ def clip_queue():
         return "You do not have access", 403
 
 
+# Todo add permission check for broadcaster
 @app.route("/clip_queue/mark_watched/<int:item_id>", methods=["POST"])
 @login_required
 @require_permission()
@@ -994,6 +996,64 @@ def get_clip_player(item_id: int):
         logger.error("Error loading clip player %s", e, extra={"item_id": item_id, "user_id": current_user.id})
         return "Error loading clip player", 500
 
+@app.route("/clip_queue/<int:broadcaster_id>/external_user/<int:external_user_id>/penalty", methods=["POST"])
+@login_required
+@require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", require_moderator=True)
+def penalty_external_user(broadcaster_id: int, external_user_id: int):
+    standard_penalty = 0.2
+    standard_ban_duration = 7
+    try:
+        external_user_weight = db.session.query(ExternalUserWeight).filter_by(external_user_id=external_user_id, broadcaster_id=broadcaster_id).one_or_none()
+        if external_user_weight is None:
+            external_user_weight = ExternalUserWeight(
+                external_user_id=external_user_id,
+                broadcaster_id=broadcaster_id,
+                weight=1,
+                banned=False,
+                banned_at=None,
+                unban_at=None,
+            )
+            db.session.add(external_user_weight)
+        external_user_weight.weight = round(external_user_weight.weight - standard_penalty, 2)
+        if external_user_weight.weight <= 0:
+            external_user_weight.weight = 0
+            external_user_weight.banned = True
+            external_user_weight.banned_at = datetime.now()
+            external_user_weight.unban_at = datetime.now() + timedelta(days=standard_ban_duration)
+        db.session.commit()
+        return redirect(request.referrer)
+    except Exception as e:
+        logger.error("Error updating penalty status for external user %s: %s", external_user_id, e, extra={"user_id": current_user.id})
+        db.session.rollback()
+        flash("Error updating penalty status", "error")
+        return redirect(request.referrer)
+
+@app.route("/external_user/<int:external_user_id>/broadcaster/<int:broadcaster_id>")
+@login_required
+@require_permission()
+def external_user(external_user_id: int, broadcaster_id: int):
+    try:
+        external_user = db.session.query(ExternalUser).filter_by(id=external_user_id).one()
+        
+        weights = db.session.query(ExternalUserWeight).filter_by(
+            external_user_id=external_user_id,
+            broadcaster_id=broadcaster_id
+        ).all()
+        
+        submissions = db.session.query(ContentQueueSubmission).filter_by(
+            user_id=external_user_id
+        ).order_by(ContentQueueSubmission.submitted_at.desc()).all()
+        
+        return render_template(
+            "external_user.html",
+            external_user=external_user,
+            broadcaster_id=broadcaster_id,
+            weights=weights,
+            submissions=submissions
+        )
+    except Exception as e:
+        logger.error("Error loading external user %s: %s", external_user_id, e, extra={"user_id": current_user.id})
+        return "<div class='alert alert-danger'>Error loading user details</div>", 500
 
 @app.route("/broadcaster/<int:broadcaster_id>/create_clip")
 @login_required

@@ -1,7 +1,7 @@
-<form action="{{ url_for('search.search_word') }}" method="post">
+<form action="{{ url_for('search.search_word') }}" method="post" class="text-center">
     <label for="broadcaster"{% if broadcasters|length == 0 %} hidden {% endif %} >Broadcaster</label>
-    <div class="row">
-      <div class="col-2">
+    <div class="row justify-content-center">
+      <div class="col-6">
         {% if broadcasters|length == 0 %} <h5>{{ broadcaster.name }}</h5> {% endif %} 
         <select id="broadcaster" name="broadcaster" {% if broadcasters|length == 0 %} hidden {% endif %} class="form-select">
           {% if broadcasters|length > 0 %}
@@ -15,7 +15,7 @@
           {% endif %}
         </select>
       </div>
-      <div class="col-2">
+      <div class="col-2" hidden>
         <select id="channel_type" name="channel_type" class="form-select">
             <option value="all" selected>All</option>
             <option value="youtube">YouTube</option>
@@ -28,8 +28,8 @@
         </a>
       </div>
     </div>
-    <div class="row collapse" id="collapseSearch">
-      <div class="col-3">
+    <div class="row collapse justify-content-center" id="collapseSearch">
+      <div class="col-5">
         <div class="container-fluid">
           <label for="start_date">Start date</label>
           <input name="start_date" id="start_date" class="form-control" type="date"> </input>
@@ -40,13 +40,13 @@
         </div>
       </div>
     </div>
-    <div class="row">
-      <div class="col-5">
+    <div class="row justify-content-center">
+      <div class="col-8">
         <hr>
       </div>
     </div>
-    <div class="row">
-      <div class="col-4">
+    <div class="row justify-content-center">
+      <div class="col-6">
         <input type="search" autocomplete="off" id="search" name="search" class="form-control" required placeholder="Search..." />
       </div>
       <div class="col-1">

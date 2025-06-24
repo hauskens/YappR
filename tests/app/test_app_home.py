@@ -4,11 +4,13 @@ import os, docker, time # ignore: type
 from app import create_app
 from app.models.db import db as _db
 from app.models.db import (
-    Platforms, Broadcaster,
+    Platforms, Broadcaster, Users
 )
 from sqlalchemy.orm import scoped_session, sessionmaker
 from alembic.config import Config as AlembicConfig
 from alembic import command
+from flask_login import login_user
+from werkzeug.security import generate_password_hash
 
 os.environ["TC_REUSE_LOCAL"] = "true"
 
@@ -97,6 +99,27 @@ def seed_common_data(db_session):
     db_session.flush()
     yield 
 
+@pytest.fixture(scope="function")
+def user(db_session):
+    """A fresh user row in the per-test transaction."""
+    u = Users(name="tester", account_type=AccountSource.Twitch, external_account_id="123456789")
+    db_session.add(u)
+    db_session.flush()          # so u.id is available
+    return u
+
+@pytest.fixture
+def logged_in_client(client, user):
+    """
+    A test client whose session already contains the user's ID.
+    Skips the /login route entirely → FAST.
+    """
+    with client:
+        # The session is writable only within this context manager
+        from flask import session
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user.id)   # Flask-Login key
+            sess["_fresh"]  = True            # mark session as fresh
+        yield client
 
 def test_front_page_loads_unauthenticated(client):
     """Test that the front page loads successfully."""

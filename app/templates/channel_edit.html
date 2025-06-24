@@ -84,7 +84,7 @@
                 <div class="container mb-2">
                   {% for t in video.transcriptions %}
                     {% if t.processed == false %}
-                      <a class="btn btn-primary" role="button" title="Quick task that parses the transcription and makes it searchable" href="{{ url_for('video.video_parse_transcriptions', video_id=video.id) }}">Make searchable</a>
+                      <a class="btn btn-primary" role="button" title="Quick task that parses the transcription and makes it searchable" href="{{ url_for('video.parse_transcriptions', video_id=video.id) }}">Make searchable</a>
                     {% endif %}
                   {% endfor %}
                 </div>

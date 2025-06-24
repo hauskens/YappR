@@ -3,9 +3,6 @@ from unittest import IsolatedAsyncioTestCase
 from unittest.mock import MagicMock, patch, AsyncMock
 from datetime import datetime
 
-# # Add parent directory to path to import bot module
-# sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-
 from bot.twitch import TwitchBot
 from twitchAPI.chat import ChatMessage # type: ignore
 from app.models.db import Content

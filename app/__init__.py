@@ -60,13 +60,16 @@ def load_user(oauth_id: int):
         return None
 
         
+cors = CORS()
 
-def create_app():
+def create_app(overrides: dict | None = None):
     logger.info("Creating app")
     init_storage()
     app = Flask(__name__)
     app.secret_key = config.app_secret
     app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
+    if overrides:
+        app.config.update(overrides)
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
     app.config["CELERY"] = dict(
         broker_url=config.redis_uri,
@@ -80,7 +83,7 @@ def create_app():
     environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     if config.debug:
         environ["OAUTHLIB_INSECURE_TRANSPORT"] = "true"
-        
+    
     # Set up request ID tracking
     @app.before_request
     def before_request():
@@ -97,10 +100,17 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     bootstrap.init_app(app)
+    cors.init_app(app, resources={r"/*": {"origins": config.app_url}}, supports_credentials=True)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     # app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-    CORS(app, resources={r"/*": {"origins": config.app_url}}, supports_credentials=True)
     socketio.init_app(app)
+    
+    # Only initialize rate limiter when not in testing mode
+    if not app.config.get("TESTING"):
+        limiter._storage_uri = config.redis_uri
+    else:
+        limiter._storage_uri = "memory://"
+    
     limiter.init_app(app)
     
 

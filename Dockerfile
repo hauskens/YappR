@@ -44,7 +44,6 @@ CMD ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1", "-Q
 FROM main AS worker
 ENV SERVICE_NAME="worker"
 ENTRYPOINT ["celery"]
-CMD ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1"]
 
 FROM main AS app
 ENV SERVICE_NAME="app"

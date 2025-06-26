@@ -91,12 +91,22 @@ services:
     extends: app
     image: ${REGISTRY-}yappr-worker${VERSION-}
     ports: !reset []
+    command: ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1"]
+    environment:
+      - SERVICE_NAME=worker
     build:
       target: worker
     depends_on:
       - app
     deploy:
-      replicas: 1 # number up = more brrr, over 4 will probably cause db pool issues
+      replicas: 1
+  worker-priority:
+    extends: worker
+    command: ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1", "-Q", "priority-queue"]
+    environment:
+      - SERVICE_NAME=worker-priority
+    deploy:
+      replicas: 1
   beat:
     extends: worker
     command: ["--app","app.main.celery","beat","--loglevel=info" ]

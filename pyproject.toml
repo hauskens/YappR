@@ -25,9 +25,6 @@ dependencies = [
     "google-api-python-client-stubs>=1.29.0",
     "gunicorn>=23.0.0",
     "jq>=1.8.0",
-    "langchain-community>=0.3.23",
-    "langchain-postgres>=0.0.13",
-    "langchain[ollama]>=0.3.25",
     "loki-logger-handler>=1.1.2",
     "nltk>=3.9.1",
     "psycopg[binary]>=3.2.6",
@@ -47,7 +44,7 @@ dependencies = [
     "types-flask-socketio>=5.5.0.20250516",
     "types-requests>=2.32.0.20250602",
     "webvtt-py>=0.5.1",
-    "youtube-transcript-api>=1.0.3",
+    "youtube-transcript-api>=1.1.0",
     "yt-dlp>=2025.3.27",
 ]
 

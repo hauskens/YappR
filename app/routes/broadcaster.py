@@ -10,7 +10,7 @@ from datetime import datetime
 broadcaster_blueprint = Blueprint('broadcaster', __name__, url_prefix='/broadcaster', template_folder='templates', static_folder='static')
 
 
-@broadcaster_blueprint.route("/")
+@broadcaster_blueprint.route("")
 @login_required
 @require_permission()
 @cache.memoize(timeout=60)

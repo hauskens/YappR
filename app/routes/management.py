@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 
 management_blueprint = Blueprint('management', __name__, url_prefix='/management', template_folder='templates', static_folder='static')
 
-@management_blueprint.route("/")
+@management_blueprint.route("")
 @login_required
 @require_permission()
 def management():

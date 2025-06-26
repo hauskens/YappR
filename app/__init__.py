@@ -77,6 +77,7 @@ def create_app(overrides: dict | None = None):
         task_ignore_result=True,
         task_routes={
             "app.tasks.default": {"queue": "default-queue"},
+            "app.main.update_channels_last_active": {"queue": "priority-queue"},
             "app.main.task_transcribe_audio": {"queue": "gpu-queue"},
         },
     )

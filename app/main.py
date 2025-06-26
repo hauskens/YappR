@@ -35,7 +35,6 @@ from flask_socketio import emit, join_room, leave_room, send
 from datetime import datetime, timedelta
 
 def celery_init_app(app: Flask) -> Celery:
-    # todo: getting a type error here
     class FlaskTask(Task):
         def __call__(self, *args: object, **kwargs: object) -> object:
             with app.app_context():

@@ -3,7 +3,7 @@ from app.logger import logger
 from flask_login import current_user, logout_user, login_required # type: ignore
 from app.permissions import require_permission
 from app.models.db import PermissionType
-from app.retrievers import get_users, get_stats_videos, get_total_video_duration, get_stats_segments, get_stats_transcriptions, get_stats_high_quality_transcriptions, get_video
+from app.retrievers import get_users, get_stats_videos, get_total_video_duration, get_stats_segments, get_stats_transcriptions, get_stats_high_quality_transcriptions, get_video, get_broadcasters
 from app.cache import cache, make_cache_key
 from app.rate_limit import limiter, rate_limit_exempt
 from io import BytesIO
@@ -12,11 +12,11 @@ from app.twitch_api import get_twitch_user
 
 root_blueprint = Blueprint('root', __name__, url_prefix='/', template_folder='templates', static_folder='static')
 @root_blueprint.route("/")
-# @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 def index():
     logger.info("Loaded frontpage")
-    return redirect(url_for("search.search_page"))
-
+    broadcasters = get_broadcasters()
+    return render_template("search.html", broadcasters=broadcasters)
 
 @root_blueprint.route("/login")
 def login():

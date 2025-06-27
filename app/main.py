@@ -11,7 +11,6 @@ from flask import (
     render_template,
     request,
     redirect,
-    abort,
 )
 from celery import Celery, Task, chain
 from app.models.db import (
@@ -24,7 +23,7 @@ from app.models.config import config
 from app.retrievers import get_transcription, get_video, get_all_twitch_channels, get_channel
 from app import app, login_manager, socketio
 from app.models.db import TranscriptionSource, Transcription, TranscriptionResult
-from app.permissions import require_api_key
+from app.permissions import require_api_key, require_permission
 from app.twitch_api import get_current_live_streams
 from urllib.parse import unquote
 from celery.schedules import crontab
@@ -33,6 +32,8 @@ from flask_socketio import emit, send
 from app.logger import logger
 from flask_socketio import emit, join_room, leave_room, send
 from datetime import datetime, timedelta
+import uuid
+from werkzeug.utils import secure_filename
 
 def celery_init_app(app: Flask) -> Celery:
     class FlaskTask(Task):
@@ -139,37 +140,38 @@ def video_fetch_audio(video_id: int):
     return redirect(request.referrer)
 
 
-# @app.route("/celery/active-view")
-# @login_required
-# def celery_active_tasks_view():
-#     i = celery.control.inspect()
-#     active = i.active() or {}
-#     queue_names = ["gpu-queue", "celery"]
-#     queued_tasks_by_queue = {}
-#     for queue_name in queue_names:
-#         queued_tasks = []
-#         queue_length = r.llen(queue_name)
-#         for i in range(queue_length):
-#             task_data = r.lindex(queue_name, i)
-#             if task_data:
-#                 task = json.loads(task_data)
-#                 # Extract useful info
-#                 headers = task.get("headers", {})
-#                 task_name = headers.get("task", "Unknown Task")
-#                 argsrepr = headers.get("argsrepr", "")
-#                 queued_tasks.append(
-#                     {
-#                         "raw": task,
-#                         "task_name": task_name,
-#                         "argsrepr": argsrepr,
-#                     }
-#                 )
-#         queued_tasks_by_queue[queue_name] = queued_tasks
-#     return render_template(
-#         "active_tasks.html",
-#         active_tasks=active,
-#         queued_tasks_by_queue=queued_tasks_by_queue,
-#     )
+@app.route("/celery/active-view")
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def celery_active_tasks_view():
+    i = celery.control.inspect()
+    active = i.active() or {}
+    queue_names = ["gpu-queue", "celery"]
+    queued_tasks_by_queue = {}
+    for queue_name in queue_names:
+        queued_tasks = []
+        queue_length = r.llen(queue_name)
+        for i in range(queue_length):
+            task_data = r.lindex(queue_name, i)
+            if task_data:
+                task = json.loads(task_data)
+                # Extract useful info
+                headers = task.get("headers", {})
+                task_name = headers.get("task", "Unknown Task")
+                argsrepr = headers.get("argsrepr", "")
+                queued_tasks.append(
+                    {
+                        "raw": task,
+                        "task_name": task_name,
+                        "argsrepr": argsrepr,
+                    }
+                )
+        queued_tasks_by_queue[queue_name] = queued_tasks
+    return render_template(
+        "active_tasks.html",
+        active_tasks=active,
+        queued_tasks_by_queue=queued_tasks_by_queue,
+    )
 
 
 @celery.task()
@@ -191,6 +193,7 @@ def task_fetch_transcription(video_id: int):
 def update_channels_last_active():
     channels = get_all_twitch_channels()
     twitch_user_ids = [channel.platform_channel_id for channel in channels]
+    logger.info("Updating channels last active")
     if len(twitch_user_ids) > 0:
         streams = asyncio.run(get_current_live_streams(twitch_user_ids))
         for stream in streams:
@@ -257,6 +260,106 @@ def task_transcribe_audio(video_id: int, force: bool = False):
             logger.warning("Failed to delete temp file %s", cleanup_error, extra={"video_id": video_id})
 
     return video_id
+
+
+@app.route("/utils/upload_audio", methods=["POST"])
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def upload_audio():
+    
+    logger.info("Uploading audio file")
+    try:
+        if "audio_file" not in request.files:
+            return "<div class='alert alert-danger'>No file part</div>", 400
+        
+        file = request.files["audio_file"]
+        if file.filename == "":
+            return "<div class='alert alert-danger'>No selected file</div>", 400
+        
+        # Generate a unique filename
+        original_filename = secure_filename(file.filename)
+        file_ext = os.path.splitext(original_filename)[1].lower()
+        
+        # Check if extension is allowed
+        allowed_extensions = {".mp3", ".wav", ".ogg", ".m4a", ".flac"}
+        if file_ext not in allowed_extensions:
+            return f"<div class='alert alert-danger'>File type not allowed. Allowed types: {', '.join(allowed_extensions)}</div>", 400
+        
+        # Create a unique ID for this job
+        job_id = str(uuid.uuid4())
+        
+        # Create cache directory if it doesn't exist
+        cache_dir = os.path.abspath(os.path.join(config.cache_location, "transcription_jobs"))
+        os.makedirs(cache_dir, exist_ok=True)
+        
+        # Save the file
+        filename = f"{job_id}{file_ext}"
+        filepath = os.path.join(cache_dir, filename)
+        file.save(filepath)
+        
+        # Create a metadata file
+        metadata = {
+            "job_id": job_id,
+            "original_filename": original_filename,
+            "status": "pending",
+            "created_at": datetime.now().isoformat(),
+            "user_id": current_user.id,
+            "username": current_user.name
+        }
+        
+        metadata_path = os.path.join(cache_dir, f"{job_id}.json")
+        with open(metadata_path, "w") as f:
+            json.dump(metadata, f)
+        
+        # Queue the transcription task
+        task = task_transcribe_file.delay(job_id)
+        
+        logger.info(f"Queued transcription job {job_id}")
+        
+        return f"""
+        <div class="alert alert-success">
+            <h5>File uploaded successfully!</h5>
+            <p>Your file has been queued for transcription.</p>
+            <p><strong>Job ID:</strong> {job_id}</p>
+        </div>
+        """
+        
+    except Exception as e:
+        logger.error(f"Error uploading file: {e}", exc_info=True)
+        return f"<div class='alert alert-danger'>Error uploading file: {str(e)}</div>", 500
+
+@celery.task
+def task_transcribe_file(job_id: str):
+    logger.info("Task queued, processing audio file", extra={"job_id": job_id})
+    
+    # Get the cache directory
+    cache_dir = os.path.join(config.cache_location, "transcription_jobs")
+    metadata_path = os.path.join(cache_dir, f"{job_id}.json")
+    
+    download_url = f"{config.app_url}/utils/download_audio/{job_id}"
+    headers = {"X-API-Key": config.api_key}
+    with requests.get(download_url, headers=headers, stream=True) as r:
+        r.raise_for_status()
+        ext = get_extension_from_response(r)
+        with tempfile.NamedTemporaryFile(delete=False, suffix=ext, dir=config.cache_location) as temp_file:
+            for chunk in r.iter_content(chunk_size=8192):
+                temp_file.write(chunk)
+                local_filename = temp_file.name
+    
+    logger.info(f"Audio downloaded to %s, starting transcription", local_filename, extra={"job_id": job_id})
+
+    result_file = transcribe(local_filename)
+
+    with open(result_file, "r") as f:
+        result = json.load(f)
+
+    logger.info("Uploading transcription to video", extra={"job_id": job_id})
+    upload_url = f"{config.app_url}/utils/upload_transcription/{job_id}"
+    headers.update({"Content-type": "application/json", "Accept": "text/plain"})
+    response = requests.post(upload_url, json=result, headers=headers)
+    response.raise_for_status()
+
+    return job_id
 
 @celery.task
 def task_parse_transcription(transcription_id: int, force: bool = False):

@@ -78,15 +78,18 @@
         </a>
         {% if current_user.is_anonymous == False %}
           <div class="collapse navbar-collapse" id="navbarScroll">
-            <div class="navbar-nav mr-auto">
+            <div class="navbar-nav ">
               {{ render_nav_item('search.search_page', 'Search') }}
               {{ render_nav_item('clip_queue.clip_queue', 'Clip Queue') }}
               {{ render_nav_item('broadcaster.broadcasters', 'Broadcasters')}}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
                 {{ render_nav_item('root.users', 'Users') }}
+                {{ render_nav_item('root.utils', 'Utils') }}
               {% endif %}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
                 {{ render_nav_item('management.management', 'Management') }}
+                {{ render_nav_item('celery_active_tasks_view', 'Workers') }}
+                {{ render_nav_item('root.utils', 'Utils') }}
               {% endif %}
               {{ render_nav_item('root.stats', 'Stats') }}
             </div>

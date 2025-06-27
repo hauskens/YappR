@@ -10,6 +10,7 @@ search_blueprint = Blueprint('search', __name__, url_prefix='/search', template_
 
 # TODO: Ban check
 @search_blueprint.route("")
+@search_blueprint.route("/") # For backwards compatibility
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 def search_page():
     broadcasters = get_broadcasters()

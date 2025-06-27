@@ -79,6 +79,7 @@ def create_app(overrides: dict | None = None):
             "app.tasks.default": {"queue": "default-queue"},
             "app.main.update_channels_last_active": {"queue": "priority-queue"},
             "app.main.task_transcribe_audio": {"queue": "gpu-queue"},
+            "app.main.task_transcribe_file": {"queue": "gpu-queue"},
         },
     )
     environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"

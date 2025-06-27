@@ -1,0 +1,57 @@
+{% extends 'base.html' %} {% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-md-8 offset-md-2">
+      <div class="card">
+        <div class="card-header">
+          <h5 class="card-title mb-0">Audio File Transcription</h5>
+        </div>
+        <div class="card-body">
+          <form id="upload-form" hx-encoding="multipart/form-data" hx-post="/utils/upload_audio" hx-target="#upload-status" hx-indicator="#loading">
+            <div class="mb-3">
+              <label for="audio-file" class="form-label">Select audio file to transcribe</label>
+              <input type="file" class="form-control" id="audio-file" name="audio_file" accept=".mp3,.wav,.ogg,.m4a,.flac" required>
+              <div class="form-text">Supported formats: MP3, WAV, OGG, M4A, FLAC</div>
+            </div>
+            <button type="submit" class="btn btn-primary">
+              <span class="spinner-border spinner-border-sm d-none" id="loading" role="status" aria-hidden="true"></span>
+              Upload and Transcribe
+            </button>
+          </form>
+          
+          <div id="upload-status" class="mt-3"></div>
+          
+          <div class="mt-4">
+            <h6>Transcription Status</h6>
+            <div id="transcription-list" hx-get="/utils/transcription_jobs" hx-trigger="load, every 10s" hx-swap="innerHTML">
+              <div class="d-flex justify-content-center">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+  document.body.addEventListener('htmx:beforeSend', function(event) {
+    if (event.detail.elt.id === 'upload-form') {
+      document.getElementById('loading').classList.remove('d-none');
+    }
+  });
+  
+  document.body.addEventListener('htmx:afterOnLoad', function(event) {
+    if (event.detail.elt.id === 'upload-form') {
+      document.getElementById('loading').classList.add('d-none');
+      // Refresh the transcription list after upload
+      htmx.trigger('#transcription-list', 'load');
+    }
+  });
+</script>
+{% endblock %}

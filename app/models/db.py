@@ -31,6 +31,7 @@ import asyncio
 import json
 from app.logger import logger
 from typing import Literal
+from app.shared import convert_to_srt
 
 from .transcription import TranscriptionResult
 from .config import config
@@ -829,17 +830,8 @@ class Transcription(Base):
             self.process_transcription()
             
         segments = self.get_segments_sorted()
-        srt_content = []
-        
-        for i, segment in enumerate(segments, 1):
-            # Format timestamps as HH:MM:SS,mmm
-            start_time = self._format_timestamp(segment.start)
-            end_time = self._format_timestamp(segment.end)
-            
-            # Add entry to SRT content
-            srt_content.append(f"{i}\n{start_time} --> {end_time}\n{segment.text}\n")
-            
-        return "\n".join(srt_content)
+        srt_content = convert_to_srt(segments)
+        return srt_content
     
     def to_json(self) -> str:
         """
@@ -913,26 +905,6 @@ class Transcription(Base):
             
         logger.info(f"Saved JSON file to {output_path}")
         return output_path
-    
-    def _format_timestamp(self, seconds: float) -> str:
-        """
-        Format seconds to SRT timestamp format (HH:MM:SS,mmm).
-        
-        Args:
-            seconds: Time in seconds (can be a float)
-            
-        Returns:
-            str: Formatted timestamp
-        """
-        # Convert to milliseconds for more precise formatting
-        milliseconds = int((seconds % 1) * 1000)
-        total_seconds = int(seconds)
-        
-        hours = total_seconds // 3600
-        minutes = (total_seconds % 3600) // 60
-        secs = total_seconds % 60
-        
-        return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds:03d}"
 
     def parse_json(self):
         logger.info(f"Processing json transcription: {self.id}")

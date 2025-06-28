@@ -23,6 +23,7 @@
           python3Packages.alembic
           python3Packages.psycopg2
           psqlodbc
+          pnpm
           
         ];
         shellHook = ''

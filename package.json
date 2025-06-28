@@ -1,0 +1,15 @@
+{
+  "name": "your-flask-app",
+  "version": "1.0.0",
+  "scripts": {
+    "build": "./scripts/copy-assets.sh",
+    "install-deps": "pnpm install && pnpm run build"
+  },
+  "dependencies": {
+    "bootstrap-icons": "^1.13.1",
+    "chart.js": "^4.5.0",
+    "chartjs-plugin-zoom": "^2.2.0",
+    "htmx.org": "^1.9.12",
+    "socket.io-client": "^4.8.1"
+  }
+}

@@ -18,49 +18,79 @@
         {% endif %}
       </div>
 
-      <div class="card shadow-sm mt-4">
+      <div class="card shadow border mt-4">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="bi bi-info-circle-fill me-2"></i>About YappR</h5>
+        </div>
         <div class="card-body">
           <p>🛠️ <strong>YappR</strong> is a <strong>free</strong> and <a href="https://github.com/hauskens/YappR" target="_blank">open source</a> project, licensed under the <strong>GNU GPL v2.0</strong>.</p>
-          <p>📋 <strong>Key Features of YappR's Clip Queue:</strong></p>
-            <ul>
-                <li>🤖 Integrated <strong>Twitch</strong> and <strong>Discord</strong> bots that can listen for clip links</li>
-                <li>🙌 Great for hands-off highlight curation powered by your community</li>
-                <li>🌙 <strong>24/7 clip submissions</strong> — users can share clips even when you're offline</li>
-                <li>🛡️ <strong>Twitch moderators</strong> have automatic permissions to manage your queue</li>
-                <li>📊 Community-driven <strong>voting system</strong> — reactions weigh in more popular clips</li>
-            </ul>
-          <hr>
-        {% if current_user.is_anonymous %}
-          <p>🔒Twitch and Discord are used for authentication, <strong>no passwords</strong> are ever exchanged with YappR.</p>
-          <p>👀 The only info we access is your <strong>profile ID, username, and avatar</strong>—nothing more.</p>
           
-          <p>🚀 Ready to dive in? Just click one of the <strong>login buttons below</strong>. Once you're in, you're all set to go!</p>
+          <h5 class="mt-4"><i class="bi bi-list-check me-2"></i>Key Features of YappR's Clip Queue:</h5>
+          <div class="list-group list-group-flush mb-4">
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">🤖</span>
+              <div>
+                <h6 class="mb-1">Integrated Bots</h6>
+                <p class="mb-1">Twitch and Discord bots that can listen for clip links</p>
+              </div>
+            </div>
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">🙌</span>
+              <div>
+                <h6 class="mb-1">Community-Powered</h6>
+                <p class="mb-1">Great for hands-off highlight curation powered by your community</p>
+              </div>
+            </div>
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">🌙</span>
+              <div>
+                <h6 class="mb-1">24/7 Submissions</h6>
+                <p class="mb-1">Users can share clips even when you're offline</p>
+              </div>
+            </div>
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">🛡️</span>
+              <div>
+                <h6 class="mb-1">Moderator Integration</h6>
+                <p class="mb-1">Twitch moderators have automatic permissions to manage your queue</p>
+              </div>
+            </div>
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">📊</span>
+              <div>
+                <h6 class="mb-1">Voting System</h6>
+                <p class="mb-1">Community-driven voting — reactions weigh in more popular clips</p>
+              </div>
+            </div>
+          </div>
+          
+        {% if current_user.is_anonymous %}
+          <div class="card border mb-4">
+            <div class="card-body">
+              <h6 class="card-title"><i class="bi bi-shield-lock me-2"></i>Privacy & Security</h6>
+              <p class="mb-1">🔒 Twitch and Discord are used for authentication, <strong>no passwords</strong> are ever exchanged with YappR.</p>
+              <p class="mb-0">👀 The only info we access is your <strong>profile ID, username, and avatar</strong>—nothing more.</p>
+            </div>
+          </div>
+          
+          <h5 class="mt-4 text-center">🚀 Ready to dive in?</h5>
+          <p class="text-center">Just click one of the login buttons below. Once you're in, you're all set to go!</p>
 
-
-          <div class="text-center mt-4">
-            <a href="{{ url_for('twitch.login') }}">
-              <img
-                id="twitch"
-                src="https://img.shields.io/badge/Twitch-Login-9146ff?style=for-the-badge&labelColor=black&logo=Twitch"
-                alt="Login with Twitch"
-              />
+          <div class="d-flex justify-content-center gap-4 mt-4">
+            <a href="{{ url_for('twitch.login') }}" class="btn btn-lg btn-outline-primary">
+              <i class="bi bi-twitch me-2"></i>Login with Twitch
+            </a>
+            <a href="{{ url_for('discord.login') }}" class="btn btn-lg btn-outline-primary">
+              <i class="bi bi-discord me-2"></i>Login with Discord
             </a>
           </div>
-          <div class="text-center mt-4">
-            <a href="{{ url_for('discord.login') }}">
-              <img
-                id="discord"
-                src="https://img.shields.io/badge/Discord-Login-7289da?style=for-the-badge&labelColor=black&logo=Discord"
-                alt="Login with Discord"
-              />
-            </a>
-          </div>
-        </div>
         {% else %}
-            <p class="mb-0">You are almost there! </p>
-            <br>
-            <p>You, or a Twitch Moderator need to <a href="{{ url_for('broadcaster.broadcaster_create') }}">create a new broadcaster</a></p>
+          <div class="alert alert-primary" role="alert">
+            <h5 class="alert-heading">You are almost there!</h5>
+            <p>You, or a Twitch Moderator need to <a href="{{ url_for('broadcaster.broadcaster_create') }}" class="alert-link">create a new broadcaster</a></p>
+          </div>
         {% endif %}
+        </div>
       </div>
     </div>
   </div>

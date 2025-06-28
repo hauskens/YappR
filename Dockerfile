@@ -2,20 +2,26 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
 WORKDIR /src
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 
-RUN apt update && apt install -y ffmpeg \
+RUN apt update && apt install -y ffmpeg npm curl \
+  && npm install -g pnpm \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-install-project --no-dev
+COPY pnpm-lock.yaml package.json .
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 ENV PATH="/src/.venv/bin:$PATH"
 
 FROM base AS main
 ADD . .
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
+RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm run build
 
 
 

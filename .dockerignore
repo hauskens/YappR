@@ -6,6 +6,7 @@ cookies.txt
 chatterino_logs
 *.webm
 test_storage
+node_modules
 test_db
 project.db
 .env

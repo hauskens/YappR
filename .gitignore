@@ -5,6 +5,9 @@ test
 test_cache
 test_storage
 cookies.txt
+node_modules
+app/static/css
+app/static/js
 *.webm
 project.db
 test_db

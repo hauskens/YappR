@@ -12,6 +12,9 @@
     <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
     <script src="{{ url_for('static', filename='js/chartjs-plugin-zoom.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/buttons.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/cookieconsent.umd.js') }}"></script>
+    <script src="{{ url_for('static', filename='cookie-config.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/cookieconsent.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='logo.ico') }}" type="image/x-icon">
     <!-- EARLY theme setting -->
     <script>
@@ -70,7 +73,7 @@
   <body class="d-flex flex-column min-vh-100">
     <nav class="navbar navbar-expand-sm bg-body-tertiary sticky-top">
       <div class="container-fluid">
-        <a class="navbar-brand" href="{{ url_for('search.search_page') }}">
+        <a class="navbar-brand" href="{{ url_for('root.index') }}">
         <img src="{{ url_for('static', filename='logo_48.ico') }}" alt="YappR" width="48" height="48" style="margin-right: 5px;">YappR
         </a>
         {% if current_user.is_anonymous == False %}

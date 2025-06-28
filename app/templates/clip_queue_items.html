@@ -1,9 +1,10 @@
 <style>
   /* Custom styles for queue items */
-  .watched-item, .skipped-item {
+  .watched-item,
+  .skipped-item {
     opacity: 0.6;
   }
-  
+
   /* Ensure dropdown components are always visible */
   .queue-item .dropdown,
   .queue-item .dropdown-menu,
@@ -17,40 +18,43 @@
     background-color: rgba(0, 0, 0, 0.2);
     transition: background-color 0.1s ease;
   }
-  
+
   /* Submission badge styles */
   .twitch-badge {
     background-color: #9147FF;
     color: white;
   }
-  
+
   .discord-badge {
     background-color: #7289da;
     color: white;
   }
-  
+
   /* Thumbnail container with fixed height */
   .queue-thumbnail {
     width: 140px;
-    height: 78px; /* 16:9 aspect ratio for 140px width */
+    height: 78px;
+    /* 16:9 aspect ratio for 140px width */
     overflow: hidden;
     position: relative;
   }
-  
+
   .queue-thumbnail img {
     width: 100%;
     height: 100%;
-    object-fit: cover; /* Cover the container while maintaining aspect ratio */
-    object-position: center; /* Center the image */
+    object-fit: cover;
+    /* Cover the container while maintaining aspect ratio */
+    object-position: center;
+    /* Center the image */
   }
-  
+
   /* Prevent horizontal scrollbar */
   .queue-content {
     min-width: 0;
     word-wrap: break-word;
     overflow-wrap: break-word;
   }
-  
+
   /* Ensure queue items don't overflow their container */
   .queue-item {
     width: 100%;
@@ -61,16 +65,12 @@
 
 {% for item in queue_items %}
 <div class="position-relative mb-2">
-  <div class="queue-item list-group-item list-group-item-action py-2 hover-darker {{ 'watched-item' if item.watched }} {{ 'skipped-item' if item.skipped }}"
-  data-id="{{ item.id }}"
-  data-watched="{{ 'true' if item.watched else 'false' }}"
-  data-skipped="{{ 'true' if item.skipped else 'false' }}"
-  data-url="{{ item.content.url }}"
-  hx-get="/clip_queue/player/{{ item.id }}"
-  hx-target="#player-container"
-  hx-swap="innerHTML"
-  hx-trigger="click"
-  hx-on:click="
+  <div
+    class="queue-item list-group-item list-group-item-action py-2 hover-darker {{ 'watched-item' if item.watched }} {{ 'skipped-item' if item.skipped }}"
+    data-id="{{ item.id }}" data-watched="{{ 'true' if item.watched else 'false' }}"
+    data-skipped="{{ 'true' if item.skipped else 'false' }}" data-url="{{ item.content.url }}"
+    hx-get="/clip_queue/player/{{ item.id }}" hx-target="#player-container" hx-swap="innerHTML" hx-trigger="click"
+    hx-on:click="
     // Store the clicked item ID in localStorage
     localStorage.setItem('activeQueueItemId', this.getAttribute('data-id'));
     
@@ -103,8 +103,7 @@
       item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
     });
     this.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-  "
-  hx-on::after-request="
+  " hx-on::after-request="
     document.getElementById('player-container').style.display = 'block';
     document.getElementById('initial-message').classList.add('d-none');
     
@@ -124,102 +123,124 @@
       .then(html => { document.getElementById('clip-details').innerHTML = html; });
     initPlayer();">
 
-  <div class="d-flex px-2 flex-nowrap">
-    <!-- Left column: Thumbnail and badges -->
-    <div class="me-2 d-flex flex-column align-items-start" style="width: 140px; flex-shrink: 0;">
-      {% if item.content.thumbnail_url %} 
-      <div class="queue-thumbnail mb-2 rounded">
-        <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail">
-      </div>
-      {% endif %}
-      
-      <!-- Duration and status badges -->
-      <div class="d-flex flex-wrap align-items-center gap-1 mb-1">
-        {% if item.content.duration %}
+    <div class="d-flex px-2 flex-nowrap">
+      <!-- Left column: Thumbnail and badges -->
+      <div class="me-2 d-flex flex-column align-items-start" style="width: 140px; flex-shrink: 0;">
+        {% if item.content.thumbnail_url %}
+        <div class="queue-thumbnail mb-2 rounded">
+          <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail">
+        </div>
+        {% endif %}
+
+        <!-- Duration and status badges -->
+        <div class="d-flex flex-wrap align-items-center gap-1 mb-1">
+          {% if item.content.duration %}
           {% set minutes = (item.content.duration // 60)|int %}
           {% set seconds = (item.content.duration % 60)|int %}
           <span class="badge bg-secondary">{{ "%d:%02d"|format(minutes, seconds) }}</span>
-        {% endif %}
-        {% if item.watched %}
+          {% endif %}
+          {% if item.watched %}
           <span class="badge bg-success">Watched</span>
-        {% endif %}
-        {% if item.skipped %}
+          {% endif %}
+          {% if item.skipped %}
           <span class="badge bg-warning text-dark">Skipped</span>
-        {% endif %}
-      </div>
-    </div>
-    
-    <!-- Right column: Title and other info -->
-    <div class="queue-content flex-grow-1 d-flex flex-column overflow-hidden">
-      <!-- Title Row -->
-      <div class="queue-title fw-bold text-truncate" title="{{ item.content.title }}">
-        {{ item.content.title }}
-      </div>
-      
-      <!-- Channel badge -->
-      <div class="mt-1">
-        {% if item.content.get_platform() == 'youtube' %}
-          <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000" alt="YouTube badge">
-        {% elif item.content.get_platform() == 'twitch' %}
-          <img src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D" alt="Twitch badge">
-        {% endif %}
+          {% endif %}
+        </div>
       </div>
 
-      <!-- Submission badges -->
-      <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
-        {% if item.submissions %}
+      <!-- Right column: Title and other info -->
+      <div class="queue-content flex-grow-1 d-flex flex-column overflow-hidden">
+        <!-- Title Row -->
+        <div class="queue-title fw-bold text-truncate" title="{{ item.content.title }}">
+          {{ item.content.title }}
+        </div>
+
+        <!-- Channel badge -->
+        <div class="mt-1">
+          {% if item.content.get_platform() == 'youtube' %}
+          <img
+            src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000"
+            alt="YouTube badge">
+          {% elif item.content.get_platform() == 'twitch' %}
+          <img
+            src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D"
+            alt="Twitch badge">
+          {% endif %}
+        </div>
+
+        <!-- Submission badges -->
+        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+          {% if item.submissions %}
           {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
           {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
           {% set minutes_diff = (seconds_diff / 60)|int %}
           {% set hours_diff = (seconds_diff / 3600)|int %}
           {% set days_diff = (hours_diff / 24)|int %}
           <span class="text-muted">•</span>
-          <span class="text-muted" data-bs-toggle="tooltip" title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
-            Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{ hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1 %}s{% endif %}{% endif %} ago by:
+          <span class="text-muted" data-bs-toggle="tooltip"
+            title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+            Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1
+            %}{{ hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if
+            minutes_diff != 1 %}s{% endif %}{% endif %} ago by:
           </span>
-        {% endif %}
-        {% if item.submissions|length > 0 %}
+          {% endif %}
+          {% if item.submissions|length > 0 %}
           {% set submission = item.submissions[0] %}
-          {% set badge_class = 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge' %}
-          <span class="badge {{ badge_class }} opacity-50" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
+          {% set badge_class = 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge'
+          %}
+          <span class="badge {{ badge_class }} opacity-50" data-bs-toggle="tooltip"
+            title="{{ submission.user_comment or '' }}">
             {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
           </span>
           {% if item.submissions|length > 1 %}
-            <span class="badge bg-secondary opacity-50" data-bs-toggle="tooltip" title="{% for s in item.submissions[1:] %}{{ s.user.username }}{% if not loop.last %}, {% endif %}{% endfor %}">
-              +{{ item.submissions|length - 1 }} other{{ 's' if item.submissions|length > 2 else '' }}
-            </span>
+          <span class="badge bg-secondary opacity-50" data-bs-toggle="tooltip"
+            title="{% for s in item.submissions[1:] %}{{ s.user.username }}{% if not loop.last %}, {% endif %}{% endfor %}">
+            +{{ item.submissions|length - 1 }} other{{ 's' if item.submissions|length > 2 else '' }}
+          </span>
           {% endif %}
+          {% endif %}
+        </div>
+        {% if item.watched %}
+        <span class="text-muted">• You watched this at {% if item.get_video_timestamp_url() %}<a
+            href="{{ item.get_video_timestamp_url() }}" target="_blank">{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S')
+            }} VOD</a>{% else %}{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %} </span>
         {% endif %}
       </div>
-      {% if item.watched %}
-        <span class="text-muted">• You watched this at {% if item.get_video_timestamp_url() %}<a href="{{ item.get_video_timestamp_url() }}" target="_blank">{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }} VOD</a>{% else %}{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %} </span>
+      {% if item.watched and item.get_video_timestamp_url() %}
+      <a href="{{ item.get_video_timestamp_url() }}" target="_blank" class="btn btn-sm btn-outline-info"
+        title="Go to VOD timestamp">
+        <i class="bi bi-clock-history"></i> VOD
+      </a>
       {% endif %}
     </div>
-    {% if item.watched and item.get_video_timestamp_url() %}
-    <a href="{{ item.get_video_timestamp_url() }}" target="_blank" class="btn btn-sm btn-outline-info" title="Go to VOD timestamp">
-      <i class="bi bi-clock-history"></i> VOD
-    </a>
-    {% endif %}
+
+    <div class="dropdown" style="position: absolute; top: 0px; right: 0px; z-index: 100;"
+      onclick="event.stopPropagation();">
+      <button class="btn btn-lg p-1" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+        onclick="event.stopPropagation();">
+        <i class="bi bi-three-dots-vertical fs-5"></i>
+      </button>
+      <ul class="dropdown-menu">
+        <li><a class="dropdown-item" href="javascript:void(0)" hx-post="/clip_queue/mark_watched/{{ item.id }}"
+            hx-swap="none" hx-on::after-request="htmx.trigger(document.body, 'queue_update')" hx-target="this">
+            Mark as {{ 'Unwatched' if item.watched else 'Watched' }}</a></li>
+        <li><a class="dropdown-item" href="javascript:void(0)" hx-post="/clip_queue/item/{{ item.id }}/skip"
+            hx-swap="none" hx-on::after-request="htmx.trigger(document.body, 'queue_update')" hx-target="this">
+            Skip</a></li>
+      </ul>
+    </div>
   </div>
-  
-  <div class="dropdown" style="position: absolute; top: 0px; right: 0px; z-index: 100;" onclick="event.stopPropagation();">
-    <button class="btn btn-lg p-1" type="button" data-bs-toggle="dropdown" aria-expanded="false" onclick="event.stopPropagation();">
-      <i class="bi bi-three-dots-vertical fs-5"></i>
+  {% endfor %}
+
+  {% if has_more %}
+  <!-- Loading indicator that triggers the next page load when it becomes visible -->
+
+  <div id="load-more-{{ page }}" class="loading-indicator d-flex justify-content-center">
+    <button class="btn btn-sm btn-outline-secondary"
+      hx-get="/clip_queue/items{{ '?show_history=true' if show_history else '' }}&page={{ next_page }}"
+      hx-target="#load-more-{{ page }}" hx-swap="outerHTML" hx-indicator=".htmx-indicator">
+      <i class="bi bi-chevron-down"></i>
+      Load more clips
     </button>
-    <ul class="dropdown-menu">
-      <li><a class="dropdown-item" href="javascript:void(0)" 
-             hx-post="/clip_queue/mark_watched/{{ item.id }}" 
-             hx-swap="none" 
-             hx-on::after-request="htmx.trigger(document.body, 'queue_update')"
-             hx-target="this">
-             Mark as {{ 'Unwatched' if item.watched else 'Watched' }}</a></li>
-      <li><a class="dropdown-item" href="javascript:void(0)" 
-             hx-post="/clip_queue/item/{{ item.id }}/skip" 
-             hx-swap="none" 
-             hx-on::after-request="htmx.trigger(document.body, 'queue_update')"
-             hx-target="this">
-             Skip</a></li>
-    </ul>
   </div>
-</div> 
-{% endfor %}
+  {% endif %}

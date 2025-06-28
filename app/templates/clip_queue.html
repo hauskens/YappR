@@ -135,12 +135,12 @@
           <div class="card-body p-0">
             <div class="tab-content" id="queue-tabs-content">
               <div class="tab-pane fade show active" id="upcoming" role="tabpanel" aria-labelledby="upcoming-tab">
-                <div id="queue-items" class="overflow-auto custom-scrollbar" style="max-height: calc(95vh - 200px);" hx-get="/clip_queue/items" hx-trigger="load, queue_update from:body" hx-swap="innerHTML" hx-vals='js:{"prefer_shorter": document.getElementById("prefer-short-toggle") ? document.getElementById("prefer-short-toggle").checked : true}'>
+                <div id="queue-items" class="overflow-auto custom-scrollbar" style="max-height: calc(95vh - 200px);" hx-get="/clip_queue/items?page=1" hx-trigger="load, queue_update from:body" hx-swap="innerHTML" hx-vals='js:{"prefer_shorter": document.getElementById("prefer-short-toggle") ? document.getElementById("prefer-short-toggle").checked : true}'>
                   <!-- Queue items will be loaded here via HTMX -->
                 </div>
               </div>
               <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
-                <div id="history-items" class="overflow-auto custom-scrollbar" style="max-height: calc(95vh - 200px);" hx-get="/clip_queue/items?show_history=true" hx-trigger="click from:#history-tab, history_update from:body" hx-swap="innerHTML">
+                <div id="history-items" class="overflow-auto custom-scrollbar" style="max-height: calc(95vh - 200px);" hx-get="/clip_queue/items?show_history=true&page=1" hx-trigger="click from:#history-tab, history_update from:body" hx-swap="innerHTML">
                   <!-- History items will be loaded here via HTMX -->
                 </div>
               </div>
@@ -415,6 +415,25 @@
     var activeItem = document.querySelector('.queue-item.active');
     var foundCurrent = false;
     
+    // If we're excluding the current item and it's the only one that's unwatched,
+    // we need to recognize this is the last item
+    if (excludeCurrentItem && activeItem) {
+      // Count unwatched items
+      var unwatchedCount = 0;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].getAttribute('data-watched') === 'false') {
+          unwatchedCount++;
+          // If we find more than one unwatched item, we can break early
+          if (unwatchedCount > 1) break;
+        }
+      }
+      
+      // If there's only one unwatched item (the current one), return null
+      if (unwatchedCount === 1 && activeItem.getAttribute('data-watched') === 'false') {
+        return null;
+      }
+    }
+    
     // First try to find an unwatched and non-skipped item after the current one
     for (var i = 0; i < items.length; i++) {
       // Skip the current active item if excludeCurrentItem is true
@@ -470,8 +489,8 @@
       return new bootstrap.Tooltip(tooltipTriggerEl);
     });
     
-    // Restore active state if queue items were updated
-    if (e.detail.target.id === 'queue-items') {
+    // Only restore active state if queue items were updated and not during infinite scroll
+    if ((e.detail.target.id === 'queue-items' || e.detail.target.id === 'history-items') && !e.detail.pathInfo.requestPath.includes('page=')) {
       const activeItemId = localStorage.getItem('activeQueueItemId');
       if (activeItemId) {
         // Remove active class from all items

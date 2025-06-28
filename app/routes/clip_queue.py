@@ -120,6 +120,11 @@ def get_queue_items():
         show_history = request.args.get('show_history', 'false').lower() == 'true'
         prefer_shorter = request.args.get('prefer_shorter', 'false').lower() == 'true'
         
+        # Support pagination - default to 20 items per page
+        page = max(int(request.args.get('page', 1)), 1)  # Ensure page is at least 1
+        limit = int(request.args.get('limit', 20))
+        offset = (page - 1) * limit
+        
         broadcaster = get_broadcaster_by_external_id(current_user.external_account_id) 
         queue_enabled = False
         for channel in broadcaster.channels:
@@ -143,12 +148,27 @@ def get_queue_items():
                 # For upcoming queue, sort by score
                 queue_items.sort(key=lambda item: clip_score(item, now=now, prefer_shorter=prefer_shorter), reverse=True)
                 
-            if len(queue_items) == 0:
+            # Store total count before pagination
+            total_items = len(queue_items)
+            
+            # Apply pagination
+            paginated_items = queue_items[offset:offset + limit]
+            
+            # Check if there are more items to load
+            has_more = total_items > offset + limit
+            next_page = page + 1 if has_more else None
+            
+            if len(paginated_items) == 0 and page == 1:
                 return "No clips found" if show_history else "No more clips :("
+            elif len(paginated_items) == 0:
+                return "" # Return empty for additional pages with no content
                 
             logger.info("Successfully loaded clip queue items", extra={
                 "broadcaster_id": broadcaster.id, 
-                "queue_items": len(queue_items), 
+                "queue_items": len(paginated_items),
+                "total_items": total_items,
+                "page": page,
+                "has_more": has_more,
                 "user_id": current_user.id,
                 "show_history": show_history,
                 "prefer_shorter": prefer_shorter
@@ -156,11 +176,14 @@ def get_queue_items():
             
             return render_template(
                 "clip_queue_items.html",
-                queue_items=queue_items,
+                queue_items=paginated_items,
                 broadcaster=broadcaster,
                 now=datetime.now(),
                 show_history=show_history,
-                prefer_shorter=prefer_shorter
+                prefer_shorter=prefer_shorter,
+                page=page,
+                has_more=has_more,
+                next_page=next_page
             )
         elif broadcaster is not None and not queue_enabled:
             return "You have disabled the queue, visit <a href='/broadcaster/edit/" + str(broadcaster.id) + "'>broadcaster settings</a> to enable it"

@@ -6,7 +6,9 @@
     "install-deps": "pnpm install && pnpm run build"
   },
   "dependencies": {
+    "bootstrap": "^5.3.7",
     "bootstrap-icons": "^1.13.1",
+    "bootswatch": "^5.3.7",
     "chart.js": "^4.5.0",
     "chartjs-plugin-zoom": "^2.2.0",
     "github-buttons": "^2.29.1",

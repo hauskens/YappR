@@ -1,11 +1,10 @@
-{% from 'bootstrap5/nav.html' import render_nav_item %}
-{% from 'bootstrap5/utils.html' import render_messages %}
 <!doctype html>
 <html lang="en">
   <head>
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
     <script src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
     <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
@@ -14,9 +13,10 @@
     <script src="{{ url_for('static', filename='js/buttons.js') }}"></script>
     <script src="{{ url_for('static', filename='js/cookieconsent.umd.js') }}"></script>
     <script src="{{ url_for('static', filename='cookie-config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/cookieconsent.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='logo.ico') }}" type="image/x-icon">
-    <!-- EARLY theme setting -->
+    <!-- EARLY theme setting to avoid flicker when page loads -->
     <script>
         (function() {
             const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
@@ -26,52 +26,37 @@
     {% block styles %}
 
     {% endblock %}
-        {{ bootstrap.load_css() }}
-          <style>
-            .modal.fade .modal-dialog {
-              transition: transform 0.1s ease-out, opacity 0.5s ease-out;
-            }
-          </style>
-          <style>
-            details[open] > summary::after {
-              transform: rotate(180deg);
-            }
-          
-            details summary::-webkit-details-marker {
-              display: none; /* Hides the default arrow in most browsers */
-            }
-          
-            .dropdown-menu {
-              position: absolute;
-              background-color: var(--bs-body-bg);
-              border: 1px solid rgba(0, 0, 0, 0.15);
-              border-radius: 0.25rem;
-              z-index: 1000;
-              box-shadow: 0 .5rem 1rem rgba(0, 0, 0, .15);
-            }
-          
-            .dropdown details {
-              position: relative;
-            }
-          </style>        
-          <style>
-            .icon {
-              width: 1em;
-              height: 1em;
-              vertical-align: -0.125em;
-              fill: #007bff;
-            }
-          </style>
-          <style>
-            .navbar {
-              transition: top 0.3s;
-            }
-          </style>
+    <style>
+      .modal.fade .modal-dialog {
+        transition: transform 0.1s ease-out, opacity 0.5s ease-out;
+      }
+      details[open] > summary::after {
+        transform: rotate(180deg);
+      }
+    
+      .icon {
+        width: 1em;
+        height: 1em;
+        vertical-align: -0.125em;
+        fill: #007bff;
+      }
+      
+      /* Fix for list-group-item background in light mode with Pulse theme */
+      [data-bs-theme=light] .list-group-item {
+        background-color: var(--bs-body-bg);
+        color: var(--bs-body-color);
+      }
+      
+      /* Add hover effect for list-group-item in light mode */
+      [data-bs-theme=light] .list-group-item:hover {
+        background-color: rgba(var(--bs-primary-rgb), 0.05);
+      }
+    </style>
     <title>YappR</title>
     {% endblock %}
   </head>
   <body class="d-flex flex-column min-vh-100">
-    <nav class="navbar navbar-expand-sm bg-body-tertiary sticky-top">
+    <nav class="navbar navbar-expand-sm bg-body-tertiary sticky-top py-1">
       <div class="container-fluid">
         <a class="navbar-brand" href="{{ url_for('root.index') }}">
         <img src="{{ url_for('static', filename='logo_48.ico') }}" alt="YappR" width="48" height="48" style="margin-right: 5px;">YappR
@@ -79,29 +64,29 @@
         {% if current_user.is_anonymous == False %}
           <div class="collapse navbar-collapse" id="navbarScroll">
             <div class="navbar-nav ">
-              {{ render_nav_item('search.search_page', 'Search') }}
-              {{ render_nav_item('clip_queue.clip_queue', 'Clip Queue') }}
-              {{ render_nav_item('broadcaster.broadcasters', 'Broadcasters')}}
+              <a class="nav-link" href="{{ url_for('search.search_page') }}">Search</a>
+              <a class="nav-link" href="{{ url_for('clip_queue.clip_queue') }}">Clip Queue</a>
+              <a class="nav-link" href="{{ url_for('broadcaster.broadcasters') }}">Broadcasters</a>
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
-                {{ render_nav_item('root.users', 'Users') }}
-                {{ render_nav_item('root.utils', 'Utils') }}
+                <a class="nav-link" href="{{ url_for('root.users') }}">Users</a>
+                <a class="nav-link" href="{{ url_for('root.utils') }}">Utils</a>
               {% endif %}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
-                {{ render_nav_item('management.management', 'Management') }}
-                {{ render_nav_item('celery_active_tasks_view', 'Workers') }}
-                {{ render_nav_item('root.utils', 'Utils') }}
+                <a class="nav-link" href="{{ url_for('management.management') }}">Management</a>
+                <a class="nav-link" href="{{ url_for('celery_active_tasks_view') }}">Workers</a>
+                <a class="nav-link" href="{{ url_for('root.utils') }}">Utils</a>
               {% elif current_user.is_anonymous == False and current_user.is_broadcaster() %}
-                {{ render_nav_item('management.management', 'Management') }}
+                <a class="nav-link" href="{{ url_for('management.management') }}">Management</a>
               {% endif %}
-              {{ render_nav_item('root.stats', 'Stats') }}
+              <a class="nav-link" href="{{ url_for('root.stats') }}">Stats</a>
             </div>
           </div>
         {% else %}
           <div class="collapse navbar-collapse" id="navbarScroll">
             <div class="navbar-nav mr-auto">
-              {{ render_nav_item('search.search_page', 'Search') }}
-              {{ render_nav_item('clip_queue.clip_queue', 'Clip Queue') }}
-              {{ render_nav_item('root.stats', 'Stats') }}
+              <a class="nav-link" href="{{ url_for('search.search_page') }}">Search</a>
+              <a class="nav-link" href="{{ url_for('clip_queue.clip_queue') }}">Clip Queue</a>
+              <a class="nav-link" href="{{ url_for('root.stats') }}">Stats</a>
             </div>
           </div>
         {% endif %}
@@ -159,8 +144,6 @@
               }
           });
       })();
-    </script>
-    <script>
       let lastScrollTop = 0;
       const navbar = document.querySelector('.navbar');
 
@@ -178,7 +161,6 @@
             lastScrollTop = currentScroll <= 0 ? 0 : currentScroll; // For Mobile or negative scrolling
           });
     </script>
-    {{ bootstrap.load_js() }}
     {% block extra_scripts %}{% endblock %}
     <footer class="footer mt-auto text-center text-white bg-body-tertiary w-100 p-2">
       <div class="d-flex justify-content-center align-items-center gap-2 text-body-secondary fs-6">

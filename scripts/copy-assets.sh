@@ -11,6 +11,8 @@ cp node_modules/chart.js/dist/chart.umd.js app/static/js/
 cp node_modules/chartjs-plugin-zoom/dist/chartjs-plugin-zoom.min.js app/static/js/
 cp node_modules/github-buttons/dist/buttons.js app/static/js/
 cp node_modules/vanilla-cookieconsent/dist/cookieconsent.umd.js app/static/js/
+cp node_modules/bootstrap/dist/js/bootstrap.bundle.min.js app/static/js/
+cp node_modules/bootswatch/dist/pulse/bootstrap.min.css app/static/css/
 
 echo "✓ Copied all JavaScript dependencies"
 

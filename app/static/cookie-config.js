@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 readOnly: true
             },
         },
-        disablePageInteraction: true,
         language: {
             default: "en",
             autoDetect: "browser",

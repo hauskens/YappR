@@ -144,22 +144,6 @@
               }
           });
       })();
-      let lastScrollTop = 0;
-      const navbar = document.querySelector('.navbar');
-
-      window.addEventListener('scroll', function() {
-        const currentScroll = window.pageYOffset || document.documentElement.scrollTop;
-
-            if (currentScroll > lastScrollTop) {
-              // Scrolling down
-              navbar.style.top = '-100px'; // Hide (adjust based on your navbar height)
-            } else {
-              // Scrolling up
-              navbar.style.top = '0';
-            }
-
-            lastScrollTop = currentScroll <= 0 ? 0 : currentScroll; // For Mobile or negative scrolling
-          });
     </script>
     {% block extra_scripts %}{% endblock %}
     <footer class="footer mt-auto text-center text-white bg-body-tertiary w-100 p-2">

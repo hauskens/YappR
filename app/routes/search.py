@@ -9,8 +9,7 @@ from app.utils import get_valid_date
 search_blueprint = Blueprint('search', __name__, url_prefix='/search', template_folder='templates', static_folder='static')
 
 # TODO: Ban check
-@search_blueprint.route("")
-@search_blueprint.route("/") # For backwards compatibility
+@search_blueprint.route("", strict_slashes=False)
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 def search_page():
     broadcasters = get_broadcasters()
@@ -18,7 +17,7 @@ def search_page():
     return render_template("search.html", broadcasters=broadcasters)
 
 
-@search_blueprint.route("/", methods=["POST"])
+@search_blueprint.route("", methods=["POST"], strict_slashes=False)
 @limiter.shared_limit("100 per day, 5 per minute", exempt_when=rate_limit_exempt, scope="query")
 def search_word():
     logger.info("User searching something..")

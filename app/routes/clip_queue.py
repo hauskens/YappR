@@ -12,7 +12,7 @@ import random
 socketio = SocketIO()
 
 clip_queue_blueprint = Blueprint('clip_queue', __name__, url_prefix='/clip_queue', template_folder='templates', static_folder='static')
-@clip_queue_blueprint.route("")
+@clip_queue_blueprint.route("", strict_slashes=False)
 def clip_queue():
     logger.info("Loading clip queue")
     messages = [

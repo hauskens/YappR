@@ -47,6 +47,13 @@ def management_items():
         broadcaster_id = request.args.get('broadcaster_id', type=int)
         sort_by = request.args.get('sort_by', 'newest')
         
+        # Pagination parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 20, type=int)  # Default: show 20 items per page
+        
+        # Search parameter
+        search_query = request.args.get('search', '').strip()
+        
         # Handle checkbox values - checkboxes only send values when checked
         show_watched_param = request.args.get('show_watched')
         show_skipped_param = request.args.get('show_skipped')
@@ -56,9 +63,8 @@ def management_items():
         show_skipped = show_skipped_param != 'false' if show_skipped_param is not None else False
         
         # Debug log the received parameters
-        logger.debug(f"Filter params: broadcaster_id={broadcaster_id}, sort_by={sort_by}, show_watched={show_watched}, show_skipped={show_skipped}")
+        logger.debug(f"Filter params: broadcaster_id={broadcaster_id}, sort_by={sort_by}, show_watched={show_watched}, show_skipped={show_skipped}, page={page}, search={search_query}")
         logger.debug(f"All request args: {request.args}")
-        
         
         # If no broadcaster_id is provided and user is a broadcaster, use their broadcaster_id
         if broadcaster_id is None and current_user.is_broadcaster():
@@ -78,6 +84,16 @@ def management_items():
         if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):
             queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
         
+        # Apply search filter if provided
+        if search_query:
+            queue_items = [
+                item for item in queue_items if 
+                search_query.lower() in item.content.title.lower() or
+                search_query.lower() in item.content.channel_name.lower() or
+                any(search_query.lower() in submission.user.username.lower() for submission in item.submissions) or
+                any(submission.user_comment and search_query.lower() in submission.user_comment.lower() for submission in item.submissions)
+            ]
+        
         # Apply sorting
         if sort_by == 'oldest':
             # Sort by oldest first (based on first submission date)
@@ -89,17 +105,40 @@ def management_items():
             # Sort by newest first (based on first submission date)
             queue_items = sorted(queue_items, key=lambda x: min(s.submitted_at for s in x.submissions) if x.submissions else datetime.now(), reverse=True)
         
+        # Calculate pagination metadata
+        total_items = len(queue_items)
+        total_pages = (total_items + per_page - 1) // per_page  # Ceiling division
+        
+        # Ensure page number is valid
+        if page < 1:
+            page = 1
+        elif page > total_pages and total_pages > 0:
+            page = total_pages
+        
+        # Apply pagination
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated_items = queue_items[start_idx:end_idx]
+        
         logger.info("Successfully loaded management items", extra={
             "broadcaster_id": broadcaster_id, 
-            "queue_items": len(queue_items),
-            "filters": {"show_watched": show_watched, "show_skipped": show_skipped, "sort_by": sort_by}
+            "queue_items": len(paginated_items),
+            "total_items": total_items,
+            "page": page,
+            "total_pages": total_pages,
+            "filters": {"show_watched": show_watched, "show_skipped": show_skipped, "sort_by": sort_by, "search": search_query}
         })
         
         return render_template(
             "management_items.html",
-            queue_items=queue_items,
+            queue_items=paginated_items,
             selected_broadcaster_id=broadcaster_id,
             now=datetime.now(),
+            page=page,
+            per_page=per_page,
+            total_items=total_items,
+            total_pages=total_pages,
+            search_query=search_query
         )
     except Exception as e:
         logger.error("Error loading management items: %s", e)

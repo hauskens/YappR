@@ -1,12 +1,22 @@
-{% if queue_items %}
-  <div class="row mb-1">
+{% if total_items > 0 %}
+  <!-- Search results info -->
+  <div class="d-flex justify-content-between mb-3 align-items-center">
+    <div>
+      <p class="mb-0">
+        Showing {{ queue_items|length }} of {{ total_items }} items
+        {% if search_query %}<span class="ms-2 badge bg-info">Search: "{{ search_query }}"</span>{% endif %}
+      </p>
+    </div>
+  </div>
+  
+  <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-6 g-3 mb-4">
   {% for item in queue_items %}
     <div class="col">
-      <div class="card mb-3 {% if item.watched %}border-success{% elif item.skipped %}border-warning{% endif %}" id="item-{{ item.id }}" style="width: 242px;">
+      <div class="card h-100 {% if item.watched %}border-success{% elif item.skipped %}border-warning{% endif %}" id="item-{{ item.id }}">
           {% if item.content.thumbnail_url %}
-            <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="rounded-2" style="max-height: 136px; width: 240px; object-position: center; object-fit: cover;">
+            <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="card-img-top" style="height: 136px; object-position: center; object-fit: cover;">
           {% else %}
-            <div class="bg-light d-flex align-items-center justify-content-center" style="max-height: 136px; width: 240px;">
+            <div class="bg-light d-flex align-items-center justify-content-center" style="height: 136px;">
               <i class="bi bi-play-circle fs-1"></i>
             </div>
           {% endif %}
@@ -93,8 +103,45 @@
     </div>
   {% endfor %}
   </div>
+  
+  <!-- Pagination controls -->  
+  {% if total_pages > 1 %}
+  <div id="pagination-container" class="mt-4">
+  <nav aria-label="Page navigation" class="mt-4">
+    <ul class="pagination justify-content-center">
+      <!-- Previous button -->      
+      <li class="page-item {% if page == 1 %}disabled{% endif %}">
+        <a class="page-link" {% if page > 1 %}data-page="{{ page - 1 }}"{% endif %} href="#" aria-label="Previous">
+          <span aria-hidden="true">&laquo;</span>
+        </a>
+      </li>
+      
+      <!-- Page numbers -->      
+      {% set start_page = [page - 2, 1] | max %}
+      {% set end_page = [start_page + 4, total_pages] | min %}
+      {% set start_page = [end_page - 4, 1] | max %}
+      
+      {% for p in range(start_page, end_page + 1) %}
+        <li class="page-item {% if p == page %}active{% endif %}">
+          <a class="page-link" data-page="{{ p }}" href="#">{{ p }}</a>
+        </li>
+      {% endfor %}
+      
+      <!-- Next button -->      
+      <li class="page-item {% if page == total_pages %}disabled{% endif %}">
+        <a class="page-link" {% if page < total_pages %}data-page="{{ page + 1 }}"{% endif %} href="#" aria-label="Next">
+          <span aria-hidden="true">&raquo;</span>
+        </a>
+      </li>
+    </ul>
+  </nav>
+  </div>
+  {% endif %}
 {% else %}
   <div class="alert alert-info">
-    <i class="bi bi-info-circle me-2"></i> No content queue items found{% if selected_broadcaster_id %} for the selected broadcaster{% endif %}.
+    <i class="bi bi-info-circle me-2"></i> No content queue items found{% if search_query %} matching "{{ search_query }}"{% elif selected_broadcaster_id %} for the selected broadcaster{% endif %}.
   </div>
+  
+  <!-- Empty pagination placeholder for when there are no results -->  
+  <div id="pagination-container" class="mt-4"></div>
 {% endif %}

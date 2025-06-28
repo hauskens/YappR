@@ -117,18 +117,49 @@
       <div class="col-lg-4">
         <div class="card">
           <div class="card-header">
-            <div class="d-flex justify-content-between align-items-center">
-              <ul class="nav nav-tabs card-header-tabs" id="queue-tabs">
-                <li class="nav-item">
-                  <a class="nav-link active" id="upcoming-tab" data-bs-toggle="tab" href="#upcoming" role="tab" aria-controls="upcoming" aria-selected="true">Up Next</a>
-                </li>
-                <li class="nav-item">
-                  <a class="nav-link" id="history-tab" data-bs-toggle="tab" href="#history" role="tab" aria-controls="history" aria-selected="false">History</a>
-                </li>
-              </ul>
+            <!-- Tab structure with Bootstrap buttons -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <div class="btn-group" role="tablist" id="queue-tabs">
+                <button type="button" class="btn btn-sm btn-outline-primary active" id="upcoming-tab" data-bs-toggle="tab" data-bs-target="#upcoming" role="tab" aria-controls="upcoming" aria-selected="true">Up Next</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" role="tab" aria-controls="history" aria-selected="false">History</button>
+              </div>
               <div class="form-check form-switch">
                 <input class="form-check-input" type="checkbox" id="prefer-short-toggle" hx-on:click="togglePreferShort()" checked>
                 <label class="form-check-label small" for="prefer-short-toggle">Prefer short content</label>
+              </div>
+            </div>
+            
+            <!-- Search inputs for both tabs -->
+            <div class="mb-2">
+              <div id="upcoming-search" class="input-group input-group-sm">
+                <span class="input-group-text bg-transparent border-end-0">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input type="text" id="upcoming-search-input" class="form-control border-start-0" 
+                       placeholder="Search clips..." 
+                       hx-get="/clip_queue/items" 
+                       hx-target="#queue-items" 
+                       hx-trigger="keyup changed delay:500ms" 
+                       hx-include="#prefer-short-toggle"
+                       name="search"
+                       hx-indicator="#upcoming-search-spinner">
+                <span id="upcoming-search-spinner" class="htmx-indicator spinner-border spinner-border-sm" role="status"></span>
+              </div>
+              
+              <div id="history-search" class="input-group input-group-sm" style="display:none;">
+                <span class="input-group-text bg-transparent border-end-0">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input type="text" id="history-search-input" class="form-control border-start-0" 
+                       placeholder="Search history..." 
+                       hx-get="/clip_queue/items" 
+                       hx-target="#history-items" 
+                       hx-trigger="keyup changed delay:500ms" 
+                       hx-include="#prefer-short-toggle"
+                       name="search"
+                       hx-vals='{"show_history": "true"}'                      
+                       hx-indicator="#history-search-spinner">
+                <span id="history-search-spinner" class="htmx-indicator spinner-border spinner-border-sm" role="status"></span>
               </div>
             </div>
           </div>
@@ -178,6 +209,19 @@
     // Trigger a refresh of the queue items
     htmx.trigger(document.body, 'queue_update');
   }
+  
+  // Toggle search inputs based on active tab
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('upcoming-tab').addEventListener('click', function() {
+      document.getElementById('upcoming-search').style.display = 'flex';
+      document.getElementById('history-search').style.display = 'none';
+    });
+    
+    document.getElementById('history-tab').addEventListener('click', function() {
+      document.getElementById('upcoming-search').style.display = 'none';
+      document.getElementById('history-search').style.display = 'flex';
+    });
+  });
   
   htmx.config.wsReconnectDelay = function (retryCount) {
       const base   = 1000;          // 5 000 ms = 5 s

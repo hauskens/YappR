@@ -120,6 +120,9 @@ def get_queue_items():
         show_history = request.args.get('show_history', 'false').lower() == 'true'
         prefer_shorter = request.args.get('prefer_shorter', 'false').lower() == 'true'
         
+        # Search parameter
+        search_query = request.args.get('search', '').strip()
+        
         # Support pagination - default to 20 items per page
         page = max(int(request.args.get('page', 1)), 1)  # Ensure page is at least 1
         limit = int(request.args.get('limit', 20))
@@ -138,6 +141,16 @@ def get_queue_items():
             # Filter out rickroll if not active and not admin/mod
             if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):
                 queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
+            
+            # Apply search filter if provided
+            if search_query:
+                queue_items = [
+                    item for item in queue_items if 
+                    search_query.lower() in item.content.title.lower() or
+                    search_query.lower() in item.content.channel_name.lower() or
+                    any(submission.user_comment and search_query.lower() in submission.user_comment.lower() for submission in item.submissions) or
+                    any(search_query.lower() in submission.user.username.lower() for submission in item.submissions)
+                ]
             
             # Sort items - for history tab, we might want to sort differently
             now = datetime.now(timezone.utc)
@@ -183,7 +196,8 @@ def get_queue_items():
                 prefer_shorter=prefer_shorter,
                 page=page,
                 has_more=has_more,
-                next_page=next_page
+                next_page=next_page,
+                search_query=search_query
             )
         elif broadcaster is not None and not queue_enabled:
             return "You have disabled the queue, visit <a href='/broadcaster/edit/" + str(broadcaster.id) + "'>broadcaster settings</a> to enable it"

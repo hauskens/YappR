@@ -64,17 +64,40 @@
   <h1 class="mb-2">Content Queue Management</h1>
   
   <!-- Filter and Controls Row -->
-  <div class="row mb-6">
-    <div class="col-md-6">
+  <div class="row mb-4">
+    <div class="col-md-12">
       <div class="card">
         <div class="card-header">
           <h5 class="mb-0">Filters & Controls</h5>
         </div>
         <div class="card-body">
           <div class="row g-3">
+            <!-- Search Box -->
             <div class="col-md-4">
+              <label for="search-input" class="form-label">Search</label>
+              <div class="input-group">
+                <input type="text" id="search-input" name="search" class="form-control filter-control" 
+                       placeholder="Search by title, channel or user" 
+                       hx-get="/management/items" 
+                       hx-target="#queue-items-container" 
+                       hx-trigger="keyup changed delay:500ms" 
+                       hx-include=".filter-control" 
+                       hx-indicator=".search-indicator">
+                <span class="input-group-text search-indicator htmx-indicator">
+                  <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </span>
+              </div>
+            </div>
+            <!-- Broadcaster Select -->
+            <div class="col-md-3">
               <label for="broadcaster-select" class="form-label">Broadcaster</label>
-              <select id="broadcaster-select" name="broadcaster_id" class="form-select filter-control" hx-get="/management/items" hx-target="#queue-items-container" hx-trigger="change" hx-include=".filter-control">
+              <select id="broadcaster-select" name="broadcaster_id" class="form-select filter-control" 
+                      hx-get="/management/items" 
+                      hx-target="#queue-items-container" 
+                      hx-trigger="change" 
+                      hx-include=".filter-control">
                 {% for broadcaster in broadcasters %}
                   <option value="{{ broadcaster.id }}" {% if selected_broadcaster_id == broadcaster.id %}selected{% endif %}>
                     {{ broadcaster.name }}
@@ -82,26 +105,51 @@
                 {% endfor %}
               </select>
             </div>
-            <div class="col-md-3">
+            <!-- Sort By -->
+            <div class="col-md-2">
               <label class="form-label">Sort By</label>
-              <select class="form-select filter-control" name="sort_by" hx-get="/management/items" hx-target="#queue-items-container" hx-trigger="change" hx-include=".filter-control">
+              <select class="form-select filter-control" name="sort_by" 
+                      hx-get="/management/items" 
+                      hx-target="#queue-items-container" 
+                      hx-trigger="change" 
+                      hx-include=".filter-control">
                 <option value="newest">Newest First</option>
                 <option value="oldest">Oldest First</option>
                 <option value="most_submitted">Most Submitted</option>
               </select>
             </div>
-           <hr> 
-            <div class="col-md-3">
+            <!-- Items Per Page -->
+            <div class="col-md-2">
+              <label class="form-label">Items Per Page</label>
+              <select class="form-select filter-control" name="per_page" 
+                      hx-get="/management/items" 
+                      hx-target="#queue-items-container" 
+                      hx-trigger="change" 
+                      hx-include=".filter-control">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100">100</option>
+              </select>
+            </div>
+            <hr>
+            <!-- Status Filters -->
+            <div class="col-md-4">
               <label class="form-label">Status Filter</label>
               <div class="d-flex gap-2">
                 <div class="form-check form-check-inline">
                   <input class="form-check-input filter-control" type="checkbox" id="show-watched" name="show_watched" value="true" checked 
-                         hx-get="/management/items" hx-target="#queue-items-container" hx-trigger="change" hx-include=".filter-control">
+                         hx-get="/management/items" 
+                         hx-target="#queue-items-container" 
+                         hx-trigger="change" 
+                         hx-include=".filter-control">
                   <label class="form-check-label" for="show-watched">Watched</label>
                 </div>
                 <div class="form-check form-check-inline">
                   <input class="form-check-input filter-control" type="checkbox" id="show-skipped" name="show_skipped" value="true" checked
-                         hx-get="/management/items" hx-target="#queue-items-container" hx-trigger="change" hx-include=".filter-control">
+                         hx-get="/management/items" 
+                         hx-target="#queue-items-container" 
+                         hx-trigger="change" 
+                         hx-include=".filter-control">
                   <label class="form-check-label" for="show-skipped">Skipped</label>
                 </div>
               </div>
@@ -116,9 +164,14 @@
     
   
   <!-- Content Queue Cards -->
-  <div id="queue-items-container" hx-get="/management/items" hx-trigger="load, change from:body, queue_update from:body" hx-include=".filter-control" hx-swap="innerHTML">
+  <div id="queue-items-container" 
+      hx-get="/management/items" 
+      hx-trigger="load, change from:body, queue_update from:body" 
+      hx-include=".filter-control" 
+      hx-swap="innerHTML" 
+      hx-indicator="#main-loading-indicator">
     <!-- Content will be loaded via HTMX -->
-    <div class="d-flex justify-content-center my-5">
+    <div id="main-loading-indicator" class="d-flex justify-content-center my-5">
       <div class="spinner-border" role="status">
         <span class="visually-hidden">Loading...</span>
       </div>
@@ -165,74 +218,38 @@
     document.querySelectorAll('input[type="checkbox"].filter-control').forEach(checkbox => {
       checkbox.addEventListener('change', function() {
         console.log(`Checkbox ${this.name} changed to ${this.checked}`);
-        
-        // Force a refresh of the queue items
-        htmx.trigger('#queue-items-container', 'queue_update');
       });
     });
     
-    // Add a click handler to the broadcaster select
-    document.querySelector('#broadcaster-select').addEventListener('change', function() {
-      console.log(`Broadcaster select changed to ${this.value}`);
-    });
-  });
-</script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-  document.querySelectorAll('form.js-background-post').forEach(function (form, idx) {
-    form.addEventListener('submit', function (e) {
-      e.preventDefault();
-
-      const button = form.querySelector('button');
-      if (button) button.disabled = true;
-
-      const card = form.closest('.card');
-      if (!card) return;
-
-      const actionType = form.action.includes('mark_clip_watched') ? 'watched' : 'skipped';
-
-      const formData = new FormData(form);
-      fetch(form.action, {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'X-Requested-With': 'XMLHttpRequest',
+    // Navigate paginated results without losing filters
+    document.body.addEventListener('click', function(e) {
+      if (e.target.matches('[data-page]') || e.target.closest('[data-page]')) {
+        e.preventDefault();
+        const pageLink = e.target.matches('[data-page]') ? e.target : e.target.closest('[data-page]');
+        const page = pageLink.getAttribute('data-page');
+        
+        // Update the page input hidden field
+        const pageInput = document.createElement('input');
+        pageInput.type = 'hidden';
+        pageInput.name = 'page';
+        pageInput.value = page;
+        pageInput.className = 'filter-control';
+        
+        // Remove any existing page input
+        const existingPageInput = document.querySelector('input[name="page"].filter-control');
+        if (existingPageInput) {
+          existingPageInput.remove();
         }
-      }).then(response => response.json())
-        .then(data => {
-          form.style.display = 'none';
-
-          const badgeContainer = card.querySelector('.position-absolute.top-0.end-0.p-2');
-          if (!badgeContainer) return;
-
-          if (actionType === 'watched') {
-            card.classList.remove('border-success');
-            if (!badgeContainer.querySelector('.badge.bg-success')) {
-              const badge = document.createElement('span');
-              badge.className = 'badge bg-success';
-              badge.textContent = 'Watched';
-              badgeContainer.appendChild(badge);
-            }
-
-            const skipForm = card.querySelector('form[action*="skip"]');
-            if (skipForm) skipForm.style.display = 'none';
-          } else if (actionType === 'skipped') {
-            card.classList.remove('border-warning');
-            if (!badgeContainer.querySelector('.badge.bg-warning')) {
-              const badge = document.createElement('span');
-              badge.className = 'badge bg-warning text-dark';
-              badge.textContent = 'Skipped';
-              badgeContainer.appendChild(badge);
-            }
-          }
-        })
-        .catch(err => {
-          console.error("Background POST failed", err);
-          if (button) button.disabled = false;
-        });
+        
+        document.body.appendChild(pageInput);
+        
+        console.log('Pagination clicked: Page ' + page);
+        
+        // Trigger the HTMX request
+        htmx.trigger('#queue-items-container', 'queue_update');
+      }
     });
   });
-});
 </script>
 {% endblock %}
 

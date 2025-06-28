@@ -90,6 +90,8 @@
                 {{ render_nav_item('management.management', 'Management') }}
                 {{ render_nav_item('celery_active_tasks_view', 'Workers') }}
                 {{ render_nav_item('root.utils', 'Utils') }}
+              {% elif current_user.is_anonymous == False and current_user.is_broadcaster() %}
+                {{ render_nav_item('management.management', 'Management') }}
               {% endif %}
               {{ render_nav_item('root.stats', 'Stats') }}
             </div>

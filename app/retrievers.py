@@ -203,7 +203,7 @@ def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool =
         if not include_skipped:
             query = query.filter(ContentQueue.skipped == False)
         if not include_watched:
-            query = query.filter(ContentQueue.watched == False)
+            query = query.filter(ContentQueue.watched == include_watched)
     return db.session.execute(query.order_by(ContentQueue.id.desc())).scalars().all()
 
 def get_broadcaster_by_external_id(external_id: str) -> Broadcaster | None:

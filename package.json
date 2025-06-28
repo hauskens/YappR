@@ -11,6 +11,7 @@
     "chartjs-plugin-zoom": "^2.2.0",
     "github-buttons": "^2.29.1",
     "htmx.org": "^1.9.12",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "vanilla-cookieconsent": "^3.1.0"
   }
 }

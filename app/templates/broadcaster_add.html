@@ -15,6 +15,7 @@
         {% set own_channel_type = current_user.get_twitch_account_type() %}
         <div class="card-body">
           <form action="{{ url_for('broadcaster.broadcaster_create') }}" method="post">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="mb-3">
               <label for="twitch_channel" class="form-label">Select Twitch Channel:</label>
               <select id="twitch_channel" name="twitch_channel" class="form-select" onchange="updateBroadcasterName()" required>

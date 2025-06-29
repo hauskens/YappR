@@ -1,6 +1,7 @@
 from flask import Flask, request, g
 from flask_login import LoginManager, current_user # type: ignore
 from flask_caching import Cache
+from flask_wtf.csrf import CSRFProtect
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from uuid import uuid4
@@ -57,7 +58,8 @@ def load_user(oauth_id: int):
         logger.error("User not found for OAuth ID: %s", oauth_id)
         return None
 
-        
+csrf = CSRFProtect()
+
 cors = CORS()
 
 def create_app(overrides: dict | None = None):
@@ -99,6 +101,7 @@ def create_app(overrides: dict | None = None):
     cache.init_app(app)
     db.init_app(app)
     login_manager.init_app(app)
+    csrf.init_app(app)
     cors.init_app(app, resources={r"/*": {"origins": config.app_url}}, supports_credentials=True)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
     # app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)

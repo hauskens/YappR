@@ -11,6 +11,7 @@
 
     <h2>Add Platform</h2>
     <form action="{{ url_for('platform_create') }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
       <div class="mb-3">
         <label for="name" class="form-label">Platform Name:</label>
         <input type="text" id="name" name="name" class="form-control">

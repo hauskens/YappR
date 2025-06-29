@@ -226,16 +226,17 @@
           <a class="dropdown-item mark-action" href="javascript:void(0)"
              hx-post="/clip_queue/mark_watched/{{ item.id }}"
              hx-swap="none"
-             data-bs-dismiss="dropdown"
-             hx-on::after-request="
-               if (document.querySelector('.queue-item.active[data-id=\'{{ item.id }}\']') && '{{ item.watched }}' === 'False') {
-                 markWatchedAndNext();
-               } else {
-                 htmx.trigger(document.body, 'queue_update');
-                 htmx.trigger(document.body, 'history_update');
+                   data-bs-dismiss="dropdown"
+             data-csrf
+                   hx-on::after-request="
+                     if (document.querySelector('.queue-item.active[data-id=\'{{ item.id }}\']') && '{{ item.watched }}' === 'False') {
+                       markWatchedAndNext();
+                     } else {
+                       htmx.trigger(document.body, 'queue_update');
+                       htmx.trigger(document.body, 'history_update');
                }"
           >
-             Mark as {{ 'Unwatched' if item.watched else 'Watched' }}
+              Mark as {{ 'Unwatched' if item.watched else 'Watched' }}
           </a>
         </li>
         <li>
@@ -243,16 +244,17 @@
           <a class="dropdown-item skip-action" href="javascript:void(0)"
              hx-post="/clip_queue/item/{{ item.id }}/skip"
              hx-swap="none"
-             data-bs-dismiss="dropdown"
-             hx-on::after-request="
-               if (document.querySelector('.queue-item.active[data-id=\'{{ item.id }}\']')) {
-                 skipAndNext();
-               } else {
-                 htmx.trigger(document.body, 'queue_update');
-                 htmx.trigger(document.body, 'history_update');
+                   data-bs-dismiss="dropdown"
+             data-csrf
+                   hx-on::after-request="
+                     if (document.querySelector('.queue-item.active[data-id=\'{{ item.id }}\']')) {
+                       skipAndNext();
+                     } else {
+                       htmx.trigger(document.body, 'queue_update');
+                       htmx.trigger(document.body, 'history_update');
                }"
           >
-             Skip
+              Skip
           </a>
         </li>
       </ul>

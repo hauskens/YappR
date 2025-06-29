@@ -19,6 +19,7 @@
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
         <a class="btn btn-primary" onclick="return confirm('This will look for matches in source channel')" href="{{ url_for('channel.channel_look_for_linked', channel_id=channel.id) }}">Look for linked videos</a>
         <form action="{{ url_for('channel.channel_link', channel_id=channel.id) }}" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
           <div class="mb-3">
             <label for="name" class="form-label">Connect to channel</label>
             <select id="link_channel_id" name="link_channel_id" class="form-select">

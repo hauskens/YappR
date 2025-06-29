@@ -9,6 +9,7 @@
     </p>
 
     <form action="{{ url_for('users.user_edit', user_id=user.id) }}" method="post">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
       <div class="mb-3">
         <label for="name" class="form-label">Connect to broadcaster</label>
         <select id="broadcaster_id" name="broadcaster_id" class="form-select">

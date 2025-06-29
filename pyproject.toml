@@ -20,6 +20,7 @@ dependencies = [
     "flask-nav>=0.6",
     "flask-socketio>=5.5.1",
     "flask-sqlalchemy>=3.1.1",
+    "flask-wtf>=1.2.2",
     "google-api-python-client>=2.166.0",
     "google-api-python-client-stubs>=1.29.0",
     "gunicorn>=23.0.0",

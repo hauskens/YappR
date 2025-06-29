@@ -57,7 +57,7 @@
       <!-- Video Player Column -->
       <div class="col-lg-8 mb-4">
         <div class="card">
-          <div class="card-body p-0">
+          <div class="card-body shadow p-0">
             <div id="player-area">
               <div class="player-container" id="player-container" style="display: none;" hx-swap-oob="true">
                 <!-- Player will be loaded here via HTMX -->
@@ -80,7 +80,7 @@
               <button class="btn btn-primary flex-shrink-0 ms-2 align-self-center"
                       id="mark-watched-btn"
                       data-bs-toggle="tooltip"
-                      hx-on:click="markWatchedAndNext()"
+                      onclick="markWatchedAndNext(); return false;"
                       style="display:none">
                 Next
               </button>
@@ -91,7 +91,7 @@
       
       <!-- Queue List Column -->
       <div class="col-lg-4">
-        <div class="card">
+        <div class="card shadow">
           <div class="card-header">
             <!-- Tab structure with Bootstrap buttons -->
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -578,8 +578,18 @@
         cleanupPlayers();
       }
 
-      // Send request to mark as skipped
-      fetch(`/clip_queue/item/${itemId}/skip`, { method: 'POST' }).then(response => {
+      // Send request to mark as skipped with CSRF token
+      const csrfToken = '{{ csrf_token() }}';
+      fetch(`/clip_queue/item/${itemId}/skip`, { 
+        method: 'POST',
+        headers: {
+          'X-CSRFToken': csrfToken
+        },
+        // Also include as form data
+        body: new URLSearchParams({
+          'csrf_token': csrfToken
+        })
+      }).then(response => {
         if (response.ok) {
           // Update UI after skipping
           htmx.trigger(document.body, 'queue_update');
@@ -695,9 +705,19 @@
       
       // Mark the current item as watched if it's not already watched
       if (activeItem.getAttribute('data-watched') === 'false') {
-        // Use fetch API to mark as watched
+        // Get CSRF token directly from template
+        const csrfToken = '{{ csrf_token() }}';
+        
+        // Use fetch API to mark as watched with CSRF token
         fetch(`/clip_queue/mark_watched/${itemId}`, {
-          method: 'POST'
+          method: 'POST',
+          headers: {
+            'X-CSRFToken': csrfToken
+          },
+          // Also include as form data for maximum compatibility
+          body: new URLSearchParams({
+            'csrf_token': csrfToken
+          })
         }).then(response => {
           if (response.ok) {
             htmx.trigger(document.body, 'queue_update');

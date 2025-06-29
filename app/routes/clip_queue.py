@@ -141,6 +141,10 @@ def get_queue_items():
             # Filter out rickroll if not active and not admin/mod
             if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):
                 queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
+                
+            # If showing history tab, filter to only include watched or skipped items
+            if show_history:
+                queue_items = [item for item in queue_items if item.watched or item.skipped]
             
             # Apply search filter if provided
             if search_query:

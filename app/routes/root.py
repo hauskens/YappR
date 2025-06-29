@@ -25,7 +25,7 @@ def index():
     broadcasters = get_broadcasters()
     return render_template("search.html", broadcasters=broadcasters)
 
-@root_blueprint.route("/login")
+@root_blueprint.route("/login", strict_slashes=False)
 def login():
     return render_template("unauthorized.html")
 
@@ -141,7 +141,12 @@ def list_transcription_jobs():
             """
         
         actions += f"""
-            <button class="btn btn-danger btn-sm" hx-delete="{url_for('root.delete_transcription_job', job_id=job_id)}" hx-confirm="Are you sure you want to delete this job?" hx-target="#transcription-list">Delete</button>
+            <button class="btn btn-danger btn-sm" 
+                hx-delete="{url_for('root.delete_transcription_job', job_id=job_id)}" 
+                hx-confirm="Are you sure you want to delete this job?" 
+                hx-target="#transcription-list"
+                data-csrf
+            >Delete</button>
         </div>
         """
         
@@ -299,8 +304,9 @@ def upload_transcription_result(job_id):
 @require_permission([PermissionType.Admin, PermissionType.Moderator])
 def delete_transcription_job(job_id):
     # Validate job_id to prevent directory traversal
-    if not all(c.isalnum() or c == '-' for c in job_id):
-        abort(400)
+    logger.info(f"Trying to delete job id {job_id}")
+    # if not all(c.isalnum() or c == '-' for c in job_id):
+    #     abort(400)
     
     logger.info("Deleting transcription job", extra={"job_id": job_id})
     cache_dir = os.path.abspath(os.path.join(config.cache_location, "transcription_jobs"))

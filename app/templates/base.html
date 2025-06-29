@@ -1,9 +1,11 @@
 <!doctype html>
+
 <html lang="en">
   <head>
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
     <script src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
@@ -22,6 +24,27 @@
             const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             document.documentElement.setAttribute('data-bs-theme', theme);
         })();
+      // Add CSRF token to all htmx requests
+      document.addEventListener('DOMContentLoaded', function() {
+        const csrfToken = '{{ csrf_token() }}';
+        htmx.on('htmx:configRequest', function(evt) {
+          if (evt.detail.headers === undefined) {
+            evt.detail.headers = {};
+          }
+          evt.detail.headers['X-CSRFToken'] = csrfToken;
+          
+          // For POST/PUT/DELETE/PATCH requests, also add the token as a form parameter
+          // This ensures the token is included in both headers and body for maximum compatibility
+          if (['POST', 'PUT', 'DELETE', 'PATCH'].indexOf(evt.detail.verb.toUpperCase()) !== -1) {
+            // If there's no existing parameters, create a new URLSearchParams
+            if (!evt.detail.parameters) {
+              evt.detail.parameters = {};
+            }
+            // Add the CSRF token to the parameters
+            evt.detail.parameters['csrf_token'] = csrfToken;
+          }
+        });
+      });
     </script>
     {% block styles %}
 
@@ -69,7 +92,6 @@
               <a class="nav-link" href="{{ url_for('broadcaster.broadcasters') }}">Broadcasters</a>
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
                 <a class="nav-link" href="{{ url_for('root.users') }}">Users</a>
-                <a class="nav-link" href="{{ url_for('root.utils') }}">Utils</a>
               {% endif %}
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
                 <a class="nav-link" href="{{ url_for('management.management') }}">Management</a>

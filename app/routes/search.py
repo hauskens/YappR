@@ -24,9 +24,10 @@ def search_word():
     search_term = request.form["search"]
     broadcaster_id = int(request.form["broadcaster"])
     session["last_selected_broadcaster"] = broadcaster_id
-    start_date = get_valid_date(request.form["start_date"])
-    end_date = get_valid_date(request.form["end_date"])
-    channel_type = request.form["channel_type"]
+    
+    start_date = get_valid_date(request.form.get("start_date", ""))
+    end_date = get_valid_date(request.form.get("end_date", ""))
+    channel_type = request.form.get("channel_type", "all")
     broadcaster = get_broadcaster(broadcaster_id)
     channels = [
         channel

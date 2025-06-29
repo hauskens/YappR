@@ -2,12 +2,13 @@
 <div class="container mt-4">
   <div class="row">
     <div class="col-md-8 offset-md-2">
-      <div class="card">
-        <div class="card-header">
+      <div class="card shadow">
+        <div class="card-header bg-primary text-white">
           <h5 class="card-title mb-0">Audio File Transcription</h5>
         </div>
         <div class="card-body">
           <form id="upload-form" hx-encoding="multipart/form-data" hx-post="/utils/upload_audio" hx-target="#upload-status" hx-indicator="#loading">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="mb-3">
               <label for="audio-file" class="form-label">Select audio file to transcribe</label>
               <input type="file" class="form-control" id="audio-file" name="audio_file" accept=".mp3,.wav,.ogg,.m4a,.flac" required>

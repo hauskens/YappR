@@ -12,7 +12,7 @@
   <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 row-cols-xl-6 g-3 mb-4">
   {% for item in queue_items %}
     <div class="col">
-      <div class="card h-100 {% if item.watched %}border-success{% elif item.skipped %}border-warning{% endif %}" id="item-{{ item.id }}">
+      <div class="card h-100 {% if item.watched %}border-success{% elif item.skipped %}border-warning{% endif %} shadow" id="item-{{ item.id }}">
           {% if item.content.thumbnail_url %}
             <img src="{{ item.content.thumbnail_url }}" alt="Thumbnail" class="card-img-top" style="height: 136px; object-position: center; object-fit: cover;">
           {% else %}
@@ -78,6 +78,7 @@
               <button class="btn btn-sm btn-outline-{% if item.watched %}secondary{% else %}success{% endif %}" 
                       hx-post="{{ url_for('clip_queue.mark_clip_watched', item_id=item.id) }}" 
                       hx-target="body"
+                      data-csrf
                       hx-swap="none"
                       hx-trigger="click"
                       hx-on::after-request="htmx.trigger('#queue-items-container', 'queue_update')"
@@ -89,6 +90,7 @@
               <button class="btn btn-sm btn-outline-{% if item.skipped %}secondary{% else %}warning{% endif %}" 
                       hx-post="{{ url_for('clip_queue.skip_clip_queue_item', item_id=item.id) }}"
                       hx-target="body"
+                      data-csrf
                       hx-swap="none"
                       hx-trigger="click"
                       hx-on::after-request="htmx.trigger('#queue-items-container', 'queue_update')"

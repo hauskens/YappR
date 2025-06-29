@@ -67,6 +67,7 @@
               </div>
               {% for channel in broadcaster.channels %}
                 <form action="{{ url_for('channel.channel_settings_update', channel_id=channel.id) }}" method="post">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                   <div class="modal-body">
                     <h5 class="modal-title" id="broadcasterSettingsModalLabel">Twitch bot settings for {{ channel.name }}</h5>
                     <div class="mb-3 form-check">
@@ -87,6 +88,7 @@
                 </form>
               {% endfor %}
               <form action="{{ url_for('broadcaster.broadcaster_settings_update', broadcaster_id=broadcaster.id) }}" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                 <div class="modal-body">
                   <h5 class="modal-title">Discord bot settings</h5>
                   <div class="mb-3">
@@ -128,6 +130,7 @@
         <hr>
 
         <form action="{{ url_for('channel.channel_create') }}" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
           <label for="platform_id">Platform:</label>
           <select id="platform_id" name="platform_id" class="form-select" onchange="toggleTwitchLookup()">
             {% for platform in platforms %}

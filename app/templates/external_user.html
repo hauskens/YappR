@@ -100,6 +100,7 @@
               hx-post="{{ url_for('penalty_external_user', broadcaster_id=broadcaster_id, external_user_id=external_user.id) }}"
               hx-confirm="Are you sure you want to apply a penalty to this user? This will reduce their weight by 0.2."
               hx-target="#userModalContent"
+              data-csrf
               hx-swap="innerHTML">
         <i class="bi bi-exclamation-triangle me-1"></i> Apply Penalty
       </button>

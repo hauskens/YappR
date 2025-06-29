@@ -221,12 +221,40 @@
         <i class="bi bi-three-dots-vertical fs-5"></i>
       </button>
       <ul class="dropdown-menu">
-        <li><a class="dropdown-item" href="javascript:void(0)" hx-post="/clip_queue/mark_watched/{{ item.id }}"
-            hx-swap="none" hx-on::after-request="htmx.trigger(document.body, 'queue_update')" hx-target="this">
-            Mark as {{ 'Unwatched' if item.watched else 'Watched' }}</a></li>
-        <li><a class="dropdown-item" href="javascript:void(0)" hx-post="/clip_queue/item/{{ item.id }}/skip"
-            hx-swap="none" hx-on::after-request="htmx.trigger(document.body, 'queue_update')" hx-target="this">
-            Skip</a></li>
+        <li>
+          <!-- Mark as Watched/Unwatched item with htmx -->
+          <a class="dropdown-item mark-action" href="javascript:void(0)"
+             hx-post="/clip_queue/mark_watched/{{ item.id }}"
+             hx-swap="none"
+             data-bs-dismiss="dropdown"
+             hx-on::after-request="
+               if (document.querySelector('.queue-item.active[data-id=\'{{ item.id }}\']') && '{{ item.watched }}' === 'False') {
+                 markWatchedAndNext();
+               } else {
+                 htmx.trigger(document.body, 'queue_update');
+                 htmx.trigger(document.body, 'history_update');
+               }"
+          >
+             Mark as {{ 'Unwatched' if item.watched else 'Watched' }}
+          </a>
+        </li>
+        <li>
+          <!-- Skip item with htmx -->
+          <a class="dropdown-item skip-action" href="javascript:void(0)"
+             hx-post="/clip_queue/item/{{ item.id }}/skip"
+             hx-swap="none"
+             data-bs-dismiss="dropdown"
+             hx-on::after-request="
+               if (document.querySelector('.queue-item.active[data-id=\'{{ item.id }}\']')) {
+                 skipAndNext();
+               } else {
+                 htmx.trigger(document.body, 'queue_update');
+                 htmx.trigger(document.body, 'history_update');
+               }"
+          >
+             Skip
+          </a>
+        </li>
       </ul>
     </div>
   </div>

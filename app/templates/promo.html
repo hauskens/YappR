@@ -6,7 +6,8 @@
     <div class="col-lg-8">
       
       <div class="alert alert-info text-center shadow" role="alert">
-        <h2 class="alert-heading">Welcome to YappR! 👋 Looking for clip queue?</h2>
+        <h2 class="alert-heading">Welcome to YappR! 👋</h2>
+        <h3>Looking for clip queue?</h3>
         <hr>
         {% if current_user.is_anonymous %}
         <p class="mb-0">Log in to get clip queue and more features!</p>
@@ -14,7 +15,7 @@
         <p class="mb-0">Seems like you are a Twitch Moderator, head over to <a href="{{ url_for('management.management') }}">management page</a> to manage your broadcaster's clip queue!</p>
         {% else %}
         <p class="mb-0">You are almost there! </p>
-        <p>We just need you to link a broadcaster to your account so we know which twitch chat to look at!</p>
+        <p>We just need you to <a href="{{ url_for('broadcaster.broadcaster_create') }}">link a broadcaster</a> to your account so we know which twitch chat to look at!</p>
         {% endif %}
       </div>
 

@@ -3,6 +3,7 @@ from app.logger import logger
 from flask_login import current_user, logout_user, login_required # type: ignore
 from app.permissions import require_permission, require_api_key
 from app.models.db import PermissionType
+from app.csrf import csrf
 from app.retrievers import get_users, get_stats_videos, get_total_video_duration, get_stats_segments, get_stats_transcriptions, get_stats_high_quality_transcriptions, get_video, get_broadcasters
 from app.cache import cache, make_cache_key
 from io import BytesIO
@@ -258,6 +259,7 @@ def download_transcription_srt(job_id):
 
 @root_blueprint.route("/utils/upload_transcription/<job_id>", methods=["POST"])
 @require_api_key
+@csrf.exempt
 def upload_transcription_result(job_id):
     # Validate job_id to prevent directory traversal
     if not all(c.isalnum() or c == '-' for c in job_id):

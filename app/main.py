@@ -21,7 +21,7 @@ from app.models.db import (
 from app.transcribe import transcribe
 from app.models.config import config
 from app.retrievers import get_transcription, get_video, get_all_twitch_channels, get_channel
-from app import app, login_manager, socketio
+from app import app, login_manager, socketio, csrf
 from app.models.db import TranscriptionSource, Transcription, TranscriptionResult
 from app.permissions import require_api_key, require_permission
 from app.twitch_api import get_current_live_streams
@@ -101,6 +101,8 @@ def full_processing_task(channel_id: int):
 
 
 @app.route("/<int:channel_id>/parse_logs/<folder_path>")
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
 def parse_logs_route(channel_id: int, folder_path: str):
     with app.app_context():
         parse_logs(f'/chatterino_logs/Twitch/Channels/{folder_path}', channel_id)
@@ -108,6 +110,7 @@ def parse_logs_route(channel_id: int, folder_path: str):
 
 @app.route("/video/<int:video_id>/process_audio")
 @login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
 def video_process_audio(video_id: int):
     logger.info("Processing audio for", extra={"video_id": video_id})
     _ = task_transcribe_audio.delay(video_id)
@@ -116,23 +119,20 @@ def video_process_audio(video_id: int):
 
 @app.route("/video/<int:video_id>/process_full")
 @login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
 def video_process_full(video_id: int):
-    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin) or current_user.has_permission(
-        PermissionType.Moderator
-    ):
-        logger.info("Full processing of video", extra={"video_id": video_id})
-        _ = chain(
+    logger.info("Full processing of video", extra={"video_id": video_id})
+    _ = chain(
             task_fetch_audio.s(video_id),
             task_transcribe_audio.s(),
             task_parse_video_transcriptions.s(),
         ).apply_async(ignore_result=True)
-        return redirect(request.referrer)
-    else:
-        return "Unauthorized", 401
+    return redirect(request.referrer)
 
 
 @app.route("/video/<int:video_id>/fecth_audio")
 @login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
 def video_fetch_audio(video_id: int):
     logger.info("Fetching audio for", extra={"video_id": video_id})
     _ = chain(task_fetch_audio.s(video_id), task_transcribe_audio.s(), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)
@@ -428,6 +428,7 @@ def channel_transcribe_audio(channel_id: int):
 
 @app.route("/video/<int:video_id>/upload_transcription", methods=["POST"])
 @require_api_key
+@csrf.exempt
 def upload_transcription(video_id: int):
     logger.info(f"ready to receive json on {video_id}")
     video = get_video(video_id)

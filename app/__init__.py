@@ -1,7 +1,6 @@
 from flask import Flask, request, g
 from flask_login import LoginManager, current_user # type: ignore
 from flask_caching import Cache
-from flask_wtf.csrf import CSRFProtect
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from uuid import uuid4
@@ -26,6 +25,7 @@ from .routes.broadcaster import broadcaster_blueprint
 from .routes.users import users_blueprint
 from werkzeug.middleware.proxy_fix import ProxyFix
 from .rate_limit import limiter
+from .csrf import csrf
 
 
 socketio = SocketIO()
@@ -58,7 +58,6 @@ def load_user(oauth_id: int):
         logger.error("User not found for OAuth ID: %s", oauth_id)
         return None
 
-csrf = CSRFProtect()
 
 cors = CORS()
 

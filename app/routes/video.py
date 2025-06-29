@@ -16,6 +16,7 @@ video_blueprint = Blueprint('video', __name__, url_prefix='/video', template_fol
 
 @video_blueprint.route("/<int:video_id>/fecth_details")
 @login_required
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
 def video_fetch_details(video_id: int):
     logger.info("Fetching details for video", extra={"video_id": video_id})
     video = get_video(video_id)

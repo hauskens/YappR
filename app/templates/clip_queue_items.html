@@ -84,16 +84,10 @@
       if (activeItem && activeItem !== this && activeItem.getAttribute('data-watched') === 'false') {
         // Mark the active item as watched before switching
         const itemId = activeItem.getAttribute('data-id');
-        
-        fetch(`/clip_queue/mark_watched/${itemId}`, {
-          method: 'POST'
-        }).then(response => {
-          if (response.ok) {
-            // Update UI to show watched state
-            activeItem.classList.add('watched-item');
-            activeItem.setAttribute('data-watched', 'true');
-            htmx.trigger(document.body, 'queue_update'); 
-          }
+        markItemAsWatched(itemId, () => {
+          // Update UI to show watched state
+          activeItem.classList.add('watched-item');
+          activeItem.setAttribute('data-watched', 'true');
         });
       }
     }
@@ -188,13 +182,21 @@
           {% set submission = item.submissions[0] %}
           {% set badge_class = 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge'
           %}
-          <span class="badge {{ badge_class }} opacity-50" data-bs-toggle="tooltip"
-            title="{{ submission.user_comment or '' }}">
+          <span class="badge {{ badge_class }} opacity-50" 
+                data-bs-toggle="tooltip"
+                title="{{ submission.user_comment or '' }}"
+                style="cursor: pointer;"
+                hx-get="{{ url_for('users.external_user', external_user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
+                hx-target="#userModalContent"
+                hx-trigger="click"
+                onclick="event.stopPropagation();"
+                hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()">
             {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
           </span>
           {% if item.submissions|length > 1 %}
-          <span class="badge bg-secondary opacity-50" data-bs-toggle="tooltip"
-            title="{% for s in item.submissions[1:] %}{{ s.user.username }}{% if not loop.last %}, {% endif %}{% endfor %}">
+          <span class="badge bg-secondary opacity-50" 
+                data-bs-toggle="tooltip"
+                title="{% for s in item.submissions[1:] %}{{ s.user.username }}{% if not loop.last %}, {% endif %}{% endfor %}">
             +{{ item.submissions|length - 1 }} other{{ 's' if item.submissions|length > 2 else '' }}
           </span>
           {% endif %}

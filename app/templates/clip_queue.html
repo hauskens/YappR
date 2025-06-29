@@ -156,6 +156,11 @@
         </div>
       </div>
     </div>
+    <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+      <div id="userModalContent">
+        <!-- Modal content will be loaded here via HTMX -->
+      </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -215,8 +220,6 @@
     console.log("Queue updated");
     htmx.trigger(document.body, "queue_update");
   });
-</script>
-<script>
   // Load YouTube IFrame API
   if (!window.YT) {
     var tag = document.createElement('script');
@@ -642,6 +645,34 @@
     }
   }
 
+  // Common function to mark an item as watched
+  function markItemAsWatched(itemId, onSuccessCallback) {
+    if (!itemId) return;
+    console.log('Marking as watched:', itemId);
+    
+    // Get CSRF token directly from template
+    const csrfToken = '{{ csrf_token() }}';
+    
+    // Use fetch API to mark as watched with CSRF token
+    return fetch(`/clip_queue/mark_watched/${itemId}`, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': csrfToken
+      },
+      // Also include as form data for maximum compatibility
+      body: new URLSearchParams({
+        'csrf_token': csrfToken
+      })
+    }).then(response => {
+      if (response.ok) {
+        htmx.trigger(document.body, 'queue_update');
+        if (onSuccessCallback) onSuccessCallback();
+        return true;
+      }
+      return false;
+    });
+  }
+  
   // Function to mark current clip as watched and play next clip
   function markWatchedAndNext() {
     // Check if we're in history tab
@@ -650,7 +681,6 @@
     const activeItem = document.querySelector('.queue-item.active');
     if (activeItem) {
       const itemId = activeItem.getAttribute('data-id');
-      console.log('Marking as watched and playing next:', itemId);
 
       // Find next unwatched item and store its ID before making any changes
       const nextItem = findNextUnwatched(true); // true = exclude current item
@@ -705,28 +735,11 @@
       
       // Mark the current item as watched if it's not already watched
       if (activeItem.getAttribute('data-watched') === 'false') {
-        // Get CSRF token directly from template
-        const csrfToken = '{{ csrf_token() }}';
-        
-        // Use fetch API to mark as watched with CSRF token
-        fetch(`/clip_queue/mark_watched/${itemId}`, {
-          method: 'POST',
-          headers: {
-            'X-CSRFToken': csrfToken
-          },
-          // Also include as form data for maximum compatibility
-          body: new URLSearchParams({
-            'csrf_token': csrfToken
-          })
-        }).then(response => {
-          if (response.ok) {
-            htmx.trigger(document.body, 'queue_update');
-            
-            if (isLastClip) {
-              showCompletionMessage();
-            } else {
-              playNextUnwatched();
-            }
+        markItemAsWatched(itemId, () => {
+          if (isLastClip) {
+            showCompletionMessage();
+          } else {
+            playNextUnwatched();
           }
         });
       } else {

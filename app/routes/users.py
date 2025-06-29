@@ -14,10 +14,15 @@ def external_user(external_user_id: int, broadcaster_id: int):
     try:
         external_user = db.session.query(ExternalUser).filter_by(id=external_user_id).one()
         
-        weights = db.session.query(ExternalUserWeight).filter_by(
+        user_weight = db.session.query(ExternalUserWeight).filter_by(
             external_user_id=external_user_id,
             broadcaster_id=broadcaster_id
-        ).all()
+        ).one_or_none()
+        
+        if user_weight:
+            weights = [user_weight]
+        else:
+            weights = []
         
         submissions = db.session.query(ContentQueueSubmission).filter_by(
             user_id=external_user_id

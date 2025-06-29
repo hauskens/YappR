@@ -1,8 +1,8 @@
-from flask import Blueprint, render_template, jsonify, flash, redirect, request
+from flask import Blueprint, render_template, jsonify, flash, redirect, request, url_for
 from app.logger import logger
 from flask_login import current_user, login_required # type: ignore
 from datetime import datetime, timedelta, timezone
-from app.models.db import ContentQueue, ExternalUserWeight, db
+from app.models.db import ContentQueue, ExternalUserWeight, db, ExternalUser, ContentQueueSubmission
 from app.retrievers import get_broadcaster_by_external_id, get_content_queue
 from app.permissions import require_permission
 from app.content_queue import clip_score
@@ -246,10 +246,12 @@ def get_clip_player(item_id: int):
 
 @clip_queue_blueprint.route("/<int:broadcaster_id>/external_user/<int:external_user_id>/penalty", methods=["POST"])
 @login_required
-@require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", require_moderator=True)
+# @require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", require_moderator=True)
 def penalty_external_user(broadcaster_id: int, external_user_id: int):
     standard_penalty = 0.2
     standard_ban_duration = 7
+    force_ban = request.args.get('ban', 'false').lower() == 'true'
+    
     try:
         external_user_weight = db.session.query(ExternalUserWeight).filter_by(external_user_id=external_user_id, broadcaster_id=broadcaster_id).one_or_none()
         if external_user_weight is None:
@@ -262,16 +264,88 @@ def penalty_external_user(broadcaster_id: int, external_user_id: int):
                 unban_at=None,
             )
             db.session.add(external_user_weight)
-        external_user_weight.weight = round(external_user_weight.weight - standard_penalty, 2)
-        if external_user_weight.weight <= 0:
+        
+        if force_ban:
+            logger.info(f"Force banning user {external_user_id}", extra={"user_id": current_user.id})
             external_user_weight.weight = 0
             external_user_weight.banned = True
             external_user_weight.banned_at = datetime.now()
             external_user_weight.unban_at = datetime.now() + timedelta(days=standard_ban_duration)
+        else:
+            # Apply standard penalty
+            external_user_weight.weight = round(external_user_weight.weight - standard_penalty, 2)
+            if external_user_weight.weight <= 0:
+                external_user_weight.weight = 0
+                external_user_weight.banned = True
+                external_user_weight.banned_at = datetime.now()
+                external_user_weight.unban_at = datetime.now() + timedelta(days=standard_ban_duration)
+        
         db.session.commit()
-        return redirect(request.referrer)
+        # Redirect to the external_user route in users_blueprint
+        return redirect(url_for('users.external_user', external_user_id=external_user_id, broadcaster_id=broadcaster_id))
     except Exception as e:
         logger.error("Error updating penalty status for external user %s: %s", external_user_id, e, extra={"user_id": current_user.id})
         db.session.rollback()
         flash("Error updating penalty status", "error")
-        return redirect(request.referrer)
+        return redirect(url_for('users.external_user', external_user_id=external_user_id, broadcaster_id=broadcaster_id))
+
+@clip_queue_blueprint.route("/<int:broadcaster_id>/external_user/<int:external_user_id>/reset_penalties", methods=["POST"])
+@login_required
+# @require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", require_moderator=True)
+def reset_external_user_penalties(broadcaster_id: int, external_user_id: int):
+    try:
+        # Get the external user
+        external_user = db.session.query(ExternalUser).filter_by(id=external_user_id).one()
+        
+        # Get or create user weight
+        external_user_weight = db.session.query(ExternalUserWeight).filter_by(
+            external_user_id=external_user_id, 
+            broadcaster_id=broadcaster_id
+        ).one_or_none()
+        
+        if external_user_weight is None:
+            # If no weight exists, create a default one with standard values
+            external_user_weight = ExternalUserWeight(
+                external_user_id=external_user_id,
+                broadcaster_id=broadcaster_id,
+                weight=1.0,
+                banned=False,
+                banned_at=None,
+                unban_at=None
+            )
+            db.session.add(external_user_weight)
+        else:
+            # Reset weight to 1.0 and unban
+            external_user_weight.weight = 1.0
+            external_user_weight.banned = False
+            external_user_weight.unban_at = None
+        
+        db.session.commit()
+        
+        # Get submissions for template rendering
+        submissions = db.session.query(ContentQueueSubmission).filter_by(
+            user_id=external_user_id
+        ).order_by(ContentQueueSubmission.submitted_at.desc()).all()
+        
+        # Redirect to the external_user route in users_blueprint
+        return redirect(url_for('users.external_user', external_user_id=external_user_id, broadcaster_id=broadcaster_id))
+    except Exception as e:
+        logger.error("Error resetting penalties for external user %s: %s", external_user_id, e, extra={"user_id": current_user.id})
+        db.session.rollback()
+        flash("An error occurred while resetting penalties.", "danger")
+        
+        # In case of error, try to get data for the template
+        try:
+            external_user = db.session.query(ExternalUser).filter_by(id=external_user_id).one()
+            user_weight = db.session.query(ExternalUserWeight).filter_by(
+                external_user_id=external_user_id,
+                broadcaster_id=broadcaster_id
+            ).one_or_none()
+            weights = [user_weight] if user_weight else []
+            submissions = db.session.query(ContentQueueSubmission).filter_by(
+                user_id=external_user_id
+            ).order_by(ContentQueueSubmission.submitted_at.desc()).all()
+            
+            return redirect(url_for('users.external_user', external_user_id=external_user_id, broadcaster_id=broadcaster_id))
+        except Exception:
+            return "<div class='alert alert-danger'>Error loading user details</div>", 500

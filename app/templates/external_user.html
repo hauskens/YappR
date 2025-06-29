@@ -7,9 +7,11 @@
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
     </div>
     
-    {% set user_weight = weights
-        | selectattr('broadcaster_id', 'equalto', broadcaster_id)
-        | first %}
+    {% if weights %}
+        {% set user_weight = weights|first %}
+    {% else %}
+        {% set user_weight = None %}
+    {% endif %}
     <!-- Modal Body -->
     <div class="modal-body">
       <div class="row mb-3">
@@ -96,8 +98,35 @@
     <!-- Modal Footer with Penalty Button -->
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      
+      <!-- Reset Penalties Button -->
+      {% if user_weight and (user_weight.weight < 1.0 or user_weight.banned) %}
+      <button type="button" class="btn btn-success"
+              hx-post="{{ url_for('clip_queue.reset_external_user_penalties', broadcaster_id=broadcaster_id, external_user_id=external_user.id) }}"
+              hx-confirm="Are you sure you want to reset this user's penalties? This will set their weight back to 1.0 and unban them if they're banned."
+              hx-target="#userModalContent"
+              data-csrf
+              hx-swap="innerHTML">
+        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Penalties
+      </button>
+      {% endif %}
+      
+      {% if not user_weight or not user_weight.banned %}
+      <!-- Ban User Button -->
+      <button type="button" class="btn btn-danger"
+              hx-post="{{ url_for('clip_queue.penalty_external_user', broadcaster_id=broadcaster_id, external_user_id=external_user.id) }}?ban=true"
+              hx-confirm="Are you sure you want to ban this user? This will immediately ban them from submitting clips."
+              hx-target="#userModalContent"
+              data-csrf
+              hx-swap="innerHTML"
+              onclick="this.setAttribute('hx-on::before-request', 'this.querySelector(\'i\').className=\'bi bi-hourglass-split\'; this.disabled=true;')">
+        <i class="bi bi-slash-circle me-1"></i> Ban User
+      </button>
+      {% endif %}
+      
+      <!-- Apply Penalty Button -->
       <button type="button" class="btn btn-warning"
-              hx-post="{{ url_for('penalty_external_user', broadcaster_id=broadcaster_id, external_user_id=external_user.id) }}"
+              hx-post="{{ url_for('clip_queue.penalty_external_user', broadcaster_id=broadcaster_id, external_user_id=external_user.id) }}"
               hx-confirm="Are you sure you want to apply a penalty to this user? This will reduce their weight by 0.2."
               hx-target="#userModalContent"
               data-csrf

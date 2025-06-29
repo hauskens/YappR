@@ -213,8 +213,8 @@
   // when the server announces an update, trigger htmx to re-fetch
   sock.on("queue_update", payload => {
     console.log("Queue updated");
-      htmx.trigger(document.body, "queue_update");
-    });
+    htmx.trigger(document.body, "queue_update");
+  });
 </script>
 <script>
   // Load YouTube IFrame API
@@ -504,32 +504,133 @@
   
   // Set up htmx event handlers
   htmx.on('htmx:afterSwap', function(e) {
+    // Determine which ID to use for activation (prioritize pending, fall back to active)
+    let idToActivate = localStorage.getItem('pendingActiveItemId');
+    
+    // If we don't have a pending ID but we do have a stored active ID, use that instead
+    if (!idToActivate) {
+      idToActivate = localStorage.getItem('activeQueueItemId');
+    }
+    
+    // If queue items were updated (but not during infinite scroll pagination)
+    const isQueueUpdate = (e.detail.target.id === 'queue-items' || e.detail.target.id === 'history-items');
+    
+    // Apply active state if we have an ID to activate and either:
+    // 1. The queue was updated OR
+    // 2. We have a pending active ID (which means we're specifically trying to activate an item)
+    if (idToActivate && (isQueueUpdate || localStorage.getItem('pendingActiveItemId'))) {
+      console.log('Activating item with ID:', idToActivate);
+      
+      // Find the item with this ID in the newly loaded content
+      const itemToActivate = document.querySelector(`.queue-item[data-id="${idToActivate}"]`);
+      if (itemToActivate) {
+        // Apply active classes
+        document.querySelectorAll('.queue-item').forEach(item => {
+          item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+        });
+        itemToActivate.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+        
+        // Store the active ID and clean up pending ID
+        localStorage.setItem('activeQueueItemId', idToActivate);
+        localStorage.removeItem('pendingActiveItemId');
+      }
+    }
+
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
     tooltipTriggerList.map(function (tooltipTriggerEl) {
       return new bootstrap.Tooltip(tooltipTriggerEl);
     });
-    
-    // Only restore active state if queue items were updated and not during infinite scroll
-    if ((e.detail.target.id === 'queue-items' || e.detail.target.id === 'history-items') && !e.detail.pathInfo.requestPath.includes('page=')) {
-      const activeItemId = localStorage.getItem('activeQueueItemId');
-      if (activeItemId) {
-        // Remove active class from all items
-        document.querySelectorAll('.queue-item').forEach(item => {
-          item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-        });
-        // Add active class to the previously active item
-        const activeItem = document.querySelector(`.queue-item[data-id="${activeItemId}"]`);
-        if (activeItem) {
-          activeItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-        }
-      }
-    }
     
     // Initialize player if needed after swapping
     if (e.detail.target.id === 'player-container') {
       initPlayer();
     }
   });
+
+  // Function to skip current clip and play next clip
+  function skipAndNext() {
+    // Check if we're in history tab
+    const isHistoryTab = document.getElementById('history-tab').classList.contains('active');
+    
+    const activeItem = document.querySelector('.queue-item.active');
+    if (activeItem) {
+      const itemId = activeItem.getAttribute('data-id');
+
+      // Find next unwatched item and store its ID before making any changes
+      const nextItem = findNextUnwatched(true); // true = exclude current item
+      if (nextItem) {
+        localStorage.setItem('pendingActiveItemId', nextItem.getAttribute('data-id'));
+      }
+      
+      // Don't mark as skipped if we're in history tab
+      if (isHistoryTab) {
+        playNextUnwatched();
+        return;
+      }
+      
+      // Check if this is the last unwatched clip by excluding the current item from search
+      const nextUnwatchedItem = findNextUnwatched(true); // true = exclude current item
+      let isLastClip = !nextUnwatchedItem;
+      
+      // If this is the last clip, stop the player immediately
+      if (isLastClip) {
+        // Stop players immediately
+        cleanupPlayers();
+      }
+
+      // Send request to mark as skipped
+      fetch(`/clip_queue/item/${itemId}/skip`, { method: 'POST' }).then(response => {
+        if (response.ok) {
+          // Update UI after skipping
+          htmx.trigger(document.body, 'queue_update');
+          htmx.trigger(document.body, 'history_update');
+          
+          if (isLastClip) {
+            showCompletionMessage();
+          } else {
+            playNextUnwatched();
+          }
+        }
+      });
+    }
+  }
+
+  // Helper function to cleanup all players
+  function cleanupPlayers() {
+    // More aggressive approach to ensure YouTube player is stopped
+    // First try to stop using the player API
+    try {
+      if (player) {
+        if (typeof player.stopVideo === 'function') {
+          player.stopVideo();
+        }
+        if (typeof player.destroy === 'function') {
+          player.destroy();
+        }
+        player = null;
+      }
+    } catch (e) {
+      console.error('Error stopping YouTube player:', e);
+    }
+    
+    // Remove any YouTube iframes directly
+    const youtubeIframe = document.getElementById('youtube-player');
+    if (youtubeIframe) {
+      youtubeIframe.parentNode.removeChild(youtubeIframe);
+    }
+    
+    // Stop Twitch player by removing the iframe
+    const twitchIframe = document.getElementById('twitch-player');
+    if (twitchIframe) {
+      twitchIframe.parentNode.removeChild(twitchIframe);
+    }
+    
+    // Clear out the entire player container to be extra safe
+    const playerContainer = document.getElementById('player-container');
+    if (playerContainer) {
+      playerContainer.innerHTML = '';
+    }
+  }
 
   // Function to mark current clip as watched and play next clip
   function markWatchedAndNext() {
@@ -540,6 +641,12 @@
     if (activeItem) {
       const itemId = activeItem.getAttribute('data-id');
       console.log('Marking as watched and playing next:', itemId);
+
+      // Find next unwatched item and store its ID before making any changes
+      const nextItem = findNextUnwatched(true); // true = exclude current item
+      if (nextItem) {
+        localStorage.setItem('pendingActiveItemId', nextItem.getAttribute('data-id'));
+      }
       
       // Don't mark as watched if we're in history tab
       if (isHistoryTab) {
@@ -552,8 +659,16 @@
       const nextUnwatchedItem = findNextUnwatched(true); // true = exclude current item
       let isLastClip = !nextUnwatchedItem;
       
+      // If this is the last clip, stop the player immediately
+      if (isLastClip) {
+        cleanupPlayers();
+      }
+      
       // Function to show completion message when all clips are watched
       function showCompletionMessage() {
+        // Clean up all players
+        cleanupPlayers();
+        
         document.getElementById('player-container').style.display = 'none';
         document.getElementById('initial-message').classList.remove('d-none');
         
@@ -578,23 +693,28 @@
         document.getElementById('mark-watched-btn').style.display = 'none';
       }
       
-      // Only mark as watched if it's not already watched
-      if (activeItem.getAttribute('data-watched') === 'false' && isLastClip) {
-        // Use fetch API instead of htmx to avoid full queue refresh
+      // Mark the current item as watched if it's not already watched
+      if (activeItem.getAttribute('data-watched') === 'false') {
+        // Use fetch API to mark as watched
         fetch(`/clip_queue/mark_watched/${itemId}`, {
           method: 'POST'
         }).then(response => {
           if (response.ok) {
             htmx.trigger(document.body, 'queue_update');
-            showCompletionMessage();
+            
+            if (isLastClip) {
+              showCompletionMessage();
+            } else {
+              playNextUnwatched();
+            }
           }
         });
-      } else if (!isLastClip) {
-        // If already watched and not the last clip, just find and play next unwatched
-        playNextUnwatched();
       } else {
-        // If already watched and is the last clip, show completion message
-        showCompletionMessage();
+        if (isLastClip) {
+          showCompletionMessage();
+        } else {
+          playNextUnwatched();
+        }
       }
     }
   }
@@ -603,11 +723,54 @@
   function playNextUnwatched() {
     const nextItem = findNextUnwatched();
     if (nextItem) {
-      // Just trigger a click on the next unwatched item
+      document.querySelectorAll('.queue-item').forEach(item => {
+        item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+      });
+      nextItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+      
+      // Store the active item ID in localStorage
+      localStorage.setItem('activeQueueItemId', nextItem.getAttribute('data-id'));
+      
+      // Then trigger a click on the next unwatched item
       // The htmx click handler will take care of loading the player and updating UI
       htmx.trigger(nextItem, 'click');
     } else {
-      // If no more unwatched items, hide the player and show the initial message
+      // If no more unwatched items, stop any playing media and clean up players completely
+      
+      // Use aggressive cleanup for YouTube player
+      try {
+        if (player) {
+          if (typeof player.stopVideo === 'function') {
+            player.stopVideo();
+          }
+          if (typeof player.destroy === 'function') {
+            player.destroy();
+          }
+          player = null;
+        }
+      } catch (e) {
+        console.error('Error stopping YouTube player:', e);
+      }
+      
+      // Remove any YouTube iframes directly
+      const youtubeIframe = document.getElementById('youtube-player');
+      if (youtubeIframe) {
+        youtubeIframe.parentNode.removeChild(youtubeIframe);
+      }
+      
+      // Stop Twitch player by removing the iframe
+      const twitchIframe = document.getElementById('twitch-player');
+      if (twitchIframe) {
+        twitchIframe.parentNode.removeChild(twitchIframe);
+      }
+      
+      // Clear out the entire player container to be extra safe
+      const playerContainer = document.getElementById('player-container');
+      if (playerContainer) {
+        playerContainer.innerHTML = '';
+      }
+      
+      // Hide the player container and show the initial message
       document.getElementById('player-container').style.display = 'none';
       document.getElementById('initial-message').classList.remove('d-none');
       

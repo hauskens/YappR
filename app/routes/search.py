@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, session
 from app.logger import logger
-from app.retrievers import get_broadcasters, get_broadcaster
+from app.retrievers import get_broadcasters, get_broadcaster, get_broadcaster_transcription_stats
 from flask_login import current_user # type: ignore
 from app.rate_limit import limiter, rate_limit_exempt
 from app.search import search_v2
@@ -8,7 +8,6 @@ from app.utils import get_valid_date
 
 search_blueprint = Blueprint('search', __name__, url_prefix='/search', template_folder='templates', static_folder='static')
 
-# TODO: Ban check
 @search_blueprint.route("", strict_slashes=False)
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 def search_page():
@@ -36,9 +35,11 @@ def search_word():
     ]
     logger.info("channels: %s", len(channels))
     video_result = search_v2(search_term, channels, start_date, end_date)
+    transcription_stats = get_broadcaster_transcription_stats(broadcaster_id)
     return render_template(
         "result.html",
         search_word=search_term,
         broadcaster=broadcaster,
         video_result=video_result,
+        transcription_stats=transcription_stats,
     )

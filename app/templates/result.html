@@ -20,7 +20,20 @@
         {% include "search_module.html" %}
       </div>
       <div class="col-4">
-        <canvas id="myChart"></canvas>
+        <p class="mb-2">
+          Transcription Quality
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-question-circle text-secondary" viewBox="0 0 16 16" data-bs-toggle="tooltip" data-bs-placement="top" title="Overall Transcription Quality for {{ broadcaster.name }}'s Videos">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+            <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
+          </svg>
+        </p>
+        <div class="row">
+          <div class="col-md-5">
+            <div style="height: 100px;">
+              <canvas id="transcriptionStatsChart"></canvas>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -78,8 +91,44 @@
         this.contentWindow.postMessage('{"event":"command","func":"stopVideo","args":""}', '*')
       });
     }
+    
+    // Initialize transcription quality doughnut chart
+    const transcriptionStatsCtx = document.getElementById("transcriptionStatsChart");
+    new Chart(transcriptionStatsCtx, {
+      type: "doughnut",
+      data: {
+        labels: ["High Quality", "Low Quality", "No Transcription"],
+        datasets: [{
+          data: [{{ transcription_stats.high_quality }}, {{ transcription_stats.low_quality }}, {{ transcription_stats.no_transcription }}],
+          backgroundColor: [
+            "#8b5cf6",  /* High - Light purple */
+            "#f59e0b",  /* Low - Amber (complements purple) */
+            "#64748b"   /* None - Slate gray */
+          ]
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false,
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const value = context.raw;
+                const total = {{ transcription_stats.high_quality + transcription_stats.low_quality + transcription_stats.no_transcription }};
+                const percentage = ((value / total) * 100).toFixed(1);
+                return `${context.label}: ${value} (${percentage}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+    
     const ctx = document.getElementById("myChart");
-
     var chart = new Chart(ctx, {
       type: "bar",
       data: {
@@ -124,7 +173,6 @@
             const cardId = `card-${videoId}`;
 
             const cardElement = document.getElementById(cardId);
-          // AI used for this block of code
           if (cardElement) {
               cardElement.scrollIntoView({ behavior: 'smooth' });
 
@@ -187,5 +235,13 @@
         },
       },
     });
-  </script>
+  
+  // Initialize Bootstrap tooltips
+  document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+    tooltipTriggerList.forEach(function(el) {
+      new bootstrap.Tooltip(el)
+    })
+  })
+</script>
 {% endblock %}

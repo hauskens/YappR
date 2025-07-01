@@ -29,7 +29,8 @@ FROM nvidia/cuda:12.9.0-cudnn-runtime-ubuntu24.04 AS worker-gpu
 WORKDIR /src
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 ADD https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/cuda-keyring_1.0-1_all.deb ./cuda-keyring_1.0-1_all.deb 
-RUN dpkg -i cuda-keyring_1.0-1_all.deb && \
+RUN apt clean && \
+    dpkg -i cuda-keyring_1.0-1_all.deb && \
     apt update && \
     apt install -y ffmpeg python3 libcudnn8-dev libcudnn8\
   && apt-get clean && rm -rf /var/lib/apt/lists/*

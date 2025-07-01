@@ -1,5 +1,5 @@
 from collections.abc import Sequence
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from .models.db import (
     Broadcaster,
     Permissions,
@@ -20,7 +20,7 @@ from .tasks import (
 )
 from datetime import datetime
 from app.logger import logger
-
+from app.cache import cache, make_cache_key
 
 def get_broadcasters() -> Sequence[Broadcaster]:
     return (
@@ -50,6 +50,51 @@ def get_broadcaster_channels(broadcaster_id: int) -> Sequence[Channels] | None:
         .scalars()
         .all()
     )
+
+
+def get_broadcaster_transcription_stats(broadcaster_id: int) -> dict:
+    # Get all videos for the broadcaster
+    all_videos_count = db.session.query(func.count(Video.id)).join(Video.channel).filter(
+        Channels.broadcaster_id == broadcaster_id
+    ).scalar() or 0
+    
+    # Get all videos with at least one high quality transcription (Unknown source)
+    # These are counted first since high quality takes precedence
+    high_quality_videos = db.session.query(Video.id).distinct().join(Video.transcriptions).join(Video.channel).filter(
+        Channels.broadcaster_id == broadcaster_id,
+        Video.active == True,
+        Transcription.source == TranscriptionSource.Unknown
+    ).all()
+    high_quality_video_ids = {video_id for (video_id,) in high_quality_videos}
+    high_quality_count = len(high_quality_video_ids)
+    
+    # Get videos with low quality transcriptions (YouTube source) but no high quality ones
+    query = db.session.query(Video.id).distinct().join(Video.transcriptions).join(Video.channel).filter(
+        Channels.broadcaster_id == broadcaster_id,
+        Transcription.source == TranscriptionSource.YouTube,
+        Video.active == True
+    )
+    
+    # Only apply the filter if there are high quality videos to exclude
+    if high_quality_video_ids:
+        query = query.filter(~Video.id.in_(high_quality_video_ids))
+        
+    low_quality_videos = query.all()
+    low_quality_count = len(low_quality_videos)
+    
+    # Count videos with no transcriptions
+    with_transcriptions_videos = db.session.query(Video.id).distinct().join(Video.transcriptions).join(Video.channel).filter(
+        Channels.broadcaster_id == broadcaster_id,
+        Video.active == True,
+    ).all()
+    with_transcriptions_video_ids = {video_id for (video_id,) in with_transcriptions_videos}
+    no_transcriptions_count = all_videos_count - len(with_transcriptions_video_ids)
+    
+    return {
+        'high_quality': high_quality_count,
+        'low_quality': low_quality_count,
+        'no_transcription': no_transcriptions_count
+    }
 
 
 def get_video(video_id: int) -> Video:

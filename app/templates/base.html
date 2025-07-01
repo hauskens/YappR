@@ -86,9 +86,9 @@
         </a>
         {% if current_user.is_anonymous == False %}
           <div class="collapse navbar-collapse" id="navbarScroll">
-            <div class="navbar-nav ">
+            <div class="navbar-nav d-flex align-items-center">
               <a class="nav-link" href="{{ url_for('search.search_page') }}">Search</a>
-              <a class="nav-link" href="{{ url_for('clip_queue.clip_queue') }}">Clip Queue</a>
+              <a class="nav-link text-nowrap" href="{{ url_for('clip_queue.clip_queue') }}">Clip Queue</a>
               <a class="nav-link" href="{{ url_for('broadcaster.broadcasters') }}">Broadcasters</a>
               {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
                 <a class="nav-link" href="{{ url_for('root.users') }}">Users</a>
@@ -107,7 +107,7 @@
           <div class="collapse navbar-collapse" id="navbarScroll">
             <div class="navbar-nav mr-auto">
               <a class="nav-link" href="{{ url_for('search.search_page') }}">Search</a>
-              <a class="nav-link" href="{{ url_for('clip_queue.clip_queue') }}">Clip Queue</a>
+              <a class="nav-link text-nowrap" href="{{ url_for('clip_queue.clip_queue') }}">Clip Queue</a>
               <a class="nav-link" href="{{ url_for('root.stats') }}">Stats</a>
             </div>
           </div>

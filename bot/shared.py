@@ -10,7 +10,7 @@ from app.models.db import OAuth, Channels, ChannelSettings, ChatLog, Content, Co
 from sqlalchemy import select
 from app.twitch_api import get_twitch_video_id, get_twitch_video_by_ids, get_twitch_clips, parse_clip_id, parse_time, Twitch
 from app.youtube_api import get_youtube_video_id, get_youtube_video_id_from_clip, get_videos, get_youtube_thumbnail_url
-from urllib.parse import urlparse, urlunparse
+from urllib.parse import urlparse, parse_qs
 from datetime import datetime
 
 engine = create_engine(config.database_uri)
@@ -32,6 +32,7 @@ class ContentDict(TypedDict):
     thumbnail_url: str
     channel_name: str
     author: str | None
+    created_at: datetime | None
 
 
 
@@ -208,14 +209,15 @@ async def fetch_youtube_clip_data(url: str) -> ContentDict:
         if video_id is None:
             logger.error("Failed to fetch YouTube clip data for url: %s", url)
             raise ValueError("Failed to fetch YouTube clip data")
-        video_details = get_videos([video_id])
+        video_details = get_videos([video_id])[0]
         return ContentDict(
             url=url,
-            sanitized_url=sanitize_url(url),
-            title=video_details[0].snippet.title,
-            duration=int(video_details[0].contentDetails.duration.total_seconds()),
+            sanitized_url=sanitize_youtube_url(url),
+            title=video_details.snippet.title,
+            duration=int(video_details.contentDetails.duration.total_seconds()),
             thumbnail_url=thumbnail_url,
-            channel_name=video_details[0].snippet.channelTitle,
+            channel_name=video_details.snippet.channelTitle,
+            created_at=video_details.snippet.publishedAt,
             author=None
         )
     except Exception as e:
@@ -228,14 +230,15 @@ async def fetch_youtube_data(url: str) -> ContentDict:
         logger.info("Fetching YouTube data for url: %s", url)
         thumbnail_url = get_youtube_thumbnail_url(url)
         video_id = get_youtube_video_id(url)
-        video_details = get_videos([video_id])
+        video_details = get_videos([video_id])[0]
         return ContentDict(
             url=url,
-            sanitized_url=sanitize_url(url),
-            title=video_details[0].snippet.title,
-            duration=int(video_details[0].contentDetails.duration.total_seconds()),
+            sanitized_url=sanitize_youtube_url(url),
+            title=video_details.snippet.title,
+            duration=int(video_details.contentDetails.duration.total_seconds()),
             thumbnail_url=thumbnail_url,
-            channel_name=video_details[0].snippet.channelTitle,
+            channel_name=video_details.snippet.channelTitle,
+            created_at=video_details.snippet.publishedAt,
             author=None
         )
     except Exception as e:
@@ -251,11 +254,12 @@ async def fetch_twitch_video_data(url: str, twitch: Twitch) -> ContentDict:
         video = video_details[0]
         return ContentDict(
             url=url,
-            sanitized_url=sanitize_url(url),
+            sanitized_url=sanitize_twitch_url(url),
             title=video.title,
             duration=parse_time(video.duration),
             thumbnail_url=video.thumbnail_url,
             channel_name=video.user_name,
+            created_at=video.created_at,
             author=None
         )
     except Exception as e:
@@ -271,25 +275,63 @@ async def fetch_twitch_clip_data(url: str, twitch: Twitch) -> ContentDict:
         clip = clip_details[0]
         return ContentDict(
             url=url,
-            sanitized_url=sanitize_url(url),
+            sanitized_url=sanitize_twitch_url(url),
             title=clip.title,
             duration=int(clip.duration),
             thumbnail_url=clip.thumbnail_url,
             channel_name=clip.broadcaster_name,
+            created_at=clip.created_at,
             author=clip.creator_name
         )
     except Exception as e:
         logger.error("Failed to fetch Twitch data for url: %s, exception: %s", url, e)
         raise ValueError("Failed to fetch Twitch data")
 
-def sanitize_url(url: str) -> str:
-    """Sanitize a URL by removing any query parameters and fragments"""
+def sanitize_youtube_url(url: str) -> str:
+    """Sanitize a YouTube URL by removing query parameters except video ID"""
     parsed_url = urlparse(url)
-    return urlunparse(parsed_url._replace(query='', fragment=''))
+    
+    if not get_platform(url) in ["youtube", "youtube_short", "youtube_clip"]:
+        raise ValueError("URL is not a YouTube URL")
 
-async def add_to_content_queue(url: str, broadcaster_id: int, username: str, external_user_id: str, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, user_comment: str | None = None, submission_weight: float = 1.0, twitch_client: Twitch | None = None) -> None:
+    if get_platform(url) == "youtube_clip":
+        return f"https://{parsed_url.hostname}{parsed_url.path}"
+    
+    query_params = parse_qs(parsed_url.query)
+    if parsed_url.hostname in ["youtu.be"]:
+        return f"https://www.youtube.com/watch?v={parsed_url.path.lstrip('/')}"
+    
+    if 'v' in query_params:
+        video_id = query_params['v'][0]
+        return f"https://www.youtube.com/watch?v={video_id}"
+    
+    if 'shorts' in parsed_url.path:
+        return f"https://www.youtube.com/watch?v={parsed_url.path.split('/')[-1]}"
+    
+    raise ValueError("URL is not a YouTube URL")
+
+def sanitize_twitch_url(url: str) -> str:
+    """Sanitize a Twitch URL by removing query parameters except video ID"""
+    parsed_url = urlparse(url)
+    
+    if not get_platform(url) in ["twitch_video", "twitch_clip"]:
+        raise ValueError("URL is not a Twitch URL")
+
+    if get_platform(url) == "twitch_clip":
+        return f"https://clips.twitch.tv/{parsed_url.path.split('/')[-1]}"
+
+    if parsed_url.path.find("/clip/") != -1:
+        return f"https://clips.twitch.tv/{parsed_url.path.split('/')[-1]}"
+    
+    return f"https://www.twitch.tv/videos/{parsed_url.path.split('/')[-1]}"
+
+async def add_to_content_queue(url: str, broadcaster_id: int, username: str, external_user_id: str, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, user_comment: str | None = None, submission_weight: float = 1.0, twitch_client: Twitch | None = None, session=None) -> None:
     """Add a URL to the content queue for a channel and record who submitted it"""
-    session = SessionLocal()
+    # Create a session if one wasn't provided
+    close_session = False
+    if session is None:
+        session = SessionLocal()
+        close_session = True
     try:
         platform = get_platform(url)
         if not platform:
@@ -457,11 +499,16 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
         session.rollback()
         logger.error("Error adding URL to content queue: %s", e, extra={"broadcaster_id": broadcaster_id})
     finally:
-        session.close()
+        if close_session:
+            session.close()
 
-async def update_submission_weight(submission_source_id: int, weight: float):
+async def update_submission_weight(submission_source_id: int, weight: float, session=None):
     logger.debug("Updating submission weight", extra={"submission_source_id": submission_source_id})
-    session = SessionLocal()
+    # Create a session if one wasn't provided
+    close_session = False
+    if session is None:
+        session = SessionLocal()
+        close_session = True
     try:
         existing_submission = session.execute(
             select(ContentQueueSubmission).filter(
@@ -478,7 +525,8 @@ async def update_submission_weight(submission_source_id: int, weight: float):
         session.rollback()
         logger.error("Error updating submission weight: %s", e, extra={"submission_source_id": submission_source_id})
     finally:
-        session.close()
+        if close_session:
+            session.close()
 
 # Singleton instance of the task manager
 task_manager = BotTaskManager()

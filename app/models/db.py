@@ -1082,6 +1082,7 @@ class Content(Base):
     thumbnail_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
     channel_name: Mapped[str] = mapped_column(String(500), nullable=False)
     author: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, server_default=None)
 
     def get_platform(self):
         if 'youtube' in self.url or 'youtu.be' in self.url:

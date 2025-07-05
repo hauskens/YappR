@@ -14,28 +14,11 @@ from flask.testing import FlaskClient
 from flask_login import login_user
 from sqlalchemy.orm import scoped_session, sessionmaker
 from testcontainers.postgres import PostgresContainer
+import pytest_asyncio
 
 # Determine if we're running in unit-test only mode
 unit_test_mode = "--unit" in sys.argv or os.environ.get("PYTEST_UNIT_ONLY") == "1"
-
-# Create a unit test marker
 pytest.mark.unit = pytest.mark.unit
-
-# pytest_async marker for async tests
-try:
-    import pytest_asyncio
-except ImportError:
-    @pytest.fixture
-    def event_loop():
-        import asyncio
-        loop = asyncio.get_event_loop_policy().new_event_loop()
-        yield loop
-        loop.close()
-    
-    def asyncio_mark(f):
-        return pytest.mark.usefixtures('event_loop')(f)
-    
-    pytest.mark.asyncio = asyncio_mark
 
 # Import models only if we're not running unit tests
 db_required = not unit_test_mode
@@ -190,7 +173,7 @@ def db_session(app: Flask) -> Generator[scoped_session, None, None]:
         ctx.pop()
 
 # Skip this autouse fixture if running unit tests only
-@pytest.fixture(autouse=(not db_required))
+@pytest.fixture(autouse=db_required)
 def seed_common_data(db_session: scoped_session) -> Generator[None, None, None]:
     """Populate 'Twitch' and 'YouTube' once per test, then roll back."""
     if not db_required:

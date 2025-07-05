@@ -249,12 +249,9 @@
                    data-bs-dismiss="dropdown"
              data-csrf
                    hx-on::after-request="
-                     if (document.querySelector('.queue-item.active[data-id=\'{{ item.id }}\']')) {
-                       skipAndNext();
-                     } else {
                        htmx.trigger(document.body, 'queue_update');
                        htmx.trigger(document.body, 'history_update');
-               }"
+               "
           >
               Skip
           </a>

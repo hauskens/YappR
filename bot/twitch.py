@@ -246,10 +246,6 @@ class TwitchBot:
             # Commit the session
             self.session.commit()
             
-            # Log the commit
-            count = len(self.message_buffer)
-            logger.info("Committed %s chat messages to database", count)
-            
             # Clear the buffer and update the last commit time
             self.message_buffer.clear()
             self.last_commit_time = time.time()

@@ -30,12 +30,9 @@
                     <select id="broadcaster" name="broadcaster" class="form-select" aria-label="Broadcaster selection">
                         {% for broadcaster in broadcasters %}
                             {% if not broadcaster.hidden or (current_user.is_anonymous == False and broadcaster.hidden and current_user.has_permission(["admin", "mod"])) %}
-                                <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
+                                <option value="{{ broadcaster.id }}" {% if session.get("last_selected_broadcaster") and broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
                             {% endif %}
                         {% endfor %}
-                        {% if broadcasters|length == 0 %}
-                            <option value="{{ broadcaster.id }}" {% if broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
-                        {% endif %}
                     </select>
                     <label for="broadcaster">Broadcaster</label>
                 </div>

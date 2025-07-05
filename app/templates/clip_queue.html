@@ -550,67 +550,9 @@
     }
   });
 
-  // Function to skip current clip and play next clip
-  function skipAndNext() {
-    // Check if we're in history tab
-    const isHistoryTab = document.getElementById('history-tab').classList.contains('active');
-    
-    const activeItem = document.querySelector('.queue-item.active');
-    if (activeItem) {
-      const itemId = activeItem.getAttribute('data-id');
-
-      // Find next unwatched item and store its ID before making any changes
-      const nextItem = findNextUnwatched(true); // true = exclude current item
-      if (nextItem) {
-        localStorage.setItem('pendingActiveItemId', nextItem.getAttribute('data-id'));
-      }
-      
-      // Don't mark as skipped if we're in history tab
-      if (isHistoryTab) {
-        playNextUnwatched();
-        return;
-      }
-      
-      // Check if this is the last unwatched clip by excluding the current item from search
-      const nextUnwatchedItem = findNextUnwatched(true); // true = exclude current item
-      let isLastClip = !nextUnwatchedItem;
-      
-      // If this is the last clip, stop the player immediately
-      if (isLastClip) {
-        // Stop players immediately
-        cleanupPlayers();
-      }
-
-      // Send request to mark as skipped with CSRF token
-      const csrfToken = '{{ csrf_token() }}';
-      fetch(`/clip_queue/item/${itemId}/skip`, { 
-        method: 'POST',
-        headers: {
-          'X-CSRFToken': csrfToken
-        },
-        // Also include as form data
-        body: new URLSearchParams({
-          'csrf_token': csrfToken
-        })
-      }).then(response => {
-        if (response.ok) {
-          // Update UI after skipping
-          htmx.trigger(document.body, 'queue_update');
-          htmx.trigger(document.body, 'history_update');
-          
-          if (isLastClip) {
-            showCompletionMessage();
-          } else {
-            playNextUnwatched();
-          }
-        }
-      });
-    }
-  }
 
   // Helper function to cleanup all players
   function cleanupPlayers() {
-    // More aggressive approach to ensure YouTube player is stopped
     // First try to stop using the player API
     try {
       if (player) {

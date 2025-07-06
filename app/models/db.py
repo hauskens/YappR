@@ -1122,11 +1122,38 @@ class ContentQueue(Base):
         """Find the broadcaster's video that was live when this clip was marked as watched
         and return a URL with the timestamp.
         
+        The function finds the closest previous watched item with the same broadcaster_id
+        and uses that time for the timestamp URL. If the time difference between this item
+        and the previous one is longer than 90 seconds + video duration, it uses that instead.
+        
+        Args:
+            time_shift: Default time shift in seconds (used as fallback if no previous item found)
+            
         Returns:
             URL string with timestamp or None if no matching video found
         """
         if not self.watched or not self.watched_at:
             return None
+        
+        # Find the closest previous watched item with the same broadcaster_id
+        previous_item = db.session.query(ContentQueue).filter(
+            ContentQueue.broadcaster_id == self.broadcaster_id,
+            ContentQueue.watched == True,
+            ContentQueue.watched_at < self.watched_at
+        ).order_by(ContentQueue.watched_at.desc()).first()
+        # Calculate the time difference to use for the offset
+        if previous_item and previous_item.watched_at:
+            # Calculate time difference in seconds between current and previous item
+            content_duration = self.content.duration or 0
+            
+            # Subtract content duration from the time difference
+            time_diff = (self.watched_at - previous_item.watched_at).total_seconds() 
+            
+            # Ensure time_diff is at least 0
+            time_diff = max(0, time_diff)
+            
+            # Use the minimum of the actual time difference and 90 seconds
+            time_shift = min(time_diff, 90 + content_duration)
             
         # Find videos from this broadcaster's channels that were live when the clip was watched
         for channel in self.broadcaster.channels:

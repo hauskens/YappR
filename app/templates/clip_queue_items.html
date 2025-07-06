@@ -2,7 +2,7 @@
   /* Custom styles for queue items */
   .watched-item,
   .skipped-item {
-    opacity: 0.6;
+    opacity: 0.8;
   }
 
   /* Ensure dropdown components are always visible */
@@ -71,8 +71,15 @@
     data-skipped="{{ 'true' if item.skipped else 'false' }}" data-url="{{ item.content.url }}"
     hx-get="/clip_queue/player/{{ item.id }}" hx-target="#player-container" hx-swap="innerHTML" hx-trigger="click"
     hx-on:click="
-    // Store the clicked item ID in localStorage
-    localStorage.setItem('activeQueueItemId', this.getAttribute('data-id'));
+    // Store the clicked item ID in localStorage and in currentClipId variable
+    const clickedId = this.getAttribute('data-id');
+    localStorage.setItem('activeQueueItemId', clickedId);
+    
+    // Update global tracking variable
+    if (typeof currentClipId !== 'undefined') {
+      currentClipId = clickedId;
+      console.log('Updated currentClipId from click:', currentClipId);
+    }
     
     // Check if we're in history mode
     const isHistoryMode = {{ 'true' if show_history else 'false' }};
@@ -112,9 +119,7 @@
       document.getElementById('mark-watched-btn').style.display = 'none';
     }
     
-    fetch('/clip_queue/details/{{ item.id }}')
-      .then(response => response.text())
-      .then(html => { document.getElementById('clip-details').innerHTML = html; });
+    htmx.ajax('GET', '/clip_queue/details/{{ item.id }}', {target: '#clip-details', swap: 'innerHTML'});
     initPlayer();">
 
     <div class="d-flex px-2 flex-nowrap">

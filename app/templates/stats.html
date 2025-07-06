@@ -1,14 +1,116 @@
-{% extends 'base.html' %} {% block content %}
-<div class="container">
-  <h1>Stats</h1>
-  <p>Videos indexed: {{ video_count }}</p>
-  <p>Total video duration in seconds: {{ video_duration }}</p>
-  <p>Sentences mapped: {{ segment_count }}</p>
-  <p>High quality transcriptions: {{ transcriptions_hq_count }}</p>
-</div>
+{% extends 'base.html' %} 
 
-{% with messages = get_flashed_messages() %} {% if messages %}
-<div class="alert alert-success" role="alert">
-  {% for message in messages %} {{ message }} {% endfor %}
+{% block content %}
+<div class="container py-4">
+  <h1 class="mb-4">System Statistics</h1>
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="card-title mb-4 text-center">
+            Transcription Quality
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-question-circle text-secondary" viewBox="0 0 16 16" data-bs-toggle="tooltip" data-bs-placement="top" title="Distribution of transcription quality across all videos">
+              <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+              <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
+            </svg>
+          </h5>
+          <div style="height: 200px;">
+            <canvas id="transcriptionQualityChart"></canvas>
+          </div>
+          <div class="mt-2">
+            <ul class="list-unstyled text-center">
+              <li class="mb-2">
+                <span class="badge rounded-pill me-1" style="background-color: #8b5cf6;">&nbsp;</span>
+                <span style="color: #8b5cf6; font-weight: 500;">High Quality: {{ '{:,}'.format(transcriptions_hq_count) }} ({{ '{:.1f}'.format((transcriptions_hq_count / video_count) * 100) }}%)</span>
+              </li>
+              <li class="mb-2">
+                <span class="badge rounded-pill me-1" style="background-color: #f59e0b;">&nbsp;</span>
+                <span style="color: #f59e0b; font-weight: 500;">Low Quality: {{ '{:,}'.format(transcriptions_lq_count) }} ({{ '{:.1f}'.format((transcriptions_lq_count / video_count) * 100) }}%)</span>
+              </li>
+              <li>
+                <span class="badge rounded-pill me-1" style="background-color: #d1d5db;">&nbsp;</span>
+                <span style="color: #6b7280; font-weight: 500;">Missing Transcription: {{ '{:,}'.format(video_count - (transcriptions_hq_count + transcriptions_lq_count)) }} ({{ '{:.1f}'.format(((video_count - (transcriptions_hq_count + transcriptions_lq_count)) / video_count) * 100) }}%)</span>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body text-center text-nowrap">
+          <div class="display-4 text-primary mb-2">{{ video_count }}</div>
+          <h5 class="card-title">Videos Tracked</h5>
+        </div>
+      </div>
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-body text-center text-nowrap">
+          <div class="display-4 text-secondary mb-2">{{ '{:,.0f}'.format(video_duration / 3600) }} hrs</div>
+          <h5 class="card-title">Combined duration of transcribed videos</h5>
+        </div>
+      </div>
+      <div class="card border-0 shadow-sm">
+        <div class="card-body text-center text-nowrap">
+          <div class="display-4 text-secondary mb-2">{% if video_count | int > 0 %}{{ "{:,.1f}".format(((video_duration | float / video_count | int) / 60) | int) }}{% else %}0 mins 0 secs{% endif %} mins</div>
+          <h5 class="card-title">Average video duration</h5>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
-{% endif %} {% endwith %} {% endblock %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function(tooltipTriggerEl) {
+      return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // Initialize transcription quality doughnut chart
+    const transcriptionQualityCtx = document.getElementById("transcriptionQualityChart");
+    const chartData = {
+      labels: ["High Quality", "Low Quality", "Missing Transcription"],
+      datasets: [{
+        data: [{{ transcriptions_hq_count }}, {{ transcriptions_lq_count }}, {{ video_count - (transcriptions_hq_count + transcriptions_lq_count) }}],
+        backgroundColor: [
+          "#8b5cf6",  // High - Light purple
+          "#f59e0b",  // Low - Amber
+          "#d1d5db"   // Missing - Light gray
+        ],
+        borderWidth: 0
+      }]
+    };
+    
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      cutout: '70%',
+      plugins: {
+        legend: {
+          display: false,
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              const value = context.raw;
+              const total = {{ video_count }};
+              const percentage = ((value / total) * 100).toFixed(1);
+              const formattedValue = new Intl.NumberFormat().format(value);
+              return `${context.label}: ${formattedValue} (${percentage}%)`;
+            }
+          }
+        }
+      }
+    };
+    
+    new Chart(transcriptionQualityCtx, {
+      type: "doughnut",
+      data: chartData,
+      options: chartOptions
+    });
+  });
+</script>
+{% endblock %}

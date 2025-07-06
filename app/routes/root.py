@@ -1,11 +1,18 @@
-from flask import Blueprint, render_template, flash, send_from_directory, redirect, url_for, send_file, make_response, abort, jsonify, request
+from flask import Blueprint, render_template, flash, send_from_directory, url_for, send_file, make_response, abort, jsonify, request
 from app.logger import logger
 from flask_login import current_user, logout_user, login_required # type: ignore
 from app.permissions import require_permission, require_api_key
 from app.models.db import PermissionType
 from app.csrf import csrf
-from app.retrievers import get_users, get_stats_videos, get_total_video_duration, get_stats_segments, get_stats_transcriptions, get_stats_high_quality_transcriptions, get_video, get_broadcasters
-from app.cache import cache, make_cache_key
+from app.retrievers import (
+    get_users, get_stats_videos, 
+    get_stats_transcriptions, 
+    get_stats_high_quality_transcriptions, 
+    get_video, get_broadcasters, 
+    get_total_good_transcribed_video_duration, 
+    get_stats_videos_with_low_transcription,
+)
+from app.cache import cache
 from io import BytesIO
 from app.rate_limit import limiter, rate_limit_exempt
 import asyncio
@@ -327,17 +334,17 @@ def delete_transcription_job(job_id):
     return list_transcription_jobs()
     
 @root_blueprint.route("/stats")
-@cache.cached(timeout=600, make_cache_key=make_cache_key)
+@cache.cached(timeout=600)
 @limiter.limit("100 per day, 5 per minute", exempt_when=rate_limit_exempt)
 def stats():
     logger.info("Loaded stats.html")
     return render_template(
         "stats.html",
-        video_count="{:,}".format(get_stats_videos()),
-        video_duration="{:,}".format(get_total_video_duration()),
-        segment_count="{:,}".format(get_stats_segments()),
-        transcriptions_count="{:,}".format(get_stats_transcriptions()),
-        transcriptions_hq_count="{:,}".format(get_stats_high_quality_transcriptions()),
+        video_count=get_stats_videos(),
+        video_duration=get_total_good_transcribed_video_duration(),
+        transcriptions_count=get_stats_transcriptions(),
+        transcriptions_hq_count=get_stats_high_quality_transcriptions(),
+        transcriptions_lq_count=get_stats_videos_with_low_transcription(),
     )
 
 @root_blueprint.route("/thumbnails/<int:video_id>")

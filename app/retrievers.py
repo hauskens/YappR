@@ -188,36 +188,70 @@ def get_total_video_duration() -> int:
     return total_duration or 0
 
 
+def get_total_good_transcribed_video_duration() -> int:
+    total_duration = db.session.query(func.sum(Video.duration)).filter(
+        Video.transcriptions.any(
+            Transcription.source == TranscriptionSource.Unknown
+        )
+    ).scalar()
+    return total_duration or 0
+
+def get_total_low_quality_transcribed_video_duration() -> int:
+    total_duration = db.session.query(func.sum(Video.duration)).filter(
+        Video.transcriptions.any(
+            Transcription.source == TranscriptionSource.YouTube
+        ),
+        ~Video.transcriptions.any(
+            Transcription.source == TranscriptionSource.Unknown
+        )
+    ).scalar()
+    return total_duration or 0
+
+
 def get_stats_videos_with_audio(channel_id: int) -> int:
     return (
-        db.session.query(Video)
+        db.session.query(func.count(func.distinct(Video.id)))
         .filter(Video.audio.is_not(None), Video.channel_id == channel_id)
-        .count()
+        .scalar() or 0
     )
 
 
 def get_stats_videos_with_good_transcription(channel_id: int) -> int:
     return (
-        db.session.query(Video)
+        db.session.query(func.count(func.distinct(Video.id)))
         .filter(
             Video.transcriptions.any(
                 Transcription.source == TranscriptionSource.Unknown
             ),
             Video.channel_id == channel_id,
         )
-        .count()
+        .scalar() or 0
     )
 
 
+def get_stats_videos_with_low_transcription() -> int:
+    return (
+        db.session.query(func.count(func.distinct(Video.id)))
+        .filter(
+            Video.transcriptions.any(
+                Transcription.source == TranscriptionSource.YouTube
+            ),
+            ~Video.transcriptions.any(
+                Transcription.source == TranscriptionSource.Unknown
+            )
+        )
+        .scalar() or 0
+    )
+
 def get_stats_transcriptions() -> int:
-    return db.session.query(Transcription).count()
+    return db.session.query(func.count(func.distinct(Transcription.video_id))).scalar() or 0
 
 
 def get_stats_high_quality_transcriptions() -> int:
     return (
-        db.session.query(Transcription)
+        db.session.query(func.count(func.distinct(Transcription.video_id)))
         .filter(Transcription.source == TranscriptionSource.Unknown)
-        .count()
+        .scalar() or 0
     )
 
 def get_moderated_channels(user_id: int) -> list[ChannelModerator]:

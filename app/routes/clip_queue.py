@@ -42,7 +42,7 @@ def clip_queue():
                 queue_items = [item for item in queue_items if item.content.url != "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
             logger.info("Successfully loaded clip queue", extra={"broadcaster_id": broadcaster.id, "queue_items": len(queue_items), "user_id": current_user.id})
             return render_template(
-                "clip_queue.html",
+                "clip_queue_v2.html",
                 queue_items=queue_items,
                 broadcaster=broadcaster,
                 motd=random.choice(messages),
@@ -110,6 +110,38 @@ def skip_clip_queue_item(item_id: int):
         return redirect(request.referrer)
 
 
+@clip_queue_blueprint.route("/skip_all", methods=["POST"])
+@login_required
+@require_permission()
+def skip_all_queue_items():
+    """Mark all unwatched and non-skipped queue items as skipped"""
+    try:
+        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id)
+        if broadcaster is None:
+            return jsonify({"error": "Broadcaster not found"}), 404
+            
+        # Get all unwatched and non-skipped items in the queue
+        queue_items = db.session.query(ContentQueue).filter_by(
+            broadcaster_id=broadcaster.id,
+            watched=False,
+            skipped=False
+        ).all()
+        
+        count = 0
+        for item in queue_items:
+            item.skipped = True
+            count += 1
+            
+        db.session.commit()
+        logger.info(f"Marked {count} queue items as skipped", extra={"user_id": current_user.id, "broadcaster_id": broadcaster.id})
+        
+        return jsonify({"status": "success", "count": count})
+    except Exception as e:
+        logger.error(f"Error skipping all queue items: {e}", extra={"user_id": current_user.id})
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
+
+
 @clip_queue_blueprint.route("/items")
 @login_required
 @require_permission()
@@ -135,8 +167,8 @@ def get_queue_items():
                 queue_enabled = True
                 break
         if broadcaster is not None and queue_enabled:
-            # Include watched clips if show_history is True
-            queue_items = get_content_queue(broadcaster.id, include_watched=show_history)
+            # Include watched and skipped clips if show_history is True
+            queue_items = get_content_queue(broadcaster.id, include_watched=show_history, include_skipped=show_history)
             
             # Filter out rickroll if not active and not admin/mod
             if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):

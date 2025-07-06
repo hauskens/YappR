@@ -15,16 +15,16 @@
     {% endif %}
     <a href="{{ item.content.url }}" target="_blank">link to video</a>
   </div>
-    {% if item.content.get_platform() == 'twitch' and item.content.author %}
-      <div><span>Clip created by: {{ item.content.author }}</span></div>
-    {% endif %}
-    {% if item.content.get_platform() == 'twitch' and item.content.created_at %}
-      <div><span>Clip created at: {{ item.content.created_at }}</span></div>
-    {% endif %}
-    {% if item.content.get_platform() == 'youtube' and item.content.created_at %}
-      <div><span>Uploaded: {{ item.content.created_at }}</span></div>
-    {% endif %}
-    
+  {% if item.content.get_platform() == 'twitch' and item.content.author %}
+  <div><span>Clip created by: {{ item.content.author }}</span></div>
+  {% endif %}
+  {% if item.content.get_platform() == 'twitch' and item.content.created_at %}
+  <div><span>Clip created at: {{ item.content.created_at }}</span></div>
+  {% endif %}
+  {% if item.content.get_platform() == 'youtube' and item.content.created_at %}
+  <div><span>Uploaded: {{ item.content.created_at }}</span></div>
+  {% endif %}
+
 </div>
 <div class="vr mx-2 flex-shrink-0"></div>
 <div class="d-flex flex-wrap align-items-center gap-1 mt-1 equal-col">
@@ -44,7 +44,11 @@
   {% if item.submissions|length > 0 %}
   {% set submission = item.submissions[0] %}
   {% set badge_class = 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge' %}
-  <span class="badge {{ badge_class }} opacity-50" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}">
+  <span class="badge {{ badge_class }} opacity-50" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}"
+    style="cursor: pointer;"
+    hx-get="{{ url_for('users.external_user', external_user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
+    hx-target="#userModalContent" hx-trigger="click" onclick="event.stopPropagation();"
+    hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()">
     {{ submission.user.username }}{{ '*' if submission.user_comment is not none else '' }}
   </span>
   {% if item.submissions|length > 1 %}

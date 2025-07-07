@@ -2,12 +2,15 @@ from flask import Blueprint, render_template, jsonify, flash, redirect, request,
 from app.logger import logger
 from flask_login import current_user, login_required # type: ignore
 from datetime import datetime, timedelta, timezone
-from app.models.db import ContentQueue, ExternalUserWeight, db, ExternalUser, ContentQueueSubmission
+from app.models.db import ContentQueue, ExternalUserWeight, db, ExternalUser, ContentQueueSubmission, Broadcaster, Channels, ContentQueue, ContentQueueSettings
+from bot.platform_handlers import PlatformRegistry
 from app.retrievers import get_broadcaster_by_external_id, get_content_queue
+from flask import render_template_string
 from app.permissions import require_permission
 from app.content_queue import clip_score
 from flask_socketio import SocketIO
 import random
+from sqlalchemy import select
 
 socketio = SocketIO()
 
@@ -150,7 +153,20 @@ def get_queue_items():
     try:
         # Check if we should show history (watched clips)
         show_history = request.args.get('show_history', 'false').lower() == 'true'
-        prefer_shorter = request.args.get('prefer_shorter', 'false').lower() == 'true'
+        
+        # Get broadcaster and content queue settings
+        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id)
+        
+        # Get prefer_shorter_content setting from database
+        queue_settings = db.session.execute(
+            select(ContentQueueSettings).filter(
+                ContentQueueSettings.broadcaster_id == broadcaster.id
+            )
+        ).scalars().one_or_none()
+        
+        prefer_shorter = False  # Default value
+        if queue_settings:
+            prefer_shorter = queue_settings.prefer_shorter_content
         
         # Search parameter
         search_query = request.args.get('search', '').strip()
@@ -325,6 +341,7 @@ def penalty_external_user(broadcaster_id: int, external_user_id: int):
 @login_required
 # @require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", require_moderator=True)
 def reset_external_user_penalties(broadcaster_id: int, external_user_id: int):
+    logger.info("Resetting external user penalties", extra={"broadcaster_id": broadcaster_id, "external_user_id": external_user_id})
     try:
         # Get the external user
         external_user = db.session.query(ExternalUser).filter_by(id=external_user_id).one()
@@ -381,3 +398,76 @@ def reset_external_user_penalties(broadcaster_id: int, external_user_id: int):
             return redirect(url_for('users.external_user', external_user_id=external_user_id, broadcaster_id=broadcaster_id))
         except Exception:
             return "<div class='alert alert-danger'>Error loading user details</div>", 500
+
+
+@clip_queue_blueprint.route("/settings", methods=["GET", "POST"])
+@login_required
+@require_permission()
+def settings():
+    """Get allowed platforms for the broadcaster's queue"""
+    try:
+        # Convert the ID to string to match expected type in get_broadcaster_by_external_id
+        broadcaster = current_user.get_broadcaster()
+        if not broadcaster:
+            logger.error("Broadcaster not found")
+            return jsonify({"status": "error", "message": "Broadcaster not found"}), 404
+        
+        if request.method == "POST":
+            # Get selected platforms from form
+            platforms = request.form.getlist("platforms")
+            # Get prefer_shorter_content preference
+            prefer_shorter = "prefer_shorter_content" in request.form
+            
+            logger.info(f"Updating queue settings", extra={
+                "broadcaster_id": broadcaster.id,
+                "platforms": platforms,
+                "prefer_shorter_content": prefer_shorter
+            })
+            
+            # Get or create content queue settings
+            queue_settings = db.session.execute(
+                select(ContentQueueSettings).filter(
+                    ContentQueueSettings.broadcaster_id == broadcaster.id
+                )
+            ).scalars().one_or_none()
+            
+            if not queue_settings:
+                # Create new settings if they don't exist
+                queue_settings = ContentQueueSettings(broadcaster_id=broadcaster.id)
+                db.session.add(queue_settings)
+            
+            # Update allowed platforms and prefer_shorter_content preference
+            queue_settings.set_allowed_platforms(platforms)
+            queue_settings.prefer_shorter_content = prefer_shorter
+            db.session.commit()
+            
+            return jsonify({
+                "status": "success",
+                "message": "Platform settings updated successfully"
+            })
+        elif request.method == "GET":
+            # Get content queue settings
+            queue_settings = db.session.execute(
+                select(ContentQueueSettings).filter(
+                    ContentQueueSettings.broadcaster_id == broadcaster.id
+                )
+            ).scalars().one_or_none()
+            if not queue_settings:
+                queue_settings = ContentQueueSettings(
+                    broadcaster_id=broadcaster.id,
+                )
+                db.session.add(queue_settings)
+            db.session.commit()
+            
+            platforms = queue_settings.get_allowed_platforms
+            prefer_shorter = queue_settings.prefer_shorter_content
+            
+            return jsonify({
+                "status": "success",
+                "platforms": platforms,
+                "prefer_shorter_content": prefer_shorter
+            })
+    except Exception as e:
+        logger.error(f"Error updating platform settings: {e}")
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500

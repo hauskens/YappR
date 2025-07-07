@@ -6,12 +6,11 @@ from typing import TypedDict
 from app.redis_client import RedisTaskQueue
 from app.logger import logger
 import re
-from app.models.db import OAuth, Channels, ChannelSettings, ChatLog, Content, ContentQueue, ContentQueueSubmission, BroadcasterSettings, ExternalUser, ExternalUserWeight, AccountSource, ContentQueueSubmissionSource
+from app.models.db import OAuth, Channels, ChannelSettings, ContentQueueSettings, Content, ContentQueue, ContentQueueSubmission, BroadcasterSettings, ExternalUser, ExternalUserWeight, AccountSource, ContentQueueSubmissionSource
 from sqlalchemy import select
-from app.twitch_api import get_twitch_video_id, get_twitch_video_by_ids, get_twitch_clips, parse_clip_id, parse_time, Twitch
-from app.youtube_api import get_youtube_video_id, get_youtube_video_id_from_clip, get_videos, get_youtube_thumbnail_url
-from urllib.parse import urlparse, parse_qs
+from app.twitch_api import Twitch
 from datetime import datetime
+from bot.platform_handlers import PlatformRegistry, ContentDict
 
 engine = create_engine(config.database_uri)
 SessionLocal = sessionmaker(bind=engine)
@@ -23,16 +22,6 @@ class ChannelSettingsDict(TypedDict):
     chat_collection_enabled: bool
     broadcaster_id: int
 
-class ContentDict(TypedDict):
-    """TypedDict representing content stored in memory"""
-    url: str
-    sanitized_url: str
-    title: str
-    duration: int
-    thumbnail_url: str
-    channel_name: str
-    author: str | None
-    created_at: datetime | None
 
 
 
@@ -42,14 +31,14 @@ def handle_shutdown(signum, frame):
     loop = asyncio.get_running_loop()
     loop.call_soon_threadsafe(shutdown_event.set)
 
-# Supported platforms and their domain patterns
-supported_platforms = {
-    'youtube': re.compile(r'^https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w\-]{11}'),
-    'youtube_short': re.compile(r'^https?://(?:www\.)?(youtube\.com/shorts/)[\w\-]{11}'),
-    'youtube_clip': re.compile(r'^https?://(?:www\.)?(youtube\.com/clip/)[\w\-]{36}'),
-    'twitch_video': re.compile(r'^https?://(?:www\.)?twitch\.tv/videos/\d+\?t=\d+h\d+m\d+s'),
-    'twitch_clip': re.compile(r'^https?://(?:clips\.twitch\.tv/[\w\-]+|(?:www\.)?twitch\.tv/\w+/clip/[\w\-]+)'),
-}
+# # Supported platforms and their domain patterns
+# supported_platforms = {
+#     'youtube': re.compile(r'^https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w\-]{11}'),
+#     'youtube_short': re.compile(r'^https?://(?:www\.)?(youtube\.com/shorts/)[\w\-]{11}'),
+#     'youtube_clip': re.compile(r'^https?://(?:www\.)?(youtube\.com/clip/)[\w\-]{36}'),
+#     'twitch_video': re.compile(r'^https?://(?:www\.)?twitch\.tv/videos/\d+\?t=\d+h\d+m\d+s'),
+#     'twitch_clip': re.compile(r'^https?://(?:clips\.twitch\.tv/[\w\-]+|(?:www\.)?twitch\.tv/\w+/clip/[\w\-]+)'),
+# }
 
 # URL regex pattern to detect URLs in messages
 url_pattern = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[\w/\-?=%.#&:;]*')
@@ -57,10 +46,16 @@ url_pattern = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[\w/\-?=%.#&:;
 
 def get_platform(url: str) -> str | None:
     """Returns the platform name if supported, else None"""
-    for platform, pattern in supported_platforms.items():
-        if pattern.match(url):
-            return platform
-    return None
+    # First check with legacy patterns for backward compatibility
+    # for platform, pattern in supported_platforms.items():
+    #     if pattern.match(url):
+    #         return platform
+            
+    # If not found in legacy patterns, try with PlatformRegistry
+    try:
+        return PlatformRegistry.get_platform_name(url)
+    except (ImportError, ValueError):
+        return None
 
 class BotTaskManager:
     """Manages bidirectional task communication between Redis and bot components.
@@ -199,132 +194,6 @@ class BotTaskManager:
             logger.error("Error enqueueing clip creation task: %s", e, extra={"broadcaster_id": broadcaster_id})
             return None
 
-async def fetch_youtube_clip_data(url: str) -> ContentDict:
-    """Fetches video data from YouTube clip"""
-    try:
-        logger.info("Fetching YouTube clip data for url: %s", url)
-        video_id = get_youtube_video_id_from_clip(url)
-        original_url = f"https://www.youtube.com/watch?v={video_id}"
-        thumbnail_url = get_youtube_thumbnail_url(original_url)
-        if video_id is None:
-            logger.error("Failed to fetch YouTube clip data for url: %s", url)
-            raise ValueError("Failed to fetch YouTube clip data")
-        video_details = get_videos([video_id])[0]
-        return ContentDict(
-            url=url,
-            sanitized_url=sanitize_youtube_url(url),
-            title=video_details.snippet.title,
-            duration=int(video_details.contentDetails.duration.total_seconds()),
-            thumbnail_url=thumbnail_url,
-            channel_name=video_details.snippet.channelTitle,
-            created_at=video_details.snippet.publishedAt,
-            author=None
-        )
-    except Exception as e:
-        logger.error("Failed to fetch YouTube clip data for url: %s, exception: %s", url, e)
-        raise ValueError("Failed to fetch YouTube clip data")
-
-async def fetch_youtube_data(url: str) -> ContentDict:
-    """Fetches video data from YouTube"""
-    try:
-        logger.info("Fetching YouTube data for url: %s", url)
-        thumbnail_url = get_youtube_thumbnail_url(url)
-        video_id = get_youtube_video_id(url)
-        video_details = get_videos([video_id])[0]
-        return ContentDict(
-            url=url,
-            sanitized_url=sanitize_youtube_url(url),
-            title=video_details.snippet.title,
-            duration=int(video_details.contentDetails.duration.total_seconds()),
-            thumbnail_url=thumbnail_url,
-            channel_name=video_details.snippet.channelTitle,
-            created_at=video_details.snippet.publishedAt,
-            author=None
-        )
-    except Exception as e:
-        logger.error("Failed to fetch YouTube data for url: %s, exception: %s", url, e)
-        raise ValueError("Failed to fetch YouTube data")
-
-async def fetch_twitch_video_data(url: str, twitch: Twitch) -> ContentDict:
-    """Fetches video data from Twitch"""
-    try:
-        logger.info("Fetching Twitch data for url: %s", url)
-        video_id = get_twitch_video_id(url)
-        video_details = await get_twitch_video_by_ids([video_id], api_client=twitch)
-        video = video_details[0]
-        return ContentDict(
-            url=url,
-            sanitized_url=sanitize_twitch_url(url),
-            title=video.title,
-            duration=parse_time(video.duration),
-            thumbnail_url=video.thumbnail_url,
-            channel_name=video.user_name,
-            created_at=video.created_at,
-            author=None
-        )
-    except Exception as e:
-        logger.error("Failed to fetch Twitch data for url: %s, exception: %s", url, e)
-        raise ValueError("Failed to fetch Twitch data")
-
-async def fetch_twitch_clip_data(url: str, twitch: Twitch) -> ContentDict:
-    """Fetches clip data from Twitch"""
-    try:
-        logger.info("Fetching Twitch data for clip url: %s", url)
-        clip_id = parse_clip_id(url)
-        clip_details = await get_twitch_clips([clip_id], api_client=twitch)
-        clip = clip_details[0]
-        return ContentDict(
-            url=url,
-            sanitized_url=sanitize_twitch_url(url),
-            title=clip.title,
-            duration=int(clip.duration),
-            thumbnail_url=clip.thumbnail_url,
-            channel_name=clip.broadcaster_name,
-            created_at=clip.created_at,
-            author=clip.creator_name
-        )
-    except Exception as e:
-        logger.error("Failed to fetch Twitch data for url: %s, exception: %s", url, e)
-        raise ValueError("Failed to fetch Twitch data")
-
-def sanitize_youtube_url(url: str) -> str:
-    """Sanitize a YouTube URL by removing query parameters except video ID"""
-    parsed_url = urlparse(url)
-    
-    if not get_platform(url) in ["youtube", "youtube_short", "youtube_clip"]:
-        raise ValueError("URL is not a YouTube URL")
-
-    if get_platform(url) == "youtube_clip":
-        return f"https://{parsed_url.hostname}{parsed_url.path}"
-    
-    query_params = parse_qs(parsed_url.query)
-    if parsed_url.hostname in ["youtu.be"]:
-        return f"https://www.youtube.com/watch?v={parsed_url.path.lstrip('/')}"
-    
-    if 'v' in query_params:
-        video_id = query_params['v'][0]
-        return f"https://www.youtube.com/watch?v={video_id}"
-    
-    if 'shorts' in parsed_url.path:
-        return f"https://www.youtube.com/watch?v={parsed_url.path.split('/')[-1]}"
-    
-    raise ValueError("URL is not a YouTube URL")
-
-def sanitize_twitch_url(url: str) -> str:
-    """Sanitize a Twitch URL by removing query parameters except video ID"""
-    parsed_url = urlparse(url)
-    
-    if not get_platform(url) in ["twitch_video", "twitch_clip"]:
-        raise ValueError("URL is not a Twitch URL")
-
-    if get_platform(url) == "twitch_clip":
-        return f"https://clips.twitch.tv/{parsed_url.path.split('/')[-1]}"
-
-    if parsed_url.path.find("/clip/") != -1:
-        return f"https://clips.twitch.tv/{parsed_url.path.split('/')[-1]}"
-    
-    return f"https://www.twitch.tv/videos/{parsed_url.path.split('/')[-1]}"
-
 async def add_to_content_queue(url: str, broadcaster_id: int, username: str, external_user_id: str, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, user_comment: str | None = None, submission_weight: float = 1.0, twitch_client: Twitch | None = None, session=None) -> None:
     """Add a URL to the content queue for a channel and record who submitted it"""
     # Create a session if one wasn't provided
@@ -337,6 +206,18 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
         if not platform:
             logger.info("URL is not supported: %s", url, extra={"broadcaster_id": broadcaster_id})
             return
+            
+        # Check if platform is allowed for this broadcaster's queue
+        queue_settings = session.execute(
+            select(ContentQueueSettings).filter(
+                ContentQueueSettings.broadcaster_id == broadcaster_id
+            )
+        ).scalars().one_or_none()
+        
+        # If we have queue settings and the platform is not allowed, return early
+        if queue_settings and not queue_settings.is_platform_allowed(platform):
+            logger.warning("Platform %s is not allowed for this queue", platform, extra={"broadcaster_id": broadcaster_id})
+            return
         # Check if content already exists
         existing_content = session.execute(
             select(Content).filter(Content.url == url)
@@ -344,13 +225,11 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
 
         if existing_content is None:
             logger.info("Content not found in database, fetching data from platform and trying to create it", extra={"broadcaster_id": broadcaster_id})
-            if platform == 'youtube':
-                platform_video_data = await fetch_youtube_data(url)
-            elif platform == 'youtube_short':
-                platform_video_data = await fetch_youtube_data(url)
-            elif platform == 'youtube_clip':
-                platform_video_data = await fetch_youtube_clip_data(url)
-            elif platform == 'twitch_video' or platform == 'twitch_clip':
+            # Use platform registry to get the appropriate handler
+            platform_handler = PlatformRegistry.get_handler_by_platform(platform)
+            
+            # For Twitch platforms, we need a Twitch client
+            if platform.startswith('twitch'):
                 # Get the Twitch client from the TwitchBot if not provided
                 if twitch_client is None:
                     # Get the Twitch client from the task manager
@@ -363,14 +242,11 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
                 if twitch_client is None:
                     logger.error("No Twitch client available for fetching video data")
                     raise ValueError("No Twitch client available")
-                    
-                if platform == 'twitch_video':
-                    platform_video_data = await fetch_twitch_video_data(url, twitch_client)
-                elif platform == 'twitch_clip':
-                    platform_video_data = await fetch_twitch_clip_data(url, twitch_client)
+                
+                platform_video_data = await platform_handler.fetch_data(url, twitch=twitch_client)
             else:
-                logger.info("URL is not supported: %s", url, extra={"broadcaster_id": broadcaster_id})
-                return
+                # For YouTube platforms
+                platform_video_data = await platform_handler.fetch_data(url)
             logger.info("Fetched data for url: %s", url, extra={"broadcaster_id": broadcaster_id})
             # Create new content entry
             content = Content(

@@ -79,7 +79,10 @@
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="options-tab" data-bs-toggle="tab" data-bs-target="#options" type="button" role="tab" aria-controls="options" aria-selected="false">
+              <button class="nav-link" id="options-tab" data-bs-toggle="tab" data-bs-target="#options" type="button" role="tab" aria-controls="options" aria-selected="false"
+                     hx-get="/clip_queue/settings"
+                     hx-trigger="click"
+                     hx-swap="none">
                 <i class="bi bi-gear"></i> Options
               </button>
             </li>
@@ -123,9 +126,8 @@
             <div class="tab-pane fade show active" id="upcoming" role="tabpanel" aria-labelledby="upcoming-tab">
               <div id="queue-items" class="overflow-auto custom-scrollbar" 
                    style="max-height: calc(95vh - 200px);" 
-                   hx-get="/clip_queue/items?page=1" 
-                   hx-trigger="load, queue_update from:body" 
-                   hx-vals="js:{prefer_shorter: localStorage.getItem('preferShortContent') === 'true'}"
+                   hx-get="/clip_queue/items?show_history=false&page=1" 
+                   hx-trigger="load delay:100ms, queue_update from:body, click from:#upcoming-tab"
                    hx-swap="innerHTML">
                 <!-- Queue items will be loaded here via HTMX -->
               </div>
@@ -134,8 +136,7 @@
               <div id="history-items" class="overflow-auto custom-scrollbar" 
                    style="max-height: calc(95vh - 200px);" 
                    hx-get="/clip_queue/items?show_history=true&page=1" 
-                   hx-trigger="click from:#history-tab, history_update from:body" 
-                   hx-vals="js:{prefer_shorter: localStorage.getItem('preferShortContent') === 'true'}"
+                   hx-trigger="click from:#history-tab, history_update from:body"
                    hx-swap="innerHTML">
                 <!-- History items will be loaded here via HTMX -->
               </div>
@@ -144,12 +145,48 @@
               <div class="p-3">
                 <div class="card mb-3">
                   <div class="card-body">
-                    <h5 class="card-title">Playback Options</h5>
-                    <div class="mb-3">
-                      <div class="form-check form-switch">
-                        <input class="form-check-input" type="checkbox" id="prefer-short-toggle" onchange="togglePreferShort()">
-                        <label class="form-check-label" for="prefer-short-toggle">Prefer short content</label>
+                    <h5 class="card-title">Queue Settings</h5>
+                    <form id="platform-settings-form" 
+                          hx-post="/clip_queue/settings" 
+                          hx-swap="none" 
+                          hx-trigger="change delay:200ms"
+                          hx-indicator="#platforms-spinner"
+                          hx-on::after-request="updatePlatformsStatus(event)">
+                      <div class="mb-4">
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" type="checkbox" id="prefer-short-toggle" name="prefer_shorter_content">
+                          <label class="form-check-label" for="prefer-short-toggle">Prefer short content</label>
+                        </div>
                       </div>
+                      <h5 class="card-title">Allowed Platforms</h5>
+                      <div class="mb-3">
+                        <div class="d-flex gap-2 mb-2">
+                          <div class="form-check">
+                            <input class="form-check-input platform-toggle" type="checkbox" id="platform-youtube" name="platforms" value="youtube" checked>
+                            <label class="form-check-label" for="platform-youtube">YouTube Videos</label>
+                          </div>
+                          <div class="form-check">
+                            <input class="form-check-input platform-toggle" type="checkbox" id="platform-youtube_short" name="platforms" value="youtube_short" checked>
+                            <label class="form-check-label" for="platform-youtube_short">YouTube Shorts</label>
+                          </div>
+                        </div>
+                        <div class="d-flex gap-2 mb-2">
+                          <div class="form-check">
+                            <input class="form-check-input platform-toggle" type="checkbox" id="platform-youtube_clip" name="platforms" value="youtube_clip" checked>
+                            <label class="form-check-label" for="platform-youtube_clip">YouTube Clips</label>
+                          </div>
+                          <div class="form-check">
+                            <input class="form-check-input platform-toggle" type="checkbox" id="platform-twitch_video" name="platforms" value="twitch_video" checked>
+                            <label class="form-check-label" for="platform-twitch_video">Twitch Videos</label>
+                          </div>
+                        </div>
+                        <div class="d-flex gap-2 mb-3">
+                          <div class="form-check">
+                            <input class="form-check-input platform-toggle" type="checkbox" id="platform-twitch_clip" name="platforms" value="twitch_clip" checked>
+                            <label class="form-check-label" for="platform-twitch_clip">Twitch Clips</label>
+                          </div>
+                        </div>
+                      </form>
                     </div>
                   </div>
                 </div>
@@ -269,14 +306,43 @@
     });
   });
   
-  // Function to toggle the prefer short content setting
-  function togglePreferShort() {
-    const toggle = document.getElementById('prefer-short-toggle');
-    // Save preference to localStorage
-    localStorage.setItem('preferShortContent', toggle.checked);
-    // Trigger a refresh of the queue items
-    htmx.trigger(document.body, 'queue_update');
-  }
+  // Handle platform settings responses
+  document.addEventListener('htmx:afterRequest', function(event) {
+    // Update platform checkboxes when options tab is loaded
+    if (event.detail.elt && event.detail.elt.id === 'options-tab') {
+      if (event.detail.successful) {
+        try {
+          const response = JSON.parse(event.detail.xhr.responseText);
+          if (response.status === 'success') {
+            // Update prefer shorter content toggle
+            if (response.hasOwnProperty('prefer_shorter_content')) {
+              document.getElementById('prefer-short-toggle').checked = response.prefer_shorter_content;
+              // Update localStorage to stay in sync with server setting
+              localStorage.setItem('preferShortContent', response.prefer_shorter_content);
+            }
+            
+            // Update platform checkboxes
+            if (response.platforms) {
+              // Reset all checkboxes first
+              document.querySelectorAll('.platform-toggle').forEach(checkbox => {
+                checkbox.checked = false;
+              });
+              
+              // Check boxes for enabled platforms
+              response.platforms.forEach(platform => {
+                const checkbox = document.getElementById('platform-' + platform);
+                if (checkbox) {
+                  checkbox.checked = true;
+                }
+              });
+            }
+          }
+        } catch (e) {
+          console.error('Error parsing platform settings:', e);
+        }
+      }
+    }
+  });
   
   // Initialize active item from localStorage
   document.addEventListener('DOMContentLoaded', function() {
@@ -298,15 +364,6 @@
     }
   });
   
-  // Function to toggle the prefer short content setting
-  function togglePreferShort() {
-    const toggle = document.getElementById('prefer-short-toggle');
-    // Save preference to localStorage
-    localStorage.setItem('preferShortContent', toggle.checked);
-    // Trigger a refresh of the queue items
-    htmx.trigger(document.body, 'queue_update');
-  }
-
 
   document.addEventListener('DOMContentLoaded', function() {
     // Toggle search inputs when switching tabs

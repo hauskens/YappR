@@ -15,10 +15,9 @@ from sqlalchemy import (
     BigInteger,
 )
 from sqlalchemy import select, func
-from flask_sqlalchemy import SQLAlchemy
 from flask_dance.consumer.storage.sqla import OAuthConsumerMixin # type: ignore
 from flask_login import UserMixin # type: ignore
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_utils.types.ts_vector import TSVectorType # type: ignore
 from sqlalchemy_file import FileField, File
 from datetime import datetime, timedelta
@@ -53,13 +52,8 @@ from ..twitch_api import get_twitch_user, get_twitch_user_by_id, get_latest_broa
 
 from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
-
-
-class Base(DeclarativeBase):
-    pass
-
-
-db = SQLAlchemy(model_class=Base)
+from . import db
+from .base import Base
 
 
 class Broadcaster(Base):
@@ -73,6 +67,9 @@ class Broadcaster(Base):
     settings: Mapped["BroadcasterSettings"] = relationship(back_populates="broadcaster", uselist=False)
     content_queue: Mapped[list["ContentQueue"]] = relationship(
         back_populates="broadcaster", cascade="all, delete-orphan"
+    )
+    content_queue_settings: Mapped["ContentQueueSettings"] = relationship(
+        "ContentQueueSettings", back_populates="broadcaster", uselist=False
     )
     def delete(self):
         for channel in self.channels:
@@ -1200,3 +1197,48 @@ class ContentQueueSubmission(Base):
     user_comment: Mapped[str | None] = mapped_column(String(256), nullable=True)
 
 
+
+class ContentQueueSettings(Base):
+    __tablename__ = "content_queue_settings"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
+    broadcaster: Mapped["Broadcaster"] = relationship()
+    prefer_shorter_content: Mapped[bool] = mapped_column(Boolean, default=False)
+    view_count_min: Mapped[int] = mapped_column(Integer, default=0)
+    allowed_platforms: Mapped[str] = mapped_column(Text, default="")
+
+    @property
+    def get_allowed_platforms(self) -> list[str]:
+        """Get list of allowed platforms. Empty means all platforms allowed."""
+        if not self.allowed_platforms:
+            # Get all available platforms from registry
+            from bot.platform_handlers import PlatformRegistry
+            return list(PlatformRegistry._handlers.keys())
+        return [p.strip() for p in self.allowed_platforms.split(",") if p.strip()]
+    
+    def is_platform_allowed(self, platform: str) -> bool:
+        """Check if a platform is allowed.
+        
+        Args:
+            platform: Platform name to check
+            
+        Returns:
+            True if platform is allowed or if no platforms are specified (all allowed),
+            False otherwise
+        """
+        if not self.allowed_platforms:
+            return True  # All platforms allowed
+        return platform in self.get_allowed_platforms
+    
+    def set_allowed_platforms(self, platforms: list[str]) -> None:
+        """Set the allowed platforms list.
+        
+        Args:
+            platforms: List of platform names to allow
+            
+        Note: 
+            Empty list means all platforms are allowed
+        """
+        self.allowed_platforms = ",".join(platforms) if platforms else ""
+    
+    

@@ -251,7 +251,7 @@ class PlatformRegistry:
         for handler_class in cls._handlers.values():
             if handler_class.matches_url(url):
                 return handler_class.platform_name
-        return None
+        raise ValueError(f"Unsupported URL: {url}")
 
 
 # Register all platform handlers

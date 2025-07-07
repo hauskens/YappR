@@ -2,15 +2,15 @@ from flask import Blueprint, render_template, jsonify, flash, redirect, request,
 from app.logger import logger
 from flask_login import current_user, login_required # type: ignore
 from datetime import datetime, timedelta, timezone
-from app.models.db import ContentQueue, ExternalUserWeight, db, ExternalUser, ContentQueueSubmission, Broadcaster, Channels, ContentQueue, ContentQueueSettings
+from app.models.db import ContentQueue, ExternalUserWeight, db, ExternalUser, ContentQueueSubmission, ContentQueue, ContentQueueSettings, PermissionType
 from bot.platform_handlers import PlatformRegistry
-from app.retrievers import get_broadcaster_by_external_id, get_content_queue
-from flask import render_template_string
+from app.retrievers import get_broadcaster_by_external_id, get_content_queue, get_broadcasters
 from app.permissions import require_permission
 from app.content_queue import clip_score
 from flask_socketio import SocketIO
 import random
 from sqlalchemy import select
+from app.rate_limit import limiter
 
 socketio = SocketIO()
 
@@ -471,3 +471,147 @@ def settings():
         logger.error(f"Error updating platform settings: {e}")
         db.session.rollback()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@clip_queue_blueprint.route("/add", methods=["GET", "POST"])
+@login_required
+@require_permission()
+@limiter.limit("30 per day, 5 per minute", exempt_when=lambda: current_user.has_permission(PermissionType.Admin))
+def add_content():
+    """Add new content to the queue"""
+    try:
+        broadcaster = current_user.get_broadcaster()
+        if not broadcaster:
+            logger.error("Broadcaster not found")
+            return "Broadcaster not found", 404
+        if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
+            broadcasters = get_broadcasters(show_hidden=True)
+        else:
+            if current_user.is_broadcaster():
+                broadcasters = [current_user.get_broadcaster()]
+            broadcasters += get_broadcasters(show_hidden=False)
+        if request.method == "GET":
+            return render_template("add_content.html", broadcasters=broadcasters)
+        
+        elif request.method == "POST":
+            url = request.form.get("url", "").strip()
+            selected_broadcaster_id = request.form.get("broadcaster_id")
+
+            if selected_broadcaster_id not in [broadcaster.id for broadcaster in broadcasters]:
+                return jsonify({"status": "error", "message": "Invalid broadcaster selected"}), 400
+            
+            if not url:
+                return jsonify({"status": "error", "message": "URL is required"}), 400
+            
+            selected_broadcaster_id = int(selected_broadcaster_id)
+            
+            # Add the content to the queue using the shared function
+            import asyncio
+            from bot.shared import add_to_content_queue
+            from app.models.db import ContentQueueSubmissionSource
+            
+            # Use asyncio.run to handle the async function
+            queue_item_id = asyncio.run(add_to_content_queue(
+                url=url,
+                broadcaster_id=selected_broadcaster_id,
+                username=current_user.name,
+                external_user_id=current_user.external_account_id,
+                submission_source_type=ContentQueueSubmissionSource.Web,
+                submission_source_id=0,
+                submission_weight=1.0
+            ))
+            
+            if queue_item_id:
+                queue_item = db.session.query(ContentQueue).filter(ContentQueue.id == queue_item_id).one()
+                return render_template("management_items.html", 
+                                     queue_items=[queue_item],
+                                     total_items=1,
+                                     total_pages=1,
+                                     page=1,
+                                     search_query="")
+            else:
+                return jsonify({"status": "error", "message": "Failed to add content or content not supported"})
+            
+    except Exception as e:
+        logger.error(f"Error adding content: {e}")
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@clip_queue_blueprint.route("/search", methods=["POST"])
+@login_required
+@require_permission()
+def search_content():
+    """Search for existing content in the queue"""
+    try:
+        url = request.form.get("url", "").strip()
+        broadcaster_id = request.form.get("broadcaster_id")
+        
+        if not url:
+            return jsonify({"status": "error", "message": "URL is required"}), 400
+        
+        # Sanitize the URL using platform handlers
+        try:
+            platform_handler = PlatformRegistry.get_handler_for_url(url)
+            sanitized_url = platform_handler.sanitize_url(url)
+        except ValueError:
+            # URL not supported by any platform handler
+            return "<div class='alert alert-warning'>URL format not supported.</div>"
+        
+        # Search for content by both original URL and sanitized URL
+        from app.models.db import Content
+        existing_content = db.session.execute(
+            select(Content).filter(
+                (Content.url == url) | (Content.stripped_url == sanitized_url)
+            )
+        ).scalars().one_or_none()
+        
+        if existing_content:
+            # If no broadcaster specified, search across all allowed broadcasters
+            if not broadcaster_id:
+                if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
+                    broadcasters = get_broadcasters(show_hidden=True)
+                else:
+                    if current_user.is_broadcaster():
+                        broadcasters = [current_user.get_broadcaster()]
+                    broadcasters += get_broadcasters(show_hidden=False)
+                # Get all queue items for this content across all broadcasters
+                all_queue_items = db.session.execute(
+                    select(ContentQueue).filter(
+                        ContentQueue.content_id == existing_content.id,
+                        ContentQueue.broadcaster_id.in_([broadcaster.id for broadcaster in broadcasters])
+                    )
+                ).scalars().all()
+                
+                if all_queue_items:
+                    return render_template("management_items.html", 
+                                         queue_items=all_queue_items,
+                                         total_items=len(all_queue_items),
+                                         total_pages=1,
+                                         page=1,
+                                         search_query="")
+            else:
+                # Search in specific broadcaster's queue
+                broadcaster_id = int(broadcaster_id)
+                existing_queue_item = db.session.execute(
+                    select(ContentQueue).filter(
+                        ContentQueue.content_id == existing_content.id,
+                        ContentQueue.broadcaster_id == broadcaster_id
+                    )
+                ).scalars().one_or_none()
+                
+                if existing_queue_item:
+                    return render_template("management_items.html", 
+                                         queue_items=[existing_queue_item],
+                                         total_items=1,
+                                         total_pages=1,
+                                         page=1,
+                                         search_query="")
+        
+        # No content found
+        return "<div class='alert alert-info'>No existing content found for this URL.</div>"
+        
+    except Exception as e:
+        logger.error(f"Error searching content: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+

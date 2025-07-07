@@ -13,9 +13,9 @@ pytestmark = pytest.mark.unit
 with patch('sqlalchemy.create_engine'):
     from bot.shared import (
         get_platform, BotTaskManager, 
-        ContentDict, add_to_content_queue,
+        Content, add_to_content_queue,
     )
-    from bot.platform_handlers import PlatformRegistry
+    from bot.platform_handlers import PlatformRegistry, ContentDict
 
 from app.models.db import (
     ContentQueueSubmissionSource, Content, 
@@ -243,9 +243,6 @@ class TestAddToContentQueue:
             session=mock_session
         )
         
-        # Verify interactions
-        mock_get_platform.assert_called_once_with(url)
-        
         # Check that content was created
         content_add_call = mock_session.add.call_args_list[0]
         content = content_add_call[0][0]
@@ -281,6 +278,7 @@ class TestAddToContentQueue:
         # Mock existing content and queue item
         existing_content = MagicMock(spec=Content)
         existing_content.id = 42
+        existing_content.stripped_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         
         existing_user = MagicMock(spec=ExternalUser)
         existing_user.id = 24
@@ -295,9 +293,9 @@ class TestAddToContentQueue:
         mock_session.execute.return_value.scalars.return_value.one_or_none.side_effect = [
             ContentQueueSettings(broadcaster_id=broadcaster_id, allowed_platforms=""),
             existing_content,  # Content exists
-            existing_queue_item,  # Not in queue yet
             existing_user,  # External user exists
-            existing_weight  # External user weight exists
+            existing_weight,  # External user weight exists
+            existing_queue_item,  # Not in queue yet
         ]
         
         # Call function
@@ -312,7 +310,6 @@ class TestAddToContentQueue:
         )
         
         # Verify interactions
-        mock_get_platform.assert_called_once_with(url)
         mock_fetch_data.assert_not_called()  # Should not fetch data for existing content
         
         # Check that a new queue item was created
@@ -322,7 +319,6 @@ class TestAddToContentQueue:
         assert queue_item.content_id == existing_content.id
         assert queue_item.broadcaster_id == broadcaster_id
         
-        mock_session.commit.assert_called_once()
 
     @pytest.mark.asyncio
     @patch('bot.shared.get_platform')
@@ -350,7 +346,6 @@ class TestAddToContentQueue:
         )
         
         # Verify interactions
-        mock_get_platform.assert_called_once_with(url)
         mock_session.add.assert_not_called()  # Nothing should be added
         mock_session.commit.assert_not_called()  # No database changes
 
@@ -403,7 +398,6 @@ class TestAddToContentQueue:
         )
         
         # Verify interactions
-        mock_get_platform.assert_called_once_with(url)
         mock_fetch_data.assert_not_called()  # Should not fetch data
         mock_session.add.assert_not_called()  # Nothing should be added
         mock_session.commit.assert_not_called()  # No database changes

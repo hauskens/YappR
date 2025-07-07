@@ -22,10 +22,15 @@ from datetime import datetime
 from app.logger import logger
 from app.cache import cache, make_cache_key
 
-def get_broadcasters() -> Sequence[Broadcaster]:
-    return (
-        db.session.execute(select(Broadcaster).order_by(Broadcaster.id)).scalars().all()
-    )
+def get_broadcasters(show_hidden: bool = False) -> Sequence[Broadcaster]:
+    if show_hidden:
+        return (
+            db.session.execute(select(Broadcaster).order_by(Broadcaster.id)).scalars().all()
+        )
+    else:
+        return (
+            db.session.execute(select(Broadcaster).filter_by(hidden=False).order_by(Broadcaster.id)).scalars().all()
+        )
 
 
 def get_broadcaster(broadcaster_id: int) -> Broadcaster:

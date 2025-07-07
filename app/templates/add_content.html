@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="mb-0">
+                        <i class="bi bi-plus-circle me-2"></i>
+                        Add Content to Queue
+                    </h3>
+                </div>
+                <div class="card-body">
+                    <form id="contentForm">
+                        <div class="mb-3">
+                            <label for="url" class="form-label">Content URL</label>
+                            <input type="url" 
+                                   class="form-control" 
+                                   id="url" 
+                                   name="url" 
+                                   placeholder="Paste YouTube or Twitch URL here..." 
+                                   required
+                                   onkeypress="handleUrlKeyPress(event)">
+                            <div class="form-text">
+                                Supported platforms: YouTube videos, YouTube Shorts, YouTube clips, Twitch videos, Twitch clips
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="broadcaster_id" class="form-label">Broadcaster Queue</label>
+                            <select class="form-select" 
+                                    id="broadcaster_id" 
+                                    name="broadcaster_id"
+                                    onchange="toggleAddButton()">
+                                <option value="">Select a broadcaster...</option>
+                                {% for broadcaster in broadcasters %}
+                                <option value="{{ broadcaster.id }}">{{ broadcaster.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                Choose a broadcaster queue to add content to.
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="button" 
+                                    class="btn btn-outline-primary"
+                                    hx-post="{{ url_for('clip_queue.search_content') }}"
+                                    hx-include="#contentForm"
+                                    hx-target="#results"
+                                    hx-indicator="#search-spinner"
+                                    data-csrf>
+                                <i class="bi bi-search me-1"></i>
+                                Search for Existing
+                                <span id="search-spinner" class="spinner-border spinner-border-sm ms-2 htmx-indicator" role="status"></span>
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-primary"
+                                    id="addToQueueBtn"
+                                    hx-post="{{ url_for('clip_queue.add_content') }}"
+                                    hx-include="#contentForm"
+                                    hx-target="#results"
+                                    hx-indicator="#add-spinner"
+                                    data-csrf
+                                    disabled>
+                                <i class="bi bi-plus-lg me-1"></i>
+                                Add to Queue
+                                <span id="add-spinner" class="spinner-border spinner-border-sm ms-2 htmx-indicator" role="status"></span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    
+    <!-- Results area - full width like management.html -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div id="results"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+function handleUrlKeyPress(event) {
+    if (event.key === 'Enter') {
+        event.preventDefault();
+        document.querySelector('[hx-post="{{ url_for('clip_queue.search_content') }}"]').click();
+    }
+}
+
+function toggleAddButton() {
+    const broadcasterSelect = document.getElementById('broadcaster_id');
+    const addBtn = document.getElementById('addToQueueBtn');
+    
+    if (broadcasterSelect.value === '') {
+        addBtn.disabled = true;
+    } else {
+        addBtn.disabled = false;
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    toggleAddButton();
+});
+</script>
+
+{% endblock %}

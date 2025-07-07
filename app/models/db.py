@@ -1178,12 +1178,10 @@ class ContentQueue(Base):
 class ContentQueueSubmissionSource(enum.Enum):
     Discord = "discord" # Comes from a message in a linked channel based on broadcaster settings
     Twitch = "twitch" # Comes from a clip submission in twitch
+    Web = "web" # Comes from a clip submission in web interface
 
 class ContentQueueSubmission(Base):
     __tablename__ = "content_queue_submissions"
-    __table_args__ = (
-        UniqueConstraint("content_queue_id", "user_id", name="uq_user_submission"),
-    )
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     content_queue_id: Mapped[int] = mapped_column(ForeignKey("content_queue.id"))
     content_queue: Mapped["ContentQueue"] = relationship(back_populates="submissions")

@@ -74,6 +74,7 @@
               </a>
               {% endif %}
             </div>
+            {% if management %}
             <div>
               <button class="btn btn-sm btn-outline-{% if item.watched %}secondary{% else %}success{% endif %}" 
                       hx-post="{{ url_for('clip_queue.mark_clip_watched', item_id=item.id) }}" 
@@ -99,6 +100,7 @@
               </button>
               {% endif %}
             </div>
+            {% endif %}
           </div>
         </div>
       </div>

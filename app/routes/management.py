@@ -138,7 +138,8 @@ def management_items():
             per_page=per_page,
             total_items=total_items,
             total_pages=total_pages,
-            search_query=search_query
+            search_query=search_query,
+            management=True
         )
     except Exception as e:
         logger.error("Error loading management items: %s", e)

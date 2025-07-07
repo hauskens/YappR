@@ -2,7 +2,7 @@
 
 =====================================
 
-A self-hosted, open-source project for searching and transcribing audio from YouTube and Twitch.
+A self-hosted, open-source project for searching and transcribing audio from YouTube and Twitch, with integrated clip queue management.
 
 ## Overview
 
@@ -10,25 +10,39 @@ YappR is a metadata and transcription search tool that allows you to store and
 query metadata from various YouTube channels. The project provides a flexible
 and extensible framework for storing/processing transcription data.
 
-Some of the features include:
+## Key Features
 
-- A web interface to search and manage transcriptions across twitch and youtube for any channel
+### Transcription Search
+- Advanced search across transcriptions from YouTube and Twitch content
+- Full-text search with PostgreSQL tsvector and semantic search via pgvector
+- Support for exact phrase matching using quotes
+- Optimized for short clips (8-12 seconds) with distinctive keywords
+
+### Clip Queue Management
+- **Integrated Bots**: Twitch and Discord bots that listen for clip links
+- **Community-Powered**: Hands-off highlight curation powered by your community
+- **24/7 Submissions**: Users can share clips even when streamers are offline
+- **Moderator Integration**: Twitch moderators have automatic permissions
+- **Voting System**: Community-driven voting with reaction-based weighting
+
+### Technical Features
 - Task scheduler to extract and process audio
 - GPU worker to transcribe audio, multiple workers can be connected
-- Authenticated web interface using Discord OAuth2, guests are rate limited
+- Authenticated web interface using Discord and Twitch OAuth2
+- Rate limiting for unauthenticated users
 
 
 ## Technologies used
 - Python
-- FastAPI
+- Flask (web framework)
 - Twitch and YouTube API
-- PostgreSQL
-- Alembic (db migrations)
-- Redis
+- PostgreSQL with pgvector extension
+- Alembic (database migrations)
+- Redis (caching and message broker)
 - Celery (task scheduler)
-- pgvector (search)
-- WhisperX (transcription)
+- WhisperX (GPU-accelerated transcription)
 - Yt-dlp (audio download)
+- Discord.py and TwitchAPI (bot integration)
 
 
 ## Attribution
@@ -66,6 +80,7 @@ All environment variables comes from `app/models/config.py`
 | `DB_URI`                 | `postgresql+psycopg://postgres:mysecretpassword@postgres-db:5432/postgres` | Database URI (PostgreSQL)                         |
 | `LOG_LEVEL`              | `logging.DEBUG`                                                            | Log level (debug, info, warning, error, critical) |
 | `DEBUG`                  | `False`                                                                    | Enable debug mode                                 |
+| `DEBUG_BROADCASTER_ID`   | `None`                                                                     | Debug broadcaster ID for development              |
 | `STORAGE_LOCATION`       | `/var/lib/yappr/data`                                                      | Storage location for files or data                |
 | `CACHE_LOCATION`         | `/var/lib/yappr/cache`                                                     | Cache location for cached data                    |
 | `REDIS_URI`              | `redis://redis-cache:6379/0`                                               | Redis URI (connection string)                     |
@@ -75,18 +90,26 @@ All environment variables comes from `app/models/config.py`
 | `DISCORD_CLIENT_ID`      | `None`                                                                     | Discord client ID for OAuth2                      |
 | `DISCORD_CLIENT_SECRET`  | `None`                                                                     | Discord client secret for OAuth2                  |
 | `DISCORD_REDIRECT_URI`   | `None`                                                                     | Discord OAuth2 redirect URI                       |
+| `DISCORD_BOT_TOKEN`      | `None`                                                                     | Discord bot token for bot integration             |
+| `BOT_DISCORD_ENABLED`    | `false`                                                                    | Enable Discord bot                                |
+| `BOT_DISCORD_ADMIN_GUILD`| `None`                                                                     | Discord admin guild ID for bot management        |
+| `BOT_TWITCH_ENABLED`     | `false`                                                                    | Enable Twitch bot                                 |
 | `YOUTUBE_API_KEY`        | `None`                                                                     | YouTube Data API key                              |
 | `WEBSHARE_PROXY_USERNAME`| `None`                                                                     | Webshare proxy username - _optional_              |
 | `WEBSHARE_PROXY_PASSWORD`| `None`                                                                     | Webshare proxy password - _optional_              |
-| `TWITCH_CLIENT_ID`       | `None`                                                                     | Twitch API client ID - |
-| `TWITCH_CLIENT_SECRET`   | `None`                                                                     | Twitch API client secret |
+| `TWITCH_CLIENT_ID`       | `None`                                                                     | Twitch API client ID                              |
+| `TWITCH_CLIENT_SECRET`   | `None`                                                                     | Twitch API client secret                          |
 | `TWITCH_DL_GQL_CLIENT_ID`| `None`                                                                     | Twitch GraphQL client ID _optional_ used when downloading audio, if behind subscription |
-| `TRANSCRIPTION_DEVICE`   | `cuda`                                                                      | Device for transcription (cpu/cuda)                |
+| `TRANSCRIPTION_DEVICE`   | `cpu`                                                                      | Device for transcription (cpu/cuda)                |
 | `TRANSCRIPTION_MODEL`    | `large-v2`                                                                 | Whisper model size                                |
 | `TRANSCRIPTION_COMPUTE_TYPE`| `float16`                                    | Compute type for transcription (float16/int8)     |
 | `TRANSCRIPTION_BATCH_SIZE`| `8`                                          | Batch size for transcription                     |
 | `API_KEY`                | `not_a_secure_key!11`                                                      | Application API key, used by remote workers to authenticate, needs to match on remote workers                               |
 | `HF_TOKEN`               | `None`                                                                     | Hugging Face API token _optional_                            |
+| `ENVIRONMENT`            | `development`                                                              | Environment (development/production)              |
+| `SERVICE_NAME`           | `app`                                                                      | Service name for logging                          |
+| `LOKI_URL`               | `None`                                                                     | Loki logging URL (e.g., http://localhost:4040/loki/api/v1/push) |
+| `TIMEZONE`               | `Europe/Oslo`                                                              | Application timezone                              |
 
 ## API Key Information
 
@@ -146,6 +169,16 @@ in docker it will automatically run the migrations at startup.
 - `uv run alembic upgrade head`
 
 if you regret, run `uv run alembic downgrade -1`
+
+## Search Features
+
+YappR provides advanced search capabilities across transcribed content:
+
+- **Flexible Search**: Keyword-based search optimized for short clips
+- **Exact Phrase Matching**: Use quotes for strict matching
+- **Full-Text Search**: PostgreSQL tsvector for fast text search
+- **Semantic Search**: pgvector for AI-powered content discovery
+- **Performance Optimization**: Handles large transcription datasets efficiently
 
 ## Contributing
 

@@ -1102,6 +1102,7 @@ class ContentQueue(Base):
     watched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     skipped: Mapped[bool] = mapped_column(Boolean, default=False)
     submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="content_queue")
+    score: Mapped[float] = mapped_column(Float, default=0, server_default='0')
     
     @property
     def total_weight(self) -> float:

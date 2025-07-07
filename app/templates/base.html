@@ -5,7 +5,10 @@
     {% block head %}
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <meta property="og:title" content="YappR">
+    <meta property="og:description" content="Stream content search - Find specific moments and get timestamped links to VODs">
+    <meta property="og:url" content="https://yappr.app">
+    <meta property="og:type" content="website">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
     <script src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>

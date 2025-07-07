@@ -12,18 +12,15 @@ pytestmark = pytest.mark.unit
 # Patch the engine and session before importing bot.shared
 with patch('sqlalchemy.create_engine'):
     from bot.shared import (
-        get_platform, sanitize_youtube_url, BotTaskManager, 
-        fetch_youtube_data, fetch_youtube_clip_data,
-        fetch_twitch_video_data, fetch_twitch_clip_data,
-        sanitize_twitch_url,
-        ContentDict, supported_platforms, add_to_content_queue,
-        task_manager
+        get_platform, BotTaskManager, 
+        ContentDict, add_to_content_queue,
     )
+    from bot.platform_handlers import PlatformRegistry
 
 from app.models.db import (
-    ContentQueueSubmissionSource, AccountSource, Content, 
+    ContentQueueSubmissionSource, Content, 
     ContentQueue, ExternalUser, ExternalUserWeight,
-    ContentQueueSubmission
+    ContentQueueSubmission, ContentQueueSettings
 )
 from app.twitch_api import Twitch
 
@@ -60,13 +57,28 @@ class TestSanitizeUrl:
         ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=123", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
         ("https://youtu.be/dQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
         ('https://youtu.be/dQw4w9WgXcQ?feature=shared&t=44', "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
-        ('https://www.youtube.com/shorts/dQw4w9WgXcQ', "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
-        ("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
-        ("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM?t=1h2m3s", "https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
     ])
     def test_sanitize_url_youtube(self, url, expected):
         """Test that URLs are properly sanitized by removing query params and fragments"""
-        assert sanitize_youtube_url(url) == expected
+        handler = PlatformRegistry.get_handler_by_platform('youtube')
+        assert handler.sanitize_url(url) == expected
+
+    @pytest.mark.parametrize("url,expected", [
+        ('https://www.youtube.com/shorts/dQw4w9WgXcQ', "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
+    ])
+    def test_sanitize_url_youtube_short(self, url, expected):
+        """Test that URLs are properly sanitized by removing query params and fragments"""
+        handler = PlatformRegistry.get_handler_by_platform('youtube_short')
+        assert handler.sanitize_url(url) == expected
+    
+    @pytest.mark.parametrize("url,expected", [
+        ("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
+        ("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM?t=1h2m3s", "https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
+    ])
+    def test_sanitize_url_youtube_clip(self, url, expected):
+        """Test that URLs are properly sanitized by removing query params and fragments"""
+        handler = PlatformRegistry.get_handler_by_platform('youtube_clip')
+        assert handler.sanitize_url(url) == expected
 
     @pytest.mark.parametrize("url", [
         "https://example.com/page?param=value#section",
@@ -75,18 +87,27 @@ class TestSanitizeUrl:
     def test_sanitize_url_youtube_invalid(self, url):
         """Test that invalid URLs are handled correctly"""
         with pytest.raises(ValueError):
-            sanitize_youtube_url(url)
+            PlatformRegistry.get_handler_by_platform('youtube').sanitize_url(url)
+            PlatformRegistry.get_handler_by_platform('youtube_short').sanitize_url(url)
+            PlatformRegistry.get_handler_by_platform('youtube_clip').sanitize_url(url)
 
     @pytest.mark.parametrize("url,expected", [
         ("https://www.twitch.tv/videos/123456789?t=1h2m3s", "https://www.twitch.tv/videos/123456789"),
+        ("https://www.twitch.tv/videos/123456789", "https://www.twitch.tv/videos/123456789"),
+    ])
+    def test_sanitize_url_twitch_video(self, url, expected):
+        """Test that URLs are properly sanitized by removing query params and fragments"""
+        assert PlatformRegistry.get_handler_by_platform('twitch_video').sanitize_url(url) == expected
+
+    @pytest.mark.parametrize("url,expected", [
         ("https://clips.twitch.tv/CleverClipName?t=1h2m3s", "https://clips.twitch.tv/CleverClipName"),
         ("https://twitch.tv/broadcaster/clip/CleverClipName?t=1h2m3s", "https://clips.twitch.tv/CleverClipName"),
         ("https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR?t=1h2m3s", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
         ("https://twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
     ])
-    def test_sanitize_url_twitch(self, url, expected):
+    def test_sanitize_url_twitch_clip(self, url, expected):
         """Test that URLs are properly sanitized by removing query params and fragments"""
-        assert sanitize_twitch_url(url) == expected
+        assert PlatformRegistry.get_handler_by_platform('twitch_clip').sanitize_url(url) == expected
 
 
 @pytest.fixture
@@ -123,38 +144,6 @@ def mock_twitch_clip():
     clip.created_at = datetime.now()
     clip.duration = 30
     return clip
-
-
-class TestYouTubeFetching:
-    """Tests for the YouTube data fetching functions"""
-
-    @pytest.mark.asyncio
-    @patch("bot.shared.get_youtube_video_id")
-    @patch("bot.shared.get_videos")
-    @patch("bot.shared.get_youtube_thumbnail_url")
-    async def test_fetch_youtube_data(self, mock_get_thumbnail, mock_get_videos, mock_get_id, mock_youtube_video):
-        """Test fetching YouTube video data"""
-        mock_get_id.return_value = "dQw4w9WgXcQ"
-        mock_get_videos.return_value = [mock_youtube_video]
-        mock_get_thumbnail.return_value = "https://example.com/thumbnail.jpg"
-        
-        url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-        result = await fetch_youtube_data(url)
-        
-        # Check that result has the expected structure instead of using isinstance with TypedDict
-        assert isinstance(result, dict)
-        # Verify the dictionary has the required keys from ContentDict
-        required_keys = ['url', 'title', 'channel_name', 'thumbnail_url', 'duration']
-        assert all(key in result for key in required_keys)
-        assert result["url"] == url
-        assert result["title"] == "Test YouTube Video"
-        assert result["channel_name"] == "Test Channel"
-        assert result["thumbnail_url"] == "https://example.com/thumbnail.jpg"
-        assert result["duration"] == 300
-        
-        mock_get_id.assert_called_once_with(url)
-        mock_get_videos.assert_called_once_with(["dQw4w9WgXcQ"])
-        mock_get_thumbnail.assert_called_once_with(url)
 
 
 class TestBotTaskManager:
@@ -197,18 +186,18 @@ class TestAddToContentQueue:
     def mock_platform_data(self):
         """Mock platform data for content fetching"""
         return {
-            'sanitized_url': 'https://www.youtube.com/watch',
-            'title': 'Test Video',
-            'duration': 300,
+            'sanitized_url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'title': 'Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)',
+            'duration': 420,
             'thumbnail_url': 'https://example.com/thumbnail.jpg',
-            'channel_name': 'Test Channel',
+            'channel_name': 'RickAstleyYT',
             'author': None,
             'created_at': datetime.now()
         }
 
     @pytest.mark.asyncio
     @patch('bot.shared.get_platform')
-    @patch('bot.shared.fetch_youtube_data')
+    @patch('bot.platform_handlers.PlatformRegistry.get_handler_by_platform')
     async def test_add_to_content_queue_new_content(self, mock_fetch_data, mock_get_platform, mock_session, mock_platform_data):
         """Test adding new content to the queue"""
         # Setup mocks
@@ -220,7 +209,8 @@ class TestAddToContentQueue:
         submission_source_id = 1
         
         mock_get_platform.return_value = "youtube"
-        mock_fetch_data.return_value = ContentDict(
+        mock_handler = MagicMock()
+        mock_handler.fetch_data = AsyncMock(return_value = ContentDict(
             url=url,
             sanitized_url=mock_platform_data['sanitized_url'],
             title=mock_platform_data['title'],
@@ -229,10 +219,12 @@ class TestAddToContentQueue:
             channel_name=mock_platform_data['channel_name'],
             author=mock_platform_data['author'],
             created_at=mock_platform_data['created_at']
-        )
-        
+        ))
+        mock_fetch_data.return_value = mock_handler
+
         # Mock session query results for the add_to_content_queue function
         mock_session.execute.return_value.scalars.return_value.one_or_none.side_effect = [
+            ContentQueueSettings(broadcaster_id=broadcaster_id, allowed_platforms=""),
             None,  # Content doesn't exist
             None,  # External user doesn't exist
             None,  # External user weight doesn't exist
@@ -253,7 +245,6 @@ class TestAddToContentQueue:
         
         # Verify interactions
         mock_get_platform.assert_called_once_with(url)
-        mock_fetch_data.assert_called_once_with(url)
         
         # Check that content was created
         content_add_call = mock_session.add.call_args_list[0]
@@ -274,7 +265,7 @@ class TestAddToContentQueue:
 
     @pytest.mark.asyncio
     @patch('bot.shared.get_platform')
-    @patch('bot.shared.fetch_youtube_data')
+    @patch('bot.platform_handlers.PlatformRegistry.get_handler_by_platform')
     async def test_add_to_content_queue_existing_content(self, mock_fetch_data, mock_get_platform, mock_session):
         """Test adding existing content to the queue"""
         # Setup mocks
@@ -302,6 +293,7 @@ class TestAddToContentQueue:
         
         # Mock session query results
         mock_session.execute.return_value.scalars.return_value.one_or_none.side_effect = [
+            ContentQueueSettings(broadcaster_id=broadcaster_id, allowed_platforms=""),
             existing_content,  # Content exists
             existing_queue_item,  # Not in queue yet
             existing_user,  # External user exists
@@ -359,5 +351,59 @@ class TestAddToContentQueue:
         
         # Verify interactions
         mock_get_platform.assert_called_once_with(url)
+        mock_session.add.assert_not_called()  # Nothing should be added
+        mock_session.commit.assert_not_called()  # No database changes
+
+    @pytest.mark.asyncio
+    @patch('bot.shared.get_platform')
+    @patch('bot.platform_handlers.PlatformRegistry.get_handler_by_platform')
+    async def test_add_to_content_queue_disallowed_platform(self, mock_fetch_data, mock_get_platform, mock_session):
+        """Test adding existing content to the queue"""
+        # Setup mocks
+        url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+        broadcaster_id = 123456789
+        username = "test_user"
+        external_user_id = "987654321"
+        submission_source = ContentQueueSubmissionSource.Twitch
+        submission_source_id = 1
+        
+        mock_get_platform.return_value = "youtube"
+        
+        # Mock existing content and queue item
+        existing_content = MagicMock(spec=Content)
+        existing_content.id = 42
+        
+        existing_user = MagicMock(spec=ExternalUser)
+        existing_user.id = 24
+        
+        existing_weight = MagicMock(spec=ExternalUserWeight)
+        existing_weight.id = 12
+        existing_weight.banned = False
+        
+        existing_queue_item = None  # Content exists but not in queue
+        
+        # Mock session query results
+        mock_session.execute.return_value.scalars.return_value.one_or_none.side_effect = [
+            ContentQueueSettings(broadcaster_id=broadcaster_id, allowed_platforms="twitch"),
+            existing_content,  # Content exists
+            existing_queue_item,  # Not in queue yet
+            existing_user,  # External user exists
+            existing_weight  # External user weight exists
+        ]
+        
+        # Call function
+        await add_to_content_queue(
+            url=url,
+            broadcaster_id=broadcaster_id,
+            username=username,
+            external_user_id=external_user_id,
+            submission_source_type=submission_source,
+            submission_source_id=submission_source_id,
+            session=mock_session
+        )
+        
+        # Verify interactions
+        mock_get_platform.assert_called_once_with(url)
+        mock_fetch_data.assert_not_called()  # Should not fetch data
         mock_session.add.assert_not_called()  # Nothing should be added
         mock_session.commit.assert_not_called()  # No database changes

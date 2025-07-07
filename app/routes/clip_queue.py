@@ -476,14 +476,9 @@ def settings():
 @clip_queue_blueprint.route("/add", methods=["GET", "POST"])
 @login_required
 @require_permission()
-@limiter.limit("30 per day, 5 per minute", exempt_when=lambda: current_user.has_permission(PermissionType.Admin))
 def add_content():
     """Add new content to the queue"""
     try:
-        broadcaster = current_user.get_broadcaster()
-        if not broadcaster:
-            logger.error("Broadcaster not found")
-            return "Broadcaster not found", 404
         if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
             broadcasters = get_broadcasters(show_hidden=True)
         else:
@@ -542,76 +537,178 @@ def add_content():
 @login_required
 @require_permission()
 def search_content():
-    """Search for existing content in the queue"""
+    """Search for existing content in the queue by URL or text"""
     try:
-        url = request.form.get("url", "").strip()
+        query = request.form.get("url", "").strip()
         broadcaster_id = request.form.get("broadcaster_id")
         
-        if not url:
-            return jsonify({"status": "error", "message": "URL is required"}), 400
+        if not query:
+            return jsonify({"status": "error", "message": "Search query is required"}), 400
         
-        # Sanitize the URL using platform handlers
+        # First, try to detect if this is a URL
+        is_url = False
         try:
-            platform_handler = PlatformRegistry.get_handler_for_url(url)
-            sanitized_url = platform_handler.sanitize_url(url)
+            platform_handler = PlatformRegistry.get_handler_for_url(query)
+            sanitized_url = platform_handler.sanitize_url(query)
+            is_url = True
         except ValueError:
-            # URL not supported by any platform handler
-            return "<div class='alert alert-warning'>URL format not supported.</div>"
+            # Not a valid URL, will do text search instead
+            is_url = False
         
-        # Search for content by both original URL and sanitized URL
-        from app.models.db import Content
-        existing_content = db.session.execute(
-            select(Content).filter(
-                (Content.url == url) | (Content.stripped_url == sanitized_url)
-            )
-        ).scalars().one_or_none()
-        
-        if existing_content:
-            # If no broadcaster specified, search across all allowed broadcasters
-            if not broadcaster_id:
-                if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
-                    broadcasters = get_broadcasters(show_hidden=True)
+        if is_url:
+            # URL search - existing logic
+            from app.models.db import Content
+            existing_content = db.session.execute(
+                select(Content).filter(
+                    (Content.url == query) | (Content.stripped_url == sanitized_url)
+                )
+            ).scalars().one_or_none()
+            
+            if existing_content:
+                # If no broadcaster specified, search across all allowed broadcasters
+                if not broadcaster_id:
+                    if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
+                        broadcasters = get_broadcasters(show_hidden=True)
+                    else:
+                        if current_user.is_broadcaster():
+                            broadcasters = [current_user.get_broadcaster()]
+                        broadcasters += get_broadcasters(show_hidden=False)
+                    # Get all queue items for this content across all broadcasters
+                    all_queue_items = db.session.execute(
+                        select(ContentQueue).filter(
+                            ContentQueue.content_id == existing_content.id,
+                            ContentQueue.broadcaster_id.in_([broadcaster.id for broadcaster in broadcasters])
+                        )
+                    ).scalars().all()
+                    
+                    if all_queue_items:
+                        return render_template("management_items.html", 
+                                             queue_items=all_queue_items,
+                                             total_items=len(all_queue_items),
+                                             total_pages=1,
+                                             page=1,
+                                             search_query="")
                 else:
-                    if current_user.is_broadcaster():
-                        broadcasters = [current_user.get_broadcaster()]
-                    broadcasters += get_broadcasters(show_hidden=False)
-                # Get all queue items for this content across all broadcasters
-                all_queue_items = db.session.execute(
-                    select(ContentQueue).filter(
-                        ContentQueue.content_id == existing_content.id,
-                        ContentQueue.broadcaster_id.in_([broadcaster.id for broadcaster in broadcasters])
-                    )
-                ).scalars().all()
-                
-                if all_queue_items:
-                    return render_template("management_items.html", 
-                                         queue_items=all_queue_items,
-                                         total_items=len(all_queue_items),
-                                         total_pages=1,
-                                         page=1,
-                                         search_query="")
-            else:
-                # Search in specific broadcaster's queue
-                broadcaster_id = int(broadcaster_id)
-                existing_queue_item = db.session.execute(
-                    select(ContentQueue).filter(
-                        ContentQueue.content_id == existing_content.id,
-                        ContentQueue.broadcaster_id == broadcaster_id
-                    )
-                ).scalars().one_or_none()
-                
-                if existing_queue_item:
-                    return render_template("management_items.html", 
-                                         queue_items=[existing_queue_item],
-                                         total_items=1,
-                                         total_pages=1,
-                                         page=1,
-                                         search_query="")
-        
-        # No content found
-        return "<div class='alert alert-info'>No existing content found for this URL.</div>"
+                    # Search in specific broadcaster's queue
+                    broadcaster_id = int(broadcaster_id)
+                    existing_queue_item = db.session.execute(
+                        select(ContentQueue).filter(
+                            ContentQueue.content_id == existing_content.id,
+                            ContentQueue.broadcaster_id == broadcaster_id
+                        )
+                    ).scalars().one_or_none()
+                    
+                    if existing_queue_item:
+                        return render_template("management_items.html", 
+                                             queue_items=[existing_queue_item],
+                                             total_items=1,
+                                             total_pages=1,
+                                             page=1,
+                                             search_query="")
+            
+            # No content found for URL
+            return "<div class='alert alert-info'>No existing content found for this URL.</div>"
+        else:
+            # Text search - sanitize input first
+            import re
+            sanitized_query = re.sub(r'[^a-zA-Z0-9\s_-]', '', query)
+            sanitized_query = sanitized_query.strip()
+            
+            if not sanitized_query:
+                return "<div class='alert alert-warning'>Search query contains no valid characters. Only letters, numbers, spaces, hyphens, and underscores are allowed.</div>"
+            
+            # Call the text search function directly
+            return text_search_content_internal(sanitized_query, broadcaster_id)
         
     except Exception as e:
         logger.error(f"Error searching content: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@clip_queue_blueprint.route("/text-search", methods=["POST"])
+@login_required
+@require_permission()
+def text_search_content():
+    """Search for content by text in title, channel name, or user comments"""
+    try:
+        query = request.form.get("query", "").strip()
+        broadcaster_id = request.form.get("broadcaster_id")
+        
+        if not query:
+            return jsonify({"status": "error", "message": "Search query is required"}), 400
+        
+        # Sanitize the query - only allow letters, numbers, spaces, hyphens, and underscores
+        import re
+        sanitized_query = re.sub(r'[^a-zA-Z0-9\s_-]', '', query)
+        sanitized_query = sanitized_query.strip()
+        
+        if not sanitized_query:
+            return jsonify({"status": "error", "message": "Search query contains no valid characters"}), 400
+        
+        return text_search_content_internal(sanitized_query, broadcaster_id)
+        
+    except Exception as e:
+        logger.error(f"Error in text search: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+def text_search_content_internal(query, broadcaster_id):
+    """Internal function to perform text search"""
+    from app.models.db import Content, ContentQueueSubmission
+    from sqlalchemy import or_, and_
+    
+    # Get allowed broadcasters
+    if not broadcaster_id:
+        if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
+            broadcasters = get_broadcasters(show_hidden=True)
+        else:
+            if current_user.is_broadcaster():
+                broadcasters = [current_user.get_broadcaster()]
+            broadcasters += get_broadcasters(show_hidden=False)
+        broadcaster_ids = [broadcaster.id for broadcaster in broadcasters]
+    else:
+        broadcaster_ids = [int(broadcaster_id)]
+    
+    # Build text search query
+    search_conditions = []
+    
+    # Search in content title and channel name
+    search_conditions.append(Content.title.ilike(f"%{query}%"))
+    search_conditions.append(Content.channel_name.ilike(f"%{query}%"))
+    
+    # Search in user comments from submissions
+    search_conditions.append(
+        ContentQueueSubmission.user_comment.ilike(f"%{query}%")
+    )
+    
+    # Search in submitter usernames
+    from app.models.db import ExternalUser
+    search_conditions.append(
+        ExternalUser.username.ilike(f"%{query}%")
+    )
+    
+    # Execute search query with joins
+    queue_items = db.session.execute(
+        select(ContentQueue)
+        .join(Content, ContentQueue.content_id == Content.id)
+        .join(ContentQueueSubmission, ContentQueue.id == ContentQueueSubmission.content_queue_id)
+        .join(ExternalUser, ContentQueueSubmission.user_id == ExternalUser.id)
+        .filter(
+            and_(
+                ContentQueue.broadcaster_id.in_(broadcaster_ids),
+                or_(*search_conditions)
+            )
+        )
+        .distinct()
+    ).scalars().all()
+    
+    if queue_items:
+        return render_template("management_items.html", 
+                             queue_items=queue_items,
+                             total_items=len(queue_items),
+                             total_pages=1,
+                             page=1,
+                             search_query=query)
+    else:
+        return f"<div class='alert alert-info'>No content found matching '{query}'.</div>"
 

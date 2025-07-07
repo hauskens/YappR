@@ -4,7 +4,7 @@
 <div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-8">
-            <div class="card">
+            <div class="card shadow">
                 <div class="card-header">
                     <h3 class="mb-0">
                         <i class="bi bi-plus-circle me-2"></i>
@@ -14,16 +14,17 @@
                 <div class="card-body">
                     <form id="contentForm">
                         <div class="mb-3">
-                            <label for="url" class="form-label">Content URL</label>
-                            <input type="url" 
+                            <label for="url" class="form-label">Content URL or Search</label>
+                            <input type="text" 
                                    class="form-control" 
                                    id="url" 
                                    name="url" 
-                                   placeholder="Paste YouTube or Twitch URL here..." 
+                                   placeholder="Paste URL or search by title, channel, or user..." 
                                    required
-                                   onkeypress="handleUrlKeyPress(event)">
+                                   onkeypress="handleUrlKeyPress(event)"
+                                   oninput="validateForm()">
                             <div class="form-text">
-                                Supported platforms: YouTube videos, YouTube Shorts, YouTube clips, Twitch videos, Twitch clips
+                                Enter a URL (YouTube, Twitch) to add content, or search by text to find existing content.
                             </div>
                         </div>
 
@@ -32,7 +33,7 @@
                             <select class="form-select" 
                                     id="broadcaster_id" 
                                     name="broadcaster_id"
-                                    onchange="toggleAddButton()">
+                                    onchange="validateForm()">
                                 <option value="">Select a broadcaster...</option>
                                 {% for broadcaster in broadcasters %}
                                 <option value="{{ broadcaster.id }}">{{ broadcaster.name }}</option>
@@ -43,7 +44,7 @@
                             </div>
                         </div>
 
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 align-items-center">
                             <button type="button" 
                                     class="btn btn-outline-primary"
                                     hx-post="{{ url_for('clip_queue.search_content') }}"
@@ -68,6 +69,12 @@
                                 Add to Queue
                                 <span id="add-spinner" class="spinner-border spinner-border-sm ms-2 htmx-indicator" role="status"></span>
                             </button>
+                            <i class="bi bi-question-circle text-muted" 
+                               id="addQueueHelp"
+                               data-bs-toggle="tooltip"
+                               data-bs-placement="top"
+                               title="Enter a valid URL and select a broadcaster"
+                               style="cursor: help;"></i>
                         </div>
                     </form>
                 </div>
@@ -91,21 +98,71 @@ function handleUrlKeyPress(event) {
         document.querySelector('[hx-post="{{ url_for('clip_queue.search_content') }}"]').click();
     }
 }
+   
 
-function toggleAddButton() {
+function isValidUrl(string) {
+    try {
+        const url = new URL(string);
+        // Check if it's a YouTube or Twitch URL
+        const hostname = url.hostname.toLowerCase();
+        return hostname.includes('youtube.com') || 
+               hostname.includes('youtu.be') || 
+               hostname.includes('twitch.tv') ||
+               hostname.includes('clips.twitch.tv');
+    } catch (_) {
+        return false;
+    }
+}
+
+function validateForm() {
+    const urlInput = document.getElementById('url');
     const broadcasterSelect = document.getElementById('broadcaster_id');
     const addBtn = document.getElementById('addToQueueBtn');
+    const helpIcon = document.getElementById('addQueueHelp');
     
-    if (broadcasterSelect.value === '') {
-        addBtn.disabled = true;
+    const hasValidUrl = urlInput.value.trim() !== '' && isValidUrl(urlInput.value.trim());
+    const hasBroadcaster = broadcasterSelect.value !== '';
+    
+    // Update tooltip text based on what's missing
+    let tooltipText = '';
+    if (!hasValidUrl && !hasBroadcaster) {
+        tooltipText = 'Enter a valid URL and select a broadcaster';
+    } else if (!hasValidUrl) {
+        tooltipText = 'Enter a valid YouTube or Twitch URL';
+    } else if (!hasBroadcaster) {
+        tooltipText = 'Select a broadcaster';
     } else {
+        tooltipText = 'Ready to add content to the selected broadcaster\'s queue';
+    }
+    
+    // Update help icon tooltip
+    helpIcon.setAttribute('title', tooltipText);
+    helpIcon.setAttribute('data-bs-original-title', tooltipText);
+    
+    // Update tooltip instance if it exists
+    const tooltip = bootstrap.Tooltip.getInstance(helpIcon);
+    if (tooltip) {
+        tooltip.dispose();
+        new bootstrap.Tooltip(helpIcon);
+    }
+    
+    // Enable button only if both URL is valid and broadcaster is selected
+    if (hasValidUrl && hasBroadcaster) {
         addBtn.disabled = false;
+    } else {
+        addBtn.disabled = true;
     }
 }
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', function() {
-    toggleAddButton();
+    validateForm();
+ 
+    // tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
 });
 </script>
 

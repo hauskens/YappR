@@ -10,7 +10,7 @@ from app.models.db import OAuth, Channels, ChannelSettings, ContentQueueSettings
 from sqlalchemy import select
 from app.twitch_api import Twitch
 from datetime import datetime
-from bot.platform_handlers import PlatformRegistry, ContentDict
+from bot.platform_handlers import PlatformRegistry, PlatformHandler
 
 engine = create_engine(config.database_uri)
 SessionLocal = sessionmaker(bind=engine)
@@ -194,95 +194,89 @@ class BotTaskManager:
             logger.error("Error enqueueing clip creation task: %s", e, extra={"broadcaster_id": broadcaster_id})
             return None
 
-async def add_to_content_queue(url: str, broadcaster_id: int, username: str, external_user_id: str, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, user_comment: str | None = None, submission_weight: float = 1.0, twitch_client: Twitch | None = None, session=None) -> None:
-    """Add a URL to the content queue for a channel and record who submitted it"""
-    # Create a session if one wasn't provided
-    close_session = False
-    if session is None:
-        session = SessionLocal()
-        close_session = True
-    try:
-        platform = get_platform(url)
-        if not platform:
-            logger.info("URL is not supported: %s", url, extra={"broadcaster_id": broadcaster_id})
-            return
-            
-        # Check if platform is allowed for this broadcaster's queue
-        queue_settings = session.execute(
-            select(ContentQueueSettings).filter(
-                ContentQueueSettings.broadcaster_id == broadcaster_id
-            )
-        ).scalars().one_or_none()
-        
-        # If we have queue settings and the platform is not allowed, return early
-        if queue_settings and not queue_settings.is_platform_allowed(platform):
-            logger.warning("Platform %s is not allowed for this queue", platform, extra={"broadcaster_id": broadcaster_id})
-            return
-        # Check if content already exists
-        existing_content = session.execute(
-            select(Content).filter(Content.url == url)
-        ).scalars().one_or_none()
+def _validate_platform_allowed(url: str, broadcaster_id: int, platform_handler: PlatformHandler, session) -> bool:
+    """Validate if the URL platform is supported and allowed for this broadcaster."""
+    platform = platform_handler.platform_name
+    
+    # Check if platform is allowed for this broadcaster's queue
+    queue_settings = session.execute(
+        select(ContentQueueSettings).filter(
+            ContentQueueSettings.broadcaster_id == broadcaster_id
+        )
+    ).scalars().one_or_none()
+    
+    # If we have queue settings and the platform is not allowed, return early
+    if queue_settings and not queue_settings.is_platform_allowed(platform):
+        logger.warning("Platform %s is not allowed for this queue", platform, extra={"broadcaster_id": broadcaster_id})
+        return False
+    
+    return True
 
-        if existing_content is None:
-            logger.info("Content not found in database, fetching data from platform and trying to create it", extra={"broadcaster_id": broadcaster_id})
-            # Use platform registry to get the appropriate handler
-            platform_handler = PlatformRegistry.get_handler_by_platform(platform)
-            
-            # For Twitch platforms, we need a Twitch client
-            if platform.startswith('twitch'):
-                # Get the Twitch client from the TwitchBot if not provided
-                if twitch_client is None:
-                    # Get the Twitch client from the task manager
-                    twitch_bot = task_manager.components.get('twitch')
-                    if not twitch_bot or not twitch_bot.twitch:
-                        logger.error("Twitch component not registered or not initialized")
-                        return None
-                    twitch_client = twitch_bot.twitch
-                    
-                if twitch_client is None:
-                    logger.error("No Twitch client available for fetching video data")
+
+async def _get_or_create_content(url: str, broadcaster_id: int, session, platform_handler: PlatformHandler, twitch_client: Twitch | None = None) -> int:
+    """Get existing content or create new content from URL."""
+    # Check if content already exists
+    existing_content = session.execute(
+        select(Content).filter(Content.stripped_url == platform_handler.sanitize_url(url))
+    ).scalars().one_or_none()
+
+    if existing_content is None:
+        logger.info("Content not found in database, fetching data from platform and trying to create it", extra={"broadcaster_id": broadcaster_id})
+        # Use platform registry to get the appropriate handler
+        
+        # For Twitch platforms, we need a Twitch client
+        if platform_handler.platform_name.startswith('twitch'):
+            # Get the Twitch client from the TwitchBot if not provided
+            if twitch_client is None:
+                # Get the Twitch client from the task manager
+                twitch_bot = task_manager.components.get('twitch')
+                if not twitch_bot or not twitch_bot.twitch:
+                    logger.error("Twitch component not registered or not initialized")
                     raise ValueError("No Twitch client available")
+                twitch_client = twitch_bot.twitch
                 
-                platform_video_data = await platform_handler.fetch_data(url, twitch=twitch_client)
-            else:
-                # For YouTube platforms
-                platform_video_data = await platform_handler.fetch_data(url)
-            logger.info("Fetched data for url: %s", url, extra={"broadcaster_id": broadcaster_id})
-            # Create new content entry
-            content = Content(
-                url=url, 
-                stripped_url=platform_video_data['sanitized_url'], 
-                title=platform_video_data['title'], 
-                duration=platform_video_data['duration'], 
-                thumbnail_url=platform_video_data['thumbnail_url'], 
-                channel_name=platform_video_data['channel_name'], 
-                author=platform_video_data['author']
-            )
-            session.add(content)
-            session.flush()  # Flush to get the content ID
-            logger.info("Created new content: %s", content, extra={"broadcaster_id": broadcaster_id, "content_id": content.id})
-            content_id = content.id
+            if twitch_client is None:
+                logger.error("No Twitch client available for fetching video data")
+                raise ValueError("No Twitch client available")
+            
+            platform_video_data = await platform_handler.fetch_data(url, twitch=twitch_client)
         else:
-            logger.info("Content already exists in database", extra={"broadcaster_id": broadcaster_id, "content_id": existing_content.id})
-            content_id = existing_content.id
+            # For YouTube platforms
+            platform_video_data = await platform_handler.fetch_data(url)
         
-        # Check if this content is already in the queue for this channel
-        existing_queue_item = session.execute(
-            select(ContentQueue).filter(
-                ContentQueue.content_id == content_id,
-                ContentQueue.broadcaster_id == broadcaster_id,
-            )
-        ).scalars().one_or_none()
-        account_source: AccountSource = AccountSource.Twitch if submission_source_type == ContentQueueSubmissionSource.Twitch else AccountSource.Discord
-        # Find or create external user
-        external_user = session.execute(
-            select(ExternalUser).filter(
-                ExternalUser.external_account_id == int(external_user_id),
-                ExternalUser.account_type == account_source,
-            )
-        ).scalars().one_or_none()
-        
-        if external_user is None:
+        logger.info("Fetched data for url: %s", url, extra={"broadcaster_id": broadcaster_id})
+        # Create new content entry
+        content = Content(
+            url=url, 
+            stripped_url=platform_video_data['sanitized_url'], 
+            title=platform_video_data['title'], 
+            duration=platform_video_data['duration'], 
+            thumbnail_url=platform_video_data['thumbnail_url'], 
+            channel_name=platform_video_data['channel_name'], 
+            author=platform_video_data['author']
+        )
+        session.add(content)
+        session.flush()  # Flush to get the content ID
+        logger.info("Created new content: %s", content, extra={"broadcaster_id": broadcaster_id, "content_id": content.id})
+        return content.id
+    else:
+        logger.info("Content already exists in database", extra={"broadcaster_id": broadcaster_id, "content_id": existing_content.id})
+        return existing_content.id
+
+
+def _get_or_create_external_user(external_user_id: str, username: str, submission_source_type: ContentQueueSubmissionSource, broadcaster_id: int, session) -> ExternalUser:
+    """Get existing external user or create new one."""
+    account_source: AccountSource = AccountSource.Twitch if submission_source_type == ContentQueueSubmissionSource.Twitch else AccountSource.Discord
+    
+    # Find existing external user
+    external_user = session.execute(
+        select(ExternalUser).filter(
+            ExternalUser.external_account_id == int(external_user_id),
+        )
+    ).scalars().one_or_none()
+    
+    if external_user is None:
+        try:
             # Create new external user
             external_user = ExternalUser(
                 username=username,
@@ -293,14 +287,37 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
             session.add(external_user)
             session.flush()  # Flush to get the user ID
             logger.debug("Created external user: %s", external_user, extra={"broadcaster_id": broadcaster_id})
-        
-        external_user_weight = session.execute(
-            select(ExternalUserWeight).filter(
-                ExternalUserWeight.external_user_id == external_user.id,
-                ExternalUserWeight.broadcaster_id == broadcaster_id,
-            )
-        ).scalars().one_or_none()
-        if external_user_weight is None:
+        except Exception as e:
+            session.rollback()
+            # Check if this was a race condition and the user now exists
+            external_user = session.execute(
+                select(ExternalUser).filter(
+                    ExternalUser.external_account_id == int(external_user_id),
+                    ExternalUser.account_type == account_source,
+                )
+            ).scalars().one_or_none()
+            
+            if external_user is not None:
+                logger.info("Race condition detected - external user was created by another process", extra={"broadcaster_id": broadcaster_id, "external_user_id": external_user.id})
+            else:
+                # Different error, re-raise
+                logger.error("Failed to create external user: %s", e, extra={"broadcaster_id": broadcaster_id})
+                raise
+    
+    return external_user
+
+
+def _get_or_create_external_user_weight(external_user: ExternalUser, broadcaster_id: int, session) -> ExternalUserWeight:
+    """Get existing external user weight or create new one."""
+    external_user_weight = session.execute(
+        select(ExternalUserWeight).filter(
+            ExternalUserWeight.external_user_id == external_user.id,
+            ExternalUserWeight.broadcaster_id == broadcaster_id,
+        )
+    ).scalars().one_or_none()
+    
+    if external_user_weight is None:
+        try:
             # Create new external user weight
             external_user_weight = ExternalUserWeight(
                 external_user_id=external_user.id,
@@ -310,70 +327,131 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
             session.add(external_user_weight)
             session.flush()  # Flush to get the weight ID
             logger.debug("Created external user weight: %s", external_user_weight, extra={"broadcaster_id": broadcaster_id})
+        except Exception as e:
+            session.rollback()
+            # Check if this was a race condition and the weight now exists
+            external_user_weight = session.execute(
+                select(ExternalUserWeight).filter(
+                    ExternalUserWeight.external_user_id == external_user.id,
+                    ExternalUserWeight.broadcaster_id == broadcaster_id,
+                )
+            ).scalars().one_or_none()
+            
+            if external_user_weight is not None:
+                logger.info("Race condition detected - external user weight was created by another process", extra={"broadcaster_id": broadcaster_id, "external_user_weight_id": external_user_weight.id})
+            else:
+                # Different error, re-raise
+                logger.error("Failed to create external user weight: %s", e, extra={"broadcaster_id": broadcaster_id})
+                raise
+    
+    return external_user_weight
+
+
+def _create_or_update_submission(queue_item_id: int, content_id: int, external_user: ExternalUser, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, submission_weight: float, external_user_weight: ExternalUserWeight, user_comment: str | None, session) -> ContentQueueSubmission:
+    """Create new submission or update existing one."""
+    # Check if submission already exists
+    existing_submission = session.execute(
+        select(ContentQueueSubmission).filter(
+            ContentQueueSubmission.content_queue_id == queue_item_id,
+            ContentQueueSubmission.user_id == external_user.id,
+            ContentQueueSubmission.submission_source_type == submission_source_type,
+            ContentQueueSubmission.submission_source_id == submission_source_id,
+        )
+    ).scalars().one_or_none()
+    
+    if existing_submission is None:
+        # Create submission record
+        submission = ContentQueueSubmission(
+            content_queue_id=queue_item_id,
+            content_id=content_id,
+            user_id=external_user.id,
+            submitted_at=datetime.now(),
+            submission_source_type=submission_source_type,
+            submission_source_id=submission_source_id,
+            weight=submission_weight * external_user_weight.weight,
+            user_comment=user_comment
+        )
+        session.add(submission)
+        session.flush()
+        return submission
+    else:
+        return existing_submission
+
+
+
+def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, session) -> int:
+    """Create new ContentQueue item."""
+    existing_queue_item = session.execute(
+        select(ContentQueue).filter(
+            ContentQueue.broadcaster_id == broadcaster_id,
+            ContentQueue.content_id == content_id,
+        )
+    ).scalars().one_or_none()
+    
+    if existing_queue_item is None:
+        queue_item = ContentQueue(
+            broadcaster_id=broadcaster_id,
+            content_id=content_id,
+        )
+        session.add(queue_item)
+        session.flush()  # Flush to get the queue item ID
+        logger.debug("Added new content to content queue", extra={"broadcaster_id": broadcaster_id, "queue_item_id": queue_item.id})
+        return queue_item.id
+    else:
+        return existing_queue_item.id
+
+
+
+
+async def add_to_content_queue(url: str, broadcaster_id: int, username: str, external_user_id: str, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, user_comment: str | None = None, submission_weight: float = 1.0, twitch_client: Twitch | None = None, session=None) -> int | None:
+    """Add a URL to the content queue for a channel and record who submitted it"""
+    # Create a session if one wasn't provided
+    close_session = False
+    if session is None:
+        session = SessionLocal()
+        close_session = True
+    
+    try:
+        platform_handler = PlatformRegistry.get_handler_for_url(url)
+        # Validate platform and check if allowed
+        
+        if not _validate_platform_allowed(url, broadcaster_id, platform_handler, session):
+            return None
+        
+        # Get or create content
+        content_id = await _get_or_create_content(url, broadcaster_id, session, platform_handler, twitch_client)
+        
+        # Get or create external user and weight
+        external_user = _get_or_create_external_user(external_user_id, username, submission_source_type, broadcaster_id, session)
+        external_user_weight = _get_or_create_external_user_weight(external_user, broadcaster_id, session)
 
         if external_user_weight.banned:
             logger.info("External user %s is banned, not adding to content queue", external_user.username, extra={"broadcaster_id": broadcaster_id})
-            return
+            return None
 
-        if existing_queue_item is None:
+        try:
             # Add to content queue
-            queue_item = ContentQueue(
-                broadcaster_id=broadcaster_id,
-                content_id=content_id,
-            )
-            session.add(queue_item)
-            session.flush()  # Flush to get the queue item ID
-            logger.debug("Added new content to content queue", extra={"broadcaster_id": broadcaster_id, "queue_item_id": queue_item.id})
+            queue_item_id = _get_or_create_content_queue_item(broadcaster_id, content_id, session)
             
-            # Create submission record
-            submission = ContentQueueSubmission(
-                content_queue_id=queue_item.id,
-                content_id=content_id,
-                user_id=external_user.id,
-                submitted_at=datetime.now(),
-                submission_source_type=submission_source_type,
-                submission_source_id=submission_source_id,
-                weight=submission_weight * external_user_weight.weight,
-                user_comment=user_comment
-            )
-            session.add(submission)
+            # Create or update submission
+            submission = _create_or_update_submission(queue_item_id, content_id, external_user, submission_source_type, submission_source_id, submission_weight, external_user_weight, user_comment, session)
             
+
             # Commit all changes
             session.commit()
-            logger.info("Added submission id %s to content queue", submission.id, extra={"broadcaster_id": broadcaster_id, "queue_item_id": queue_item.id})
-        else:
-            logger.info("Content already in content queue, checking if submission already exists", extra={"broadcaster_id": broadcaster_id, "queue_item_id": existing_queue_item.id})
-            existing_submission = session.execute(
-                select(ContentQueueSubmission).filter(
-                    ContentQueueSubmission.content_queue_id == existing_queue_item.id,
-                    ContentQueueSubmission.user_id == external_user.id,
-                    ContentQueueSubmission.submission_source_type == submission_source_type,
-                    ContentQueueSubmission.submission_source_id == submission_source_id,
-                )
-            ).scalars().one_or_none()
-            if existing_submission is None:
-                # Create submission record
-                submission = ContentQueueSubmission(
-                    content_queue_id=existing_queue_item.id,
-                    content_id=content_id,
-                    user_id=external_user.id,
-                    submitted_at=datetime.now(),
-                    submission_source_type=submission_source_type,
-                    submission_source_id=submission_source_id,
-                    weight=submission_weight * external_user_weight.weight,
-                    user_comment=user_comment
-                )
-                session.add(submission)
-                session.commit()
-                logger.info("Submission added to content queue", extra={"broadcaster_id": broadcaster_id, "queue_item_id": existing_queue_item.id})
-            else:
-                logger.info("Submission already exists, updating weight", extra={"broadcaster_id": broadcaster_id, "queue_item_id": existing_queue_item.id})
-                existing_submission.weight = submission_weight * external_user_weight.weight
-                session.commit()
             
+            return queue_item_id
+            
+        except Exception as e:
+            session.rollback()
+            # Different error, re-raise
+            logger.error("Failed to create content queue item: %s", e, extra={"broadcaster_id": broadcaster_id})
+            raise
+        
     except Exception as e:
         session.rollback()
         logger.error("Error adding URL to content queue: %s", e, extra={"broadcaster_id": broadcaster_id})
+        return None
     finally:
         if close_session:
             session.close()

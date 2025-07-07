@@ -109,6 +109,7 @@
               {% elif current_user.is_anonymous == False and current_user.is_broadcaster() %}
                 <a class="nav-link" href="{{ url_for('management.management') }}">Management</a>
               {% endif %}
+              <a class="nav-link" href="{{ url_for('clip_queue.add_content') }}">Add Content</a>
               <a class="nav-link" href="{{ url_for('root.stats') }}">Stats</a>
             </div>
           </div>

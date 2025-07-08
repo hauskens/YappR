@@ -374,6 +374,19 @@ def task_parse_video_transcriptions(video_id: int, force: bool = False):
     return video_id
 
 
+@celery.task(name='app.task_download_twitch_clip')
+def task_download_twitch_clip(video_url: str, start_time: int, duration: int):
+    from app.tasks import get_twitch_segment
+    logger.info("Downloading Twitch clip for %s from %s for %s seconds", video_url, start_time, duration)
+    try:
+        clip_basename = get_twitch_segment(video_url, start_time, duration)
+        logger.info("Twitch clip downloaded successfully: %s", clip_basename)
+        return clip_basename
+    except Exception as e:
+        logger.error("Failed to download Twitch clip: %s", e, exc_info=True)
+        raise
+
+
 @app.route("/transcription/<int:transcription_id>/parse")
 @login_required
 def parse_transcription(transcription_id: int):
@@ -424,6 +437,205 @@ def channel_transcribe_audio(channel_id: int):
                 logger.info("Task queued, processing audio for video", extra={"video_id": video.id})
                 _ = task_transcribe_audio.delay(video.id)
     return redirect(request.referrer)
+
+
+@app.route("/video/<int:video_id>/download_clip", methods=["POST"])
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def download_clip(video_id: int):
+    start_time = request.form.get("start_time", type=int)
+    before_seconds = request.form.get("before_seconds", type=int, default=30)
+    after_seconds = request.form.get("after_seconds", type=int, default=30)
+    
+    if start_time is None:
+        return '<div class="alert alert-danger">Start time required</div>', 400
+    
+    # Validate timeshift parameters
+    before_seconds = max(0, min(150, before_seconds))  # 0-150 seconds
+    after_seconds = max(0, min(150, after_seconds))    # 0-150 seconds
+    total_duration = before_seconds + after_seconds
+    
+    if total_duration > 180:  # Max 3 minutes total
+        return '<div class="alert alert-danger">Total clip duration cannot exceed 3 minutes (180 seconds)</div>', 400
+    
+    if total_duration == 0:
+        return '<div class="alert alert-danger">Clip duration must be at least 1 second</div>', 400
+    
+    video = get_video(video_id)
+    if "twitch" not in video.get_url().lower():
+        return '<div class="alert alert-danger">Only Twitch videos supported</div>', 400
+    
+    # Calculate clip start and duration
+    clip_start = max(0, start_time - before_seconds)
+    duration = total_duration
+    
+    # Generate the expected clip basename
+    video_id_from_url = video.get_url().split('/')[-1]
+    clip_basename = f"{video_id_from_url}_{clip_start}_{duration}_clip"
+    
+    logger.info("Queuing clip download for video %s from %s for %s seconds (-%ss/+%ss)", 
+                video_id, clip_start, duration, before_seconds, after_seconds)
+    task = task_download_twitch_clip.delay(video.get_url(), clip_start, duration)
+    
+    # Return HTML with polling for status updates using file-based checking
+    return f'''
+    <div class="clip-status">
+        <span class="text-muted">
+            <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+            Processing {duration}s clip...
+        </span>
+        <div hx-get="/clip/{clip_basename}/status_html" 
+             hx-trigger="every 2s" 
+             hx-target="closest .clip-status"
+             hx-swap="outerHTML">
+        </div>
+    </div>
+    ''', 200
+
+
+
+
+def check_clip_file_status(clip_basename: str):
+    """Check for clip files by basename pattern"""
+    import glob
+    
+    # Use the same directory logic as tasks.py
+    storage_directory = os.path.abspath(config.cache_location)
+    clips_directory = os.path.join(storage_directory, "clips")
+    logger.debug("Checking for clip files with basename: %s in directory: %s", clip_basename, clips_directory)
+    logger.debug("Config cache_location: %s, storage_directory: %s", config.cache_location, storage_directory)
+    
+    # Look for ALL files matching the basename pattern
+    all_pattern = os.path.join(clips_directory, f"{clip_basename}*")
+    all_files = glob.glob(all_pattern)
+    logger.debug("Found files matching pattern %s: %s", all_pattern, all_files)
+    
+    if not all_files:
+        logger.debug("No files found, returning PENDING")
+        return {
+            'state': 'PENDING',
+            'status': 'Queued...'
+        }
+    
+    # Look for fragment/temp files (indicates download in progress)
+    fragment_extensions = ['.f0', '.f1', '.f2', '.f3', '.f4', '.f5', '.f6', '.f7', '.f8', '.f9',
+                          '.part', '.ytdl', '.tmp', '.download']
+    temp_files = [f for f in all_files if any(f.lower().endswith(ext) for ext in fragment_extensions)]
+    
+    if temp_files:
+        logger.debug("Found temp/fragment files: %s", temp_files)
+        return {
+            'state': 'PROGRESS',
+            'status': 'Downloading...'
+        }
+    
+    # Look for completed video files (any extension that's not a temp file)
+    video_extensions = ['.mp4', '.mkv', '.webm', '.avi', '.mov', '.flv', '.m4v', '.ts', '.m4a']
+    completed_files = [f for f in all_files if any(f.lower().endswith(ext) for ext in video_extensions)]
+    
+    if completed_files:
+        # File is complete
+        filename = os.path.basename(completed_files[0])
+        logger.debug("Found completed file: %s", filename)
+        return {
+            'state': 'SUCCESS',
+            'status': 'Complete',
+            'filename': filename,
+            'download_url': f"/clips/{filename}"
+        }
+    
+    # Files exist but no recognizable video format - might be an unknown extension
+    # Let's just take the first file and assume it's complete
+    filename = os.path.basename(all_files[0])
+    logger.debug("Found unknown file type, assuming complete: %s", filename)
+    return {
+        'state': 'SUCCESS',
+        'status': 'Complete',
+        'filename': filename,
+        'download_url': f"/clips/{filename}"
+    }
+
+
+@app.route("/clip/<clip_basename>/status_html")
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def clip_status_html(clip_basename: str):
+    result = check_clip_file_status(clip_basename)
+    
+    if result['state'] == 'SUCCESS':
+        return f'''
+        <div class="clip-status mb-2">
+            <a href="{result['download_url']}" class="btn btn-sm btn-primary ms-2" download>
+                <i class="bi bi-download"></i> Download Clip
+            </a>
+        </div>
+        '''
+    elif result['state'] == 'PROGRESS':
+        return f'''
+        <div class="clip-status">
+            <span class="text-muted">
+                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                {result['status']}
+            </span>
+            <div hx-get="/clip/{clip_basename}/status_html" 
+                 hx-trigger="every 2s" 
+                 hx-target="closest .clip-status"
+                 hx-swap="outerHTML">
+            </div>
+        </div>
+        '''
+    else:  # PENDING
+        return f'''
+        <div class="clip-status">
+            <span class="text-muted">
+                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                {result['status']}
+            </span>
+            <div hx-get="/clip/{clip_basename}/status_html" 
+                 hx-trigger="every 2s" 
+                 hx-target="closest .clip-status"
+                 hx-swap="outerHTML">
+            </div>
+        </div>
+        '''
+
+
+@app.route("/clips/<path:filename>")
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def serve_clip(filename: str):
+    from flask import send_from_directory
+    # Use the same directory logic as tasks.py
+    storage_directory = os.path.abspath(config.cache_location)
+    clips_directory = os.path.join(storage_directory, "clips")
+    return send_from_directory(clips_directory, filename)
+
+
+@app.route("/debug/clips")
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def debug_clips():
+    import glob
+    
+    # Use the same directory logic as tasks.py
+    storage_directory = os.path.abspath(config.cache_location)
+    clips_directory = os.path.join(storage_directory, "clips")
+    
+    all_files = glob.glob(os.path.join(clips_directory, "*"))
+    file_info = []
+    for file_path in all_files:
+        filename = os.path.basename(file_path)
+        size = os.path.getsize(file_path) if os.path.exists(file_path) else 0
+        file_info.append(f"{filename} ({size} bytes)")
+    
+    return f"""<pre>Config cache_location: {config.cache_location}
+Storage directory: {storage_directory}
+Clips directory: {clips_directory}
+Directory exists: {os.path.exists(clips_directory)}
+
+Files:
+{chr(10).join(file_info) if file_info else 'No files found'}
+</pre>"""
 
 
 @app.route("/video/<int:video_id>/upload_transcription", methods=["POST"])

@@ -478,6 +478,7 @@ def settings():
 @require_permission()
 def add_content():
     """Add new content to the queue"""
+    logger.info("Loaded add_content.html")
     try:
         if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
             broadcasters = get_broadcasters(show_hidden=True)
@@ -490,7 +491,7 @@ def add_content():
         
         elif request.method == "POST":
             url = request.form.get("url", "").strip()
-            selected_broadcaster_id = request.form.get("broadcaster_id")
+            selected_broadcaster_id = int(request.form.get("broadcaster_id"))
 
             if selected_broadcaster_id not in [broadcaster.id for broadcaster in broadcasters]:
                 return jsonify({"status": "error", "message": "Invalid broadcaster selected"}), 400
@@ -498,23 +499,36 @@ def add_content():
             if not url:
                 return jsonify({"status": "error", "message": "URL is required"}), 400
             
-            selected_broadcaster_id = int(selected_broadcaster_id)
-            
             # Add the content to the queue using the shared function
             import asyncio
             from bot.shared import add_to_content_queue
             from app.models.db import ContentQueueSubmissionSource
+            from app.twitch_api import get_twitch_client
             
             # Use asyncio.run to handle the async function
-            queue_item_id = asyncio.run(add_to_content_queue(
-                url=url,
-                broadcaster_id=selected_broadcaster_id,
-                username=current_user.name,
-                external_user_id=current_user.external_account_id,
-                submission_source_type=ContentQueueSubmissionSource.Web,
-                submission_source_id=0,
-                submission_weight=1.0
-            ))
+            async def add_content_async():
+                # Initialize Twitch client for Twitch URLs
+                twitch_client = None
+                try:
+                    if 'twitch.tv' in url.lower():
+                        twitch_client = await get_twitch_client()
+                        await twitch_client.authenticate_app([])
+                except Exception as e:
+                    logger.warning(f"Failed to initialize Twitch client: {e}")
+                    twitch_client = None
+                
+                return await add_to_content_queue(
+                    url=url,
+                    broadcaster_id=selected_broadcaster_id,
+                    username=current_user.name,
+                    external_user_id=current_user.external_account_id,
+                    submission_source_type=ContentQueueSubmissionSource.Web,
+                    submission_source_id=0,
+                    submission_weight=1.0,
+                    twitch_client=twitch_client
+                )
+            
+            queue_item_id = asyncio.run(add_content_async())
             
             if queue_item_id:
                 queue_item = db.session.query(ContentQueue).filter(ContentQueue.id == queue_item_id).one()
@@ -538,6 +552,7 @@ def add_content():
 @require_permission()
 def search_content():
     """Search for existing content in the queue by URL or text"""
+    logger.info("User searching for clip")
     try:
         query = request.form.get("url", "").strip()
         broadcaster_id = request.form.get("broadcaster_id")

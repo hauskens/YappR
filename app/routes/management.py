@@ -17,7 +17,7 @@ def management():
     bots = None
     if current_user.has_permission(PermissionType.Admin):
         bots = get_bots()
-        broadcasters = get_broadcasters()
+        broadcasters = get_broadcasters(show_hidden=True)
 
     elif moderated_channels is not None or current_user.is_broadcaster():
         # Convert moderated channels to a list of broadcasters

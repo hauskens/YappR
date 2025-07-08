@@ -106,3 +106,43 @@ def get_twitch_audio(video_url: str) -> str:
     with yt_dlp.YoutubeDL(twitch_opts) as ydl:
         _ = ydl.download(video_url)
         return find_downloaded_file(storage_directory, video_url)
+
+
+def get_twitch_segment(video_url: str, start_time: int, duration: int) -> str:
+    clips_directory = os.path.join(storage_directory, "clips")
+    os.makedirs(clips_directory, exist_ok=True)
+    
+    logger.debug("Fetching Twitch segment for %s", video_url)
+    video_id = video_url.split('/')[-1]
+    clip_basename = f"{video_id}_{start_time}_{duration}_clip"
+    download_path: str = f"{clips_directory}/{clip_basename}.%(ext)s"
+    
+    # Calculate end time in seconds
+    end_time = start_time + duration
+    
+    twitch_opts = {
+        "outtmpl": download_path,
+        "format": "best",
+        "force_keyframes_at_cuts": True,
+        "verbose": True,
+        "match_filter": yt_dlp.utils.match_filter_func(['!is_live'], None),
+        "download_ranges": download_range_func([], [[float(start_time), float(end_time)]]),
+    }
+    
+    with yt_dlp.YoutubeDL(twitch_opts) as ydl:
+        logger.info(
+            "Fetching Twitch clip for video: %s, from %ss to %ss",
+            video_url,
+            start_time,
+            end_time,
+        )
+        _ = ydl.extract_info(video_url)
+        logger.info(
+            "Done: Twitch clip for %s, from %ss to %ss",
+            video_url,
+            start_time,
+            end_time,
+        )
+        
+        # Return the basename pattern for file checking
+        return clip_basename

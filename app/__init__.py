@@ -73,12 +73,13 @@ def create_app(overrides: dict | None = None):
     app.config["CELERY"] = dict(
         broker_url=config.redis_uri,
         backend=config.database_uri,
-        task_ignore_result=True,
+        task_ignore_result=False,
         task_routes={
             "app.tasks.default": {"queue": "default-queue"},
             "app.main.update_channels_last_active": {"queue": "priority-queue"},
             "app.main.task_transcribe_audio": {"queue": "gpu-queue"},
             "app.main.task_transcribe_file": {"queue": "gpu-queue"},
+            "app.task_download_twitch_clip": {"queue": "celery"},
         },
     )
     environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"

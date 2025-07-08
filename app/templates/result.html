@@ -61,8 +61,60 @@
                   {% for segment in v.segment_results %}
                     <hr>
                     <div class="list-group-item">
+                      {% if current_user.is_anonymous == False %}
+                        {% if 'twitch' in v.video.get_url().lower() and current_user.has_permission(["admin", "mod"]) %}
+                        <div style="display: inline;" class="clip-download-container" id="clip-container-{{ v.video.id }}-{{ segment.start_time() }}">
+                          <button type="button" 
+                                  class="btn btn-link btn-sm text-muted p-0 ms-1 clip-options-btn" 
+                                  title="Download clip options"
+                                  data-bs-toggle="collapse"
+                                  data-bs-target="#clip-options-{{ v.video.id }}-{{ segment.start_time() }}"
+                                  style="font-size: 0.8em;">
+                            <i class="bi bi-arrow-down-square-fill"></i>
+                          </button>
+                          <div class="collapse mt-1" id="clip-options-{{ v.video.id }}-{{ segment.start_time() }}">
+                            <div class="card card-body p-2" style="font-size: 0.85em;">
+                              <form method="POST" class="clip-download-form">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <input type="hidden" name="start_time" value="{{ segment.start_time() }}">
+                                <div class="row g-2 align-items-end">
+                                  <div class="col-auto">
+                                    <label class="form-label mb-1" style="font-size: 0.75em;">Before (sec)</label>
+                                    <input type="number" name="before_seconds" class="form-control form-control-sm" 
+                                           value="30" min="0" max="150" style="width: 60px;">
+                                  </div>
+                                  <div class="col-auto">
+                                    <label class="form-label mb-1" style="font-size: 0.75em;">After (sec)</label>
+                                    <input type="number" name="after_seconds" class="form-control form-control-sm" 
+                                           value="30" min="0" max="150" style="width: 60px;">
+                                  </div>
+                                  <div class="col-auto">
+                                    <button type="button" 
+                                            class="btn btn-primary btn-sm clip-download-btn" 
+                                            hx-post="{{ url_for('download_clip', video_id=v.video.id) }}"
+                                            hx-include="closest form"
+                                            hx-target="#clip-container-{{ v.video.id }}-{{ segment.start_time() }}"
+                                            hx-indicator="#clip-spinner-{{ v.video.id }}-{{ segment.start_time() }}">
+                                      <i class="bi bi-download"></i> Download
+                                    </button>
+                                  </div>
+                                </div>
+                                <div class="text-muted mt-1" style="font-size: 0.7em;">
+                                  Max 3 minutes total (180 seconds)
+                                </div>
+                              </form>
+                              <span id="clip-spinner-{{ v.video.id }}-{{ segment.start_time() }}" class="htmx-indicator mt-2">
+                                <span class="spinner-border spinner-border-sm me-1" role="status"></span>
+                                <span>Downloading...</span>
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                        {% endif %}
+                      {% endif %}
                       <a class="card-text link-primary" id="card-sentence-result" target="_blank" href="{{ segment.get_url() }}"> {{ segment.start_time() }}s </a> 
                       <a>- {{ segment.get_sentences_formated()}}</a>
+                      
                     </div>
                   {% endfor %}
                   </div>
@@ -242,6 +294,40 @@
     tooltipTriggerList.forEach(function(el) {
       new bootstrap.Tooltip(el)
     })
+    
+    // Add validation for clip download forms
+    document.querySelectorAll('.clip-download-form').forEach(function(form) {
+      const beforeInput = form.querySelector('input[name="before_seconds"]');
+      const afterInput = form.querySelector('input[name="after_seconds"]');
+      const submitBtn = form.querySelector('.clip-download-btn');
+      
+      function validateClipForm() {
+        const before = parseInt(beforeInput.value) || 0;
+        const after = parseInt(afterInput.value) || 0;
+        const total = before + after;
+        
+        if (total > 180) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Too long';
+          submitBtn.className = 'btn btn-warning btn-sm clip-download-btn';
+        } else if (total === 0) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Too short';
+          submitBtn.className = 'btn btn-warning btn-sm clip-download-btn';
+        } else {
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = '<i class="bi bi-download"></i> Download';
+          submitBtn.className = 'btn btn-primary btn-sm clip-download-btn';
+        }
+      }
+      
+      beforeInput.addEventListener('input', validateClipForm);
+      afterInput.addEventListener('input', validateClipForm);
+      
+      // Initial validation
+      validateClipForm();
+    });
   })
+
 </script>
 {% endblock %}

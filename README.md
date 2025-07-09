@@ -51,6 +51,8 @@ This project was originally inspired by and would not have happened without the
 project [SqueexVodSearch](https://github.com/lawrencehook/SqueexVodSearch) by
 [@lawrencehook](https://github.com/lawrencehook).
 
+Special thanks to [@yellowbear](https://www.youtube.com/@yellllowbear) and [@ACB](https://www.twitch.tv/acb_x) for invaluable inspiration and feedback.
+
 Also thanks to [NLQotes](https://github.com/irinelul/NLQuotes) for inspiration
 to use `tsvector` in PostgreSQL
 

@@ -221,12 +221,18 @@ def broadcaster_settings_update(broadcaster_id: int):
     logger.info("Updating broadcaster settings, linked discord channel id: %s", discord_channel_id, extra={"dcaster_id": broadcaster_id, "user_id": current_user.id})
     
     # Update broadcaster hidden status (admin only)
-    if current_user.has_permission([PermissionType.Admin]) and request.form.get('hidden'):
+    if current_user.has_permission([PermissionType.Admin]) and request.form.get('hidden') is not None:
         broadcaster = db.session.query(Broadcaster).filter_by(id=broadcaster_id).first()
         if broadcaster:
             broadcaster.hidden = 'hidden' in request.form
             logger.info("Updating broadcaster hidden status, hidden: %s", 'hidden' in request.form, extra={"broadcaster_id": broadcaster_id, "user_id": current_user.id})
     
     db.session.commit()
-    flash('Broadcaster settings updated successfully')
-    return redirect(request.referrer)
+    
+    # Check if this is an HTMX request
+    if request.headers.get('HX-Request'):
+        # Return success message for HTMX
+        return '<div class="alert alert-success">Settings updated successfully</div>'
+    else:
+        flash('Broadcaster settings updated successfully')
+        return redirect(request.referrer)

@@ -40,19 +40,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-  document.body.addEventListener('htmx:beforeSend', function(event) {
-    if (event.detail.elt.id === 'upload-form') {
-      document.getElementById('loading').classList.remove('d-none');
-    }
-  });
-  
-  document.body.addEventListener('htmx:afterOnLoad', function(event) {
-    if (event.detail.elt.id === 'upload-form') {
-      document.getElementById('loading').classList.add('d-none');
-      // Refresh the transcription list after upload
-      htmx.trigger('#transcription-list', 'load');
-    }
-  });
-</script>
+<script src="{{ url_for('static', filename='js/utils.js') }}"></script>
 {% endblock %}

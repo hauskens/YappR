@@ -113,7 +113,7 @@ services:
     environment:
       - SERVICE_NAME=beat
     deploy:
-      replicas: 1
+      replicas: 0
   bot:
     image: ${REGISTRY-}yappr-bot${VERSION-}
     stop_signal: SIGINT          # ensure the bot can handle the shutdown signal
@@ -131,6 +131,8 @@ services:
         condition: service_healthy
       db:
         condition: service_healthy
+    deploy:
+      replicas: 0
     develop:
       watch:
         - action: sync+restart

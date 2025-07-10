@@ -12,15 +12,10 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <script src="{{ url_for('static', filename='js/vendor.js') }}"></script>
     <script src="{{ url_for('static', filename='js/htmx-config.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/theme-toggle.js') }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='logo.ico') }}" type="image/x-icon">
-    <!-- EARLY theme setting to avoid flicker when page loads -->
-    <script>
-        (function() {
-            const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-            document.documentElement.setAttribute('data-bs-theme', theme);
-        })();
-    </script>
+    <!-- Theme is now handled by theme-toggle.js -->
     {% block styles %}
 
     {% endblock %}
@@ -145,31 +140,7 @@
     </nav>
     {% block content %}{% endblock %}
     {% block scripts %}{% endblock %}
-    <script>
-      (function () {
-          const themeToggle = document.getElementById('themeToggle');
-          const themeIcon = document.getElementById('themeIcon'); // if using icons
-
-          // Get stored theme or system preference
-          let currentTheme = localStorage.getItem('theme') || 'dark' ;
-
-          // Apply initial theme
-          document.documentElement.setAttribute('data-bs-theme', currentTheme);
-          if (themeIcon) {
-              themeIcon.className = currentTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
-          }
-
-          themeToggle.addEventListener('click', () => {
-              currentTheme = (document.documentElement.getAttribute('data-bs-theme') === 'dark') ? 'light' : 'dark';
-              document.documentElement.setAttribute('data-bs-theme', currentTheme);
-              localStorage.setItem('theme', currentTheme);
-
-              if (themeIcon) {
-                themeIcon.className = currentTheme === 'dark' ? 'bi bi-sun-fill' : 'bi bi-moon-fill';
-              }
-          });
-      })();
-    </script>
+    <!-- Theme toggle functionality is now handled by theme-toggle.js -->
     {% block extra_scripts %}{% endblock %}
     <footer class="footer mt-auto text-center text-white bg-body-tertiary w-100 p-2">
       <div class="d-flex justify-content-center align-items-center gap-2 text-body-secondary fs-6">

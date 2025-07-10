@@ -135,47 +135,5 @@
   </div>
 </div>
 
-<script>
-  function updateBroadcasterName() {
-    const channelSelect = document.getElementById('twitch_channel');
-    const nameInput = document.getElementById('name');
-    const channelIdInput = document.getElementById('channel_id');
-    const channelNameInput = document.getElementById('channel_name');
-    
-    if (channelSelect.value) {
-      const [channelId, channelName] = channelSelect.value.split('|');
-      nameInput.value = channelName;
-      channelIdInput.value = channelId;
-      channelNameInput.value = channelName;
-    }
-    
-    // Check form validity after updating broadcaster name
-    checkFormValidity();
-  }
-  
-  function checkFormValidity() {
-    const saveButton = document.getElementById('saveButton');
-    const willbehaveCheckbox = document.getElementById('willbehave');
-    const channelSelect = document.getElementById('twitch_channel');
-    
-    // Get the selected option
-    const selectedOption = channelSelect.options[channelSelect.selectedIndex];
-    
-    // Check if a valid option is selected (not the disabled default one)
-    const hasValidChannel = channelSelect.selectedIndex > 0 && !selectedOption.disabled;
-    
-    // Enable the save button only if the willbehave checkbox is checked
-    // and a valid channel is selected
-    if (willbehaveCheckbox.checked && hasValidChannel) {
-      saveButton.disabled = false;
-    } else {
-      saveButton.disabled = true;
-    }
-  }
-  
-  // Initialize form validation when the page loads
-  document.addEventListener('DOMContentLoaded', function() {
-    checkFormValidity();
-  });
-</script>
+<script src="{{ url_for('static', filename='js/broadcaster-add.js') }}"></script>
 {% endblock %}

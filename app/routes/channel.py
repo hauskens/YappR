@@ -136,10 +136,14 @@ def channel_settings_update(channel_id: int):
     # Check if user has permission to modify this channel
     channel = db.session.query(Channels).filter_by(id=channel_id).first()
     if not channel:
+        if request.headers.get('HX-Request'):
+            return '<div class="alert alert-danger">Channel not found</div>', 404
         return "Channel not found", 404
     
     broadcaster_id = channel.broadcaster_id
     if not (current_user.has_broadcaster_id(broadcaster_id) or current_user.has_permission([PermissionType.Admin])):
+        if request.headers.get('HX-Request'):
+            return '<div class="alert alert-danger">You do not have permission to modify this channel</div>', 403
         return "You do not have permission to modify this channel", 403
     
     # Get or create channel settings
@@ -161,5 +165,11 @@ def channel_settings_update(channel_id: int):
     settings.chat_collection_enabled = chat_collection_enabled
     
     db.session.commit()
-    flash('Channel settings updated successfully')
-    return redirect(request.referrer)
+    
+    # Check if this is an HTMX request
+    if request.headers.get('HX-Request'):
+        # Return success message for HTMX
+        return f'<div class="alert alert-success">Settings updated for {channel.name}</div>'
+    else:
+        flash('Channel settings updated successfully')
+        return redirect(request.referrer)

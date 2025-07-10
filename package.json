@@ -3,12 +3,12 @@
   "version": "1.0.0",
   "scripts": {
     "build": "bun run build:vendor && bun run build:css && bun run build:ts && bun run copy:fonts",
-    "build:vendor": "bun build app/ts/vendor.ts --outdir app/static/js --target browser --minify",
-    "build:css": "bun build app/ts/styles.css --outdir app/static/css --target browser --minify",
-    "build:ts": "bun build app/ts/*.ts --outdir app/static/js --target browser --minify",
+    "build:vendor": "bun build frontend/vendor.ts --outdir app/static/js --target browser --production --root frontend",
+    "build:css": "bun build frontend/styles.css --outdir app/static/css --target browser --production --root frontend",
+    "build:ts": "bun build frontend/*.ts --outdir app/static/js --target browser --production --root frontend",
     "copy:fonts": "mkdir -p app/static/css/fonts && cp -r node_modules/bootstrap-icons/font/fonts/* app/static/css/fonts/",
-    "watch:ts": "bun build app/ts/*.ts --outdir app/static/js --target browser --watch --minify",
-    "install-deps": "bun install && bun run build"
+    "watch:ts": "bun build frontend/*.ts --outdir app/static/js --target browser --watch --root frontend",
+    "clean": "rm -rf app/static/js"
   },
   "dependencies": {
     "bootstrap": "^5.3.7",
@@ -22,6 +22,7 @@
   },
   "devDependencies": {
     "@types/bootstrap": "^5.2.10",
+    "@types/bun": "^1.2.18",
     "@types/node": "^24.0.12",
     "typescript": "^5.8.3"
   }

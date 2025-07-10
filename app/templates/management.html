@@ -197,59 +197,6 @@
 </div>
 {% endblock %}
 {% block extra_scripts %}
-<script>
-  // Debug htmx requests
-  document.body.addEventListener('htmx:beforeRequest', function(evt) {
-    console.log('htmx request starting:', evt.detail);
-    console.log('Parameters being sent:', evt.detail.parameters);
-  });
-  
-  document.body.addEventListener('htmx:afterRequest', function(evt) {
-    console.log('htmx request complete:', evt.detail);
-  });
-  
-  document.body.addEventListener('htmx:responseError', function(evt) {
-    console.error('htmx response error:', evt.detail);
-  });
-  
-  // Initialize filter controls on page load
-  document.addEventListener('DOMContentLoaded', function() {
-    // Make sure checkboxes send correct values when unchecked
-    document.querySelectorAll('input[type="checkbox"].filter-control').forEach(checkbox => {
-      checkbox.addEventListener('change', function() {
-        console.log(`Checkbox ${this.name} changed to ${this.checked}`);
-      });
-    });
-    
-    // Navigate paginated results without losing filters
-    document.body.addEventListener('click', function(e) {
-      if (e.target.matches('[data-page]') || e.target.closest('[data-page]')) {
-        e.preventDefault();
-        const pageLink = e.target.matches('[data-page]') ? e.target : e.target.closest('[data-page]');
-        const page = pageLink.getAttribute('data-page');
-        
-        // Update the page input hidden field
-        const pageInput = document.createElement('input');
-        pageInput.type = 'hidden';
-        pageInput.name = 'page';
-        pageInput.value = page;
-        pageInput.className = 'filter-control';
-        
-        // Remove any existing page input
-        const existingPageInput = document.querySelector('input[name="page"].filter-control');
-        if (existingPageInput) {
-          existingPageInput.remove();
-        }
-        
-        document.body.appendChild(pageInput);
-        
-        console.log('Pagination clicked: Page ' + page);
-        
-        // Trigger the HTMX request
-        htmx.trigger('#queue-items-container', 'queue_update');
-      }
-    });
-  });
-</script>
+<script src="{{ url_for('static', filename='js/management.js') }}"></script>
 {% endblock %}
 

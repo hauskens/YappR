@@ -22,6 +22,23 @@
     color: #6c757d;
     opacity: 0.2;
   }
+  .clip-info {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+  }
+
+  /* Instructions */
+  .instructions {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      text-align: center;
+  }
 </style>
 {% endblock %}
 
@@ -49,6 +66,10 @@
             <div id="clip-details" class="d-flex align-items-stretch flex-nowrap overflow-hidden flex-grow-1">
               <!-- Clip details will be loaded here via HTMX -->
             </div>
+            <!-- Include balloon feedback component -->
+            {% with clip_id=currentClipId, user_id=current_user.id if current_user else None %}
+            {% include 'components/balloon_feedback.html' %}
+            {% endwith %}
             <button 
               class="btn btn-primary flex-shrink-0 ms-2 align-self-center"
               id="mark-watched-btn"
@@ -222,306 +243,8 @@
 
 {% block scripts %}
 <script>
-  // Global variable to track current clip ID
-  let currentClipId = null;
-  // Listen for when new player is loaded via HTMX
-  document.body.addEventListener('htmx:afterSwap', function(event) {
-    // Check if the target was the player container
-    if (event.detail.target.id === 'player-container') {
-      // Initialize the player after it's been loaded
-      initPlayer();
-      
-      // Update currentClipId from any iframe with data-clip-id
-      const iframe = event.detail.target.querySelector('iframe[data-clip-id]');
-      if (iframe && iframe.getAttribute('data-clip-id')) {
-        currentClipId = iframe.getAttribute('data-clip-id');
-      }
-      
-      // If no iframe with data-clip-id, try container elements
-      if (!currentClipId) {
-        const container = event.detail.target.querySelector('[data-clip-id]');
-        if (container && container.getAttribute('data-clip-id')) {
-          currentClipId = container.getAttribute('data-clip-id');
-        }
-      }
-      
-      // Show the Next button when a clip is playing
-      if (currentClipId) {
-        const markWatchedBtn = document.getElementById('mark-watched-btn');
-        if (markWatchedBtn) markWatchedBtn.style.display = 'block';
-      }
-    }
-    
-    // Check if the target was the queue items container
-    if (event.detail.target.id === 'queue-items' && currentClipId) {
-      // Reapply active styling to the current clip after queue refresh
-      const currentItem = document.querySelector(`.queue-item[data-id="${currentClipId}"]`);
-      if (currentItem) {
-        // Remove active class from all items first
-        document.querySelectorAll('.queue-item').forEach(item => {
-          item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-        });
-        // Add active class to current item
-        currentItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-      }
-    }
-
-      // We'll keep this for HTMX updates, but it won't catch fetch updates
-    const clipDetailsEl = document.getElementById('clip-details');
-    if (clipDetailsEl && (event.detail.target === clipDetailsEl || clipDetailsEl.contains(event.detail.target))) {
-        console.log('clip-details content updated via HTMX');
-        initializeClipDetailsInteractions();
-    }
-  });
-  
-  // Initialize the toggle state from localStorage on page load
-  document.addEventListener('DOMContentLoaded', function() {
-    const preferShortToggle = document.getElementById('prefer-short-toggle');
-    if (preferShortToggle) {
-      const savedPreference = localStorage.getItem('preferShortContent');
-      // If no preference is saved yet, default to true (checked)
-      if (savedPreference === null) {
-        localStorage.setItem('preferShortContent', 'true');
-        preferShortToggle.checked = true;
-      } else {
-        preferShortToggle.checked = savedPreference === 'true';
-      }
-    }
-    
-    // Set up custom events to handle queue updates
-    document.body.addEventListener('queue_update', function() {
-      // After queue update, make sure the active item is still highlighted
-      setTimeout(function() {
-        if (currentClipId) {
-          const currentItem = document.querySelector(`.queue-item[data-id="${currentClipId}"]`);
-          if (currentItem) {
-            // Mark this item as active
-            document.querySelectorAll('.queue-item').forEach(item => {
-              item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-            });
-            currentItem.classList.add('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
-          }
-        }
-      }, 100); // Small delay to ensure DOM is updated
-    });
-  });
-  
-  // Handle platform settings responses
-  document.addEventListener('htmx:afterRequest', function(event) {
-    // Update platform checkboxes when options tab is loaded
-    if (event.detail.elt && event.detail.elt.id === 'options-tab') {
-      if (event.detail.successful) {
-        try {
-          const response = JSON.parse(event.detail.xhr.responseText);
-          if (response.status === 'success') {
-            // Update prefer shorter content toggle
-            if (response.hasOwnProperty('prefer_shorter_content')) {
-              document.getElementById('prefer-short-toggle').checked = response.prefer_shorter_content;
-              // Update localStorage to stay in sync with server setting
-              localStorage.setItem('preferShortContent', response.prefer_shorter_content);
-            }
-            
-            // Update platform checkboxes
-            if (response.platforms) {
-              // Reset all checkboxes first
-              document.querySelectorAll('.platform-toggle').forEach(checkbox => {
-                checkbox.checked = false;
-              });
-              
-              // Check boxes for enabled platforms
-              response.platforms.forEach(platform => {
-                const checkbox = document.getElementById('platform-' + platform);
-                if (checkbox) {
-                  checkbox.checked = true;
-                }
-              });
-            }
-          }
-        } catch (e) {
-          console.error('Error parsing platform settings:', e);
-        }
-      }
-    }
-  });
-  
-  // Initialize active item from localStorage
-  document.addEventListener('DOMContentLoaded', function() {
-    // Setup tooltips
-    const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
-    const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
-    
-    // Check for active item in localStorage
-    const activeItemId = localStorage.getItem('activeQueueItemId');
-    if (activeItemId) {
-      const queueItem = document.querySelector(`.queue-item[data-id="${activeItemId}"]`);
-      if (queueItem) {
-        // Trigger a click on the item to load its player and details
-        queueItem.click();
-      } else {
-        // If item not found, clear the stored ID
-        localStorage.removeItem('activeQueueItemId');
-      }
-    }
-  });
-  
-
-  document.addEventListener('DOMContentLoaded', function() {
-    // Toggle search inputs when switching tabs
-    document.getElementById('upcoming-tab').addEventListener('click', function() {
-      document.getElementById('upcoming-search').style.display = 'flex';
-      document.getElementById('history-search').style.display = 'none';
-    });
-    
-    document.getElementById('history-tab').addEventListener('click', function() {
-      document.getElementById('upcoming-search').style.display = 'none';
-      document.getElementById('history-search').style.display = 'flex';
-    });
-    
-    document.getElementById('options-tab').addEventListener('click', function() {
-      document.getElementById('upcoming-search').style.display = 'none';
-      document.getElementById('history-search').style.display = 'none';
-    });
-    
-    // Add event listener for prefer-short-toggle to reload queue
-    document.getElementById('prefer-short-toggle').addEventListener('change', function() {
-      if (document.getElementById('upcoming').classList.contains('active')) {
-        htmx.trigger('#queue-items', 'queue_update');
-      } else {
-        htmx.trigger('#history-items', 'history_update');
-      }
-    });
-  });
-  
-  // Function to mark item as watched
-  function markItemAsWatched(itemId, callback) {
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', `/clip_queue/mark_watched/${itemId}`);
-    xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-    xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token() }}');
-    xhr.onload = function() {
-      if (xhr.status === 200) {
-        if (typeof callback === 'function') callback();
-        htmx.trigger(document.body, 'queue_update');
-        htmx.trigger(document.body, 'history_update');
-      }
-    };
-    xhr.send();
-  }
-  
-  // Function to mark the current active clip as watched and go to next clip
-  function markCurrentWatched() {
-    // Use currentClipId if available, otherwise get from active item
-    let itemId = currentClipId;
-    
-    // Fallback to DOM if no currentClipId
-    if (!itemId) {
-      const activeItem = document.querySelector('.queue-item.active');
-      if (!activeItem) {
-        return;
-      }
-      
-      itemId = activeItem.getAttribute('data-item-id');
-    }
-    
-    if (!itemId) {
-      return;
-    }
-    
-    // First find the next clip to go to before we mark the current one as watched
-    const upcomingTab = document.getElementById('upcoming');
-    const activeQueue = upcomingTab && upcomingTab.classList.contains('active') 
-      ? document.getElementById('queue-items') 
-      : document.getElementById('history-items');
-      
-    if (!activeQueue) {
-      // If no active queue, just mark current as watched without advancing
-      markItemAsWatched(itemId);
-      return;
-    }
-    
-    // Find the currently active item in the queue
-    const activeItem = document.querySelector('.queue-item.active');
-    if (!activeItem) {
-      // If no active item found, just mark current as watched without advancing
-      markItemAsWatched(itemId);
-      return;
-    }
-    
-    // Find all unwatched items
-    const queueItems = activeQueue.querySelectorAll('.queue-item:not(.watched-item)');
-    let nextIndex = -1;
-    
-    for (let i = 0; i < queueItems.length; i++) {
-      if (queueItems[i] === activeItem) {
-        nextIndex = i + 1;
-        break;
-      }
-    }
-    
-    // If there's a next item, get its details before marking current as watched
-    if (nextIndex >= 0 && nextIndex < queueItems.length) {
-      const nextItem = queueItems[nextIndex];
-      const nextItemId = nextItem.getAttribute('data-id');
-      
-      if (nextItemId) {
-        // Mark current as watched first
-        markItemAsWatched(itemId, function() {
-          // Then explicitly load the next item we found
-          // Update currentClipId
-          currentClipId = nextItemId;
-          
-          // Store in localStorage
-          localStorage.setItem('activeQueueItemId', nextItemId);
-          
-          // Use HTMX to load the player and details
-          htmx.ajax('GET', `/clip_queue/player/${nextItemId}`, '#player-container');
-          htmx.ajax('GET', `/clip_queue/details/${nextItemId}`, '#clip-details');
-        });
-      } else {
-        // Just mark as watched without advancing
-        markItemAsWatched(itemId);
-      }
-    } else {
-      // No next item, just mark current as watched and show completion message
-      markItemAsWatched(itemId, function() {
-        // Show message that there are no more clips
-        const playerMessage = document.getElementById('player-message');
-        const playerContainer = document.getElementById('player-container');
-        if (playerMessage && playerContainer) {
-          playerMessage.innerHTML = '<div class="d-flex align-items-center justify-content-center h-100"><div class="text-center"><h3>All clips have been watched!</h3><p>There are no more clips in the queue.</p></div></div>';
-          playerContainer.style.display = 'none';
-          playerMessage.style.display = 'block';
-        }
-        
-        const markWatchedBtn = document.getElementById('mark-watched-btn');
-        if (markWatchedBtn) markWatchedBtn.style.display = 'none';
-      });
-    }
-  }
-  
-  // Function to initialize player if needed
-  function initPlayer() {
-    const playerContainer = document.getElementById('player-container');
-    const playerMessage = document.getElementById('player-message');
-    
-    // Get clip ID from player container data attribute if available
-    if (playerContainer && playerContainer.dataset && playerContainer.dataset.clipId) {
-      currentClipId = playerContainer.dataset.clipId;
-      console.log('Set currentClipId to:', currentClipId);
-    }
-    
-    if (playerContainer && playerMessage) {
-      // Check if there's content in the player container
-      if (playerContainer.querySelector('iframe')) {
-        playerContainer.style.display = 'block';
-        playerMessage.style.display = 'none';
-      } else {
-        playerContainer.style.display = 'none';
-        playerMessage.style.display = 'block';
-      }
-    }
-    console.log('Player initialized');
-  }
-
+  // Add CSRF token to template for JavaScript access
+  window.csrfToken = '{{ csrf_token() }}';
 </script>
+<script src="{{ url_for('static', filename='js/clip-queue-v2.js') }}"></script>
 {% endblock %}

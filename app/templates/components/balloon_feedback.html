@@ -1,0 +1,36 @@
+<!-- Balloon Feedback Component -->
+<div class="feedback-container">
+    <div class="row">
+        <div class="col-6 text-center">
+            <button class="balloon-btn good" 
+                    data-clip-id="{{ clip_id }}"
+                    data-user-id="{{ user_id or '456' }}"
+                    data-feedback-type="good">
+                <div class="balloon-content">
+                    <i class="bi bi-hand-thumbs-up"></i>
+                    <span>Good Clip</span>
+                </div>
+                <div class="power-indicator">+<span class="power-value">0.2</span></div>
+            </button>
+        </div>
+        <div class="col-6 text-center">
+            <button class="balloon-btn bad" 
+                    data-clip-id="{{ clip_id }}"
+                    data-user-id="{{ user_id or '456' }}"
+                    data-feedback-type="bad">
+                <div class="balloon-content">
+                    <i class="bi bi-hand-thumbs-down"></i>
+                    <span>Bad Clip</span>
+                </div>
+                <div class="power-indicator">-<span class="power-value">0.2</span></div>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Weight change display overlay -->
+<div id="weight-change-display" class="weight-change-display">
+    <span id="weight-change-text"></span>
+</div>
+<link rel="stylesheet" href="{{ url_for('static', filename='balloon_feedback.css') }}">
+<script src="{{ url_for('static', filename='balloon_feedback.js') }}"></script>

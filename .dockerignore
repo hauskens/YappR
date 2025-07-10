@@ -5,6 +5,8 @@ test
 cookies.txt
 chatterino_logs
 *.webm
+app/static/js
+app/static/css
 test_storage
 node_modules
 test_db

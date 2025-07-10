@@ -15,7 +15,10 @@
             </svg>
           </h5>
           <div style="height: 200px;">
-            <canvas id="transcriptionQualityChart"></canvas>
+            <canvas id="transcriptionQualityChart" 
+                    data-hq-count="{{ transcriptions_hq_count }}"
+                    data-lq-count="{{ transcriptions_lq_count }}"
+                    data-total-count="{{ video_count }}"></canvas>
           </div>
           <div class="mt-2">
             <ul class="list-unstyled text-center">
@@ -61,56 +64,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    // Initialize tooltips
-    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    tooltipTriggerList.map(function(tooltipTriggerEl) {
-      return new bootstrap.Tooltip(tooltipTriggerEl);
-    });
-    
-    // Initialize transcription quality doughnut chart
-    const transcriptionQualityCtx = document.getElementById("transcriptionQualityChart");
-    const chartData = {
-      labels: ["High Quality", "Low Quality", "Missing Transcription"],
-      datasets: [{
-        data: [{{ transcriptions_hq_count }}, {{ transcriptions_lq_count }}, {{ video_count - (transcriptions_hq_count + transcriptions_lq_count) }}],
-        backgroundColor: [
-          "#8b5cf6",  // High - Light purple
-          "#f59e0b",  // Low - Amber
-          "#d1d5db"   // Missing - Light gray
-        ],
-        borderWidth: 0
-      }]
-    };
-    
-    const chartOptions = {
-      responsive: true,
-      maintainAspectRatio: false,
-      cutout: '70%',
-      plugins: {
-        legend: {
-          display: false,
-        },
-        tooltip: {
-          callbacks: {
-            label: function(context) {
-              const value = context.raw;
-              const total = {{ video_count }};
-              const percentage = ((value / total) * 100).toFixed(1);
-              const formattedValue = new Intl.NumberFormat().format(value);
-              return `${context.label}: ${formattedValue} (${percentage}%)`;
-            }
-          }
-        }
-      }
-    };
-    
-    new Chart(transcriptionQualityCtx, {
-      type: "doughnut",
-      data: chartData,
-      options: chartOptions
-    });
-  });
-</script>
+<script src="{{ url_for('static', filename='js/stats.js') }}"></script>
 {% endblock %}

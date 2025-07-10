@@ -1,12 +1,3 @@
-// HTMX configuration for CSRF token handling
-import htmx from 'htmx.org/dist/htmx.esm';
-
-declare global {
-  interface Window {
-    htmx: typeof htmx;
-  }
-}
-
 document.addEventListener('DOMContentLoaded', function() {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
   
@@ -22,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
           evt.detail.parameters = {};
         }
         evt.detail.parameters['csrf_token'] = csrfToken;
-      }
+     }
     });
   }
 });

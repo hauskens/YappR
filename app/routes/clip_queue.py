@@ -67,15 +67,24 @@ def mark_clip_watched(item_id: int):
         broadcaster_id = queue_item.broadcaster_id
         
         # Check if user has permission to mark this clip as watched
+        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id)
+        if broadcaster is None:
+            return jsonify({"error": "Broadcaster not found"}), 404
+        if broadcaster_id != broadcaster.id:
+            return jsonify({"error": "You do not have permission to mark this clip as watched"}), 403
             
         if queue_item.watched:
             logger.info("Unmarking clip as watched", extra={"queue_item_id": queue_item.id, "user_id": current_user.id})
             queue_item.watched = False
             queue_item.watched_at = None
+            queue_item.score = 0.0
         else:
             logger.info("Marking clip as watched", extra={"queue_item_id": queue_item.id, "user_id": current_user.id})
             queue_item.watched = True
             queue_item.watched_at = datetime.now()
+            rating = float(request.form.get('rating', 0.0))
+            rating = max(-1.0, min(1.0, rating))
+            queue_item.score = rating
         db.session.commit()
         return jsonify({"status": "success", "watched": queue_item.watched})
     except Exception as e:
@@ -93,7 +102,14 @@ def skip_clip_queue_item(item_id: int):
     try:
         # Get the content queue item
         queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
-    
+        broadcaster_id = queue_item.broadcaster_id
+        
+        # Check if user has permission to skip this clip
+        broadcaster = get_broadcaster_by_external_id(current_user.external_account_id)
+        if broadcaster is None:
+            return jsonify({"error": "Broadcaster not found"}), 404
+        if broadcaster_id != broadcaster.id:
+            return jsonify({"error": "You do not have permission to skip this clip"}), 403    
         if queue_item.skipped:
             logger.info("Unskipping clip", extra={"queue_item_id": queue_item.id, "user_id": current_user.id})
             queue_item.skipped = False
@@ -340,6 +356,7 @@ def penalty_external_user(broadcaster_id: int, external_user_id: int):
 @clip_queue_blueprint.route("/<int:broadcaster_id>/external_user/<int:external_user_id>/reset_penalties", methods=["POST"])
 @login_required
 # @require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", require_moderator=True)
+@require_permission()
 def reset_external_user_penalties(broadcaster_id: int, external_user_id: int):
     logger.info("Resetting external user penalties", extra={"broadcaster_id": broadcaster_id, "external_user_id": external_user_id})
     try:

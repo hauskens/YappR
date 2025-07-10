@@ -20,7 +20,7 @@ FROM base AS main
 COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
-RUN --mount=type=cache,id=bun,target=/bun-cache bun run build
+# RUN --mount=type=cache,id=bun,target=/bun-cache bun run build
 
 
 
@@ -38,7 +38,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-install-project --no-dev --group worker
 
-COPY . .
+COPY app ./app
+COPY pyproject.toml uv.lock .
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev --group worker
 

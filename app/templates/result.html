@@ -30,9 +30,32 @@
         <div class="row">
           <div class="col-md-5">
             <div style="height: 100px;">
-              <canvas id="transcriptionStatsChart"></canvas>
+              <canvas id="transcriptionStatsChart"
+                      data-hq-count="{{ transcription_stats.high_quality }}"
+                      data-lq-count="{{ transcription_stats.low_quality }}"
+                      data-no-transcription="{{ transcription_stats.no_transcription }}"></canvas>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <hr>
+  <!-- Chart Container -->
+  <div class="container-fluid mx-4 mb-4">
+    <div class="row">
+      <div class="col-12">
+        <div style="height: 400px;">
+          <canvas id="myChart"></canvas>
+          <!-- Hidden data for chart -->
+          <script type="application/json" id="chart-data">
+            {
+              "labels": [{% for v in video_result|reverse %}"{{ v.video.uploaded }}"{% if not loop.last %},{% endif %}{% endfor %}],
+              "data": [{% for v in video_result|reverse %}{{ v.segment_results|length }}{% if not loop.last %},{% endif %}{% endfor %}],
+              "videoIds": [{% for v in video_result|reverse %}{{ v.video.id }}{% if not loop.last %},{% endif %}{% endfor %}],
+              "videoTitles": [{% for v in video_result|reverse %}"{{ v.video.title|e }}"{% if not loop.last %},{% endif %}{% endfor %}]
+            }
+          </script>
         </div>
       </div>
     </div>
@@ -137,197 +160,5 @@
 {% endblock %}
 
 {% block scripts %}
-  <script>
-    function playVideo(playerName) {
-      $(`.${playerName}`).each(function(){
-        this.contentWindow.postMessage('{"event":"command","func":"stopVideo","args":""}', '*')
-      });
-    }
-    
-    // Initialize transcription quality doughnut chart
-    const transcriptionStatsCtx = document.getElementById("transcriptionStatsChart");
-    new Chart(transcriptionStatsCtx, {
-      type: "doughnut",
-      data: {
-        labels: ["High Quality", "Low Quality", "No Transcription"],
-        datasets: [{
-          data: [{{ transcription_stats.high_quality }}, {{ transcription_stats.low_quality }}, {{ transcription_stats.no_transcription }}],
-          backgroundColor: [
-            "#8b5cf6",  /* High - Light purple */
-            "#f59e0b",  /* Low - Amber (complements purple) */
-            "#64748b"   /* None - Slate gray */
-          ]
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: {
-            display: false,
-          },
-          tooltip: {
-            callbacks: {
-              label: function(context) {
-                const value = context.raw;
-                const total = {{ transcription_stats.high_quality + transcription_stats.low_quality + transcription_stats.no_transcription }};
-                const percentage = ((value / total) * 100).toFixed(1);
-                return `${context.label}: ${value} (${percentage}%)`;
-              }
-            }
-          }
-        }
-      }
-    });
-    
-    const ctx = document.getElementById("myChart");
-    var chart = new Chart(ctx, {
-      type: "bar",
-      data: {
-        labels: [
-          {% for v in video_result|reverse %}
-            "{{ v.video.uploaded }}",
-          {% endfor %}
-        ],
-        datasets: [
-          {
-            data: [
-              {% for v in video_result|reverse %}
-                {{ v.segment_results|length }},
-              {% endfor %}
-            ],
-            videoId: [
-              {% for v in video_result|reverse %}
-                {{ v.video.id }},
-              {% endfor %}
-            ],
-            videoTitle: [
-              {% for v in video_result|reverse %}
-                "{{ v.video.title }}",
-              {% endfor %}
-            ],
-            borderWidth: 1,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        onClick: (e) => {
-          const activePoints = chart.getElementsAtEventForMode(e, 'nearest', {
-            intersect: true
-          }, false);
-          if (activePoints.length > 0) {
-            const index = activePoints[0].index;
-            const label = chart.data.labels[index];
-            const value = chart.data.datasets[0].data[index];
-            const videoId = chart.data.datasets[0].videoId[index];
-            const cardId = `card-${videoId}`;
-
-            const cardElement = document.getElementById(cardId);
-          if (cardElement) {
-              cardElement.scrollIntoView({ behavior: 'smooth' });
-
-              // Remove any existing highlight classes first
-              cardElement.classList.remove('highlight-now', 'highlight-fade');
-
-              // Add yellow instantly
-              cardElement.classList.add('highlight-now');
-
-              // Trigger the fade-out after a tiny delay (to allow repaint)
-              setTimeout(() => {
-                  cardElement.classList.add('highlight-fade');
-              }, 50);
-
-              // Fully clean up after the fade is complete (optional)
-              setTimeout(() => {
-                  cardElement.classList.remove('highlight-now', 'highlight-fade');
-              }, 2000);  // Match this with your transition time
-          }}
-        },
-        plugins: {
-            title: {
-                display: false,
-            },
-            legend: {
-            display: false,
-            },
-          zoom: {
-            zoom: {
-              pan: {
-                enabled: true,
-              },
-              wheel: {
-                enabled: true, // enable zooming with mouse wheel
-                speed: 0.9,
-              },
-              pinch: {
-                enabled: true // enable zooming on touch
-              },
-              mode: 'x', // zoom in/out only horizontally
-            },
-        },
-          tooltip: {
-            callbacks: {
-              title: function(context) {
-                return context[0].chart.data.datasets[0].videoId[context.dataIndex];
-              },
-              label: function(context) {
-                const raw = context.raw;
-                const videoTitle = context.chart.data.datasets[0].videoTitle[context.dataIndex];
-                return [`Segments: ${raw}`, `Title: ${videoTitle}`];
-              }
-            }
-          }
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-          },
-        },
-      },
-    });
-  
-  // Initialize Bootstrap tooltips
-  document.addEventListener('DOMContentLoaded', function() {
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
-    tooltipTriggerList.forEach(function(el) {
-      new bootstrap.Tooltip(el)
-    })
-    
-    // Add validation for clip download forms
-    document.querySelectorAll('.clip-download-form').forEach(function(form) {
-      const beforeInput = form.querySelector('input[name="before_seconds"]');
-      const afterInput = form.querySelector('input[name="after_seconds"]');
-      const submitBtn = form.querySelector('.clip-download-btn');
-      
-      function validateClipForm() {
-        const before = parseInt(beforeInput.value) || 0;
-        const after = parseInt(afterInput.value) || 0;
-        const total = before + after;
-        
-        if (total > 180) {
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Too long';
-          submitBtn.className = 'btn btn-warning btn-sm clip-download-btn';
-        } else if (total === 0) {
-          submitBtn.disabled = true;
-          submitBtn.innerHTML = '<i class="bi bi-exclamation-triangle"></i> Too short';
-          submitBtn.className = 'btn btn-warning btn-sm clip-download-btn';
-        } else {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '<i class="bi bi-download"></i> Download';
-          submitBtn.className = 'btn btn-primary btn-sm clip-download-btn';
-        }
-      }
-      
-      beforeInput.addEventListener('input', validateClipForm);
-      afterInput.addEventListener('input', validateClipForm);
-      
-      // Initial validation
-      validateClipForm();
-    });
-  })
-
-</script>
+<script src="{{ url_for('static', filename='js/search-results.js') }}"></script>
 {% endblock %}

@@ -2,18 +2,27 @@
   "name": "your-flask-app",
   "version": "1.0.0",
   "scripts": {
-    "build": "./scripts/copy-assets.sh",
-    "install-deps": "pnpm install && pnpm run build"
+    "build": "bun run build:vendor && bun run build:css && bun run build:ts && bun run copy:fonts",
+    "build:vendor": "bun build app/ts/vendor.ts --outdir app/static/js --target browser --minify",
+    "build:css": "bun build app/ts/styles.css --outdir app/static/css --target browser --minify",
+    "build:ts": "bun build app/ts/*.ts --outdir app/static/js --target browser --minify",
+    "copy:fonts": "mkdir -p app/static/css/fonts && cp -r node_modules/bootstrap-icons/font/fonts/* app/static/css/fonts/",
+    "watch:ts": "bun build app/ts/*.ts --outdir app/static/js --target browser --watch --minify",
+    "install-deps": "bun install && bun run build"
   },
   "dependencies": {
     "bootstrap": "^5.3.7",
     "bootstrap-icons": "^1.13.1",
     "bootswatch": "^5.3.7",
     "chart.js": "^4.5.0",
-    "chartjs-plugin-zoom": "^2.2.0",
     "github-buttons": "^2.29.1",
-    "htmx.org": "^1.9.12",
+    "htmx.org": "^2.0.6",
     "socket.io-client": "^4.8.1",
     "vanilla-cookieconsent": "^3.1.0"
+  },
+  "devDependencies": {
+    "@types/bootstrap": "^5.2.10",
+    "@types/node": "^24.0.12",
+    "typescript": "^5.8.3"
   }
 }

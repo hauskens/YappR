@@ -9,17 +9,10 @@
     <meta property="og:description" content="Stream content search - Find specific moments and get timestamped links to VODs">
     <meta property="og:url" content="https://yappr.app">
     <meta property="og:type" content="website">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
-    <script src="{{ url_for('static', filename='js/htmx.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/socket.io.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/chart.umd.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/chartjs-plugin-zoom.min.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/buttons.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/cookieconsent.umd.js') }}"></script>
-    <script src="{{ url_for('static', filename='cookie-config.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/bootstrap.bundle.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/cookieconsent.css') }}">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <script src="{{ url_for('static', filename='js/vendor.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/htmx-config.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <link rel="icon" href="{{ url_for('static', filename='logo.ico') }}" type="image/x-icon">
     <!-- EARLY theme setting to avoid flicker when page loads -->
     <script>
@@ -27,27 +20,6 @@
             const theme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
             document.documentElement.setAttribute('data-bs-theme', theme);
         })();
-      // Add CSRF token to all htmx requests
-      document.addEventListener('DOMContentLoaded', function() {
-        const csrfToken = '{{ csrf_token() }}';
-        htmx.on('htmx:configRequest', function(evt) {
-          if (evt.detail.headers === undefined) {
-            evt.detail.headers = {};
-          }
-          evt.detail.headers['X-CSRFToken'] = csrfToken;
-          
-          // For POST/PUT/DELETE/PATCH requests, also add the token as a form parameter
-          // This ensures the token is included in both headers and body for maximum compatibility
-          if (['POST', 'PUT', 'DELETE', 'PATCH'].indexOf(evt.detail.verb.toUpperCase()) !== -1) {
-            // If there's no existing parameters, create a new URLSearchParams
-            if (!evt.detail.parameters) {
-              evt.detail.parameters = {};
-            }
-            // Add the CSRF token to the parameters
-            evt.detail.parameters['csrf_token'] = csrfToken;
-          }
-        });
-      });
     </script>
     {% block styles %}
 

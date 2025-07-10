@@ -1,0 +1,4 @@
+/* Bundle all CSS dependencies */
+@import 'bootswatch/dist/pulse/bootstrap.min.css';
+@import 'vanilla-cookieconsent/dist/cookieconsent.css';
+@import 'bootstrap-icons/font/bootstrap-icons.css';

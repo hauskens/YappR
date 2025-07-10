@@ -2,26 +2,25 @@ FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
 WORKDIR /src
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
-ENV PNPM_HOME="/pnpm"
-ENV PATH="$PNPM_HOME:$PATH"
-
-RUN apt update && apt install -y ffmpeg npm curl \
-  && npm install -g pnpm \
+ENV BUN_INSTALL_CACHE_DIR="/bun-cache"
+RUN apt update && apt install -y ffmpeg npm curl unzip \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN curl -fsSL https://bun.com/install | bash
+ENV BUN_INSTALL="/root/.bun"
+ENV PATH="$BUN_INSTALL/bin:/src/.venv/bin:$PATH"
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-install-project --no-dev
-COPY pnpm-lock.yaml package.json .
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
-ENV PATH="/src/.venv/bin:$PATH"
+COPY yarn.lock bun.lock package.json .
+RUN --mount=type=cache,id=bun,target=/bun-cache bun install --frozen-lockfile
 
 FROM base AS main
-ADD . .
+COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev
-RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm run build
+RUN --mount=type=cache,id=bun,target=/bun-cache bun run build
 
 
 
@@ -39,7 +38,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-install-project --no-dev --group worker
 
-ADD . .
+COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev --group worker
 
@@ -59,7 +58,7 @@ ENTRYPOINT ["/src/entrypoint.sh"]
 
 FROM base AS bot
 ENV SERVICE_NAME="bot"
-ADD . .
+COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
   uv sync --frozen --no-dev --group bot
 ENV NLTK_ENABLED=false

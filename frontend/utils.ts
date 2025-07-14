@@ -1,9 +1,3 @@
-// Utility functions
-declare global {
-  interface Window {
-    htmx: any;
-  }
-}
 
 function initializeUtils(): void {
   // Handle file upload loading states

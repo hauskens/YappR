@@ -163,6 +163,13 @@
   <div class="container">
     
   
+  <!-- Loading Indicator -->
+  <div id="main-loading-indicator" class="d-flex justify-content-center my-5 htmx-indicator">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+  
   <!-- Content Queue Cards -->
   <div id="queue-items-container" 
       hx-get="/management/items" 
@@ -171,11 +178,6 @@
       hx-swap="innerHTML" 
       hx-indicator="#main-loading-indicator">
     <!-- Content will be loaded via HTMX -->
-    <div id="main-loading-indicator" class="d-flex justify-content-center my-5">
-      <div class="spinner-border" role="status">
-        <span class="visually-hidden">Loading...</span>
-      </div>
-    </div>
   </div>
 </div>
 </div>
@@ -192,7 +194,7 @@
 <!-- User Modal Container -->
 <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
   <div id="userModalContent">
-    <!-- Content will be loaded here via htmx -->
+        <!-- Content will be loaded here via htmx -->
   </div>
 </div>
 {% endblock %}

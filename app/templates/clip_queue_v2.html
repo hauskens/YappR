@@ -66,10 +66,6 @@
             <div id="clip-details" class="d-flex align-items-stretch flex-nowrap overflow-hidden flex-grow-1">
               <!-- Clip details will be loaded here via HTMX -->
             </div>
-            <!-- Include balloon feedback component -->
-            {% with clip_id=currentClipId, user_id=current_user.id if current_user else None %}
-            {% include 'components/balloon_feedback.html' %}
-            {% endwith %}
             <button 
               class="btn btn-primary flex-shrink-0 ms-2 align-self-center"
               id="mark-watched-btn"
@@ -247,4 +243,5 @@
   window.csrfToken = '{{ csrf_token() }}';
 </script>
 <script src="{{ url_for('static', filename='js/clip-queue-v2.js') }}"></script>
+<script src="{{ url_for('static', filename='js/balloon_feedback.js') }}"></script>
 {% endblock %}

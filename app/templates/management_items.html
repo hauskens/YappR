@@ -51,8 +51,7 @@
                     style="cursor: pointer;"
                     hx-get="{{ url_for('users.external_user', external_user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
                     hx-target="#userModalContent"
-                    hx-trigger="click"
-                    hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()">
+                    hx-trigger="click">
                 {{ submission.user.username }}{{ '*' if submission.user_comment }}
               </span>
             {% endfor %}

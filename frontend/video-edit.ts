@@ -1,9 +1,3 @@
-// Video edit functionality
-declare global {
-  interface Window {
-    htmx: any;
-  }
-}
 
 // Debounce function for performance
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {

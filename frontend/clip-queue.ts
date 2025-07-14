@@ -1,12 +1,3 @@
-// Clip queue functionality
-declare global {
-  interface Window {
-    YT: any;
-    onYouTubeIframeAPIReady: () => void;
-    htmx: any;
-    io: any;
-  }
-}
 
 // Global variables
 let ytPlayer: any = null;

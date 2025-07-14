@@ -1,10 +1,4 @@
 // Management page functionality
-declare global {
-  interface Window {
-    htmx: any;
-  }
-}
-
 function initializeManagement(): void {
   // Debug HTMX requests
   document.body.addEventListener('htmx:beforeRequest', (evt: any) => {
@@ -18,6 +12,14 @@ function initializeManagement(): void {
 
   document.body.addEventListener('htmx:responseError', (evt: any) => {
     console.error('htmx response error:', evt.detail);
+  });
+
+  // Handle modal opening after user card requests
+  document.body.addEventListener('htmx:afterRequest', (evt: any) => {
+    if (evt.detail.target.id === 'userModalContent') {
+      const modal = new (window as any).bootstrap.Modal(document.getElementById('userModal'));
+      modal.show();
+    }
   });
   
   // Checkbox change logging

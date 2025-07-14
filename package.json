@@ -7,7 +7,7 @@
     "build:css": "bun build frontend/styles.css --outdir app/static/css --target browser --production --root frontend",
     "build:ts": "bun build frontend/*.ts --outdir app/static/js --target browser --production --root frontend",
     "copy:fonts": "mkdir -p app/static/css/fonts && cp -r node_modules/bootstrap-icons/font/fonts/* app/static/css/fonts/",
-    "watch:ts": "bun build frontend/*.ts --outdir app/static/js --target browser --watch --root frontend",
+    "watch:ts": "bun run build:css && bun run build:vendor && bun run copy:fonts && bun build frontend/*.ts --outdir app/static/js --target browser --watch --root frontend",
     "clean": "rm -rf app/static/js"
   },
   "dependencies": {

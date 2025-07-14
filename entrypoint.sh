@@ -9,11 +9,10 @@ if [ "$DEBUG" = true ]; then
 	echo "------------"
 	echo "Starting TypeScript watcher in background"
 	echo "------------"
-	if [ -d "app/ts" ]; then
-		bun run watch:ts &
-		TS_PID=$!
-		echo "TypeScript watcher started (PID: $TS_PID)"
-	fi
+	mkdir -p app/static/js
+	bun run watch:ts &
+	TS_PID=$!
+	echo "TypeScript watcher started (PID: $TS_PID)"
 fi
 
 echo "------------"

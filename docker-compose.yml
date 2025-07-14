@@ -62,6 +62,9 @@ services:
         - action: sync
           path: ./app/
           target: /src/app/
+        - action: sync
+          path: ./frontend/
+          target: /src/frontend/
         - action: rebuild
           path: ./pyproject.toml
         - action: rebuild

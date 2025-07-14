@@ -13,15 +13,18 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-install-project --no-dev
-COPY yarn.lock bun.lock package.json .
-RUN --mount=type=cache,id=bun,target=/bun-cache bun install --frozen-lockfile
 
 FROM base AS main
-COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-dev
-# RUN --mount=type=cache,id=bun,target=/bun-cache bun run build
-
+RUN --mount=type=cache,target=/bun-cache \
+  --mount=type=bind,source=package.json,target=package.json \
+  --mount=type=bind,source=bun.lock,target=bun.lock \
+  --mount=type=bind,source=yarn.lock,target=yarn.lock \
+  bun install
+COPY . .
 
 
 FROM nvidia/cuda:12.9.0-cudnn-runtime-ubuntu24.04 AS worker-gpu
@@ -38,10 +41,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-install-project --no-dev --group worker
 
+RUN --mount=type=cache,target=/root/.cache/uv \
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
+  uv sync --frozen --no-dev --group worker
 COPY app ./app
 COPY pyproject.toml uv.lock .
-RUN --mount=type=cache,target=/root/.cache/uv \
-  uv sync --frozen --no-dev --group worker
 
 ENV PATH="/src/.venv/bin:$PATH"
 ENV SERVICE_NAME="worker-gpu"
@@ -57,10 +62,11 @@ ENV SERVICE_NAME="app"
 EXPOSE 5000
 ENTRYPOINT ["/src/entrypoint.sh"]
 
-FROM base AS bot
+FROM base as bot
 ENV SERVICE_NAME="bot"
-COPY . .
 RUN --mount=type=cache,target=/root/.cache/uv \
+  --mount=type=bind,source=uv.lock,target=uv.lock \
+  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-dev --group bot
 ENV NLTK_ENABLED=false
 CMD ["python", "-m", "bot.main"]

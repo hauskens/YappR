@@ -17,6 +17,12 @@
     <div class="container">
     
     <a class="btn btn-primary" role="button" href="{{ url_for('channel.channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
+      {% if video.transcriptions|length == 0 and video.active == True %}
+        {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
+          <a class="btn btn-primary"onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
+          <br></br>
+        {% endif %}
+      {% endif %}
     <hr>
     <div class="row">
       <!-- Left side: Video details and controls -->
@@ -50,9 +56,34 @@
       </div>
       
       <!-- Right side: Chat Messages Section -->
-      <div class="col-md-7">
+      <div class="col-md-8">
         <div class="mb-3 mt-3">
           <h3>Chat Messages</h3>
+          
+          <!-- Chat Timeline Chart -->
+          <div class="mb-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="mb-0">Message Timeline</h5>
+              <div class="d-flex align-items-center gap-2">
+                <label for="timelineInterval" class="form-label mb-0 small">Interval:</label>
+                <select id="timelineInterval" class="form-select form-select-sm" style="width: auto;">
+                  <option value="1">1 min</option>
+                  <option value="2">2 min</option>
+                  <option value="5">5 min</option>
+                  <option value="10">10 min</option>
+                  <option value="15">15 min</option>
+                  <option value="30" selected>30 min</option>
+                </select>
+              </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+              <div class="card-body p-2">
+                <div style="height: 200px;">
+                  <canvas id="chatTimelineChart"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
           
           <!-- Search and filter controls -->
           <div class="mb-3">
@@ -96,12 +127,6 @@
       </div>
       
 
-      {% if video.transcriptions|length == 0 and video.active == True %}
-        {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
-          <a class="btn btn-primary"onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
-          <br></br>
-        {% endif %}
-      {% endif %}
       <a href="{{ video.get_url() }}" >
         <img
         id="{{video.channel.platform.name}}"

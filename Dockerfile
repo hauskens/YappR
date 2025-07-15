@@ -25,6 +25,7 @@ RUN --mount=type=cache,target=/bun-cache \
   --mount=type=bind,source=yarn.lock,target=yarn.lock \
   bun install
 COPY . .
+RUN bun run build
 
 
 FROM nvidia/cuda:12.9.0-cudnn-runtime-ubuntu24.04 AS worker-gpu
@@ -62,7 +63,7 @@ ENV SERVICE_NAME="app"
 EXPOSE 5000
 ENTRYPOINT ["/src/entrypoint.sh"]
 
-FROM base as bot
+FROM base AS bot
 ENV SERVICE_NAME="bot"
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \

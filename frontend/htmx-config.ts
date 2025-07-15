@@ -1,8 +1,8 @@
 document.addEventListener('DOMContentLoaded', function() {
   const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
   
-  if (csrfToken && window.htmx) {
-    window.htmx.on('htmx:configRequest', function(evt: any) {
+  if (csrfToken) {
+    window.htmx.on('htmx:configRequest', function(evt: CustomEvent) {
       if (evt.detail.headers === undefined) {
         evt.detail.headers = {};
       }

@@ -60,6 +60,7 @@ class Config:
         self.service_name: str = os.environ.get("SERVICE_NAME", "app")
         self.loki_url: str | None = os.environ.get("LOKI_URL") # example: http://localhost:4040/loki/api/v1/push
         self.timezone: str = os.environ.get("TIMEZONE", "Europe/Oslo")
+        self.version: str = os.environ.get("VERSION", "0.0.0")
 
 
 _ = load_dotenv()

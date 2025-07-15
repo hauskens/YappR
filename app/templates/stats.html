@@ -64,5 +64,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/stats.js') }}"></script>
+<script src="{{ url_for('static', filename='js/stats.js', v=version) }}"></script>
 {% endblock %}

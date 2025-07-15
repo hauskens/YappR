@@ -1,6 +1,5 @@
 from flask import Flask, request, g
 from flask_login import LoginManager, current_user # type: ignore
-from flask_caching import Cache
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from uuid import uuid4
@@ -97,6 +96,11 @@ def create_app(overrides: dict | None = None):
         if hasattr(g, 'request_id'):
             response.headers.set("X-Request-Id", g.request_id)
         return response
+    
+    # Make version available in templates, used for cache busting
+    @app.context_processor
+    def inject_version():
+        return dict(version=str(config.version).strip(":"))
     
     cache.init_app(app)
     db.init_app(app)

@@ -1,10 +1,3 @@
-// Add content form functionality
-declare global {
-  interface Window {
-    bootstrap: any;
-  }
-}
-
 // Handle Enter key press in URL input
 function handleUrlKeyPress(event: KeyboardEvent): void {
   if (event.key === 'Enter') {

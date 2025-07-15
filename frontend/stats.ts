@@ -1,10 +1,7 @@
-// Statistics page functionality
-declare global {
-  interface Window {
-    bootstrap: any;
-    Chart: any;
-  }
-}
+import type { Chart as ChartType } from 'chart.js';
+
+// Chart.js is loaded globally via vendor.ts
+declare const Chart: typeof ChartType;
 
 interface ChartData {
   transcriptionsHqCount: number;
@@ -43,24 +40,15 @@ function initializeStats(data: ChartData): void {
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    events: [], // Disable all events to prevent recursion
     cutout: '70%',
     plugins: {
       legend: { display: false },
-      tooltip: {
-        callbacks: {
-          label: function(context: any) {
-            const value = context.raw;
-            const total = data.videoCount;
-            const percentage = ((value / total) * 100).toFixed(1);
-            const formattedValue = new Intl.NumberFormat().format(value);
-            return `${context.label}: ${formattedValue} (${percentage}%)`;
-          }
-        }
-      }
+      tooltip: { enabled: false }
     }
   };
   
-  new window.Chart(transcriptionQualityCtx, {
+  new Chart(transcriptionQualityCtx, {
     type: "doughnut",
     data: chartData,
     options: chartOptions
@@ -69,14 +57,14 @@ function initializeStats(data: ChartData): void {
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
-  // Chart data will be injected from template
-  const chartDataElement = document.getElementById('chart-data');
-  if (chartDataElement) {
-    try {
-      const data = JSON.parse(chartDataElement.textContent || '{}');
-      initializeStats(data);
-    } catch (e) {
-      console.error('Error parsing chart data:', e);
-    }
+  // Get chart data from canvas data attributes
+  const canvas = document.getElementById('transcriptionQualityChart') as HTMLCanvasElement;
+  if (canvas) {
+    const data: ChartData = {
+      transcriptionsHqCount: parseInt(canvas.dataset.hqCount || '0'),
+      transcriptionsLqCount: parseInt(canvas.dataset.lqCount || '0'),
+      videoCount: parseInt(canvas.dataset.totalCount || '0')
+    };
+    initializeStats(data);
   }
 });

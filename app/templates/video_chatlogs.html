@@ -9,19 +9,19 @@
     </thead>
     <tbody>
       {% for log in chat_logs %}
-        <tr>
+        <tr class="chat-message" data-username="{{ log.username }}">
           <td>
             {% set seconds_since_start = (log.timestamp - video.uploaded).total_seconds() %}
             <a href="{{ video.get_url_with_timestamp(seconds_since_start) }}" 
               target="_blank" 
               title="Jump to this point in the video"
-              class="timestamp-link" 
+              class="timestamp-link chat-timestamp" 
               data-utc="{{ log.timestamp.isoformat() }}Z">
               Loading time...
             </a>
           </td>
-          <td>{{ log.username }}</td>
-          <td>{{ log.message }}</td>
+          <td class="chat-username">{{ log.username }}</td>
+          <td class="chat-text">{{ log.message }}</td>
         </tr>
       {% endfor %}
     </tbody>

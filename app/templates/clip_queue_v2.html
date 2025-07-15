@@ -242,6 +242,6 @@
   // Add CSRF token to template for JavaScript access
   window.csrfToken = '{{ csrf_token() }}';
 </script>
-<script src="{{ url_for('static', filename='js/clip-queue-v2.js') }}"></script>
-<script src="{{ url_for('static', filename='js/balloon_feedback.js') }}"></script>
+<script src="{{ url_for('static', filename='js/clip-queue-v2.js', v=version) }}"></script>
+<script src="{{ url_for('static', filename='js/balloon_feedback.js', v=version) }}"></script>
 {% endblock %}

@@ -105,7 +105,6 @@
               hx-post="{{ url_for('clip_queue.reset_external_user_penalties', broadcaster_id=broadcaster_id, external_user_id=external_user.id) }}"
               hx-confirm="Are you sure you want to reset this user's penalties? This will set their weight back to 1.0 and unban them if they're banned."
               hx-target="#userModalContent"
-              data-csrf
               hx-swap="innerHTML">
         <i class="bi bi-arrow-counterclockwise me-1"></i> Reset Penalties
       </button>
@@ -117,7 +116,6 @@
               hx-post="{{ url_for('clip_queue.penalty_external_user', broadcaster_id=broadcaster_id, external_user_id=external_user.id) }}?ban=true"
               hx-confirm="Are you sure you want to ban this user? This will immediately ban them from submitting clips."
               hx-target="#userModalContent"
-              data-csrf
               hx-swap="innerHTML"
               onclick="this.setAttribute('hx-on::before-request', 'this.querySelector(\'i\').className=\'bi bi-hourglass-split\'; this.disabled=true;')">
         <i class="bi bi-slash-circle me-1"></i> Ban User
@@ -129,7 +127,6 @@
               hx-post="{{ url_for('clip_queue.penalty_external_user', broadcaster_id=broadcaster_id, external_user_id=external_user.id) }}"
               hx-confirm="Are you sure you want to apply a penalty to this user? This will reduce their weight by 0.2."
               hx-target="#userModalContent"
-              data-csrf
               hx-swap="innerHTML">
         <i class="bi bi-exclamation-triangle me-1"></i> Apply Penalty
       </button>

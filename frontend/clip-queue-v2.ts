@@ -186,10 +186,8 @@ function markItemAsWatched(itemId: string, callback?: () => void): void {
   xhr.open('POST', `/clip_queue/mark_watched/${itemId}`);
   xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
   
-  // Get CSRF token from meta tag
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-  if (csrfToken) {
-    xhr.setRequestHeader('X-CSRFToken', csrfToken);
+  if (window.csrfToken) {
+    xhr.setRequestHeader('X-CSRFToken', window.csrfToken);
   }
   
   xhr.onload = function() {

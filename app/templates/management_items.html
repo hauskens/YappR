@@ -78,7 +78,6 @@
               <button class="btn btn-sm btn-outline-{% if item.watched %}secondary{% else %}success{% endif %}" 
                       hx-post="{{ url_for('clip_queue.mark_clip_watched', item_id=item.id) }}" 
                       hx-target="body"
-                      data-csrf
                       hx-swap="none"
                       hx-trigger="click"
                       hx-on::after-request="htmx.trigger('#queue-items-container', 'queue_update')"
@@ -90,7 +89,6 @@
               <button class="btn btn-sm btn-outline-{% if item.skipped %}secondary{% else %}warning{% endif %}" 
                       hx-post="{{ url_for('clip_queue.skip_clip_queue_item', item_id=item.id) }}"
                       hx-target="body"
-                      data-csrf
                       hx-swap="none"
                       hx-trigger="click"
                       hx-on::after-request="htmx.trigger('#queue-items-container', 'queue_update')"

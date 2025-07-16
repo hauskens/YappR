@@ -234,7 +234,6 @@
              hx-post="/clip_queue/mark_watched/{{ item.id }}"
              hx-swap="none"
                    data-bs-dismiss="dropdown"
-             data-csrf
                    hx-on::after-request="
                      if (document.querySelector('.queue-item.active[data-id=\'{{ item.id }}\']') && '{{ item.watched }}' === 'False') {
                        markWatchedAndNext();
@@ -252,7 +251,6 @@
              hx-post="/clip_queue/item/{{ item.id }}/skip"
              hx-swap="none"
                    data-bs-dismiss="dropdown"
-             data-csrf
                    hx-on::after-request="
                        htmx.trigger(document.body, 'queue_update');
                        htmx.trigger(document.body, 'history_update');

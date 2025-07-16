@@ -50,8 +50,7 @@
                                     hx-post="{{ url_for('clip_queue.search_content') }}"
                                     hx-include="#contentForm"
                                     hx-target="#results"
-                                    hx-indicator="#search-spinner"
-                                    data-csrf>
+                                    hx-indicator="#search-spinner">
                                 <i class="bi bi-search me-1"></i>
                                 Search for Existing
                                 <span id="search-spinner" class="spinner-border spinner-border-sm ms-2 htmx-indicator" role="status"></span>
@@ -63,7 +62,6 @@
                                     hx-include="#contentForm"
                                     hx-target="#results"
                                     hx-indicator="#add-spinner"
-                                    data-csrf
                                     disabled>
                                 <i class="bi bi-plus-lg me-1"></i>
                                 Add to Queue

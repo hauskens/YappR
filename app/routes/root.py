@@ -153,7 +153,6 @@ def list_transcription_jobs():
                 hx-delete="{url_for('root.delete_transcription_job', job_id=job_id)}" 
                 hx-confirm="Are you sure you want to delete this job?" 
                 hx-target="#transcription-list"
-                data-csrf
             >Delete</button>
         </div>
         """

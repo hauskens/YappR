@@ -60,6 +60,59 @@
         <div class="mb-3 mt-3">
           <h3>Chat Messages</h3>
           
+          <!-- Tag Categories Management -->
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h5 class="mb-0">Tag Categories</h5>
+              <div>
+                <button id="addCategoryBtn" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-plus-circle me-1"></i>Add Category
+                </button>
+              </div>
+            </div>
+            <div id="tagCategoriesContainer" class="mb-2">
+              <!-- Tag categories will be displayed here -->
+              <div class="text-muted small" id="noCategoriesMsg">No tag categories defined. Add some to track message patterns.</div>
+            </div>
+          </div>
+          
+          <!-- Tag Category Modal -->
+          <div class="modal fade" id="tagCategoryModal" tabindex="-1" aria-labelledby="tagCategoryModalLabel" aria-hidden="true">
+            <div class="modal-dialog">
+              <div class="modal-content">
+                <div class="modal-header">
+                  <h5 class="modal-title" id="tagCategoryModalLabel">Add Tag Category</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                  <div class="mb-3">
+                    <label for="categoryName" class="form-label">Category Name</label>
+                    <input type="text" class="form-control" id="categoryName" placeholder="e.g., Happy Words">
+                  </div>
+                  <div class="mb-3">
+                    <label for="categoryColor" class="form-label">Category Color</label>
+                    <input type="color" class="form-control form-control-color" id="categoryColor" value="#4C2A80">
+                  </div>
+                  <div class="mb-3">
+                    <label for="categoryTags" class="form-label">Tags (comma separated)</label>
+                    <textarea class="form-control" id="categoryTags" rows="3" placeholder="e.g., goated, KEKW, LMAO, KekShook"></textarea>
+                  </div>
+                  <input type="hidden" id="editCategoryId" value="">
+                </div>
+                <div class="modal-footer">
+                  <button id="importCategoriesBtn" class="btn btn-secondary" title="Import Categories">
+                    <i class="bi bi-upload me-1"></i>Import
+                  </button>
+                  <button id="exportCategoriesBtn" class="btn btn-secondary" title="Export Categories">
+                    <i class="bi bi-download me-1"></i>Export
+                  </button>
+                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                  <button type="button" class="btn btn-primary" id="saveCategoryBtn">Save</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <!-- Chat Timeline Chart -->
           <div class="mb-4">
             <div class="d-flex justify-content-between align-items-center mb-2">
@@ -92,13 +145,13 @@
                 <!-- Search bar for messages -->
                 <div class="input-group">
                   <span class="input-group-text"><i class="bi bi-search"></i></span>
-                  <input type="text" id="chatSearchInput" class="form-control" placeholder="Search in messages..." aria-label="Search messages">
+                  <input type="text" id="chatSearchInput" name="chatSearchInput" class="form-control" placeholder="Search in messages..." aria-label="Search messages">
                   <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn">Clear</button>
                 </div>
               </div>
               <div class="col-md-4">
                 <!-- Username filter dropdown -->
-                <select id="userFilter" class="form-select">
+                <select id="userFilter" name="userFilter" class="form-select">
                   <option value="">All users</option>
                   <!-- Will be populated dynamically -->
                 </select>
@@ -111,8 +164,9 @@
           
           <div class="border rounded p-2" style="height: 500px; overflow-y: auto;">
             <div id="chat-messages-container" 
-                 hx-get="{{ url_for('video.video_chatlogs', video_id=video.id) }}" 
-                 hx-trigger="load"
+                 hx-post="{{ url_for('video.video_chatlogs', video_id=video.id) }}" 
+                 hx-trigger="click"
+                 hx-include="[id='chatSearchInput'], [id='userFilter']"
                  hx-swap="innerHTML"
                  hx-indicator="#loading-indicator">
               <div id="loading-indicator" class="text-center p-3">

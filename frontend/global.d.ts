@@ -27,6 +27,7 @@ declare global {
       };
       [key: string]: any;
     };
+    csrfToken: string;
   }
 }
 

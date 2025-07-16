@@ -1,18 +1,16 @@
 document.addEventListener('DOMContentLoaded', function() {
-  const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-  
-  if (csrfToken) {
+  if (window.csrfToken) {
     window.htmx.on('htmx:configRequest', function(evt: CustomEvent) {
       if (evt.detail.headers === undefined) {
         evt.detail.headers = {};
       }
-      evt.detail.headers['X-CSRFToken'] = csrfToken;
+      evt.detail.headers['X-CSRFToken'] = window.csrfToken;
       // For POST/PUT/DELETE/PATCH requests, also add the token as a form parameter
       if (['POST', 'PUT', 'DELETE', 'PATCH'].indexOf(evt.detail.verb.toUpperCase()) !== -1) {
         if (!evt.detail.parameters) {
           evt.detail.parameters = {};
         }
-        evt.detail.parameters['csrf_token'] = csrfToken;
+        evt.detail.parameters['csrf_token'] = window.csrfToken;
      }
     });
   }

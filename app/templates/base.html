@@ -9,16 +9,15 @@
     <meta property="og:description" content="Stream content search - Find specific moments and get timestamped links to VODs">
     <meta property="og:url" content="https://yappr.app">
     <meta property="og:type" content="website">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     <link rel="preload" href="{{ url_for('static', filename='logo_48.ico') }}" as="image">
     <script src="{{ url_for('static', filename='js/vendor.js', v=version) }}"></script>
     <script src="{{ url_for('static', filename='js/htmx-config.js', v=version) }}"></script>
     <script src="{{ url_for('static', filename='js/theme-toggle.js', v=version) }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v=version) }}">
     <link rel="icon" href="{{ url_for('static', filename='logo.ico') }}" type="image/x-icon">
-    {% block styles %}
-
-    {% endblock %}
+    <script type="text/javascript">
+      window.csrfToken = '{{ csrf_token() }}';
+    </script>
     <style>
       .modal.fade .modal-dialog {
         transition: transform 0.1s ease-out, opacity 0.2s ease-out;

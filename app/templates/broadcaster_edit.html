@@ -125,7 +125,6 @@
                                name="chat_collection_enabled" 
                                {% if channel.settings and channel.settings.chat_collection_enabled or channel.settings and channel.settings.content_queue_enabled %}checked{% endif %}
                                hx-post="{{ url_for('channel.channel_settings_update', channel_id=channel.id) }}"
-                               hx-include="[name='csrf_token']"
                                hx-target="#settings-feedback"
                                hx-indicator="#settings-spinner">
                         <label class="form-check-label" for="chat_collection_enabled{{ channel.id }}" title="This collect chat logs for this channel">Enable Chat Collection</label>
@@ -137,7 +136,6 @@
                                name="content_queue_enabled" 
                                {% if channel.settings and channel.settings.content_queue_enabled %}checked{% endif %}
                                hx-post="{{ url_for('channel.channel_settings_update', channel_id=channel.id) }}"
-                               hx-include="[name='csrf_token']"
                                hx-target="#settings-feedback"
                                hx-indicator="#settings-spinner">
                         <label class="form-check-label" for="content_queue_enabled{{ channel.id }}" title="This will look for clips in twitch chat on this channel">Enable Content Queue</label>
@@ -163,7 +161,6 @@
                            value="{{ broadcaster.settings.linked_discord_channel_id if broadcaster.settings else '' }}" 
                            placeholder="Enter Discord Channel ID"
                            hx-post="{{ url_for('broadcaster.broadcaster_settings_update', broadcaster_id=broadcaster.id) }}"
-                           hx-include="[name='csrf_token']"
                            hx-target="#settings-feedback"
                            hx-indicator="#settings-spinner"
                            hx-trigger="change">
@@ -179,7 +176,6 @@
                                name="hidden" 
                                {% if broadcaster.hidden %}checked{% endif %}
                                hx-post="{{ url_for('broadcaster.broadcaster_settings_update', broadcaster_id=broadcaster.id) }}"
-                               hx-include="[name='csrf_token']"
                                hx-target="#settings-feedback"
                                hx-indicator="#settings-spinner">
                         <label class="form-check-label" for="hidden">Hide Broadcaster</label>

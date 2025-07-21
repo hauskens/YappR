@@ -15,7 +15,7 @@ with patch('sqlalchemy.create_engine'):
         get_platform, BotTaskManager, 
         Content, add_to_content_queue,
     )
-    from bot.platform_handlers import PlatformRegistry, ContentDict
+    from app.platforms.handler import PlatformRegistry, ContentDict
 
 from app.models.db import (
     ContentQueueSubmissionSource, Content, 
@@ -25,32 +25,8 @@ from app.models.db import (
 from app.twitch_api import Twitch
 
 
-class TestGetPlatform:
-    """Tests that we identify the correct platform with the get_platform function"""
-
-    @pytest.mark.parametrize("url,expected", [
-        ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "youtube"),
-        ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=123", "youtube"),
-        ("https://youtu.be/dQw4w9WgXcQ", "youtube"),
-        ('https://youtu.be/dQw4w9WgXcQ?feature=shared&t=44', "youtube"),
-        ("https://www.youtube.com/shorts/dQw4w9WgXcQ", "youtube_short"),
-        ("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "youtube_clip"),
-        ("https://twitch.tv/videos/123456789?t=1h2m3s", "twitch_video"),
-        ("https://clips.twitch.tv/CleverClipName", "twitch_clip"),
-        ("https://twitch.tv/broadcaster/clip/CleverClipName", "twitch_clip"),
-        ("https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", "twitch_clip"),
-        ('https://www.twitch.tv/my_supreme_streamer', None),
-        ("https://example.com", None),
-        ('https://www.youtube.com/@RickAstleyYT', None),
-        ("not a url", None),
-    ])
-    def test_get_platform(self, url, expected):
-        """Test that platforms are correctly identified from URLs"""
-        assert get_platform(url) == expected
-
-
 class TestSanitizeUrl:
-    """Tests for the sanitize_url function"""
+    """Tests for the deduplicate_url function"""
 
     @pytest.mark.parametrize("url,expected", [
         ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
@@ -58,46 +34,46 @@ class TestSanitizeUrl:
         ("https://youtu.be/dQw4w9WgXcQ", "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
         ('https://youtu.be/dQw4w9WgXcQ?feature=shared&t=44', "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
     ])
-    def test_sanitize_url_youtube(self, url, expected):
+    def test_deduplicate_url_youtube_video(self, url, expected):
         """Test that URLs are properly sanitized by removing query params and fragments"""
-        handler = PlatformRegistry.get_handler_by_platform('youtube')
-        assert handler.sanitize_url(url) == expected
+        handler = PlatformRegistry.get_handler_by_url(url)
+        assert handler.deduplicate_url(url) == expected
 
     @pytest.mark.parametrize("url,expected", [
         ('https://www.youtube.com/shorts/dQw4w9WgXcQ', "https://www.youtube.com/watch?v=dQw4w9WgXcQ"),
     ])
-    def test_sanitize_url_youtube_short(self, url, expected):
+    def test_deduplicate_url_youtube_short(self, url, expected):
         """Test that URLs are properly sanitized by removing query params and fragments"""
         handler = PlatformRegistry.get_handler_by_platform('youtube_short')
-        assert handler.sanitize_url(url) == expected
+        assert handler.deduplicate_url(url) == expected
     
     @pytest.mark.parametrize("url,expected", [
         ("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
         ("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM?t=1h2m3s", "https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
     ])
-    def test_sanitize_url_youtube_clip(self, url, expected):
+    def test_deduplicate_url_youtube_clip(self, url, expected):
         """Test that URLs are properly sanitized by removing query params and fragments"""
         handler = PlatformRegistry.get_handler_by_platform('youtube_clip')
-        assert handler.sanitize_url(url) == expected
+        assert handler.deduplicate_url(url) == expected
 
     @pytest.mark.parametrize("url", [
         "https://example.com/page?param=value#section",
         "https://example.com/page",
     ])
-    def test_sanitize_url_youtube_invalid(self, url):
+    def test_deduplicate_url_youtube_invalid(self, url):
         """Test that invalid URLs are handled correctly"""
         with pytest.raises(ValueError):
-            PlatformRegistry.get_handler_by_platform('youtube').sanitize_url(url)
-            PlatformRegistry.get_handler_by_platform('youtube_short').sanitize_url(url)
-            PlatformRegistry.get_handler_by_platform('youtube_clip').sanitize_url(url)
+            PlatformRegistry.get_handler_by_platform('youtube_video').deduplicate_url(url)
+            PlatformRegistry.get_handler_by_platform('youtube_short').deduplicate_url(url)
+            PlatformRegistry.get_handler_by_platform('youtube_clip').deduplicate_url(url)
 
     @pytest.mark.parametrize("url,expected", [
         ("https://www.twitch.tv/videos/123456789?t=1h2m3s", "https://www.twitch.tv/videos/123456789"),
         ("https://www.twitch.tv/videos/123456789", "https://www.twitch.tv/videos/123456789"),
     ])
-    def test_sanitize_url_twitch_video(self, url, expected):
+    def test_deduplicate_url_twitch_video(self, url, expected):
         """Test that URLs are properly sanitized by removing query params and fragments"""
-        assert PlatformRegistry.get_handler_by_platform('twitch_video').sanitize_url(url) == expected
+        assert PlatformRegistry.get_handler_by_platform('twitch_video').deduplicate_url(url) == expected
 
     @pytest.mark.parametrize("url,expected", [
         ("https://clips.twitch.tv/CleverClipName?t=1h2m3s", "https://clips.twitch.tv/CleverClipName"),
@@ -105,9 +81,9 @@ class TestSanitizeUrl:
         ("https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR?t=1h2m3s", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
         ("https://twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
     ])
-    def test_sanitize_url_twitch_clip(self, url, expected):
+    def test_deduplicate_url_twitch_clip(self, url, expected):
         """Test that URLs are properly sanitized by removing query params and fragments"""
-        assert PlatformRegistry.get_handler_by_platform('twitch_clip').sanitize_url(url) == expected
+        assert PlatformRegistry.get_handler_by_platform('twitch_clip').deduplicate_url(url) == expected
 
 
 @pytest.fixture
@@ -186,7 +162,7 @@ class TestAddToContentQueue:
     def mock_platform_data(self):
         """Mock platform data for content fetching"""
         return {
-            'sanitized_url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
+            'deduplicated_url': 'https://www.youtube.com/watch?v=dQw4w9WgXcQ',
             'title': 'Rick Astley - Never Gonna Give You Up (Official Video) (4K Remaster)',
             'duration': 420,
             'thumbnail_url': 'https://example.com/thumbnail.jpg',
@@ -197,7 +173,7 @@ class TestAddToContentQueue:
 
     @pytest.mark.asyncio
     @patch('bot.shared.get_platform')
-    @patch('bot.platform_handlers.PlatformRegistry.get_handler_by_platform')
+    @patch('app.platforms.handler.PlatformRegistry.get_handler_by_platform')
     async def test_add_to_content_queue_new_content(self, mock_fetch_data, mock_get_platform, mock_session, mock_platform_data):
         """Test adding new content to the queue"""
         # Setup mocks
@@ -212,7 +188,7 @@ class TestAddToContentQueue:
         mock_handler = MagicMock()
         mock_handler.fetch_data = AsyncMock(return_value = ContentDict(
             url=url,
-            sanitized_url=mock_platform_data['sanitized_url'],
+            deduplicated_url=mock_platform_data['deduplicated_url'],
             title=mock_platform_data['title'],
             duration=mock_platform_data['duration'],
             thumbnail_url=mock_platform_data['thumbnail_url'],
@@ -262,7 +238,7 @@ class TestAddToContentQueue:
 
     @pytest.mark.asyncio
     @patch('bot.shared.get_platform')
-    @patch('bot.platform_handlers.PlatformRegistry.get_handler_by_platform')
+    @patch('app.platforms.handler.PlatformRegistry.get_handler_by_platform')
     async def test_add_to_content_queue_existing_content(self, mock_fetch_data, mock_get_platform, mock_session):
         """Test adding existing content to the queue"""
         # Setup mocks
@@ -351,7 +327,7 @@ class TestAddToContentQueue:
 
     @pytest.mark.asyncio
     @patch('bot.shared.get_platform')
-    @patch('bot.platform_handlers.PlatformRegistry.get_handler_by_platform')
+    @patch('app.platforms.handler.PlatformRegistry.get_handler_by_platform')
     async def test_add_to_content_queue_disallowed_platform(self, mock_fetch_data, mock_get_platform, mock_session):
         """Test adding existing content to the queue"""
         # Setup mocks

@@ -54,6 +54,7 @@ from .youtube.search import SearchResultItem
 from youtube_transcript_api.formatters import WebVTTFormatter
 from . import db
 from .base import Base
+from app.platforms.handler import PlatformRegistry
 
 
 class Broadcaster(Base):
@@ -1082,11 +1083,10 @@ class Content(Base):
     created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, server_default=None)
 
     def get_platform(self):
-        if 'youtube' in self.url or 'youtu.be' in self.url:
-            return 'youtube'
-        if 'twitch' in self.url:
-            return 'twitch'
-        return 'unknown'
+        return PlatformRegistry.get_handler_by_url(self.url).platform_name
+
+    def get_video_timestamp_url(self, timestamp: int):
+        return PlatformRegistry.get_url_with_timestamp(self.url, timestamp)
 
 class ContentQueue(Base):
     __tablename__ = "content_queue"
@@ -1098,6 +1098,7 @@ class ContentQueue(Base):
     broadcaster: Mapped["Broadcaster"] = relationship()
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
+    content_timestamp: Mapped[int | None] = mapped_column(Integer, nullable=True, server_default=None)
     watched: Mapped[bool] = mapped_column(Boolean, default=False)
     watched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     skipped: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -1116,7 +1117,17 @@ class ContentQueue(Base):
             return 0.0
         return sum(submission.weight for submission in self.submissions)
     
-    def get_video_timestamp_url(self, time_shift: float = 60) -> str | None:
+    def get_video_timestamp_url(self) -> str:
+        if self.content_timestamp is None:
+            raise ValueError("No timestamp on content")
+        return PlatformRegistry.get_url_with_timestamp(self.content.url, self.content_timestamp)
+
+    def get_video_playable_url(self) -> str:
+        if self.content_timestamp is None:
+            return self.content.url
+        return self.get_video_timestamp_url()
+
+    def get_vod_timestamp_url(self, time_shift: float = 60) -> str | None:
         """Find the broadcaster's video that was live when this clip was marked as watched
         and return a URL with the timestamp.
         
@@ -1211,7 +1222,7 @@ class ContentQueueSettings(Base):
         """Get list of allowed platforms. Empty means all platforms allowed."""
         if not self.allowed_platforms:
             # Get all available platforms from registry
-            from bot.platform_handlers import PlatformRegistry
+            from app.platforms.handler import PlatformRegistry
             return list(PlatformRegistry._handlers.keys())
         return [p.strip() for p in self.allowed_platforms.split(",") if p.strip()]
     

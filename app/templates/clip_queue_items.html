@@ -208,13 +208,13 @@
           {% endif %}
         </div>
         {% if item.watched %}
-        <span class="text-muted">• You watched this at {% if item.get_video_timestamp_url() %}<a
-            href="{{ item.get_video_timestamp_url() }}" target="_blank">{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S')
+        <span class="text-muted">• You watched this at {% if item.get_vod_timestamp_url() %}<a
+            href="{{ item.get_vod_timestamp_url() }}" target="_blank">{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S')
             }} VOD</a>{% else %}{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %} </span>
         {% endif %}
       </div>
-      {% if item.watched and item.get_video_timestamp_url() %}
-      <a href="{{ item.get_video_timestamp_url() }}" target="_blank" class="btn btn-sm btn-outline-info"
+      {% if item.watched and item.get_vod_timestamp_url() %}
+      <a href="{{ item.get_vod_timestamp_url() }}" target="_blank" class="btn btn-sm btn-outline-info"
         title="Go to VOD timestamp">
         <i class="bi bi-clock-history"></i> VOD
       </a>
@@ -266,7 +266,6 @@
 
   {% if has_more %}
   <!-- Loading indicator that triggers the next page load when it becomes visible -->
-
   <div id="load-more-{{ page }}" class="loading-indicator d-flex justify-content-center">
     <button class="btn btn-sm btn-outline-secondary"
       hx-get="/clip_queue/items{{ '?show_history=true' if show_history else '' }}&page={{ next_page }}"

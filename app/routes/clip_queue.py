@@ -3,7 +3,7 @@ from app.logger import logger
 from flask_login import current_user, login_required # type: ignore
 from datetime import datetime, timedelta, timezone
 from app.models.db import ContentQueue, ExternalUserWeight, db, ExternalUser, ContentQueueSubmission, ContentQueue, ContentQueueSettings, PermissionType
-from bot.platform_handlers import PlatformRegistry
+from app.platforms.handler import PlatformRegistry
 from app.retrievers import get_broadcaster_by_external_id, get_content_queue, get_broadcasters
 from app.permissions import require_permission
 from app.content_queue import clip_score
@@ -300,9 +300,19 @@ def get_clip_player(item_id: int):
     """Get the player HTML for a specific clip"""
     try:
         queue_item = db.session.query(ContentQueue).filter_by(id=item_id).one()
+        url = queue_item.content.url if queue_item.content.url else queue_item.content.stripped_url
+        handler = None
+        
+        if url:
+            try:
+                handler = PlatformRegistry.get_handler_by_url(url)
+            except Exception as handler_ex:
+                logger.warning(f"Failed to get platform handler for URL {url}: {str(handler_ex)}")
+        
         return render_template(
             "clip_player.html",
             item=queue_item,
+            handler=handler,
         )
     except Exception as e:
         logger.error("Error loading clip player %s", e, extra={"item_id": item_id, "user_id": current_user.id})
@@ -580,8 +590,8 @@ def search_content():
         # First, try to detect if this is a URL
         is_url = False
         try:
-            platform_handler = PlatformRegistry.get_handler_for_url(query)
-            sanitized_url = platform_handler.sanitize_url(query)
+            platform_handler = PlatformRegistry.get_handler_by_url(query)
+            deduplicated_url = platform_handler.deduplicate_url()
             is_url = True
         except ValueError:
             # Not a valid URL, will do text search instead
@@ -592,7 +602,7 @@ def search_content():
             from app.models.db import Content
             existing_content = db.session.execute(
                 select(Content).filter(
-                    (Content.url == query) | (Content.stripped_url == sanitized_url)
+                    (Content.url == query) | (Content.stripped_url == deduplicated_url)
                 )
             ).scalars().one_or_none()
             

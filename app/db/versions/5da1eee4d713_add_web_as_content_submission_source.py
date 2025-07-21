@@ -12,7 +12,7 @@ import sqlalchemy as sa
 import sqlalchemy_file
 import sqlalchemy_utils
 from sqlalchemy.dialects import postgresql
-from bot.platform_handlers import PlatformRegistry
+from app.platforms.handler import PlatformRegistry
 
 # revision identifiers, used by Alembic.
 revision: str = '5da1eee4d713'
@@ -61,12 +61,12 @@ def upgrade() -> None:
             # Get the appropriate handler for the URL and sanitize it
             try:
                 handler = PlatformRegistry.get_handler_for_url(url)
-                sanitized_url = handler.sanitize_url(url)
+                deduplicated_url = handler.deduplicate_url(url)
                 
-                # Update the sanitized_url field for this row
+                # Update the deduplicated_url field for this row
                 connection.execute(
-                    sa.sql.text("UPDATE content SET stripped_url = :sanitized_url WHERE id = :id"),
-                    {"sanitized_url": sanitized_url, "id": row_id}
+                    sa.sql.text("UPDATE content SET stripped_url = :deduplicated_url WHERE id = :id"),
+                    {"deduplicated_url": deduplicated_url, "id": row_id}
                 )
             except ValueError as e:
                 print(f"Warning: Could not sanitize URL {url}: {e}")

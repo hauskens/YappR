@@ -6,11 +6,11 @@ from typing import TypedDict
 from app.redis_client import RedisTaskQueue
 from app.logger import logger
 import re
-from app.models.db import OAuth, Channels, ChannelSettings, ContentQueueSettings, Content, ContentQueue, ContentQueueSubmission, BroadcasterSettings, ExternalUser, ExternalUserWeight, AccountSource, ContentQueueSubmissionSource
+from app.models.db import ContentQueueSettings, Content, ContentQueue, ContentQueueSubmission, ExternalUser, ExternalUserWeight, ContentQueueSubmissionSource, AccountSource
 from sqlalchemy import select
 from app.twitch_api import Twitch
 from datetime import datetime
-from bot.platform_handlers import PlatformRegistry, PlatformHandler
+from app.platforms.handler import PlatformRegistry, PlatformHandler
 
 engine = create_engine(config.database_uri)
 SessionLocal = sessionmaker(bind=engine)
@@ -22,23 +22,12 @@ class ChannelSettingsDict(TypedDict):
     chat_collection_enabled: bool
     broadcaster_id: int
 
-
-
-
 shutdown_event = asyncio.Event()
 
 def handle_shutdown(signum, frame):
     loop = asyncio.get_running_loop()
     loop.call_soon_threadsafe(shutdown_event.set)
 
-# # Supported platforms and their domain patterns
-# supported_platforms = {
-#     'youtube': re.compile(r'^https?://(?:www\.)?(youtube\.com/watch\?v=|youtu\.be/)[\w\-]{11}'),
-#     'youtube_short': re.compile(r'^https?://(?:www\.)?(youtube\.com/shorts/)[\w\-]{11}'),
-#     'youtube_clip': re.compile(r'^https?://(?:www\.)?(youtube\.com/clip/)[\w\-]{36}'),
-#     'twitch_video': re.compile(r'^https?://(?:www\.)?twitch\.tv/videos/\d+\?t=\d+h\d+m\d+s'),
-#     'twitch_clip': re.compile(r'^https?://(?:clips\.twitch\.tv/[\w\-]+|(?:www\.)?twitch\.tv/\w+/clip/[\w\-]+)'),
-# }
 
 # URL regex pattern to detect URLs in messages
 url_pattern = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[\w/\-?=%.#&:;]*')
@@ -46,12 +35,6 @@ url_pattern = re.compile(r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+[\w/\-?=%.#&:;
 
 def get_platform(url: str) -> str | None:
     """Returns the platform name if supported, else None"""
-    # First check with legacy patterns for backward compatibility
-    # for platform, pattern in supported_platforms.items():
-    #     if pattern.match(url):
-    #         return platform
-            
-    # If not found in legacy patterns, try with PlatformRegistry
     try:
         return PlatformRegistry.get_platform_name(url)
     except (ImportError, ValueError):
@@ -196,7 +179,7 @@ class BotTaskManager:
 
 def _validate_platform_allowed(url: str, broadcaster_id: int, platform_handler: PlatformHandler, session) -> bool:
     """Validate if the URL platform is supported and allowed for this broadcaster."""
-    platform = platform_handler.platform_name
+    platform = platform_handler.handler_name
     
     # Check if platform is allowed for this broadcaster's queue
     queue_settings = session.execute(
@@ -216,8 +199,9 @@ def _validate_platform_allowed(url: str, broadcaster_id: int, platform_handler: 
 async def _get_or_create_content(url: str, broadcaster_id: int, session, platform_handler: PlatformHandler, twitch_client: Twitch | None = None) -> int:
     """Get existing content or create new content from URL."""
     # Check if content already exists
+    platform_handler = PlatformRegistry.get_handler_by_url(url)
     existing_content = session.execute(
-        select(Content).filter(Content.stripped_url == platform_handler.sanitize_url(url))
+        select(Content).filter(Content.stripped_url == platform_handler.deduplicate_url())
     ).scalars().one_or_none()
 
     if existing_content is None:
@@ -225,7 +209,7 @@ async def _get_or_create_content(url: str, broadcaster_id: int, session, platfor
         # Use platform registry to get the appropriate handler
         
         # For Twitch platforms, we need a Twitch client
-        if platform_handler.platform_name.startswith('twitch'):
+        if platform_handler.platform_name == 'twitch':
             # Get the Twitch client from the TwitchBot if not provided
             if twitch_client is None:
                 # Get the Twitch client from the task manager
@@ -239,16 +223,16 @@ async def _get_or_create_content(url: str, broadcaster_id: int, session, platfor
                 logger.error("No Twitch client available for fetching video data")
                 raise ValueError("No Twitch client available")
             
-            platform_video_data = await platform_handler.fetch_data(url, twitch=twitch_client)
+            platform_video_data = await platform_handler.fetch_data(twitch=twitch_client)
         else:
             # For YouTube platforms
-            platform_video_data = await platform_handler.fetch_data(url)
+            platform_video_data = await platform_handler.fetch_data()
         
         logger.info("Fetched data for url: %s", url, extra={"broadcaster_id": broadcaster_id})
         # Create new content entry
         content = Content(
             url=url, 
-            stripped_url=platform_video_data['sanitized_url'], 
+            stripped_url=platform_video_data['deduplicated_url'], 
             title=platform_video_data['title'], 
             duration=platform_video_data['duration'], 
             thumbnail_url=platform_video_data['thumbnail_url'], 
@@ -379,7 +363,7 @@ def _create_or_update_submission(queue_item_id: int, content_id: int, external_u
 
 
 
-def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, session) -> int:
+def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, session, platform_handler: PlatformHandler) -> int:
     """Create new ContentQueue item."""
     existing_queue_item = session.execute(
         select(ContentQueue).filter(
@@ -392,6 +376,7 @@ def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, sess
         queue_item = ContentQueue(
             broadcaster_id=broadcaster_id,
             content_id=content_id,
+            content_timestamp=platform_handler.seconds_offset,
         )
         session.add(queue_item)
         session.flush()  # Flush to get the queue item ID
@@ -412,7 +397,7 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
         close_session = True
     
     try:
-        platform_handler = PlatformRegistry.get_handler_for_url(url)
+        platform_handler = PlatformRegistry.get_handler_by_url(url)
         # Validate platform and check if allowed
         
         if not _validate_platform_allowed(url, broadcaster_id, platform_handler, session):
@@ -431,7 +416,7 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
 
         try:
             # Add to content queue
-            queue_item_id = _get_or_create_content_queue_item(broadcaster_id, content_id, session)
+            queue_item_id = _get_or_create_content_queue_item(broadcaster_id, content_id, session, platform_handler)
             
             # Create or update submission
             submission = _create_or_update_submission(queue_item_id, content_id, external_user, submission_source_type, submission_source_id, submission_weight, external_user_weight, user_comment, session)

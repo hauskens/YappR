@@ -1,5 +1,15 @@
 <!-- Clip player template for htmx loading -->
-{% if 'youtube.com/clip/' in item.content.url %}
+{% set url = item.content.url if item.content.url else item.content.stripped_url %}
+
+{% if not url %}
+<!-- Empty player with message -->
+<div class="d-flex justify-content-center align-items-center h-100 bg-light w-100">
+  <div class="text-center p-4">
+    <p class="text-muted">No URL provided for this content</p>
+  </div>
+</div>
+
+{% elif handler and handler.handler_name == 'youtube_clip' %}
 <!-- Special handling for YouTube clips - they can't be embedded -->
 <div class="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
   data-clip-id="{{ item.id }}">
@@ -7,74 +17,63 @@
     <div class="position-relative mb-4">
       <img src="{{ item.content.thumbnail_url }}" class="img-fluid" alt="Video thumbnail">
     </div>
-    <a href="{{ item.content.url }}" target="_blank" class="btn btn-danger btn-lg">
+    <a href="{{ url }}" target="_blank" class="btn btn-danger btn-lg">
       <i class="bi bi-youtube me-2"></i>Open YouTube Clip
     </a>
     <p class="text-light mt-3"><small>YouTube clips cannot be embedded and must be viewed on YouTube</small></p>
   </div>
 </div>
-{% elif 'youtube.com' in item.content.url or 'youtu.be' in item.content.url %}
-{% if 'youtu.be' in item.content.url or 'youtube.com' not in item.content.url %}
-{% set video_id = item.content.url.split('youtu.be/')[1].split('?')[0] if '?' in item.content.url else
-item.content.url.split('youtu.be/')[1] %}
-{% elif 'v=' in item.content.url %}
-{% set video_id = item.content.url.split('v=')[1].split('&')[0] if '&' in item.content.url.split('v=')[1] else
-item.content.url.split('v=')[1] %}
-{% else %}
-{% set video_id = '' %}
+{% elif handler and (handler.handler_name == 'youtube_video' or handler.handler_name == 'youtube_short') %}
+{% set player_url = url %}
+{% if item.content_timestamp %}
+  {% set player_url = handler.get_url_with_timestamp(item.content_timestamp) %}
 {% endif %}
 
-<!-- Only for YouTube special handling -->
-<div class="youtube-clip-special-handling w-100 h-100" data-video-url="{{ item.content.url }}"
+<!-- YouTube player container -->
+<div class="youtube-clip-special-handling w-100 h-100" data-video-url="{{ player_url }}" tes="{{item.content_timestamp}}"
   data-clip-id="{{ item.id }}">
   <!-- YouTube player loading will be handled by JS -->
-  <iframe id="youtube-iframe-{{ item.id }}" src="https://www.youtube.com/embed/{{ video_id }}?autoplay=1" width="100%"
-    height="100%" allowfullscreen="true" allow="autoplay; encrypted-media">
+  <iframe id="youtube-iframe-{{ item.id }}" 
+    src="https://www.youtube.com/embed/{{ handler.get_video_id_from_url() }}{% if item.content_timestamp %}?start={{ item.content_timestamp }}{% else %}?autoplay=1{% endif %}" 
+    width="100%" height="100%" allowfullscreen="true" allow="autoplay; encrypted-media">
   </iframe>
 </div>
-{% elif 'clips.twitch.tv/' in item.content.url or 'twitch.tv/videos/' in item.content.url or ('twitch.tv/' in
-item.content.url and '/clip/' in item.content.url) %}
-<!-- Twitch player container -->
+
+{% elif handler and handler.handler_name == 'twitch_clip' %}
+<!-- Twitch clip container -->
 <div id="twitch-player-container-{{ item.id }}" class="w-100 h-100" data-clip-id="{{ item.id }}">
-  {% if 'clips.twitch.tv/' in item.content.url %}
-  {% set clip_id = item.content.url.split('clips.twitch.tv/')[1].split('?')[0] if '?' in item.content.url else
-  item.content.url.split('clips.twitch.tv/')[1] %}
+  {% set clip_id = handler.deduplicated_url.split('/')[-1] %}
   {% set hostname = request.host.split(':')[0] %}
   <iframe id="twitch-clip-{{ item.id }}"
     src="https://clips.twitch.tv/embed?clip={{ clip_id }}&parent={{ hostname }}&muted=false" width="100%" height="100%"
     allowfullscreen="true" data-clip-id="{{ item.id }}">
   </iframe>
-  {% elif 'twitch.tv/' in item.content.url and '/clip/' in item.content.url %}
-  {% set parts = item.content.url.split('/') %}
-  {% set clip_index = parts.index('clip') if 'clip' in parts else -1 %}
-  {% if clip_index >= 0 and clip_index + 1 < parts|length %} {% set clip_id=parts[clip_index + 1].split('?')[0] if '?'
-    in parts[clip_index + 1] else parts[clip_index + 1] %} {% set hostname=request.host.split(':')[0] %} <iframe
-    id="twitch-clip-{{ item.id }}"
-    src="https://clips.twitch.tv/embed?clip={{ clip_id }}&parent={{ hostname }}&muted=false" width="100%" height="100%"
-    allowfullscreen="true">
-    </iframe>
-    {% endif %}
-    {% elif 'twitch.tv/videos/' in item.content.url %}
-    {% set video_id = item.content.url.split('twitch.tv/videos/')[1].split('?')[0] if '?' in item.content.url else
-    item.content.url.split('twitch.tv/videos/')[1] %}
-    {% set hostname = request.host.split(':')[0] %}
-    <iframe id="twitch-video-{{ item.id }}"
-      src="https://player.twitch.tv/?video={{ video_id }}&parent={{ hostname }}&muted=false" allowfullscreen="true">
-    </iframe>
-    {% endif %}
 </div>
+
+{% elif handler and handler.handler_name == 'twitch_video' %}
+<!-- Twitch video container -->
+<div id="twitch-player-container-{{ item.id }}" class="w-100 h-100" data-clip-id="{{ item.id }}">
+  {% set video_id = url.split('twitch.tv/videos/')[1].split('?')[0] if '?' in url else url.split('twitch.tv/videos/')[1] %}
+  {% set player_url = url %}
+  {% if item.content_timestamp %}
+    {% set player_url = handler.get_url_with_timestamp(item.content_timestamp) %}
+    {% set time_seconds = item.content_timestamp %}
+  {% else %}
+    {% set time_seconds = handler.seconds_offset %}
+  {% endif %}
+  {% set hostname = request.host.split(':')[0] %}
+  <iframe id="twitch-video-{{ item.id }}"
+    src="https://player.twitch.tv/?video={{ video_id }}{% if time_seconds %}&time={{ time_seconds }}s{% endif %}&parent={{ hostname }}&muted=false" 
+    width="100%" height="100%" allowfullscreen="true">
+  </iframe>
+</div>
+
 {% else %}
-{% if item.content.url == '' %}
-<!-- Empty player with message -->
-<div class="d-flex justify-content-center align-items-center h-100 bg-light w-100">
-  <div class="text-center p-4">
-    <p class="text-muted">No URL provided for this content</p>
+<!-- Fallback for unsupported URLs with handler but unknown type -->
+<div class="d-flex justify-content-center align-items-center h-100 bg-light w-100 ratio ratio-16x9">
+  <div class="text-center">
+    <p class="text-muted">Unsupported content type</p>
+    <p class="small text-muted">Handler: {{ handler.handler_name }}</p>
   </div>
 </div>
-{% else %}
-<!-- Fallback for unsupported URLs -->
-<div class="d-flex justify-content-center align-items-center h-100 bg-light w-100 ratio ratio-16x9">
-  <p class="text-muted">Unsupported content type</p>
-</div>
-{% endif %}
 {% endif %}

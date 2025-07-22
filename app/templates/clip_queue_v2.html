@@ -1,52 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Clip Queue{% endblock %}
-
-{% block styles %}
-<style>
-  /* Custom scrollbar */
-  .custom-scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.2) rgba(0, 0, 0, 0.05);
-  }
-  
-  /* Using Bootstrap's ratio utility instead of custom CSS */
-  .player-container {
-    width: 100%;
-    background-color: #000;
-  }
-
-
-  /* Motion of the day */
-  .motd {
-    font-style: italic;
-    color: #6c757d;
-    opacity: 0.2;
-  }
-  .clip-info {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
-  }
-
-  /* Instructions */
-  .instructions {
-      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-      color: white;
-      padding: 15px;
-      border-radius: 10px;
-      margin-bottom: 20px;
-      text-align: center;
-  }
-</style>
-{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-  <div class="row">
+<div class="resizable-parent">
+  <div class="resizable-container">
     <!-- Video Player Column -->
-    <div class="col-lg-8 mb-4">
+    <div class="resizable-player">
       <div class="card">
         <div class="card-body shadow p-0" style="min-height: 480px;">
           <div id="player-area">
@@ -79,8 +37,10 @@
       </div>
     </div>
     
+    <div class="resize-handle" id="resize-handle"></div>
+
     <!-- Queue List Column -->
-    <div class="col-lg-4">
+    <div class="resizable-queue">
       <div class="card shadow">
         <div class="card-header">
           <!-- Tab structure with Bootstrap buttons -->
@@ -138,11 +98,11 @@
             </div>
           </div>
         </div>
-        <div class="card-body p-0">
+        <div class="card-body">
           <div class="tab-content" id="queue-tabs-content">
             <div class="tab-pane fade show active" id="upcoming" role="tabpanel" aria-labelledby="upcoming-tab">
               <div id="queue-items" class="overflow-auto custom-scrollbar" 
-                   style="max-height: calc(95vh - 200px);" 
+                   style="max-height: calc(95vh - 14rem);" 
                    hx-get="/clip_queue/items?show_history=false&page=1" 
                    hx-trigger="load delay:100ms, queue_update from:body, click from:#upcoming-tab"
                    hx-swap="innerHTML">
@@ -151,7 +111,7 @@
             </div>
             <div class="tab-pane fade" id="history" role="tabpanel" aria-labelledby="history-tab">
               <div id="history-items" class="overflow-auto custom-scrollbar" 
-                   style="max-height: calc(95vh - 200px);" 
+                   style="max-height: calc(95vh - 14rem);" 
                    hx-get="/clip_queue/items?show_history=true&page=1" 
                    hx-trigger="click from:#history-tab, history_update from:body"
                    hx-swap="innerHTML">

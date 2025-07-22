@@ -8,6 +8,8 @@ declare global {
 
 // Global state
 let currentClipId: string | null = null;
+let isResizing = false;
+let currentQueueWidth = 400; // Default width
 
 // Queue update custom event
 function triggerQueueUpdate(): void {
@@ -303,6 +305,156 @@ function initPlayer(): void {
 (window as any).markItemAsWatched = markItemAsWatched;
 (window as any).initializeClipDetailsInteractions = initializeClipDetailsInteractions;
 
+// Resize functionality
+function initializeResize(): void {
+  const resizeHandle = document.getElementById('resize-handle');
+  const queueElement = document.querySelector('.resizable-queue') as HTMLElement;
+  
+  if (!resizeHandle || !queueElement) return;
+  
+  // Load saved width from localStorage
+  const savedWidth = localStorage.getItem('queueWidth');
+  if (savedWidth) {
+    const width = parseInt(savedWidth, 10);
+    if (width >= 250 && width <= 800) {
+      currentQueueWidth = width;
+      queueElement.style.setProperty('width', `${width}px`, 'important');
+      queueElement.style.setProperty('flex', `0 0 ${width}px`, 'important');
+    }
+  }
+  
+  // Check if we're on mobile
+  const isMobile = (): boolean => {
+    return window.matchMedia('(max-width: 991.98px)').matches;
+  };
+  
+  let startX = 0;
+  let startWidth = 0;
+  
+  const handleMouseDown = (e: PointerEvent): void => {
+    if (isMobile()) return; // Disable on mobile
+    
+    isResizing = true;
+    startX = e.clientX;
+    startWidth = currentQueueWidth;
+    
+    // Use pointer capture for reliable drag handling
+    resizeHandle.setPointerCapture(e.pointerId);
+    resizeHandle.addEventListener('pointermove', handlePointerMove);
+    resizeHandle.addEventListener('pointerup', handlePointerUp);
+    resizeHandle.addEventListener('lostpointercapture', handlePointerUp);
+    
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    
+    e.preventDefault();
+  };
+  
+  const handlePointerMove = (e: PointerEvent): void => {
+    if (!isResizing) return;
+    
+    const deltaX = startX - e.clientX;
+    const newWidth = startWidth + deltaX;
+    
+    // Apply constraints
+    const minWidth = 250;
+    const maxWidth = Math.min(800, window.innerWidth * 0.6);
+    const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+    
+    currentQueueWidth = constrainedWidth;
+    queueElement.style.setProperty('width', `${constrainedWidth}px`, 'important');
+    queueElement.style.setProperty('flex', `0 0 ${constrainedWidth}px`, 'important');
+  };
+  
+  const handlePointerUp = (e: PointerEvent): void => {
+    if (!isResizing) return;
+    
+    isResizing = false;
+    resizeHandle.releasePointerCapture(e.pointerId);
+    resizeHandle.removeEventListener('pointermove', handlePointerMove);
+    resizeHandle.removeEventListener('pointerup', handlePointerUp);
+    resizeHandle.removeEventListener('lostpointercapture', handlePointerUp);
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    
+    // Save to localStorage
+    localStorage.setItem('queueWidth', currentQueueWidth.toString());
+  };
+  
+  // Add touch support for tablets
+  const handleTouchStart = (e: TouchEvent): void => {
+    if (isMobile()) return; // Disable on mobile
+    
+    // Make sure we have at least one touch point
+    if (e.touches.length === 0) return;
+    
+    isResizing = true;
+    startX = e.touches[0].clientX;
+    startWidth = currentQueueWidth;
+    
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd);
+    document.body.style.userSelect = 'none';
+    
+    e.preventDefault();
+  };
+  
+  const handleTouchMove = (e: TouchEvent): void => {
+    if (!isResizing) return;
+    
+    // Make sure we have at least one touch point
+    if (e.touches.length === 0) return;
+    
+    const deltaX = startX - e.touches[0].clientX;
+    const newWidth = startWidth + deltaX;
+    
+    // Apply constraints
+    const minWidth = 250;
+    const maxWidth = Math.min(800, window.innerWidth * 0.6);
+    const constrainedWidth = Math.max(minWidth, Math.min(maxWidth, newWidth));
+    
+    currentQueueWidth = constrainedWidth;
+    queueElement.style.setProperty('width', `${constrainedWidth}px`, 'important');
+    queueElement.style.setProperty('flex', `0 0 ${constrainedWidth}px`, 'important');
+    
+    e.preventDefault();
+  };
+  
+  const handleTouchEnd = (): void => {
+    if (!isResizing) return;
+    
+    isResizing = false;
+    document.removeEventListener('touchmove', handleTouchMove);
+    document.removeEventListener('touchend', handleTouchEnd);
+    document.body.style.userSelect = '';
+    
+    // Save to localStorage
+    localStorage.setItem('queueWidth', currentQueueWidth.toString());
+  };
+  
+  // Handle window resize to adjust max width constraint
+  const handleWindowResize = (): void => {
+    if (isMobile()) {
+      // Reset width on mobile
+      queueElement.style.width = '';
+      return;
+    }
+    
+    const maxWidth = Math.min(800, window.innerWidth * 0.6);
+    if (currentQueueWidth > maxWidth) {
+      currentQueueWidth = maxWidth;
+      queueElement.style.setProperty('width', `${maxWidth}px`, 'important');
+      queueElement.style.setProperty('flex', `0 0 ${maxWidth}px`, 'important');
+      localStorage.setItem('queueWidth', currentQueueWidth.toString());
+    }
+  };
+  
+  // Event listeners
+  resizeHandle.addEventListener('pointerdown', handleMouseDown);
+  resizeHandle.addEventListener('touchstart', handleTouchStart);
+  window.addEventListener('resize', handleWindowResize);
+}
+
 // Initialize everything on page load
 document.addEventListener('DOMContentLoaded', () => {
   initializePreferences();
@@ -310,4 +462,5 @@ document.addEventListener('DOMContentLoaded', () => {
   handlePlatformSettings();
   initializeTabSwitching();
   handleHtmxAfterSwap();
+  initializeResize();
 });

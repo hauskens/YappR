@@ -14,36 +14,35 @@ from .retrievers import (
     get_segment_by_id,
 )
 from .utils import sanitize_sentence, loosely_sanitize_sentence
-
+import time
 
 def search_words_present_in_sentence(
     sentence: list[str], search_words: list[str]
 ) -> bool:
-    return all(word in sentence for word in search_words)
+    sentence_set = set(sentence)
+    return all(word in sentence_set for word in search_words)
 
 
-def sort_function(segment: Segments | None) -> int:
-    if segment is not None:
-        return segment.start
-    raise ValueError("Cannot sort by None")
-
-
-def search_words_present_in_sentence_strict(
-    sentence: list[str], search_words: list[str]
-) -> bool:
-    try:
-        index = sentence.index(search_words[0])
-        if len(search_words) == 1:
-            return True
-        word_index = 0
-        for word in search_words[1:]:
-            word_index = sentence.index(word, index)
-            if word_index != index and word_index == (index + 1):
-                index = word_index
-        return word_index == index
-    except ValueError:
-        return False
-
+def _add_segment_to_results(
+    segment_result: "SegmentsResult",
+    video_results: list["VideoResult"],
+    video_lookup: dict[int, "VideoResult"],
+    seen_segment_ids: set[int],
+    segment_id: int,
+) -> None:
+    """Helper function to add a segment result to the appropriate video result"""
+    video_id = segment_result.video.id
+    
+    if video_id in video_lookup:
+        # Add to existing video
+        video_lookup[video_id].segment_results.append(segment_result)
+    else:
+        # Create new video result
+        new_video_result = VideoResult([segment_result], segment_result.video)
+        video_results.append(new_video_result)
+        video_lookup[video_id] = new_video_result
+    
+    seen_segment_ids.add(segment_id)
 
 def search_v2(
     search_term: str,
@@ -51,13 +50,17 @@ def search_v2(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
 ) -> list[VideoResult]:
+    """
+    Properly optimized version of search_v2 with fast Python operations
+    """
+    timer = time.perf_counter()
     video_result: list[VideoResult] = []
-    segment_result: list[SegmentsResult] = []
+    video_lookup: dict[int, VideoResult] = {}  # For O(1) video lookups
     transcriptions = None
     strict_search = search_term.startswith('"') and search_term.endswith('"')
     logger.info("strict search status: %s", strict_search)
 
-    # If dates are found, limit the transcriptions based on dates
+    # Get transcriptions (same as original)
     if start_date is None and end_date is None:
         transcriptions = get_transcriptions_on_channels(channels)
     if start_date is not None and end_date is not None:
@@ -84,8 +87,6 @@ def search_v2(
         .all()
     )
 
-    # Just search for the first word, based on that we will narrow down the result
-
     search_words = (
         loosely_sanitize_sentence(search_term.strip('"'))
         if strict_search
@@ -95,80 +96,80 @@ def search_v2(
     if len(search_words) == 0:
         raise ValueError("Search was too short and didnt have any useful words")
 
-    logger.info("Found matches: %s", len(search_result))
+    
     for segment in search_result:
-        # sanitize the users search query with the same function used to sanitize db
+        # Sanitize the segment text using same function as original
         current_sentence: list[str] = (
             loosely_sanitize_sentence(segment.text)
             if strict_search
             else sanitize_sentence(segment.text)
         )
         all_segments: list[Segments] = [segment]
-        added = False
+        
         if segment.id not in seen_segment_ids:
-
-            # If the word is first or last part of a segment, we need to include the adjasent Segment
+            # Implement adjacent segment logic (missing from previous optimized version)
             try:
                 word_index = current_sentence.index(search_words[0])
                 if word_index == 0 and segment.previous_segment_id is not None:
-                    adjasent_segment = get_segment_by_id(segment.previous_segment_id)
-                    all_segments = [adjasent_segment] + all_segments
-                    current_sentence = adjasent_segment.text.split() + current_sentence
+                    adjacent_segment = get_segment_by_id(segment.previous_segment_id)
+                    all_segments = [adjacent_segment] + all_segments
+                    # Use same sanitization as main segment for consistency
+                    adjacent_sentence = (
+                        loosely_sanitize_sentence(adjacent_segment.text)
+                        if strict_search
+                        else sanitize_sentence(adjacent_segment.text)
+                    )
+                    current_sentence = adjacent_sentence + current_sentence
                 elif (
-                    word_index == len(current_sentence)
+                    word_index == len(current_sentence) - 1
                     and segment.next_segment_id is not None
                 ):
-                    adjasent_segment = get_segment_by_id(segment.next_segment_id)
-                    all_segments.append(adjasent_segment)
-                    current_sentence += adjasent_segment.text.split()
-            except:
-                logger.debug(
-                    f"Could not find adjasent segment on segment id {segment.id}"
-                )
-
-            if strict_search:
-                if search_words_present_in_sentence_strict(
-                    current_sentence, search_words
-                ):
-                    res = SegmentsResult(
-                        all_segments, segment.transcription.video, search_words
+                    adjacent_segment = get_segment_by_id(segment.next_segment_id)
+                    all_segments.append(adjacent_segment)
+                    # Use same sanitization as main segment for consistency
+                    adjacent_sentence = (
+                        loosely_sanitize_sentence(adjacent_segment.text)
+                        if strict_search
+                        else sanitize_sentence(adjacent_segment.text)
                     )
-                    segment_result.append(res)
-                    if video_result == []:
-                        video_result.append(VideoResult([res], res.video))
-                        added = True
-                        seen_segment_ids.add(segment.id)
-                    for v in video_result:
-                        if v.video.id == res.video.id:
-                            v.segment_results.append(res)
-                            added = True
-                            seen_segment_ids.add(segment.id)
-                            continue
-                    if added == False:
-                        video_result.append(VideoResult([res], res.video))
-
-            # Skip the first word as thats our baseline, search for other words in current sentence
-            else:
-                if search_words_present_in_sentence(current_sentence, search_words[1:]):
-                    # all_segments.sort(key=sort_function)
-
-                    res = SegmentsResult(
-                        all_segments, segment.transcription.video, search_words
-                    )
-                    if len(video_result) == 0:
-                        video_result.append(VideoResult([res], res.video))
-                        added = True
-                        seen_segment_ids.add(segment.id)
-                    for v in video_result:
-                        if v.video.id == res.video.id:
-                            v.segment_results.append(res)
-                            added = True
-                            seen_segment_ids.add(segment.id)
-                            continue
-                    if added == False:
-                        video_result.append(VideoResult([res], res.video))
+                    current_sentence += adjacent_sentence
+            except (ValueError, AttributeError):
+                pass
+            # Check if segment matches search criteria
+            matches = (
+                search_words_present_in_sentence_strict(current_sentence, search_words)
+                if strict_search
+                else search_words_present_in_sentence(current_sentence, search_words[1:])
+            )
+            
+            if matches:
+                res = SegmentsResult(all_segments, segment.transcription.video, search_words)
+                _add_segment_to_results(res, video_result, video_lookup, seen_segment_ids, segment.id)
 
     for v in video_result:
         v.segment_results.sort(key=lambda r: min(s.start for s in r.segments))
     video_result.sort(key=lambda v: v.video.uploaded, reverse=True)
+    
+    end_time = time.perf_counter()
+    execution_time = end_time - timer
+    logger.info(f"search_v2 executed in {execution_time*1000:.2f}ms")
     return video_result
+
+def search_words_present_in_sentence_strict(
+    sentence: list[str], search_words: list[str]
+) -> bool:
+    """looks for consecutive words"""
+    if not search_words:
+        return False
+    
+    sentence_len = len(sentence)
+    search_len = len(search_words)
+    
+    if search_len > sentence_len:
+        return False
+    
+    # Use sliding window to check for consecutive matches
+    for i in range(sentence_len - search_len + 1):
+        if sentence[i:i + search_len] == search_words:
+            return True
+    return False

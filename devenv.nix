@@ -12,7 +12,12 @@ in
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
-  packages = with pkgs; [ git zsh ];
+  packages = with pkgs; [ 
+    git 
+    zsh 
+    python3Packages.psycopg2
+    psqlodbc
+    ];
 
   languages = {
     python = {
@@ -40,7 +45,6 @@ in
 
   enterShell = ''
     . .devenv/state/venv/bin/activate
-    zsh
   '';
 
   # https://devenv.sh/tasks/
@@ -50,10 +54,11 @@ in
   # };
 
   # https://devenv.sh/tests/
-  # enterTest = ''
-  #   echo "Running tests"
-  #   git --version | grep --color=auto "${pkgs.git.version}"
-  # '';
+  enterTest = ''
+    echo "Running search performance tests..."
+    uv run pytest tests/app/test_search_performance.py --unit -v -s
+    echo "Performance tests completed!"
+  '';
 
   # https://devenv.sh/git-hooks/
   # git-hooks.hooks.shellcheck.enable = true;

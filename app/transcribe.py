@@ -4,13 +4,14 @@ from app.logger import logger
 
 
 def transcribe(path: str) -> str:
-    import whisperx # type: ignore
+    import whisperx  # type: ignore
     device = config.transcription_device  # cuda
     batch_size = config.transcription_batch_size  # reduce if low on GPU mem
     compute_type = config.transcription_compute_type
     load_model = config.transcription_model
 
-    logger.info("Got path: %s, starting to transcribe with model %s, device %s, compute type %s, batch size %s", path, load_model, device, compute_type, batch_size)
+    logger.info("Got path: %s, starting to transcribe with model %s, device %s, compute type %s, batch size %s",
+                path, load_model, device, compute_type, batch_size)
     model_dir = f"{config.cache_location}/models/"
     model = whisperx.load_model(
         load_model,
@@ -21,7 +22,8 @@ def transcribe(path: str) -> str:
     )
 
     audio = whisperx.load_audio(path)
-    result = model.transcribe(audio, batch_size=batch_size, chunk_size=10, language="en")
+    result = model.transcribe(
+        audio, batch_size=batch_size, chunk_size=10, language="en")
 
     # delete model if low on GPU resources
     # import gc; gc.collect(); torch.cuda.empty_cache(); del model
@@ -49,7 +51,7 @@ def transcribe(path: str) -> str:
     #     )
     #     diarize_segments = diarize_model(audio)
     #     result = whisperx.assign_word_speakers(diarize_segments, result)
-    
+
     # # add min/max number of speakers if known
     # diarize_segments = diarize_model(audio)
     # # diarize_model(audio, min_speakers=min_speakers, max_speakers=max_speakers)

@@ -1,12 +1,14 @@
 from flask import Blueprint, render_template, request, session
 from app.logger import logger
 from app.retrievers import get_broadcasters, get_broadcaster, get_broadcaster_transcription_stats
-from flask_login import current_user # type: ignore
+from flask_login import current_user  # type: ignore
 from app.rate_limit import limiter, rate_limit_exempt
 from app.search import search_v2
 from app.utils import get_valid_date
 
-search_blueprint = Blueprint('search', __name__, url_prefix='/search', template_folder='templates', static_folder='static')
+search_blueprint = Blueprint('search', __name__, url_prefix='/search',
+                             template_folder='templates', static_folder='static')
+
 
 @search_blueprint.route("", strict_slashes=False)
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
@@ -23,7 +25,7 @@ def search_word():
     search_term = request.form["search"]
     broadcaster_id = int(request.form["broadcaster"])
     session["last_selected_broadcaster"] = broadcaster_id
-    
+
     start_date = get_valid_date(request.form.get("start_date", ""))
     end_date = get_valid_date(request.form.get("end_date", ""))
     channel_type = request.form.get("channel_type", "all")

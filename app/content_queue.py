@@ -1,10 +1,11 @@
 from math import exp
 from datetime import datetime, timezone
 from app.models.db import ContentQueue
-ONE_HOUR       = 3600              # seconds
-TAU_FRESH      = 12 * 3600         # freshness half-life
-TAU_DURATION   = 120               # duration half-life (2-min clips lose ~63 %)
+ONE_HOUR = 3600              # seconds
+TAU_FRESH = 12 * 3600         # freshness half-life
+TAU_DURATION = 120               # duration half-life (2-min clips lose ~63 %)
 SHORT_CLIP_THRESHOLD = 60          # clips shorter than this are preferred
+
 
 def freshness(age_seconds: float) -> float:
     """Penalise backlog, but never boost brand-new submissions."""
@@ -13,15 +14,17 @@ def freshness(age_seconds: float) -> float:
     # return 1 / (1 + (age_seconds - ONE_HOUR) / TAU_FRESH)
     return exp(-(age_seconds - ONE_HOUR) / TAU_FRESH)
 
+
 def duration_weight(seconds: float) -> float:
     """Optional penalty that down-weights long clips."""
     return exp(-seconds / TAU_DURATION)
 
+
 def clip_score(
-        item: "ContentQueue",
-        now: datetime | None = None,
-        prefer_shorter: bool = False
-    ) -> float:
+    item: "ContentQueue",
+    now: datetime | None = None,
+    prefer_shorter: bool = False
+) -> float:
     """Composite score = popularity × freshness × (optionally) duration."""
     now = now or datetime.now(timezone.utc)
 

@@ -11,9 +11,11 @@ CEST = ZoneInfo(config.timezone)
 
 MESSAGE_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\]\s+(.+): (.+)$")
 
-START_LINE_REGEX = re.compile(r"# Start logging at (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})")
+START_LINE_REGEX = re.compile(
+    r"# Start logging at (\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2})")
 
 TIMESTAMP_ONLY_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\] (.+)$")
+
 
 class ChatLogParser:
     def __init__(self, base_date: datetime, channel_id: int):
@@ -39,7 +41,8 @@ class ChatLogParser:
                     message=message,
                 )
             except Exception as e:
-                logger.warning(f"Failed to parse chat message timestamp: {line.strip()} | {e}")
+                logger.warning(
+                    f"Failed to parse chat message timestamp: {line.strip()} | {e}")
                 return None
 
         event_match = TIMESTAMP_ONLY_REGEX.match(line)
@@ -53,7 +56,8 @@ class ChatLogParser:
                     raw_message=raw_message.strip(),
                 )
             except Exception as e:
-                logger.warning(f"Failed to parse event timestamp: {line.strip()} | {e}")
+                logger.warning(
+                    f"Failed to parse event timestamp: {line.strip()} | {e}")
                 return None
 
         logger.info(f"Ignored or unparseable line: {line.strip()}")
@@ -70,6 +74,7 @@ class ChatLogParser:
         self.last_timestamp = combined
         return combined
 
+
 def parse_log_start_line(line: str) -> datetime:
     match = START_LINE_REGEX.match(line)
     if not match:
@@ -77,18 +82,21 @@ def parse_log_start_line(line: str) -> datetime:
     date_str, time_str = match.groups()
     return datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M:%S")
 
+
 def parse_logs(folder_path: str, channel_id: int):
     log_folder = Path(folder_path)
     logger.info(f"Parsing logs from {log_folder}")
     for log_file in log_folder.glob("*.log"):
         logger.info(f"Parsing {log_file}")
         parse_log(log_file.as_posix(), channel_id)
-    
+
+
 def parse_log(log_path: str, channel_id: int):
     with Path(log_path).open("r", encoding="utf-8") as f:
         lines = f.readlines()
     if not lines or not lines[0].startswith("# Start logging at"):
-        raise ValueError("Log must start with '# Start logging at YYYY-MM-DD HH:MM:SS ...'")
+        raise ValueError(
+            "Log must start with '# Start logging at YYYY-MM-DD HH:MM:SS ...'")
     base_date = parse_log_start_line(lines[0])
     parser = ChatLogParser(base_date, channel_id)
 
@@ -103,6 +111,7 @@ def parse_log(log_path: str, channel_id: int):
         else:
             logger.info(f"Ignored: {line.strip()}")
     db.session.commit()
+
+
 if __name__ == "__main__":
     parse_log("./chatterino_logs/logfile.log", 7)
- 

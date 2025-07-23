@@ -54,10 +54,16 @@ dev = [
     "whisperx>=3.3.4",
     "twitchapi>=4.4.0",
     "docker>=7.1.0",
+    "mypy>=1.17.0",
 ]
 worker = [
     "whisperx>=3.3.4",
 ]
 bot = [
     "twitchapi>=4.4.0",
+]
+
+[tool.mypy]
+exclude = [
+    "test_db",
 ]

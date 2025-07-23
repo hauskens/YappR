@@ -22,14 +22,17 @@ from datetime import datetime
 from app.logger import logger
 from app.cache import cache, make_cache_key
 
+
 def get_broadcasters(show_hidden: bool = False) -> Sequence[Broadcaster]:
     if show_hidden:
         return (
-            db.session.execute(select(Broadcaster).order_by(Broadcaster.id)).scalars().all()
+            db.session.execute(select(Broadcaster).order_by(
+                Broadcaster.id)).scalars().all()
         )
     else:
         return (
-            db.session.execute(select(Broadcaster).filter_by(hidden=False).order_by(Broadcaster.id)).scalars().all()
+            db.session.execute(select(Broadcaster).filter_by(
+                hidden=False).order_by(Broadcaster.id)).scalars().all()
         )
 
 
@@ -51,7 +54,8 @@ def get_platforms() -> Sequence[Platforms] | None:
 
 def get_broadcaster_channels(broadcaster_id: int) -> Sequence[Channels] | None:
     return (
-        db.session.execute(select(Channels).filter_by(broadcaster_id=broadcaster_id))
+        db.session.execute(select(Channels).filter_by(
+            broadcaster_id=broadcaster_id))
         .scalars()
         .all()
     )
@@ -62,7 +66,7 @@ def get_broadcaster_transcription_stats(broadcaster_id: int) -> dict:
     all_videos_count = db.session.query(func.count(Video.id)).join(Video.channel).filter(
         Channels.broadcaster_id == broadcaster_id
     ).scalar() or 0
-    
+
     # Get all videos with at least one high quality transcription (Unknown source)
     # These are counted first since high quality takes precedence
     high_quality_videos = db.session.query(Video.id).distinct().join(Video.transcriptions).join(Video.channel).filter(
@@ -72,29 +76,31 @@ def get_broadcaster_transcription_stats(broadcaster_id: int) -> dict:
     ).all()
     high_quality_video_ids = {video_id for (video_id,) in high_quality_videos}
     high_quality_count = len(high_quality_video_ids)
-    
+
     # Get videos with low quality transcriptions (YouTube source) but no high quality ones
     query = db.session.query(Video.id).distinct().join(Video.transcriptions).join(Video.channel).filter(
         Channels.broadcaster_id == broadcaster_id,
         Transcription.source == TranscriptionSource.YouTube,
         Video.active == True
     )
-    
+
     # Only apply the filter if there are high quality videos to exclude
     if high_quality_video_ids:
         query = query.filter(~Video.id.in_(high_quality_video_ids))
-        
+
     low_quality_videos = query.all()
     low_quality_count = len(low_quality_videos)
-    
+
     # Count videos with no transcriptions
     with_transcriptions_videos = db.session.query(Video.id).distinct().join(Video.transcriptions).join(Video.channel).filter(
         Channels.broadcaster_id == broadcaster_id,
         Video.active == True,
     ).all()
-    with_transcriptions_video_ids = {video_id for (video_id,) in with_transcriptions_videos}
-    no_transcriptions_count = all_videos_count - len(with_transcriptions_video_ids)
-    
+    with_transcriptions_video_ids = {video_id for (
+        video_id,) in with_transcriptions_videos}
+    no_transcriptions_count = all_videos_count - \
+        len(with_transcriptions_video_ids)
+
     return {
         'high_quality': high_quality_count,
         'low_quality': low_quality_count,
@@ -120,7 +126,8 @@ def get_video_by_channel(channel_id: int) -> Sequence[Video] | None:
 
 def get_video_by_ref(video_platform_ref: str) -> Video | None:
     return (
-        db.session.execute(select(Video).filter_by(platform_ref=video_platform_ref))
+        db.session.execute(select(Video).filter_by(
+            platform_ref=video_platform_ref))
         .scalars()
         .one_or_none()
     )
@@ -136,7 +143,8 @@ def get_transcriptions_by_video(video_id: int) -> Sequence[Transcription] | None
 
 def get_transcription(transcription_id: int) -> Transcription:
     return (
-        db.session.execute(select(Transcription).filter_by(id=transcription_id))
+        db.session.execute(
+            select(Transcription).filter_by(id=transcription_id))
         .scalars()
         .one()
     )
@@ -180,6 +188,7 @@ def delete_broadcaster(broadcaster_id: int):
 def get_users() -> list[Users]:
     return db.session.query(Users).all()
 
+
 def get_bots() -> list[OAuth]:
     return db.session.query(OAuth).filter_by(provider="twitch_bot").all()
 
@@ -200,6 +209,7 @@ def get_total_good_transcribed_video_duration() -> int:
         )
     ).scalar()
     return total_duration or 0
+
 
 def get_total_low_quality_transcribed_video_duration() -> int:
     total_duration = db.session.query(func.sum(Video.duration)).filter(
@@ -248,6 +258,7 @@ def get_stats_videos_with_low_transcription() -> int:
         .scalar() or 0
     )
 
+
 def get_stats_transcriptions() -> int:
     return db.session.query(func.count(func.distinct(Transcription.video_id))).scalar() or 0
 
@@ -259,9 +270,10 @@ def get_stats_high_quality_transcriptions() -> int:
         .scalar() or 0
     )
 
+
 def get_moderated_channels(user_id: int) -> list[ChannelModerator]:
     return db.session.query(ChannelModerator).filter_by(user_id=user_id).all()
-    
+
 
 def get_stats_segments() -> int:
     return db.session.query(Segments).count()
@@ -290,6 +302,7 @@ def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool =
             query = query.filter(ContentQueue.watched == include_watched)
     return db.session.execute(query.order_by(ContentQueue.id.desc())).scalars().all()
 
+
 def get_broadcaster_by_external_id(external_id: str) -> Broadcaster | None:
     return db.session.execute(
         select(Broadcaster)
@@ -297,6 +310,7 @@ def get_broadcaster_by_external_id(external_id: str) -> Broadcaster | None:
         .where(Channels.platform_channel_id == external_id)
         .limit(1)
     ).scalars().one_or_none()
+
 
 def get_all_twitch_channels() -> Sequence[Channels]:
     """Get all Twitch channels"""
@@ -320,7 +334,7 @@ def fetch_audio(video_id: int):
             logger.info(f"fetching audio for {video_url}")
             audio = get_yt_audio(video_url)
             logger.info(f"adding audio on {video_id}..")
-            video.audio = open(audio, "rb") # type: ignore
+            video.audio = open(audio, "rb")  # type: ignore
             db.session.commit()
     else:
         logger.info(f"skipped audio for {video_url}, already exists.")

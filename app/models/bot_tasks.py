@@ -10,7 +10,7 @@ class ClipCreationTask:
     """Task for creating a Twitch clip"""
     broadcaster_id: str
     task_id: str | None = None
-    
+
     def to_json(self) -> str:
         """Convert task to JSON string"""
         return json.dumps({
@@ -18,7 +18,7 @@ class ClipCreationTask:
             "broadcaster_id": self.broadcaster_id,
             "task_id": self.task_id
         })
-    
+
     @classmethod
     def from_json(cls, json_str: str) -> 'ClipCreationTask':
         """Create task from JSON string"""

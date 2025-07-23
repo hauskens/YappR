@@ -15,16 +15,16 @@ from sqlalchemy import (
     BigInteger,
 )
 from sqlalchemy import select, func
-from flask_dance.consumer.storage.sqla import OAuthConsumerMixin # type: ignore
-from flask_login import UserMixin # type: ignore
+from flask_dance.consumer.storage.sqla import OAuthConsumerMixin  # type: ignore
+from flask_login import UserMixin  # type: ignore
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy_utils.types.ts_vector import TSVectorType # type: ignore
+from sqlalchemy_utils.types.ts_vector import TSVectorType  # type: ignore
 from sqlalchemy_file import FileField, File
 from datetime import datetime, timedelta
 from twitchAPI.twitch import ChannelModerator as TwitchChannelModerator
 from app.cache import cache
 from io import BytesIO
-import webvtt # type: ignore
+import webvtt  # type: ignore
 import re
 import asyncio
 import json
@@ -65,38 +65,45 @@ class Broadcaster(Base):
         back_populates="broadcaster", cascade="all, delete-orphan"
     )
     hidden: Mapped[bool] = mapped_column(Boolean, default=False)
-    settings: Mapped["BroadcasterSettings"] = relationship(back_populates="broadcaster", uselist=False)
+    settings: Mapped["BroadcasterSettings"] = relationship(
+        back_populates="broadcaster", uselist=False)
     content_queue: Mapped[list["ContentQueue"]] = relationship(
         back_populates="broadcaster", cascade="all, delete-orphan"
     )
     content_queue_settings: Mapped["ContentQueueSettings"] = relationship(
         "ContentQueueSettings", back_populates="broadcaster", uselist=False
     )
+
     def delete(self):
         for channel in self.channels:
             channel.delete()
-        db.session.query(Users).filter_by(broadcaster_id=self.id).update({"broadcaster_id": None})
+        db.session.query(Users).filter_by(
+            broadcaster_id=self.id).update({"broadcaster_id": None})
         db.session.flush()
-        db.session.query(BroadcasterSettings).filter_by(broadcaster_id=self.id).delete()
+        db.session.query(BroadcasterSettings).filter_by(
+            broadcaster_id=self.id).delete()
         db.session.flush()
         db.session.query(Broadcaster).filter_by(id=self.id).delete()
         db.session.commit()
 
     def last_active(self) -> datetime | None:
         return db.session.query(func.max(Channels.last_active)).filter_by(broadcaster_id=self.id).scalar()
-        
-        
+
 
 class BroadcasterSettings(Base):
     __tablename__: str = "broadcaster_settings"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
     broadcaster: Mapped["Broadcaster"] = relationship()
-    linked_discord_channel_id: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
-    linked_discord_channel_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-    linked_discord_disable_voting: Mapped[bool] = mapped_column(Boolean, default=False)
-    linked_discord_threads_enabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
-    
+    linked_discord_channel_id: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True)
+    linked_discord_channel_verified: Mapped[bool] = mapped_column(
+        Boolean, default=False)
+    linked_discord_disable_voting: Mapped[bool] = mapped_column(
+        Boolean, default=False)
+    linked_discord_threads_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default="false")
+
 
 class Platforms(Base):
     __tablename__: str = "platforms"
@@ -140,10 +147,13 @@ class Users(Base, UserMixin):
         String(500), unique=True, nullable=True
     )
     account_type: Mapped[str] = mapped_column(Enum(AccountSource))
-    first_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
-    last_login: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    first_login: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now())
+    last_login: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now())
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    broadcaster_id: Mapped[int | None] = mapped_column(ForeignKey("broadcaster.id"))
+    broadcaster_id: Mapped[int | None] = mapped_column(
+        ForeignKey("broadcaster.id"))
     banned: Mapped[bool] = mapped_column(Boolean, default=False)
     banned_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     permissions: Mapped[list["Permissions"]] = relationship(
@@ -179,7 +189,7 @@ class Users(Base, UserMixin):
             .limit(1)
         ).scalars().one_or_none() is not None
 
-    def is_moderator(self, broadcaster_id: int|None = None) -> bool:
+    def is_moderator(self, broadcaster_id: int | None = None) -> bool:
         if broadcaster_id is None:
             return db.session.query(ChannelModerator).filter_by(user_id=self.id).one_or_none() is not None
         else:
@@ -212,57 +222,65 @@ class Users(Base, UserMixin):
     def update_moderated_channels(self) -> list[TwitchChannelModerator]:
         if self.account_type == AccountSource.Twitch:
             try:
-                oauth = db.session.query(OAuth).filter_by(user_id=self.id).one_or_none()
+                oauth = db.session.query(OAuth).filter_by(
+                    user_id=self.id).one_or_none()
                 if oauth is None:
                     return []
-                moderated_channels = asyncio.run(get_moderated_channels(self.external_account_id, user_token=oauth.token["access_token"], refresh_token=oauth.token["refresh_token"]))
+                moderated_channels = asyncio.run(get_moderated_channels(
+                    self.external_account_id, user_token=oauth.token["access_token"], refresh_token=oauth.token["refresh_token"]))
                 if moderated_channels is None:
                     return []
-                
+
                 logger.info(f"Updating moderated channels for {self.name}")
-                
+
                 # Get existing channel moderator entries for this user
-                existing_moderators = db.session.query(ChannelModerator).filter_by(user_id=self.id).all()
+                existing_moderators = db.session.query(
+                    ChannelModerator).filter_by(user_id=self.id).all()
                 existing_moderator_channel_ids = set()
                 found_channel_ids = set()
-                
+
                 # Process channels from Twitch API
                 for channel in moderated_channels:
-                    logger.info(f"Updating channel {channel.broadcaster_id} - {channel.broadcaster_name}")
-                    existing_channel = db.session.query(Channels).filter_by(platform_channel_id=channel.broadcaster_id).one_or_none()
-                    
+                    logger.info(
+                        f"Updating channel {channel.broadcaster_id} - {channel.broadcaster_name}")
+                    existing_channel = db.session.query(Channels).filter_by(
+                        platform_channel_id=channel.broadcaster_id).one_or_none()
+
                     if existing_channel is not None:
                         found_channel_ids.add(existing_channel.id)
                         # Check if this moderator relationship already exists
                         existing_mod = db.session.query(ChannelModerator).filter_by(
-                            user_id=self.id, 
+                            user_id=self.id,
                             channel_id=existing_channel.id
                         ).one_or_none()
-                        
+
                         if existing_mod is None:
                             # Add new moderator relationship
                             db.session.add(
-                                ChannelModerator(user_id=self.id, channel_id=existing_channel.id)
+                                ChannelModerator(
+                                    user_id=self.id, channel_id=existing_channel.id)
                             )
-                
+
                 # Get all existing channel IDs for this user's moderator entries
                 for mod in existing_moderators:
                     existing_moderator_channel_ids.add(mod.channel_id)
-                
+
                 # Delete moderator entries that weren't found in the Twitch API response
                 channels_to_remove = existing_moderator_channel_ids - found_channel_ids
                 if channels_to_remove:
-                    logger.info(f"Removing {len(channels_to_remove)} channel moderator entries for {self.name}")
-                    
+                    logger.info(
+                        f"Removing {len(channels_to_remove)} channel moderator entries for {self.name}")
+
                     db.session.query(ChannelModerator).filter(
                         ChannelModerator.user_id == self.id,
                         ChannelModerator.channel_id.in_(channels_to_remove)
                     ).delete(synchronize_session=False)
-                
+
                 db.session.commit()
                 return [channel for channel in moderated_channels]
             except Exception as e:
-                logger.error(f"Failed to update moderated channels for {self.name}: {e}")
+                logger.error(
+                    f"Failed to update moderated channels for {self.name}: {e}")
                 return []
         else:
             return []
@@ -276,8 +294,8 @@ class Users(Base, UserMixin):
             if user.id == self.external_account_id:
                 return user.broadcaster_type
         return "regular"
-    
-        
+
+
 class ChannelModerator(Base):
     __tablename__: str = "channel_moderators"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -285,7 +303,7 @@ class ChannelModerator(Base):
     user: Mapped["Users"] = relationship(back_populates="channel_moderators")
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
     channel: Mapped["Channels"] = relationship(back_populates="moderators")
-    
+
 
 class Permissions(Base):
     __tablename__: str = "permissions"
@@ -295,7 +313,8 @@ class Permissions(Base):
     permission_type: Mapped[PermissionType] = mapped_column(
         Enum(PermissionType), default=PermissionType.Reader
     )
-    date_added: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    date_added: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now())
 
 
 class Channels(Base):
@@ -320,13 +339,14 @@ class Channels(Base):
     videos: Mapped[list["Video"]] = relationship(
         back_populates="channel", cascade="all, delete-orphan"
     )
-    settings: Mapped["ChannelSettings"] = relationship(back_populates="channel", uselist=False)
+    settings: Mapped["ChannelSettings"] = relationship(
+        back_populates="channel", uselist=False)
     moderators: Mapped[list["ChannelModerator"]] = relationship(
         back_populates="channel",
         cascade="all, delete-orphan"
     )
-    last_active: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
+    last_active: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True)
 
     def update_thumbnail(self):
         for video in self.videos:
@@ -374,13 +394,18 @@ class Channels(Base):
         for video in self.videos:
             video.delete()
         db.session.query(ChatLog).filter_by(channel_id=self.id).delete()
-        db.session.query(ChannelSettings).filter_by(channel_id=self.id).delete()
-        db.session.query(ChannelModerator).filter_by(channel_id=self.id).delete()
+        db.session.query(ChannelSettings).filter_by(
+            channel_id=self.id).delete()
+        db.session.query(ChannelModerator).filter_by(
+            channel_id=self.id).delete()
         if self.broadcaster_id is not None:
-            queue = db.session.query(ContentQueue).filter_by(broadcaster_id=self.broadcaster_id).all()
+            queue = db.session.query(ContentQueue).filter_by(
+                broadcaster_id=self.broadcaster_id).all()
             for q_item in queue:
-                db.session.query(ContentQueueSubmission).filter_by(content_queue_id=q_item.id).delete()
-            db.session.query(ContentQueue).filter_by(broadcaster_id=self.broadcaster_id).delete()
+                db.session.query(ContentQueueSubmission).filter_by(
+                    content_queue_id=q_item.id).delete()
+            db.session.query(ContentQueue).filter_by(
+                broadcaster_id=self.broadcaster_id).delete()
 
         _ = db.session.query(Channels).filter_by(id=self.id).delete()
         db.session.commit()
@@ -395,7 +420,7 @@ class Channels(Base):
 
     def get_videos_sorted_by_uploaded(self, descending: bool = True) -> list["Video"]:
         return sorted(self.videos, key=lambda v: v.uploaded, reverse=descending)
-    
+
     def get_videos_sorted_by_id(self, descending: bool = True) -> list["Video"]:
         return sorted(self.videos, key=lambda v: v.id, reverse=descending)
 
@@ -423,7 +448,8 @@ class Channels(Base):
         if self.platform.name.lower() != "youtube":
             return
 
-        latest_video_batches = get_all_videos_on_channel(self.platform_channel_id)
+        latest_video_batches = get_all_videos_on_channel(
+            self.platform_channel_id)
 
         video_id_set = set()
         for item in latest_video_batches:
@@ -479,7 +505,8 @@ class Channels(Base):
                 if existing_video is None:
                     videos_result.append(search_result)
 
-            videos_details = get_videos([item.id.videoId for item in videos_result])
+            videos_details = get_videos(
+                [item.id.videoId for item in videos_result])
             for video in videos_details:
                 tn = save_yt_thumbnail(video, force=True)
                 db.session.add(
@@ -497,21 +524,22 @@ class Channels(Base):
         elif (
             self.platform.name.lower() == "twitch" and self.platform_channel_id is not None
         ):
-            logger.info(f"Fetching latest videos for twitch channel: {self.name} - Process: {process}")
+            logger.info(
+                f"Fetching latest videos for twitch channel: {self.name} - Process: {process}")
             limit = 1 if process else 100
             twitch_latest_videos = asyncio.run(
                 get_latest_broadcasts(self.platform_channel_id, limit=limit)
             )
             for video_data in twitch_latest_videos:
-                logger.info(f"Processing video ref: {video_data.id} - got {len(twitch_latest_videos)} videos")
-                
+                logger.info(
+                    f"Processing video ref: {video_data.id} - got {len(twitch_latest_videos)} videos")
+
                 # Query full DB, not just self.videos
                 existing_video = (
                     db.session.query(Video)
                     .filter_by(platform_ref=video_data.id)
                     .one_or_none()
                 )
-
 
                 if existing_video is None:
                     tn = save_twitch_thumbnail(video_data, force=True)
@@ -533,8 +561,10 @@ class Channels(Base):
                 else:
                     try:
                         tn = save_twitch_thumbnail(video_data, force=True)
-                        logger.info(f"Updating existing video: {video_data.id}")
-                        existing_video.thumbnail = open(tn, "rb") # type: ignore
+                        logger.info(
+                            f"Updating existing video: {video_data.id}")
+                        existing_video.thumbnail = open(
+                            tn, "rb")  # type: ignore
                         existing_video.active = True
                         existing_video.title = video_data.title
                         existing_video.uploaded = video_data.created_at
@@ -549,27 +579,34 @@ class Channels(Base):
                                 if existing_video.audio is not None:
                                     existing_video.audio.file.object.delete()
                             except Exception as e:
-                                logger.error(f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
+                                logger.error(
+                                    f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
                             existing_video.audio = None
-                            existing_video.duration = parse_time(video_data.duration)
+                            existing_video.duration = parse_time(
+                                video_data.duration)
                         if process:
                             return existing_video.id
                         if existing_video.channel_id != self.id:
                             existing_video.channel_id = self.id
                         db.session.flush()
                     except Exception as e:
-                        logger.error(f"Failed to update video {video_data.id}, exception: {e}")
+                        logger.error(
+                            f"Failed to update video {video_data.id}, exception: {e}")
                         continue
         db.session.commit()
         return None
 
+
 class ChannelSettings(Base):
     __tablename__ = "channel_settings"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), unique=True)
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channels.id"), unique=True)
     content_queue_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    chat_collection_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    chat_collection_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=False)
     channel: Mapped["Channels"] = relationship(back_populates="settings")
+
 
 class Video(Base):
     __tablename__: str = "video"
@@ -577,7 +614,8 @@ class Video(Base):
     title: Mapped[str] = mapped_column(String(250))
     video_type: Mapped[VideoType] = mapped_column(Enum(VideoType))
     duration: Mapped[float] = mapped_column(Float())
-    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"), index=True)
+    channel_id: Mapped[int] = mapped_column(
+        ForeignKey("channels.id"), index=True)
     channel: Mapped["Channels"] = relationship()
     source_video_id: Mapped[int | None] = mapped_column(
         ForeignKey("video.id"), index=True, nullable=True
@@ -585,14 +623,17 @@ class Video(Base):
     source_video: Mapped["Video"] = relationship(
         back_populates="video_refs", remote_side="Video.id"
     )
-    video_refs: Mapped[list["Video"]] = relationship(back_populates="source_video")
-    last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    video_refs: Mapped[list["Video"]] = relationship(
+        back_populates="source_video")
+    last_updated: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now())
     uploaded: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, default=datetime(1970, 1, 1)
     )
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
     active: Mapped[bool] = mapped_column(Boolean(), default=True)
-    thumbnail: Mapped[File | None] = mapped_column(FileField(upload_storage="thumbnails"))
+    thumbnail: Mapped[File | None] = mapped_column(
+        FileField(upload_storage="thumbnails"))
     audio: Mapped[File | None] = mapped_column(FileField())
     transcriptions: Mapped[list["Transcription"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
@@ -617,21 +658,21 @@ class Video(Base):
         elif self.channel.platform.name.lower() == "twitch":
             return f"{url}/videos/{self.platform_ref}"
         raise ValueError(f"Could not generate url for video: {self.id}")
-        
+
     def get_url_with_timestamp(self, seconds_offset: float) -> str:
         """Generate a URL to the video at a specific timestamp.
-        
+
         Args:
             seconds_offset: Number of seconds from the start of the video
-            
+
         Returns:
             URL string with appropriate timestamp format for the platform
         """
         base_url = self.get_url()
-        
+
         # Ensure seconds_offset is positive and within video duration
         seconds_offset = max(0, min(seconds_offset, self.duration))
-        
+
         # Format timestamp based on platform
         if self.channel.platform.name.lower() == "youtube":
             # YouTube uses t=123s format (seconds)
@@ -641,14 +682,14 @@ class Video(Base):
             hours = int(seconds_offset // 3600)
             minutes = int((seconds_offset % 3600) // 60)
             seconds = int(seconds_offset % 60)
-            
+
             if hours > 0:
                 timestamp = f"{hours:02d}h{minutes:02d}m{seconds:02d}s"
             else:
                 timestamp = f"{minutes:02d}m{seconds:02d}s"
-                
+
             return f"{base_url}?t={timestamp}"
-        
+
         # Default fallback
         return base_url
 
@@ -668,19 +709,22 @@ class Video(Base):
                 result = get_videos([self.platform_ref])[0]
             except Exception as e:
                 res = get_videos([self.platform_ref])
-                logger.error(f"Failed to fetch details for video {self.id}: {e} - {res}")
+                logger.error(
+                    f"Failed to fetch details for video {self.id}: {e} - {res}")
                 return
             self.duration = result.contentDetails.duration.total_seconds()
             self.title = result.snippet.title
             self.uploaded = result.snippet.publishedAt
             tn = save_yt_thumbnail(result)
-            self.thumbnail = open(tn, "rb") # type: ignore
+            self.thumbnail = open(tn, "rb")  # type: ignore
             db.session.commit()
         if self.channel.platform.name.lower() == "twitch":
             try:
-                twitch_result = asyncio.run(get_twitch_video_by_ids([self.platform_ref]))[0]
+                twitch_result = asyncio.run(
+                    get_twitch_video_by_ids([self.platform_ref]))[0]
             except Exception as e:
-                logger.error(f"Failed to fetch details for video {self.id}: {e}")
+                logger.error(
+                    f"Failed to fetch details for video {self.id}: {e}")
                 return
             if self.duration != parse_time(twitch_result.duration):
                 logger.info(
@@ -692,14 +736,15 @@ class Video(Base):
                     if self.audio is not None:
                         self.audio.file.object.delete()
                 except Exception as e:
-                    logger.error(f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
+                    logger.error(
+                        f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
                 self.audio = None
                 self.duration = parse_time(twitch_result.duration)
             self.title = twitch_result.title
             self.uploaded = twitch_result.created_at
             # if self.thumbnail is None or force:
             tn = save_twitch_thumbnail(twitch_result)
-            self.thumbnail = open(tn, "rb") # type: ignore
+            self.thumbnail = open(tn, "rb")  # type: ignore
             db.session.commit()
 
     def download_transcription(self, force: bool = False):
@@ -759,13 +804,13 @@ class Video(Base):
             self.channel.platform.name.lower() == "twitch"
         ):
             audio = get_twitch_audio(self.get_url())
-            self.audio = open(audio, "rb") # type: ignore
+            self.audio = open(audio, "rb")  # type: ignore
             db.session.commit()
         if (
             self.channel.platform.name.lower() == "youtube"
         ):
             audio = get_yt_audio(self.get_url())
-            self.audio = open(audio, "rb") # type: ignore
+            self.audio = open(audio, "rb")  # type: ignore
             db.session.commit()
 
 
@@ -775,7 +820,8 @@ class Transcription(Base):
     video_id: Mapped[int] = mapped_column(ForeignKey("video.id"), index=True)
     video: Mapped["Video"] = relationship()
     language: Mapped[str] = mapped_column(String(250))
-    last_updated: Mapped[datetime] = mapped_column(DateTime, default=datetime.now())
+    last_updated: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now())
     file_extention: Mapped[str] = mapped_column(String(10))
     file: Mapped[File] = mapped_column(FileField())
     source: Mapped[TranscriptionSource] = mapped_column(
@@ -796,7 +842,8 @@ class Transcription(Base):
         self.processed = False
 
     def delete_attached_segments(self):
-        _ = db.session.query(Segments).filter_by(transcription_id=self.id).delete()
+        _ = db.session.query(Segments).filter_by(
+            transcription_id=self.id).delete()
         self.processed = False
         db.session.commit()
 
@@ -804,9 +851,11 @@ class Transcription(Base):
         return sorted(self.segments, key=lambda v: v.start, reverse=not descending)
 
     def process_transcription(self, force: bool = False):
-        logger.info(f"Task queued, parsing transcription for {self.id}, - {force}")
+        logger.info(
+            f"Task queued, parsing transcription for {self.id}, - {force}")
         if self.processed and force == False and len(self.segments) == 0:
-            logger.info(f"Transcription {self.id}, already processed.. skipping")
+            logger.info(
+                f"Transcription {self.id}, already processed.. skipping")
             return
         if force:
             self.reset()
@@ -816,91 +865,91 @@ class Transcription(Base):
             _ = self.parse_json()
         self.processed = True
         db.session.commit()
-        
+
     def to_srt(self) -> str:
         """
         Convert the transcription to SRT format.
-        
+
         Returns:
             str: The transcription in SRT format
         """
         if not self.processed:
             self.process_transcription()
-            
+
         segments = self.get_segments_sorted()
         srt_content = convert_to_srt(segments)
         return srt_content
-    
+
     def to_json(self) -> str:
         """
         Convert the transcription to JSON format.
-        
+
         Returns:
             str: The transcription in JSON format
         """
         if not self.processed:
             self.process_transcription()
-            
+
         segments = self.get_segments_sorted()
         json_segments = []
-        
+
         for segment in segments:
             json_segments.append({
                 "text": segment.text,
                 "start": segment.start,
                 "end": segment.end
             })
-            
+
         result = {
             "segments": json_segments,
             "language": self.language
         }
-        
+
         return json.dumps(result, ensure_ascii=False)
-    
+
     def save_as_srt(self, output_path: str | None = None) -> str:
         """
         Convert the transcription to SRT format and save it to a file.
-        
+
         Args:
             output_path: Path to save the SRT file. If None, a path will be generated
                         based on the video ID and transcription ID.
-                        
+
         Returns:
             str: Path to the saved SRT file
         """
         srt_content = self.to_srt()
-        
+
         if output_path is None:
             # Generate a filename based on video ID and transcription ID
             output_path = f"transcription_{self.video_id}_{self.id}.srt"
-        
+
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(srt_content)
-            
+
         logger.info(f"Saved SRT file to {output_path}")
         return output_path
-        
+
     def save_as_json(self, output_path: str | None = None) -> str:
         """
         Convert the transcription to JSON format and save it to a file.
-        
+
         Args:
             output_path: Path to save the JSON file. If None, a path will be generated
                         based on the video ID and transcription ID.
-                        
+
         Returns:
             str: Path to the saved JSON file
         """
         json_content = self.to_json()
-        
+
         if output_path is None:
             # Generate a filename based on video ID and transcription ID
             output_path = f"transcription_{self.video_id}_{self.id}.json"
-        
+
         with open(output_path, "w", encoding="utf-8") as f:
             f.write(json_content)
-            
+
         logger.info(f"Saved JSON file to {output_path}")
         return output_path
 
@@ -983,7 +1032,8 @@ class Transcription(Base):
 
 class Segments(Base):
     __tablename__: str = "segments"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     text_tsv: Mapped[TSVectorType] = mapped_column(
         TSVectorType("text", regconfig="simple"),
@@ -992,7 +1042,8 @@ class Segments(Base):
     )
     start: Mapped[int] = mapped_column(Integer, nullable=False)
     end: Mapped[int] = mapped_column(Integer, nullable=False)
-    previous_segment_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    previous_segment_id: Mapped[int | None] = mapped_column(
+        Integer, nullable=True)
     next_segment_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     transcription_id: Mapped[int] = mapped_column(
         ForeignKey("transcriptions.id"), index=True
@@ -1013,30 +1064,35 @@ class Segments(Base):
             return f"{self.transcription.video.get_url()}&t={shifted_time}"
         raise ValueError("Could not generate url with timestamp")
 
+
 class ChatLog(Base):
     __tablename__: str = "chatlogs"
     __table_args__ = (
         Index("ix_chatlogs_channel_timestamp", "channel_id", "timestamp"),
     )
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
     channel: Mapped["Channels"] = relationship()
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     username: Mapped[str] = mapped_column(String(256), nullable=False)
     message: Mapped[str] = mapped_column(String(600), nullable=False)
-    external_user_account_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    external_user_account_id: Mapped[int | None] = mapped_column(
+        Integer, nullable=True)
     imported: Mapped[bool] = mapped_column(Boolean, nullable=False)
-    
-    
+
+
 class ChannelEvent(Base):
     __tablename__ = "channel_events"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
     channel: Mapped["Channels"] = relationship()
 
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    raw_message: Mapped[str] = mapped_column(String(512), nullable=False) 
+    raw_message: Mapped[str] = mapped_column(String(512), nullable=False)
+
 
 class OAuth(OAuthConsumerMixin, Base):
     provider_user_id: Mapped[str] = mapped_column(
@@ -1045,9 +1101,11 @@ class OAuth(OAuthConsumerMixin, Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["Users"] = relationship()
 
+
 class ExternalUser(Base):
     __tablename__ = "external_users"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(600), nullable=False)
     external_account_id: Mapped[int | None] = mapped_column(
         BigInteger, unique=True, nullable=True
@@ -1055,14 +1113,20 @@ class ExternalUser(Base):
     account_type: Mapped[AccountSource] = mapped_column(Enum(AccountSource))
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
     ignore_weight_penalty: Mapped[bool] = mapped_column(Boolean, default=False)
-    submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="user")
-    weights: Mapped[list["ExternalUserWeight"]] = relationship(back_populates="external_user")
-    
+    submissions: Mapped[list["ContentQueueSubmission"]
+                        ] = relationship(back_populates="user")
+    weights: Mapped[list["ExternalUserWeight"]] = relationship(
+        back_populates="external_user")
+
+
 class ExternalUserWeight(Base):
     __tablename__ = "external_user_weights"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    external_user_id: Mapped[int] = mapped_column(ForeignKey("external_users.id"))
-    external_user: Mapped["ExternalUser"] = relationship(back_populates="weights")
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
+    external_user_id: Mapped[int] = mapped_column(
+        ForeignKey("external_users.id"))
+    external_user: Mapped["ExternalUser"] = relationship(
+        back_populates="weights")
     weight: Mapped[float] = mapped_column(Float, nullable=False)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
     broadcaster: Mapped["Broadcaster"] = relationship()
@@ -1070,17 +1134,21 @@ class ExternalUserWeight(Base):
     banned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     unban_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+
 class Content(Base):
     __tablename__ = "content"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     url: Mapped[str] = mapped_column(Text, nullable=False)
     stripped_url: Mapped[str] = mapped_column(Text, nullable=False)
     title: Mapped[str] = mapped_column(String(256), nullable=False)
     duration: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    thumbnail_url: Mapped[str | None] = mapped_column(String(1000), nullable=True)
+    thumbnail_url: Mapped[str | None] = mapped_column(
+        String(1000), nullable=True)
     channel_name: Mapped[str] = mapped_column(String(500), nullable=False)
     author: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    created_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, server_default=None)
+    created_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True, server_default=None)
 
     def get_platform(self):
         return PlatformRegistry.get_handler_by_url(self.url).platform_name
@@ -1088,35 +1156,41 @@ class Content(Base):
     def get_video_timestamp_url(self, timestamp: int):
         return PlatformRegistry.get_url_with_timestamp(self.url, timestamp)
 
+
 class ContentQueue(Base):
     __tablename__ = "content_queue"
     __table_args__ = (
-        UniqueConstraint("broadcaster_id", "content_id", name="uq_broadcaster_content"),
+        UniqueConstraint("broadcaster_id", "content_id",
+                         name="uq_broadcaster_content"),
     )
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
     broadcaster: Mapped["Broadcaster"] = relationship()
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
-    content_timestamp: Mapped[int | None] = mapped_column(Integer, nullable=True, server_default=None)
+    content_timestamp: Mapped[int | None] = mapped_column(
+        Integer, nullable=True, server_default=None)
     watched: Mapped[bool] = mapped_column(Boolean, default=False)
-    watched_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    watched_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True)
     skipped: Mapped[bool] = mapped_column(Boolean, default=False)
-    submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="content_queue")
+    submissions: Mapped[list["ContentQueueSubmission"]
+                        ] = relationship(back_populates="content_queue")
     score: Mapped[float] = mapped_column(Float, default=0, server_default='0')
-    
+
     @property
     def total_weight(self) -> float:
         """Calculate the total weight of all related ContentQueueSubmission entries.
         This is a calculated property and not stored in the database.
-        
+
         Returns:
             float: Sum of all submission weights, or 0 if there are no submissions
         """
         if not self.submissions:
             return 0.0
         return sum(submission.weight for submission in self.submissions)
-    
+
     def get_video_timestamp_url(self) -> str:
         if self.content_timestamp is None:
             raise ValueError("No timestamp on content")
@@ -1130,20 +1204,20 @@ class ContentQueue(Base):
     def get_vod_timestamp_url(self, time_shift: float = 60) -> str | None:
         """Find the broadcaster's video that was live when this clip was marked as watched
         and return a URL with the timestamp.
-        
+
         The function finds the closest previous watched item with the same broadcaster_id
         and uses that time for the timestamp URL. If the time difference between this item
         and the previous one is longer than 90 seconds + video duration, it uses that instead.
-        
+
         Args:
             time_shift: Default time shift in seconds (used as fallback if no previous item found)
-            
+
         Returns:
             URL string with timestamp or None if no matching video found
         """
         if not self.watched or not self.watched_at:
             return None
-        
+
         # Find the closest previous watched item with the same broadcaster_id
         previous_item = db.session.query(ContentQueue).filter(
             ContentQueue.broadcaster_id == self.broadcaster_id,
@@ -1154,16 +1228,17 @@ class ContentQueue(Base):
         if previous_item and previous_item.watched_at:
             # Calculate time difference in seconds between current and previous item
             content_duration = self.content.duration or 0
-            
+
             # Subtract content duration from the time difference
-            time_diff = (self.watched_at - previous_item.watched_at).total_seconds() 
-            
+            time_diff = (self.watched_at -
+                         previous_item.watched_at).total_seconds()
+
             # Ensure time_diff is at least 0
             time_diff = max(0, time_diff)
-            
+
             # Use the minimum of the actual time difference and 90 seconds
             time_shift = min(time_diff, 90 + content_duration)
-            
+
         # Find videos from this broadcaster's channels that were live when the clip was watched
         for channel in self.broadcaster.channels:
             # Look for videos that might include this timestamp
@@ -1173,39 +1248,49 @@ class ContentQueue(Base):
                 Video.channel_id == channel.id,
                 Video.video_type == VideoType.VOD  # Ensure it's a VOD
             ).all()
-            
+
             for video in candidate_videos:
                 # Check if video was live when clip was watched
-                video_end_time = video.uploaded + timedelta(seconds=video.duration)
+                video_end_time = video.uploaded + \
+                    timedelta(seconds=video.duration)
                 if video.uploaded <= self.watched_at <= video_end_time:
                     # Calculate seconds from start of video to when clip was watched
-                    seconds_offset = (self.watched_at - video.uploaded - timedelta(seconds=time_shift)).total_seconds()
-                    
+                    seconds_offset = (
+                        self.watched_at - video.uploaded - timedelta(seconds=time_shift)).total_seconds()
+
                     # Generate URL with timestamp
                     return video.get_url_with_timestamp(seconds_offset)
-                
+
         return None
-    
+
+
 class ContentQueueSubmissionSource(enum.Enum):
-    Discord = "discord" # Comes from a message in a linked channel based on broadcaster settings
-    Twitch = "twitch" # Comes from a clip submission in twitch
-    Web = "web" # Comes from a clip submission in web interface
+    # Comes from a message in a linked channel based on broadcaster settings
+    Discord = "discord"
+    Twitch = "twitch"  # Comes from a clip submission in twitch
+    Web = "web"  # Comes from a clip submission in web interface
+
 
 class ContentQueueSubmission(Base):
     __tablename__ = "content_queue_submissions"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    content_queue_id: Mapped[int] = mapped_column(ForeignKey("content_queue.id"))
-    content_queue: Mapped["ContentQueue"] = relationship(back_populates="submissions")
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
+    content_queue_id: Mapped[int] = mapped_column(
+        ForeignKey("content_queue.id"))
+    content_queue: Mapped["ContentQueue"] = relationship(
+        back_populates="submissions")
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
     user_id: Mapped[int] = mapped_column(ForeignKey("external_users.id"))
     user: Mapped["ExternalUser"] = relationship()
     submitted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    submission_source_type: Mapped[ContentQueueSubmissionSource] = mapped_column(Enum(ContentQueueSubmissionSource), nullable=False)
-    submission_source_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    submission_source_type: Mapped[ContentQueueSubmissionSource] = mapped_column(
+        Enum(ContentQueueSubmissionSource), nullable=False)
+    submission_source_id: Mapped[int] = mapped_column(
+        BigInteger, nullable=False)
     weight: Mapped[float] = mapped_column(Float, nullable=False)
-    user_comment: Mapped[str | None] = mapped_column(String(256), nullable=True)
-
+    user_comment: Mapped[str | None] = mapped_column(
+        String(256), nullable=True)
 
 
 class ContentQueueSettings(Base):
@@ -1213,7 +1298,8 @@ class ContentQueueSettings(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
     broadcaster: Mapped["Broadcaster"] = relationship()
-    prefer_shorter_content: Mapped[bool] = mapped_column(Boolean, default=False)
+    prefer_shorter_content: Mapped[bool] = mapped_column(
+        Boolean, default=False)
     view_count_min: Mapped[int] = mapped_column(Integer, default=0)
     allowed_platforms: Mapped[str] = mapped_column(Text, default="")
 
@@ -1225,13 +1311,13 @@ class ContentQueueSettings(Base):
             from app.platforms.handler import PlatformRegistry
             return list(PlatformRegistry._handlers.keys())
         return [p.strip() for p in self.allowed_platforms.split(",") if p.strip()]
-    
+
     def is_platform_allowed(self, platform: str) -> bool:
         """Check if a platform is allowed.
-        
+
         Args:
             platform: Platform name to check
-            
+
         Returns:
             True if platform is allowed or if no platforms are specified (all allowed),
             False otherwise
@@ -1239,16 +1325,14 @@ class ContentQueueSettings(Base):
         if not self.allowed_platforms:
             return True  # All platforms allowed
         return platform in self.get_allowed_platforms
-    
+
     def set_allowed_platforms(self, platforms: list[str]) -> None:
         """Set the allowed platforms list.
-        
+
         Args:
             platforms: List of platform names to allow
-            
+
         Note: 
             Empty list means all platforms are allowed
         """
         self.allowed_platforms = ",".join(platforms) if platforms else ""
-    
-    

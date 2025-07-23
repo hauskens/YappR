@@ -1,5 +1,5 @@
 from flask import Blueprint, redirect, request, abort
-from flask_login import current_user, login_required # type: ignore
+from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models.db import db, Transcription, PermissionType
 from app.retrievers import get_transcription
@@ -7,7 +7,9 @@ from io import BytesIO
 from flask import send_file
 from app.logger import logger
 
-transcription_blueprint = Blueprint('transcription', __name__, url_prefix='/transcription', template_folder='templates', static_folder='static')
+transcription_blueprint = Blueprint(
+    'transcription', __name__, url_prefix='/transcription', template_folder='templates', static_folder='static')
+
 
 @transcription_blueprint.route("/<int:transcription_id>/download")
 @login_required
@@ -21,6 +23,7 @@ def download_transcription(transcription_id: int):
         download_name=f"{transcription.id}.{transcription.file_extention}",
     )
 
+
 @transcription_blueprint.route("/<int:transcription_id>/download_srt")
 @login_required
 @require_permission()
@@ -32,6 +35,7 @@ def download_transcription_srt(transcription_id: int):
         mimetype="text/plain",
         download_name=f"{transcription.id}.srt",
     )
+
 
 @transcription_blueprint.route("/<int:transcription_id>/download_json")
 @login_required
@@ -45,14 +49,17 @@ def download_transcription_json(transcription_id: int):
         download_name=f"{transcription.id}.json",
     )
 
+
 @transcription_blueprint.route("/<int:transcription_id>/purge")
 @login_required
 @require_permission(permissions=PermissionType.Admin)
 def purge_transcription(transcription_id: int):
-    logger.info("Purging transcription", extra={"transcription_id": transcription_id, "user_id": current_user.id})
+    logger.info("Purging transcription", extra={
+                "transcription_id": transcription_id, "user_id": current_user.id})
     transcription = get_transcription(transcription_id)
     transcription.reset()
     return redirect(request.referrer)
+
 
 @transcription_blueprint.route("/<int:transcription_id>/delete")
 @login_required
@@ -60,13 +67,15 @@ def purge_transcription(transcription_id: int):
 def delete_transcription(transcription_id: int):
     transcription = get_transcription(transcription_id)
     broadcaster_id = transcription.video.channel.broadcaster_id
-    
+
     # Custom permission check since we need to check multiple conditions
     if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]) or current_user.has_broadcaster_id(broadcaster_id):
-        logger.info("Deleting transcription", extra={"transcription_id": transcription_id, "video_id": transcription.video_id, "user_id": current_user.id})
+        logger.info("Deleting transcription", extra={
+                    "transcription_id": transcription_id, "video_id": transcription.video_id, "user_id": current_user.id})
         transcription.delete()
         db.session.commit()
         return redirect(request.referrer)
     else:
-        logger.error("User does not have permission to delete transcription", extra={"transcription_id": transcription_id, "video_id": transcription.video_id, "user_id": current_user.id})
+        logger.error("User does not have permission to delete transcription", extra={
+                     "transcription_id": transcription_id, "video_id": transcription.video_id, "user_id": current_user.id})
         return abort(403)

@@ -1,8 +1,8 @@
 
-from flask_dance.contrib.twitch import make_twitch_blueprint # type: ignore
-from flask_dance.consumer.storage.sqla import SQLAlchemyStorage # type: ignore
-from flask_dance.consumer import oauth_authorized # type: ignore
-from flask_login import current_user, login_user # type: ignore
+from flask_dance.contrib.twitch import make_twitch_blueprint  # type: ignore
+from flask_dance.consumer.storage.sqla import SQLAlchemyStorage  # type: ignore
+from flask_dance.consumer import oauth_authorized  # type: ignore
+from flask_login import current_user, login_user  # type: ignore
 from ..models.db import db, OAuth, Users, AccountSource
 from ..models.config import config
 from sqlalchemy.exc import NoResultFound
@@ -16,6 +16,7 @@ blueprint = make_twitch_blueprint(
     scope=['user:read:moderated_channels'],
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user)
 )
+
 
 @oauth_authorized.connect_via(blueprint)
 def handle_login(blueprint, token):
@@ -33,13 +34,15 @@ def handle_login(blueprint, token):
     try:
         oauth = query.one()
     except NoResultFound:
-        oauth = OAuth(provider=blueprint.name, provider_user_id=user_id, token=token)
+        oauth = OAuth(provider=blueprint.name,
+                      provider_user_id=user_id, token=token)
 
     if oauth.user:
         _ = login_user(oauth.user, remember=True, duration=timedelta(days=30))
     else:
 
-        logger.info(f"checking for existing user with id: {info['data'][0]['id']}")
+        logger.info(
+            f"checking for existing user with id: {info['data'][0]['id']}")
         existing_user = db.session.query(Users).filter_by(
             external_account_id=str(info["data"][0]["id"])
         ).one_or_none()
@@ -56,13 +59,16 @@ def handle_login(blueprint, token):
             db.session.commit()
             _ = login_user(u, remember=True, duration=timedelta(days=30))
         else:
-            logger.info(f"User {existing_user.name} already exists, logging in")
+            logger.info(
+                f"User {existing_user.name} already exists, logging in")
             oauth.user = existing_user
             db.session.add(oauth)
             db.session.commit()
-            _ = login_user(existing_user, remember=True, duration=timedelta(days=30))
+            _ = login_user(existing_user, remember=True,
+                           duration=timedelta(days=30))
     # Disable Flask-Dance's default behavior for saving the OAuth token
     return False
+
 
 blueprint_bot = make_twitch_blueprint(
     client_id=config.twitch_client_id,
@@ -88,7 +94,8 @@ def handle_login_bot(blueprint, token):
     try:
         oauth = query.one()
     except NoResultFound:
-        oauth = OAuth(provider='twitch_bot', provider_user_id=user_id, token=token)
+        oauth = OAuth(provider='twitch_bot',
+                      provider_user_id=user_id, token=token)
 
     try:
         query = db.session.query(Users).filter_by(
@@ -101,10 +108,9 @@ def handle_login_bot(blueprint, token):
             external_account_id=str(info["data"][0]["id"]),
             account_type=AccountSource.Twitch,
             avatar_url=info["data"][0]["profile_image_url"],
-    )
+        )
     oauth.user = u
     db.session.add_all([u, oauth])
     db.session.commit()
     # Disable Flask-Dance's default behavior for saving the OAuth token
     return False
-

@@ -36,7 +36,7 @@ dependencies = [
     "pytimeparse>=1.1.8",
     "redis>=5.2.1",
     "retry>=0.9.2",
-    "sqlalchemy>=2.0.40",
+    "sqlalchemy[mypy]>=2.0.40",
     "sqlalchemy-file>=0.6.0",
     "sqlalchemy-utils>=0.41.2",
     "testcontainers[postgresql]>=4.10.0",
@@ -66,4 +66,7 @@ bot = [
 [tool.mypy]
 exclude = [
     "test_db",
+]
+plugins = [
+    "sqlalchemy.ext.mypy.plugin",
 ]

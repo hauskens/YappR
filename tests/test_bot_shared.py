@@ -168,8 +168,7 @@ class TestAddToContentQueue:
 
     @pytest.mark.asyncio
     @patch('bot.shared.get_platform')
-    @patch('app.platforms.handler.PlatformRegistry.get_handler_by_url')
-    async def test_add_to_content_queue_new_content(self, mock_fetch_data, mock_get_platform, mock_session, mock_platform_data):
+    async def test_add_to_content_queue_new_content(self, mock_fetch_data, mock_session, mock_platform_data):
         """Test adding new content to the queue"""
         # Setup mocks
         url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -179,7 +178,6 @@ class TestAddToContentQueue:
         submission_source = ContentQueueSubmissionSource.Twitch
         submission_source_id = 1
         
-        mock_get_platform.return_value = "youtube"
         mock_handler = MagicMock()
         mock_handler.fetch_data = AsyncMock(return_value = ContentDict(
             url=url,
@@ -233,8 +231,7 @@ class TestAddToContentQueue:
 
     @pytest.mark.asyncio
     @patch('bot.shared.get_platform')
-    @patch('app.platforms.handler.PlatformRegistry.get_handler_by_url')
-    async def test_add_to_content_queue_existing_content(self, mock_fetch_data, mock_get_platform, mock_session):
+    async def test_add_to_content_queue_existing_content(self, mock_fetch_data, mock_session):
         """Test adding existing content to the queue"""
         # Setup mocks
         url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -244,7 +241,6 @@ class TestAddToContentQueue:
         submission_source = ContentQueueSubmissionSource.Twitch
         submission_source_id = 1
         
-        mock_get_platform.return_value = "youtube"
         
         # Mock existing content and queue item
         existing_content = MagicMock(spec=Content)
@@ -322,8 +318,7 @@ class TestAddToContentQueue:
 
     @pytest.mark.asyncio
     @patch('bot.shared.get_platform')
-    @patch('app.platforms.handler.PlatformRegistry.get_handler_by_url')
-    async def test_add_to_content_queue_disallowed_platform(self, mock_fetch_data, mock_get_platform, mock_session):
+    async def test_add_to_content_queue_disallowed_platform(self, mock_fetch_data, mock_session):
         """Test adding existing content to the queue"""
         # Setup mocks
         url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
@@ -332,8 +327,6 @@ class TestAddToContentQueue:
         external_user_id = "987654321"
         submission_source = ContentQueueSubmissionSource.Twitch
         submission_source_id = 1
-        
-        mock_get_platform.return_value = "youtube"
         
         # Mock existing content and queue item
         existing_content = MagicMock(spec=Content)

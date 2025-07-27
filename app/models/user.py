@@ -23,13 +23,13 @@ class Users(Base, UserMixin):
         ForeignKey("broadcaster.id"))
     banned: Mapped[bool] = mapped_column(Boolean, default=False)
     banned_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    permissions: Mapped[list["Permissions"]] = relationship(
+    permissions: Mapped[list["Permissions"]] = relationship(  # type: ignore[name-defined]
         back_populates="user", cascade="all, delete-orphan"
     )
-    channel_moderators: Mapped[list["ChannelModerator"]] = relationship(
+    channel_moderators: Mapped[list["ChannelModerator"]] = relationship(  # type: ignore[name-defined]
         back_populates="user", cascade="all, delete-orphan"
     )
-    oauth: Mapped[list["OAuth"]] = relationship(
+    oauth: Mapped[list["OAuth"]] = relationship(  # type: ignore[name-defined]
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -162,6 +162,7 @@ class Users(Base, UserMixin):
 #                 return user.broadcaster_type
 #         return "regular"
 
+
 class ExternalUser(Base):
     __tablename__ = "external_users"
     id: Mapped[int] = mapped_column(
@@ -173,7 +174,7 @@ class ExternalUser(Base):
     account_type: Mapped[AccountSource] = mapped_column(Enum(AccountSource))
     disabled: Mapped[bool] = mapped_column(Boolean, default=False)
     ignore_weight_penalty: Mapped[bool] = mapped_column(Boolean, default=False)
-    submissions: Mapped[list["ContentQueueSubmission"]
+    submissions: Mapped[list["ContentQueueSubmission"]  # type: ignore[name-defined]
                         ] = relationship(back_populates="user")
     weights: Mapped[list["ExternalUserWeight"]] = relationship(
         back_populates="external_user")
@@ -189,7 +190,7 @@ class ExternalUserWeight(Base):
         back_populates="weights")
     weight: Mapped[float] = mapped_column(Float, nullable=False)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    broadcaster: Mapped["Broadcaster"] = relationship()
+    broadcaster: Mapped["Broadcaster"] = relationship() # type: ignore[name-defined]
     banned: Mapped[bool] = mapped_column(Boolean, default=False)
     banned_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     unban_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

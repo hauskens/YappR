@@ -17,7 +17,7 @@ class ContentQueueSubmission(Base):
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
     user_id: Mapped[int] = mapped_column(ForeignKey("external_users.id"))
-    user: Mapped["ExternalUser"] = relationship()
+    user: Mapped["ExternalUser"] = relationship() # type: ignore[name-defined]
     submitted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     submission_source_type: Mapped[ContentQueueSubmissionSource] = mapped_column(
         Enum(ContentQueueSubmissionSource), nullable=False)
@@ -58,7 +58,7 @@ class ContentQueue(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    broadcaster: Mapped["Broadcaster"] = relationship()
+    broadcaster: Mapped["Broadcaster"] = relationship() # type: ignore[name-defined]
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
     content_timestamp: Mapped[int | None] = mapped_column(

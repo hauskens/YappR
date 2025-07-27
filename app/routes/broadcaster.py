@@ -5,11 +5,11 @@ from app.models.platform import Platforms
 from app.models.video import VideoType
 from app.models.enums import PermissionType, AccountSource
 from app.models.broadcaster import Broadcaster
-from app.models.channel import ChannelSettings
+from app.models.channel import ChannelSettings, Channels, ChannelModerator
 from app.models.broadcaster import BroadcasterSettings
 from app.models.content_queue import ContentQueue, ContentQueueSubmission, ContentQueueSubmissionSource, Content
 from app.models.user import ExternalUser
-from app.retrievers import get_broadcaster, get_broadcasters, get_platforms
+from app.services.broadcaster import BroadcasterService
 from app.cache import cache, make_cache_key
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
@@ -24,7 +24,7 @@ broadcaster_blueprint = Blueprint(
 @require_permission()
 @cache.memoize(timeout=60)
 def broadcasters():
-    broadcasters = get_broadcasters()
+    broadcasters = BroadcasterService.get_all()
     logger.info("Loaded broadcasters.html")
     return render_template("broadcasters.html", broadcasters=broadcasters)
 
@@ -34,9 +34,8 @@ def broadcasters():
 @require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", permissions=PermissionType.Admin)
 def broadcaster_delete(broadcaster_id: int):
     logger.warning("Attempting to delete broadcaster %s", broadcaster_id)
-    broadcaster = get_broadcaster(broadcaster_id)
     logger.info("Deleting broadcaster %s", broadcaster_id)
-    broadcaster.delete()
+    BroadcasterService.delete(broadcaster_id)
     return redirect(url_for("broadcasters"))
 
 
@@ -71,7 +70,7 @@ def broadcaster_create():
                     "Denied adding broadcaster %s - no twitch channel selected", name)
                 return render_template("broadcaster_add.html", form=request.form)
 
-            existing_broadcasters = get_broadcasters()
+            existing_broadcasters = BroadcasterService.get_all()
             for broadcaster in existing_broadcasters:
                 if broadcaster.name.lower() == name.lower():
                     flash("This broadcaster already exists", "error")
@@ -188,7 +187,7 @@ def broadcaster_create():
 @require_permission()
 @cache.cached(timeout=10, make_cache_key=make_cache_key)
 def broadcaster_edit(id: int):
-    broadcaster = get_broadcaster(id)
+    broadcaster = BroadcasterService.get_by_id(id)
     logger.info("Loaded broadcaster_edit.html", extra={
                 "broadcaster_id": broadcaster.id})
     return render_template(

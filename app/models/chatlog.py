@@ -11,7 +11,7 @@ class ChatLog(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True)
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
-    channel: Mapped["Channels"] = relationship()
+    channel: Mapped["Channels"] = relationship() # type: ignore[name-defined]
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     username: Mapped[str] = mapped_column(String(256), nullable=False)
     message: Mapped[str] = mapped_column(String(600), nullable=False)

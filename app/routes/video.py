@@ -2,11 +2,8 @@ from flask import Blueprint, render_template, redirect, request, url_for, abort,
 from app.permissions import require_permission, require_api_key
 from app.logger import logger
 from app.models import db
-from app.models.video import Video
-from app.models.enums import PermissionType
-from app.models.chatlog import ChatLog
+from app.models import PermissionType, ChatLog
 from flask_login import login_required, current_user  # type: ignore
-from app.retrievers import get_video
 from app.cache import cache, make_cache_key
 from app.rate_limit import limiter, rate_limit_exempt
 from datetime import timedelta
@@ -15,7 +12,8 @@ from flask import send_file
 import mimetypes
 import math
 from sqlalchemy import or_
-from typing import Dict, List, Any
+from typing import Dict, Any
+from app.services import VideoService
 
 video_blueprint = Blueprint('video', __name__, url_prefix='/video',
                             template_folder='templates', static_folder='static')
@@ -26,8 +24,8 @@ video_blueprint = Blueprint('video', __name__, url_prefix='/video',
 @require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
 def video_fetch_details(video_id: int):
     logger.info("Fetching details for video", extra={"video_id": video_id})
-    video = get_video(video_id)
-    video.fetch_details()
+    video = VideoService.get_by_id(video_id)
+    VideoService.fetch_details(video)
     return redirect(request.referrer)
 
 
@@ -37,19 +35,19 @@ def video_fetch_details(video_id: int):
 def video_fetch_transcriptions(video_id: int):
     logger.info("Fetching transcriptions for video",
                 extra={"video_id": video_id})
-    video = get_video(video_id)
-    video.download_transcription(force=True)
+    video = VideoService.get_by_id(video_id)
+    VideoService.download_transcription(video)
     return redirect(request.referrer)
 
 
-@video_blueprint.route("/<int:video_id>/archive")
-@login_required
-@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
-def video_archive(video_id: int):
-    logger.info("Archiving video", extra={"video_id": video_id})
-    video = get_video(video_id)
-    video.archive()
-    return redirect(request.referrer)
+# @video_blueprint.route("/<int:video_id>/archive")
+# @login_required
+# @require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+# def video_archive(video_id: int):
+#     logger.info("Archiving video", extra={"video_id": video_id})
+#     video = VideoService.get_by_id(video_id)
+#     video.archive()
+#     return redirect(request.referrer)
 
 
 @video_blueprint.route("/<int:video_id>/delete")
@@ -58,9 +56,9 @@ def video_archive(video_id: int):
 def video_delete(video_id: int):
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
         logger.warning("Deleting video", extra={"video_id": video_id})
-        video = get_video(video_id)
+        video = VideoService.get_by_id(video_id)
         channel_id = video.channel_id
-        video.delete()
+        VideoService.delete_video(video)
         return redirect(url_for("channel_get_videos", channel_id=channel_id))
     else:
         return "You do not have access", 403
@@ -71,7 +69,7 @@ def video_delete(video_id: int):
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 @cache.cached(timeout=10, make_cache_key=make_cache_key)
 def video_edit(video_id: int):
-    video = get_video(video_id)
+    video = VideoService.get_by_id(video_id)
     return render_template(
         "video_edit.html",
         transcriptions=video.transcriptions,
@@ -85,7 +83,7 @@ def video_edit(video_id: int):
 # @cache.cached(timeout=600)
 def video_chatlogs(video_id: int):
     logger.info("Getting chatlogs for video", extra={"video_id": video_id})
-    video = get_video(video_id)
+    video = VideoService.get_by_id(video_id)
 
     search = request.form.get("chatSearchInput")
     user_filter = request.form.get("userFilter")
@@ -122,7 +120,7 @@ def video_category_chatlogs(video_id: int):
     """Return chat logs based on tag categories"""
     logger.info("Getting category chatlogs for video",
                 extra={"video_id": video_id})
-    video = get_video(video_id)
+    video = VideoService.get_by_id(video_id)
 
     # Get categories from JSON request data
     json_data = request.json or {}
@@ -204,8 +202,8 @@ def video_category_chatlogs(video_id: int):
 def parse_transcriptions(video_id: int):
     logger.info("Requesting transcriptions to be parsed",
                 extra={"video_id": video_id})
-    video = get_video(video_id)
-    video.process_transcriptions(force=True)
+    video = VideoService.get_by_id(video_id)
+    VideoService.process_transcriptions(video, force=True)
     return redirect(request.referrer)
 
 
@@ -214,7 +212,7 @@ def parse_transcriptions(video_id: int):
 @require_permission(permissions=[PermissionType.Admin])
 def serve_debug_audio(video_id: int):
     try:
-        video = get_video(video_id)
+        video = VideoService.get_by_id(video_id)
         if not video or not video.audio:
             abort(404, description="Audio not found")
 
@@ -241,7 +239,7 @@ def serve_debug_audio(video_id: int):
 @require_api_key
 def serve_audio(video_id: int):
     try:
-        video = get_video(video_id)
+        video = VideoService.get_by_id(video_id)
         if not video or not video.audio:
             abort(404, description="Audio not found")
 

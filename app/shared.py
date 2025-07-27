@@ -44,7 +44,7 @@ def convert_to_srt(data):
 # Helper function to format timestamp for SRT
 
 
-def format_timestamp(seconds):
+def format_timestamp_to_srt_timestamp(seconds):
     """
     Format seconds to SRT timestamp format (HH:MM:SS,mmm).
 

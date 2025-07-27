@@ -37,9 +37,6 @@ class Video(Base):
         back_populates="video", cascade="all, delete-orphan"
     )
 
-#     def get_date_str(self) -> str:
-#         return f"{self.uploaded.strftime("%d.%m.%Y")}"
-
 #     def delete(self):
 #         for t in self.transcriptions:
 #             t.delete()
@@ -101,49 +98,6 @@ class Video(Base):
 #                     )
 #                 db.session.commit()
 
-#     def fetch_details(self, force: bool = True):
-#         if self.channel.platform.name.lower() == "youtube":
-#             try:
-#                 result = get_videos([self.platform_ref])[0]
-#             except Exception as e:
-#                 res = get_videos([self.platform_ref])
-#                 logger.error(
-#                     f"Failed to fetch details for video {self.id}: {e} - {res}")
-#                 return
-#             self.duration = result.contentDetails.duration.total_seconds()
-#             self.title = result.snippet.title
-#             self.uploaded = result.snippet.publishedAt
-#             tn = save_yt_thumbnail(result)
-#             self.thumbnail = open(tn, "rb")  # type: ignore
-#             db.session.commit()
-#         if self.channel.platform.name.lower() == "twitch":
-#             try:
-#                 twitch_result = asyncio.run(
-#                     get_twitch_video_by_ids([self.platform_ref]))[0]
-#             except Exception as e:
-#                 logger.error(
-#                     f"Failed to fetch details for video {self.id}: {e}")
-#                 return
-#             if self.duration != parse_time(twitch_result.duration):
-#                 logger.info(
-#                     f"Duration changed for video {self.platform_ref}: {self.duration} -> {parse_time(twitch_result.duration)}"
-#                 )
-#                 for transcription in self.transcriptions:
-#                     transcription.delete()
-#                 try:
-#                     if self.audio is not None:
-#                         self.audio.file.object.delete()
-#                 except Exception as e:
-#                     logger.error(
-#                         f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
-#                 self.audio = None
-#                 self.duration = parse_time(twitch_result.duration)
-#             self.title = twitch_result.title
-#             self.uploaded = twitch_result.created_at
-#             # if self.thumbnail is None or force:
-#             tn = save_twitch_thumbnail(twitch_result)
-#             self.thumbnail = open(tn, "rb")  # type: ignore
-#             db.session.commit()
 
 #     def download_transcription(self, force: bool = False):
 #         if force:

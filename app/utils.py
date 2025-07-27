@@ -78,6 +78,29 @@ def get_sec(time_str: str) -> int:
 
     return total_seconds
 
+def format_duration_to_srt_timestamp(seconds):
+    """
+    Format seconds to SRT timestamp format (HH:MM:SS,mmm).
+
+    Args:
+        seconds: Time in seconds (can be a float)
+
+    Returns:
+        str: Formatted timestamp
+    """
+    # Convert to string with 3 decimal places and parse manually to avoid rounding errors
+    time_str = f"{seconds:.3f}"
+    whole, frac = time_str.split('.')
+
+    milliseconds = frac
+
+    total_seconds = int(whole)
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds}"
+
 
 def save_yt_thumbnail(video: VideoDetails, force: bool = False) -> str:
     path = config.cache_location + video.id

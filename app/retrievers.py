@@ -16,11 +16,8 @@ from .tasks import (
 from datetime import datetime
 from app.logger import logger
 from app.cache import cache, make_cache_key
+from .services.user import UserService
 
-
-
-def get_channel(channel_id: int) -> Channels:
-    return db.session.execute(select(Channels).filter_by(id=channel_id)).scalars().one()
 
 
 def get_platforms() -> Sequence[Platforms] | None:
@@ -28,45 +25,19 @@ def get_platforms() -> Sequence[Platforms] | None:
 
 
 def get_video(video_id: int) -> Video:
-    return db.session.execute(select(Video).filter_by(id=video_id)).scalars().one()
-
-
-def get_video_by_channel(channel_id: int) -> Sequence[Video] | None:
-    return (
-        db.session.execute(
-            select(Video)
-            .filter_by(channel_id=channel_id)
-            .order_by(Video.uploaded.desc())
-        )
-        .scalars()
-        .all()
-    )
+    return VideoService.get_by_id(video_id)
 
 
 def get_video_by_ref(video_platform_ref: str) -> Video | None:
-    return (
-        db.session.execute(select(Video).filter_by(
-            platform_ref=video_platform_ref))
-        .scalars()
-        .one_or_none()
-    )
+    return VideoService.get_by_platform_ref(video_platform_ref)
 
 
 def get_transcriptions_by_video(video_id: int) -> Sequence[Transcription] | None:
-    return (
-        db.session.execute(select(Transcription).filter_by(video_id=video_id))
-        .scalars()
-        .all()
-    )
+    return TranscriptionService.get_by_video_id(video_id)
 
 
 def get_transcription(transcription_id: int) -> Transcription:
-    return (
-        db.session.execute(
-            select(Transcription).filter_by(id=transcription_id))
-        .scalars()
-        .one()
-    )
+    return TranscriptionService.get_by_id(transcription_id)
 
 
 def get_transcriptions_on_channels(
@@ -97,12 +68,12 @@ def get_transcriptions_on_channels_daterange(
 
 
 def get_segment_by_id(segment_id: int) -> Segments:
-    return db.session.query(Segments).filter_by(id=segment_id).one()
+    return SegmentService.get_by_id(segment_id)
 
 
 
 def get_users() -> list[Users]:
-    return db.session.query(Users).all()
+    return UserService.get_all()
 
 
 def get_bots() -> list[OAuth]:
@@ -139,26 +110,6 @@ def get_total_low_quality_transcribed_video_duration() -> int:
     return total_duration or 0
 
 
-def get_stats_videos_with_audio(channel_id: int) -> int:
-    return (
-        db.session.query(func.count(func.distinct(Video.id)))
-        .filter(Video.audio.is_not(None), Video.channel_id == channel_id)
-        .scalar() or 0
-    )
-
-
-def get_stats_videos_with_good_transcription(channel_id: int) -> int:
-    return (
-        db.session.query(func.count(func.distinct(Video.id)))
-        .filter(
-            Video.transcriptions.any(
-                Transcription.source == TranscriptionSource.Unknown
-            ),
-            Video.channel_id == channel_id,
-        )
-        .scalar() or 0
-    )
-
 
 def get_stats_videos_with_low_transcription() -> int:
     return (
@@ -187,24 +138,20 @@ def get_stats_high_quality_transcriptions() -> int:
     )
 
 
-def get_moderated_channels(user_id: int) -> list[ChannelModerator]:
-    return db.session.query(ChannelModerator).filter_by(user_id=user_id).all()
-
-
 def get_stats_segments() -> int:
     return db.session.query(Segments).count()
 
 
 def get_user_permissions(user: Users) -> list[Permissions]:
-    return db.session.query(Permissions).filter_by(user_id=user.id).all()
+    return UserService.get_permissions(user)
 
 
 def get_user_by_ext(user_external_id: str) -> Users:
-    return db.session.query(Users).filter_by(external_account_id=user_external_id).one()
+    return UserService.get_by_external_id(user_external_id)
 
 
 def get_user_by_id(user_id: int) -> Users:
-    return db.session.query(Users).filter_by(id=user_id).one()
+    return UserService.get_by_id(user_id)
 
 
 def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool = False, include_watched: bool = False) -> Sequence[ContentQueue]:
@@ -219,23 +166,9 @@ def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool =
     return db.session.execute(query.order_by(ContentQueue.id.desc())).scalars().all()
 
 
-def get_all_twitch_channels() -> Sequence[Channels]:
-    """Get all Twitch channels"""
-    return (
-        db.session.execute(
-            select(Channels)
-            .join(Platforms)
-            .filter(Platforms.name.ilike("twitch"))
-            .order_by(Channels.name)
-        )
-        .scalars()
-        .all()
-    )
-
-
 def fetch_audio(video_id: int):
     video = get_video(video_id)
-    video_url = video.get_url() # TODO: fix with service
+    video_url = VideoService.get_url(video)
     if video.audio is None:
         if video_url is not None:
             logger.info(f"fetching audio for {video_url}")

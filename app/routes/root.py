@@ -5,13 +5,11 @@ from app.permissions import require_permission, require_api_key
 from app.models.enums import PermissionType
 from app.csrf import csrf
 from app.retrievers import (
-    get_users, get_stats_videos,
-    get_stats_transcriptions,
     get_stats_high_quality_transcriptions,
-    get_video, get_total_good_transcribed_video_duration,
+    get_total_good_transcribed_video_duration,
     get_stats_videos_with_low_transcription,
 )
-from app.services.broadcaster import BroadcasterService
+from app.services import BroadcasterService, VideoService, TranscriptionService
 from app.cache import cache
 from io import BytesIO
 from app.rate_limit import limiter, rate_limit_exempt
@@ -23,7 +21,6 @@ import glob
 import json
 from datetime import datetime
 from app.models.config import config
-from app.shared import convert_to_srt
 
 root_blueprint = Blueprint('root', __name__, url_prefix='/',
                            template_folder='templates', static_folder='static')
@@ -267,7 +264,7 @@ def download_transcription_srt(job_id):
         with open(result_file, 'r') as f:
             transcription_data = json.load(f)
 
-        srt_text = convert_to_srt(transcription_data)
+        srt_text = TranscriptionService.convert_to_srt(transcription_data)
 
         # Create a response with the SRT content
         response = make_response(srt_text)
@@ -365,9 +362,9 @@ def stats():
     logger.info("Loaded stats.html")
     return render_template(
         "stats.html",
-        video_count=get_stats_videos(),
+        video_count=VideoService.get_count(),
         video_duration=get_total_good_transcribed_video_duration(),
-        transcriptions_count=get_stats_transcriptions(),
+        transcriptions_count=TranscriptionService.get_count(),
         transcriptions_hq_count=get_stats_high_quality_transcriptions(),
         transcriptions_lq_count=get_stats_videos_with_low_transcription(),
     )
@@ -378,7 +375,7 @@ def stats():
 @limiter.shared_limit("10000 per hour", exempt_when=rate_limit_exempt, scope="images")
 def serve_thumbnails(video_id: int):
     try:
-        video = get_video(video_id)
+        video = VideoService.get_by_id(video_id)
         if video.thumbnail is not None:
             content = video.thumbnail.file.read()
             response = make_response(

@@ -109,8 +109,7 @@ def create_app(overrides: dict | None = None):
     login_manager.init_app(app)
     csrf.init_app(app)
     cors.init_app(app, resources={r"/*": {"origins": config.app_url}}, supports_credentials=True)
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
-    # app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1) # type: ignore
     socketio.init_app(app)
     
     # Only initialize rate limiter when not in testing mode

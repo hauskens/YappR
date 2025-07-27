@@ -48,18 +48,19 @@ def channel_create():
     )
 
 
-# @channel_blueprint.route("/<int:channel_id>/link", methods=["POST"])
-# @login_required
-# @require_permission(permissions=PermissionType.Admin)
-# def channel_link(channel_id: int):
-#     try:
-#         link_channel_id = int(request.form["link_channel_id"])
-#     except:
-#         link_channel_id = None
-#     logger.info("Linking channel to %s", link_channel_id,
-#                 extra={"channel_id": channel_id})
-#     _ = ChannelService.get_by_id(channel_id).link_to_channel(link_channel_id)
-#     return redirect(request.referrer)
+@channel_blueprint.route("/<int:channel_id>/link", methods=["POST"])
+@login_required
+@require_permission(permissions=PermissionType.Admin)
+def channel_link(channel_id: int):
+    return "Not implemented", 501
+    # try:
+    #     link_channel_id = int(request.form["link_channel_id"])
+    # except:
+    #     link_channel_id = None
+    # logger.info("Linking channel to %s", link_channel_id,
+    #             extra={"channel_id": channel_id})
+    # _ = ChannelService.get_by_id(channel_id).link_to_channel(link_channel_id)
+    # return redirect(request.referrer)
 
 
 @channel_blueprint.route("/<int:channel_id>/look_for_linked")

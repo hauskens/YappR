@@ -226,8 +226,8 @@ class ChannelService:
     @staticmethod
     def fetch_videos_all(channel: Channels):
         """Fetch all videos from platform (YouTube only)."""
-        if channel.platform.name.lower() != "youtube":
-            return
+        #if channel.platform.name.lower() != "youtube":
+        # TODO: fix   
         
         # Note: This would need YouTube API integration
         # from app.services.youtube import get_all_videos_on_channel, get_videos, save_yt_thumbnail

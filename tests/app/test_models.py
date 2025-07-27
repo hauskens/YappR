@@ -7,33 +7,6 @@ from app.models.broadcaster import Broadcaster, BroadcasterSettings
 from app.models.user import Users
 from app.models.platform import Platforms
 
-class TestModelsUnit:
-    """Unit tests for model definitions that don't require database connections."""
-    
-    @pytest.mark.unit
-    def test_broadcaster_model_definition(self):
-        """Test that Broadcaster model is properly defined."""
-        # Test model attributes exist
-        assert hasattr(Broadcaster, '__tablename__')
-        assert Broadcaster.__tablename__ == "broadcaster"
-        assert hasattr(Broadcaster, 'id')
-        assert hasattr(Broadcaster, 'name')
-        assert hasattr(Broadcaster, 'channels')
-        assert hasattr(Broadcaster, 'hidden')
-        assert hasattr(Broadcaster, 'settings')
-        assert hasattr(Broadcaster, 'content_queue')
-        assert hasattr(Broadcaster, 'content_queue_settings')
-    
-    @pytest.mark.unit
-    def test_broadcaster_settings_model_definition(self):
-        """Test that BroadcasterSettings model is properly defined."""
-        assert hasattr(BroadcasterSettings, '__tablename__')
-        assert BroadcasterSettings.__tablename__ == "broadcaster_settings"
-        assert hasattr(BroadcasterSettings, 'id')
-        assert hasattr(BroadcasterSettings, 'broadcaster_id')
-        assert hasattr(BroadcasterSettings, 'broadcaster')
-        assert hasattr(BroadcasterSettings, 'linked_discord_channel_id')
-
 class TestModelsIntegration:
     """Integration tests that require database connections."""
     

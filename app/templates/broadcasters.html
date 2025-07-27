@@ -12,7 +12,7 @@
       </thead>
       <tbody>
       {% for broadcaster in broadcasters %}
-        {% if not broadcaster.hidden or (broadcaster.hidden and current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(broadcaster.id)) %}
+        {% if not broadcaster.hidden or (broadcaster.hidden and user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id)) %}
           <tr>
           <td>
             {{ broadcaster.name }}<a href="{{ url_for('broadcaster.broadcaster_edit', id=broadcaster.id) }}" class="text-primary"></a>

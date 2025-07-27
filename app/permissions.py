@@ -1,12 +1,13 @@
 
 from flask_login import current_user  # type: ignore
-from flask import flash, redirect, url_for, render_template, send_from_directory
+from flask import flash, redirect, url_for, render_template
 from functools import wraps
 from typing import Callable, Any, TypeVar, cast
 from flask import request, abort
 from app.models.config import config
 from app.models.enums import PermissionType
 from app.models.user import Users
+from app.services import UserService
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -77,17 +78,17 @@ def require_permission(
                 has_access = False
 
                 # Check specific permissions
-                if permissions and current_user.has_permission(permissions):
+                if permissions and UserService.has_permission(current_user, permissions):
                     has_access = True
 
                 # Check if user is the broadcaster
                 if require_broadcaster and broadcaster_id:
-                    if current_user.has_broadcaster_id(broadcaster_id):
+                    if UserService.has_broadcaster_id(current_user, broadcaster_id):
                         has_access = True
 
                 # Check if user is a moderator
                 if require_moderator and broadcaster_id:
-                    if current_user.is_moderator(broadcaster_id):
+                    if UserService.is_moderator(current_user, broadcaster_id):
                         has_access = True
 
                 # If any permission check failed, deny access

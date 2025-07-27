@@ -4,7 +4,7 @@ from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models.enums import PermissionType
 from app.retrievers import get_bots, get_content_queue
-from app.services import BroadcasterService, ChannelService
+from app.services import BroadcasterService, ChannelService, UserService
 from datetime import datetime, timedelta
 
 management_blueprint = Blueprint(
@@ -18,24 +18,24 @@ def management():
     logger.info("Loaded management.html")
     moderated_channels = ChannelService.get_moderated_channels(current_user.id)
     bots = None
-    if current_user.has_permission(PermissionType.Admin):
+    if UserService.has_permission(current_user, [PermissionType.Admin]):
         bots = get_bots()
         broadcasters = BroadcasterService.get_all(show_hidden=True)
 
-    elif moderated_channels is not None or current_user.is_broadcaster():
+    elif moderated_channels is not None or UserService.is_broadcaster(current_user):
         # Convert moderated channels to a list of broadcasters
         broadcaster_ids = [
             channel.channel.broadcaster_id for channel in moderated_channels]
-        if current_user.is_broadcaster():
-            broadcaster_ids.append(current_user.get_broadcaster().id)
+        if UserService.is_broadcaster(current_user):
+            broadcaster_ids.append(UserService.get_broadcaster(current_user).id)
         broadcasters = BroadcasterService.get_all(show_hidden=False)
 
-    if moderated_channels is None and not (current_user.has_permission(PermissionType.Admin) or current_user.is_broadcaster()):
+    if moderated_channels is None and not (UserService.has_permission(current_user, [PermissionType.Admin]) or UserService.is_broadcaster(current_user)):
         return "You do not have access", 403
 
     broadcaster_id = request.args.get('broadcaster_id', type=int)
-    if broadcaster_id is None and current_user.is_broadcaster():
-        broadcaster_id = current_user.get_broadcaster().id
+    if broadcaster_id is None and UserService.is_broadcaster(current_user):
+        broadcaster_id = UserService.get_broadcaster(current_user).id
 
     logger.info(f"User is accessing management page",
                 extra={"broadcaster_id": broadcaster_id})
@@ -75,8 +75,8 @@ def management_items():
         logger.debug(f"All request args: {request.args}")
 
         # If no broadcaster_id is provided and user is a broadcaster, use their broadcaster_id
-        if broadcaster_id is None and current_user.is_broadcaster():
-            broadcaster_id = current_user.get_broadcaster().id
+        if broadcaster_id is None and UserService.is_broadcaster(current_user):
+            broadcaster_id = UserService.get_broadcaster(current_user).id
 
         if broadcaster_id is not None:
             broadcaster = BroadcasterService.get_by_id(broadcaster_id)
@@ -89,7 +89,7 @@ def management_items():
             include_watched=show_watched,
             include_skipped=show_skipped
         )
-        if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):
+        if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
             queue_items = [item for item in queue_items if item.content.url !=
                            "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
 

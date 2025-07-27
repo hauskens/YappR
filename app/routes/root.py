@@ -9,7 +9,7 @@ from app.retrievers import (
     get_total_good_transcribed_video_duration,
     get_stats_videos_with_low_transcription,
 )
-from app.services import BroadcasterService, VideoService, TranscriptionService
+from app.services import BroadcasterService, VideoService, TranscriptionService, UserService
 from app.cache import cache
 from io import BytesIO
 from app.rate_limit import limiter, rate_limit_exempt
@@ -56,7 +56,7 @@ def logout():
 @root_blueprint.route("/users")
 @require_permission(permissions=PermissionType.Admin)
 def users():
-    users = get_users()
+    users = UserService.get_all()
     logger.info("Loaded users.html", extra={"user_id": current_user.id})
     return render_template(
         "users.html", users=users, permission_types=PermissionType

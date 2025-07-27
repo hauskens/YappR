@@ -40,14 +40,15 @@ def video_fetch_transcriptions(video_id: int):
     return redirect(request.referrer)
 
 
-# @video_blueprint.route("/<int:video_id>/archive")
-# @login_required
-# @require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
-# def video_archive(video_id: int):
-#     logger.info("Archiving video", extra={"video_id": video_id})
-#     video = VideoService.get_by_id(video_id)
-#     video.archive()
-#     return redirect(request.referrer)
+@video_blueprint.route("/<int:video_id>/archive")
+@login_required
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+def video_archive(video_id: int):
+    return "Not implemented", 501
+    # logger.info("Archiving video", extra={"video_id": video_id})
+    # video = VideoService.get_by_id(video_id)
+    # video.archive()
+    # return redirect(request.referrer)
 
 
 @video_blueprint.route("/<int:video_id>/delete")

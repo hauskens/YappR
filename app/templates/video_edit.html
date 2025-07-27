@@ -286,7 +286,7 @@
               </tr>
             </thead>
             <tbody>
-              {% for s in t.get_segments_sorted() %}
+              {% for s in transcription_service.get_segments_sorted(t) %}
               <tr class="transcript-row">
                 <td><a href={{segment_service.get_url_timestamped(s)}}}}>Link</a></td> 
                 <td>{{ s.start }}</td>

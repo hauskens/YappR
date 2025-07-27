@@ -1,5 +1,5 @@
 from flask.testing import FlaskClient
-from app.models.db import Users
+from app.models.user import Users
 
 def test_logged_in_client_fixture(logged_in_client: FlaskClient, user: Users):
     """Test that the logged_in_client fixture properly authenticates the user."""

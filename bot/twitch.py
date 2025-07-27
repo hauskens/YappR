@@ -1,7 +1,10 @@
 from twitchAPI.twitch import Twitch, AuthScope
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import select
-from app.models.db import OAuth, Channels, ChannelSettings, ChatLog, Content, ContentQueue, ContentQueueSubmission, ExternalUser, AccountSource, ContentQueueSubmissionSource
+from app.models.auth import OAuth
+from app.models.enums import ContentQueueSubmissionSource
+from app.models.channel import Channels, ChannelSettings
+from app.models.chatlog import ChatLog
 from app.models.config import config
 import asyncio
 import signal

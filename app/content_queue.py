@@ -1,6 +1,6 @@
 from math import exp
 from datetime import datetime, timezone
-from app.models.db import ContentQueue
+from app.models.content_queue import ContentQueue
 ONE_HOUR = 3600              # seconds
 TAU_FRESH = 12 * 3600         # freshness half-life
 TAU_DURATION = 120               # duration half-life (2-min clips lose ~63 %)

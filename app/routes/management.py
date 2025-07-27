@@ -2,7 +2,9 @@ from flask import Blueprint, render_template, request
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
-from app.models.db import PermissionType, db, Broadcaster
+from app.models import db
+from app.models.enums import PermissionType
+from app.models.broadcaster import Broadcaster
 from app.retrievers import get_bots, get_broadcasters, get_moderated_channels, get_broadcaster, get_content_queue
 from datetime import datetime, timedelta, timezone
 

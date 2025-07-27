@@ -1,7 +1,10 @@
 from flask import Blueprint, render_template, redirect, request, url_for, abort, jsonify
 from app.permissions import require_permission, require_api_key
 from app.logger import logger
-from app.models.db import PermissionType, db, ChatLog, json
+from app.models import db
+from app.models.video import Video
+from app.models.enums import PermissionType
+from app.models.chatlog import ChatLog
 from flask_login import login_required, current_user  # type: ignore
 from app.retrievers import get_video
 from app.cache import cache, make_cache_key

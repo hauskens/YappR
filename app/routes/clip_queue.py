@@ -2,7 +2,11 @@ from flask import Blueprint, render_template, jsonify, flash, redirect, request,
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime, timedelta, timezone
-from app.models.db import ContentQueue, ExternalUserWeight, db, ExternalUser, ContentQueueSubmission, ContentQueue, ContentQueueSettings, PermissionType
+from app.models import db
+from app.models.enums import PermissionType
+from app.models.content_queue_settings import ContentQueueSettings
+from app.models.content_queue import ContentQueue, ContentQueueSubmission
+from app.models.user import ExternalUser, ExternalUserWeight
 from app.platforms.handler import PlatformRegistry
 from app.retrievers import get_broadcaster_by_external_id, get_content_queue, get_broadcasters
 from app.permissions import require_permission
@@ -574,7 +578,7 @@ def add_content():
             # Add the content to the queue using the shared function
             import asyncio
             from bot.shared import add_to_content_queue
-            from app.models.db import ContentQueueSubmissionSource
+            from app.models.content_queue import ContentQueueSubmissionSource
             from app.twitch_api import get_twitch_client
 
             # Use asyncio.run to handle the async function
@@ -645,7 +649,7 @@ def search_content():
 
         if is_url:
             # URL search - existing logic
-            from app.models.db import Content
+            from app.models.content_queue import Content
             existing_content = db.session.execute(
                 select(Content).filter(
                     (Content.url == query) | (
@@ -746,7 +750,7 @@ def text_search_content():
 
 def text_search_content_internal(query, broadcaster_id):
     """Internal function to perform text search"""
-    from app.models.db import Content, ContentQueueSubmission
+    from app.models.content_queue import Content, ContentQueueSubmission
     from sqlalchemy import or_, and_
 
     # Get allowed broadcasters
@@ -774,7 +778,7 @@ def text_search_content_internal(query, broadcaster_id):
     )
 
     # Search in submitter usernames
-    from app.models.db import ExternalUser
+    from app.models.user import ExternalUser
     search_conditions.append(
         ExternalUser.username.ilike(f"%{query}%")
     )

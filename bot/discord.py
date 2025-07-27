@@ -3,7 +3,8 @@ from discord import Message, app_commands
 from discord.ext import commands, tasks
 from sqlalchemy import select
 from .shared import ScopedSession, logger, url_pattern, add_to_content_queue, get_platform, update_submission_weight
-from app.models.db import BroadcasterSettings, ContentQueueSubmission, ContentQueueSubmissionSource, ContentQueue
+from app.models.broadcaster import BroadcasterSettings
+from app.models.content_queue import ContentQueueSubmission, ContentQueueSubmissionSource, ContentQueue
 import re
 import asyncio
 import os

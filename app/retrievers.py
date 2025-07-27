@@ -1,20 +1,15 @@
 from collections.abc import Sequence
 from sqlalchemy import select, func, or_
-from .models.db import (
-    Broadcaster,
-    Permissions,
-    Platforms,
-    Segments,
-    TranscriptionSource,
-    Channels,
-    Video,
-    Transcription,
-    Users,
-    OAuth,
-    ContentQueue,
-    ChannelModerator,
-    db,
-)
+from .models import db
+from .models.broadcaster import Broadcaster
+from .models.auth import Permissions, OAuth
+from .models.channel import Channels, ChannelModerator
+from .models.platform import Platforms
+from .models.video import Video
+from .models.transcription import Transcription, Segments
+from .models.user import Users
+from .models.content_queue import ContentQueue
+from .models.enums import TranscriptionSource
 from .tasks import (
     get_yt_audio,
 )
@@ -328,7 +323,7 @@ def get_all_twitch_channels() -> Sequence[Channels]:
 
 def fetch_audio(video_id: int):
     video = get_video(video_id)
-    video_url = video.get_url()
+    video_url = video.get_url() # TODO: fix with service
     if video.audio is None:
         if video_url is not None:
             logger.info(f"fetching audio for {video_url}")

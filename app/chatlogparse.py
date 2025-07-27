@@ -1,7 +1,9 @@
 import re
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
-from .models.db import ChatLog, ChannelEvent, db
+from .models import db
+from .models.chatlog import ChatLog
+from .models.channel import ChannelEvent
 from typing import Optional, Union
 from pathlib import Path
 from app.logger import logger

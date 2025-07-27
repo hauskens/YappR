@@ -2,7 +2,11 @@ from flask import Blueprint, render_template, redirect, request, flash
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
-from app.models.db import db, Channels, PermissionType, VideoType, ChannelSettings
+from app.models import db
+from app.models.channel import Channels
+from app.models.video import VideoType
+from app.models.enums import PermissionType
+from app.models.channel import ChannelSettings
 from app.retrievers import get_broadcaster, get_broadcaster_channels, get_platforms, get_channel, get_stats_videos_with_audio, get_stats_videos_with_good_transcription
 from app.rate_limit import limiter, rate_limit_exempt
 from app.cache import cache, make_cache_key

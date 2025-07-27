@@ -1,5 +1,6 @@
 from dataclasses import dataclass
-from .db import Segments, Video
+from .transcription import Segments
+from .video import Video
 
 
 @dataclass

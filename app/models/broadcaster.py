@@ -1,5 +1,6 @@
 from sqlalchemy import String, Integer, Boolean, ForeignKey, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from pydantic import BaseModel, ConfigDict, Field
 from .base import Base
 from .channel import Channels
 
@@ -35,6 +36,10 @@ class Broadcaster(Base):
 #     def last_active(self) -> datetime | None:
 #         return db.session.query(func.max(Channels.last_active)).filter_by(broadcaster_id=self.id).scalar()
 
+class BroadcasterModel(BaseModel):
+    model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)
+
+
 class BroadcasterSettings(Base):
     __tablename__: str = "broadcaster_settings"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -48,3 +53,7 @@ class BroadcasterSettings(Base):
         Boolean, default=False)
     linked_discord_threads_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false")
+
+
+if __name__ == "__main__":
+    print("test")

@@ -1,6 +1,7 @@
 from sqlalchemy import String, Integer, Boolean, ForeignKey, DateTime, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
+from .channel import Channels
 from datetime import datetime
 
 class ChatLog(Base):

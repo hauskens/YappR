@@ -2,6 +2,12 @@ from sqlalchemy import String, Integer, Boolean, ForeignKey, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pydantic import BaseModel, ConfigDict, Field
 from .base import Base
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .channel import Channels
+    from .content_queue import ContentQueue
+    from .content_queue_settings import ContentQueueSettings
 
 class Broadcaster(Base):
     __tablename__: str = "broadcaster"

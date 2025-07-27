@@ -1,7 +1,8 @@
 from dataclasses import dataclass
+from app.services import SegmentService
+
 from .transcription import Segments
 from .video import Video
-from app.services import SegmentService
 
 
 @dataclass

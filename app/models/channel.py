@@ -3,6 +3,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
 from .enums import VideoType
 from datetime import datetime
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .platform import Platforms
+    from .video import Video
+    from .user import Users
 
 class Channels(Base):
     __tablename__: str = "channels"
@@ -56,20 +62,6 @@ class Channels(Base):
 #             self.source_channel_id = None
 #             db.session.commit()
 
-#     def process_videos(self, force: bool = False):
-#         for video in self.videos:
-#             video.process_transcriptions(force)
-
-#     def download_audio_videos(self, force: bool = False):
-#         for video in self.videos:
-#             video.save_audio(force)
-
-#     def get_videos_sorted_by_uploaded(self, descending: bool = True) -> list["Video"]:
-#         return sorted(self.videos, key=lambda v: v.uploaded, reverse=descending)
-
-#     def get_videos_sorted_by_id(self, descending: bool = True) -> list["Video"]:
-#         return sorted(self.videos, key=lambda v: v.id, reverse=descending)
-
 #     def look_for_linked_videos(self, margin_sec: int = 2, min_duration: int = 300):
 #         logger.info(f"Looking for potential links on channel {self.name}")
 #         for source_video in self.source_channel.videos:
@@ -89,158 +81,6 @@ class Channels(Base):
 #                     target_video.source_video_id = source_video.id
 #                     db.session.flush()
 #         db.session.commit()
-
-#     def fetch_videos_all(self):
-#         if self.platform.name.lower() != "youtube":
-#             return
-
-#         latest_video_batches = get_all_videos_on_channel(
-#             self.platform_channel_id)
-
-#         video_id_set = set()
-#         for item in latest_video_batches:
-#             video_id = item.id.videoId
-#             logger.info(f"Checking for existing video ref: {video_id}")
-#             existing_video = (
-#                 db.session.query(Video)
-#                 .filter_by(platform_ref=video_id)
-#                 .one_or_none()
-#             )
-#             if existing_video is None:
-#                 logger.info(f"New video found: {video_id}")
-#                 video_id_set.add(video_id)
-#         if not video_id_set:
-#             logger.info("No new videos found.")
-#             return
-
-#         video_details = get_videos(list(video_id_set))
-
-#         for video in video_details:
-#             try:
-#                 tn = save_yt_thumbnail(video, force=True)
-#                 db.session.add(
-#                     Video(
-#                         title=video.snippet.title,
-#                         video_type=VideoType.VOD,
-#                         channel_id=self.id,
-#                         platform_ref=video.id,
-#                         duration=video.contentDetails.duration.total_seconds(),
-#                         uploaded=video.snippet.publishedAt,
-#                         thumbnail=open(tn, "rb"),
-#                     )
-#                 )
-#             except Exception as e:
-#                 logger.error(f"Failed to add video {video.id}, exception: {e}")
-#                 continue
-#             db.session.flush()
-
-#         db.session.commit()
-
-#     def fetch_latest_videos(self, process: bool = False) -> int | None:
-#         if (
-#             self.platform.name.lower() == "youtube" and self.platform_channel_id is not None
-#         ):
-#             latest_videos = get_videos_on_channel(self.platform_channel_id)
-#             videos_result: list[SearchResultItem] = []
-#             for search_result in latest_videos.items:
-#                 existing_video = (
-#                     db.session.query(Video)
-#                     .filter_by(platform_ref=search_result.id.videoId)
-#                     .one_or_none()
-#                 )
-#                 if existing_video is None:
-#                     videos_result.append(search_result)
-
-#             videos_details = get_videos(
-#                 [item.id.videoId for item in videos_result])
-#             for video in videos_details:
-#                 tn = save_yt_thumbnail(video, force=True)
-#                 db.session.add(
-#                     Video(
-#                         title=video.snippet.title,
-#                         video_type=VideoType.VOD,
-#                         channel_id=self.id,
-#                         platform_ref=video.id,
-#                         duration=video.contentDetails.duration.total_seconds(),
-#                         uploaded=video.snippet.publishedAt,
-#                         thumbnail=open(tn, "rb"),
-#                     )
-#                 )
-#             db.session.commit()
-#         elif (
-#             self.platform.name.lower() == "twitch" and self.platform_channel_id is not None
-#         ):
-#             logger.info(
-#                 f"Fetching latest videos for twitch channel: {self.name} - Process: {process}")
-#             limit = 1 if process else 100
-#             twitch_latest_videos = asyncio.run(
-#                 get_latest_broadcasts(self.platform_channel_id, limit=limit)
-#             )
-#             for video_data in twitch_latest_videos:
-#                 logger.info(
-#                     f"Processing video ref: {video_data.id} - got {len(twitch_latest_videos)} videos")
-
-#                 # Query full DB, not just self.videos
-#                 existing_video = (
-#                     db.session.query(Video)
-#                     .filter_by(platform_ref=video_data.id)
-#                     .one_or_none()
-#                 )
-
-#                 if existing_video is None:
-#                     tn = save_twitch_thumbnail(video_data, force=True)
-#                     logger.info(f"Found new video ref: {video_data.id}")
-#                     vid = Video(
-#                         title=video_data.title,
-#                         video_type=VideoType.VOD,
-#                         channel_id=self.id,
-#                         platform_ref=video_data.id,
-#                         duration=parse_time(video_data.duration),
-#                         uploaded=video_data.created_at,
-#                         thumbnail=open(tn, "rb"),
-#                         active=True,
-#                     )
-#                     db.session.add(vid)
-#                     if process:
-#                         db.session.commit()
-#                         return db.session.query(Video).filter_by(platform_ref=video_data.id).one().id
-#                 else:
-#                     try:
-#                         tn = save_twitch_thumbnail(video_data, force=True)
-#                         logger.info(
-#                             f"Updating existing video: {video_data.id}")
-#                         existing_video.thumbnail = open(
-#                             tn, "rb")  # type: ignore
-#                         existing_video.active = True
-#                         existing_video.title = video_data.title
-#                         existing_video.uploaded = video_data.created_at
-#                         db.session.flush()
-#                         if abs(existing_video.duration - parse_time(video_data.duration)) > 1:
-#                             logger.info(
-#                                 f"Duration changed for video {self.platform_ref}: {existing_video.duration} -> {parse_time(video_data.duration)}"
-#                             )
-#                             for transcription in existing_video.transcriptions:
-#                                 transcription.delete()
-#                             try:
-#                                 if existing_video.audio is not None:
-#                                     existing_video.audio.file.object.delete()
-#                             except Exception as e:
-#                                 logger.error(
-#                                     f"Failed to delete audio for video {self.platform_ref}, exception: {e}")
-#                             existing_video.audio = None
-#                             existing_video.duration = parse_time(
-#                                 video_data.duration)
-#                         if process:
-#                             return existing_video.id
-#                         if existing_video.channel_id != self.id:
-#                             existing_video.channel_id = self.id
-#                         db.session.flush()
-#                     except Exception as e:
-#                         logger.error(
-#                             f"Failed to update video {video_data.id}, exception: {e}")
-#                         continue
-#         db.session.commit()
-#         return None
 
 class ChannelEvent(Base):
     __tablename__ = "channel_events"

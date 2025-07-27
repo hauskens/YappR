@@ -17,7 +17,7 @@ from app.models import (
     Content,
     ExternalUser,
 )
-from app.services import BroadcasterService
+from app.services import BroadcasterService, UserService
 from app.cache import cache, make_cache_key
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
@@ -214,7 +214,7 @@ def broadcaster_create_clip(broadcaster_id: int):
     # Check if user has permission to modify this broadcaster
     logger.info("Attempting to create clip for broadcaster",
                 extra={"broadcaster_id": broadcaster_id})
-    if current_user.is_anonymous or not (current_user.broadcaster_id == broadcaster_id or current_user.has_permission(["admin"])):
+    if current_user.is_anonymous or not (current_user.broadcaster_id == broadcaster_id or UserService.has_permission(current_user, PermissionType.Admin)):
         logger.error("User does not have permission to create clip for broadcaster", extra={
                      "broadcaster_id": broadcaster_id})
         return "You do not have permission to modify this broadcaster", 403
@@ -253,7 +253,7 @@ def broadcaster_settings_update(broadcaster_id: int):
                 discord_channel_id, extra={"dcaster_id": broadcaster_id, "user_id": current_user.id})
 
     # Update broadcaster hidden status (admin only)
-    if current_user.has_permission([PermissionType.Admin]) and request.form.get('hidden') is not None:
+    if UserService.has_permission(current_user, PermissionType.Admin) and request.form.get('hidden') is not None:
         broadcaster = db.session.query(
             Broadcaster).filter_by(id=broadcaster_id).first()
         if broadcaster:

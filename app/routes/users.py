@@ -2,12 +2,9 @@ from flask import Blueprint, render_template, request, redirect
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models import db
-from app.models.user import ExternalUser, ExternalUserWeight
-from app.models.content_queue import ContentQueueSubmission
-from app.models.enums import PermissionType
+from app.models import ExternalUser, ExternalUserWeight, ContentQueueSubmission, PermissionType
 from app.logger import logger
-from app.services.broadcaster import BroadcasterService
-from app.retrievers import get_user_by_id, get_users
+from app.services import BroadcasterService, UserService
 
 users_blueprint = Blueprint('users', __name__, url_prefix='/users',
                             template_folder='templates', static_folder='static')
@@ -56,9 +53,9 @@ def grant_permission(user_id: int, permission_name: str):
         "Granting '%s' to %s", permission_name, user_id
     )
 
-    user = get_user_by_id(user_id)
+    user = UserService.get_by_id(user_id)
     _ = user.add_permissions(PermissionType[permission_name])
-    users = get_users()
+    users = UserService.get_all()
     return render_template(
         "users.html", users=users, permission_types=PermissionType
     )
@@ -68,7 +65,7 @@ def grant_permission(user_id: int, permission_name: str):
 @login_required
 @require_permission(permissions=PermissionType.Admin)
 def user_edit(user_id: int):
-    user = get_user_by_id(user_id)
+    user = UserService.get_by_id(user_id)
     if request.method == "GET":
         logger.info("Loaded users.html")
         broadcasters = BroadcasterService.get_all()

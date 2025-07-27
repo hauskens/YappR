@@ -95,14 +95,14 @@
                   <img
                     id="{{v.video.channel.platform.name}}"
                     src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{v.video.channel.platform.color}}&logo={{v.video.channel.platform.name}}&logoColor=white"
-                    alt="{{v.video.channel.platform.name}}"/></a> - {{v.video.get_date_str()}}
+                    alt="{{v.video.channel.platform.name}}"/></a> - {{video_service.get_date_str(v.video)}}
                 <div style="max-height: 400px; overflow-y: auto">
                   <div class="list-group list-group-flush">
                   {% for segment in v.segment_results %}
                     <hr>
                     <div class="list-group-item">
                       {% if current_user.is_anonymous == False %}
-                        {% if 'twitch' in v.video.get_url().lower() and current_user.has_permission(["admin", "mod"]) %}
+                        {% if 'twitch' in video_service.get_url(v.video).lower() and user_service.has_permission(current_user, ["admin", "mod"]) %}
                         <div style="display: inline;" class="clip-download-container" id="clip-container-{{ v.video.id }}-{{ segment.start_time() }}">
                           <button type="button" 
                                   class="btn btn-link btn-sm text-muted p-0 ms-1 clip-options-btn" 

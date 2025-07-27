@@ -1,14 +1,12 @@
 """
 User service for handling user-related business logic.
 """
-import asyncio
-from collections.abc import Sequence
 from typing import Iterable, Literal
 from datetime import datetime
 
 from sqlalchemy import select
 from app.models import db
-from app.models.user import Users, ExternalUser, ExternalUserWeight
+from app.models.user import Users, ExternalUser
 from app.models.auth import Permissions, OAuth
 from app.models.channel import Channels, ChannelModerator
 from app.models.broadcaster import Broadcaster
@@ -245,70 +243,6 @@ class ExternalUserService:
         """Enable an external user."""
         return ExternalUserService.update(external_user_id, disabled=False)
 
-
-class ExternalUserWeightService:
-    """Service class for external user weight-related operations."""
-    
-    @staticmethod
-    def get_by_id(weight_id: int) -> ExternalUserWeight:
-        """Get external user weight by ID."""
-        return db.session.query(ExternalUserWeight).filter_by(id=weight_id).one()
-    
-    @staticmethod
-    def get_by_user_and_broadcaster(external_user_id: int, broadcaster_id: int) -> ExternalUserWeight | None:
-        """Get weight for specific user and broadcaster."""
-        return db.session.query(ExternalUserWeight).filter_by(
-            external_user_id=external_user_id,
-            broadcaster_id=broadcaster_id
-        ).one_or_none()
-    
-    @staticmethod
-    def create(external_user_id: int, broadcaster_id: int, weight: float,
-               banned: bool = False, banned_at: datetime | None = None,
-               unban_at: datetime | None = None) -> ExternalUserWeight:
-        """Create a new external user weight."""
-        user_weight = ExternalUserWeight(
-            external_user_id=external_user_id,
-            broadcaster_id=broadcaster_id,
-            weight=weight,
-            banned=banned,
-            banned_at=banned_at,
-            unban_at=unban_at
-        )
-        db.session.add(user_weight)
-        db.session.commit()
-        logger.info(f"Created weight {weight} for external user {external_user_id} on broadcaster {broadcaster_id}")
-        return user_weight
-    
-    @staticmethod
-    def update(weight_id: int, **kwargs) -> ExternalUserWeight:
-        """Update external user weight fields."""
-        user_weight = ExternalUserWeightService.get_by_id(weight_id)
-        for key, value in kwargs.items():
-            if hasattr(user_weight, key):
-                setattr(user_weight, key, value)
-        db.session.commit()
-        return user_weight
-    
-    @staticmethod
-    def ban_user_weight(weight_id: int, ban_until: datetime | None = None) -> ExternalUserWeight:
-        """Ban an external user weight."""
-        return ExternalUserWeightService.update(
-            weight_id, 
-            banned=True, 
-            banned_at=datetime.now(),
-            unban_at=ban_until
-        )
-    
-    @staticmethod
-    def unban_user_weight(weight_id: int) -> ExternalUserWeight:
-        """Unban an external user weight."""
-        return ExternalUserWeightService.update(
-            weight_id,
-            banned=False,
-            banned_at=None,
-            unban_at=None
-        )
 
 
 # For template accessibility, create simple function interfaces

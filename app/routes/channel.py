@@ -5,7 +5,7 @@ from app.permissions import require_permission
 from app.models import db
 from app.models import Channels, VideoType, PermissionType, ChannelSettings
 from app.retrievers import get_platforms
-from app.services import BroadcasterService, ChannelService
+from app.services import BroadcasterService, ChannelService, UserService
 from app.rate_limit import limiter, rate_limit_exempt
 from app.cache import cache, make_cache_key
 
@@ -152,7 +152,7 @@ def channel_settings_update(channel_id: int):
         return "Channel not found", 404
 
     broadcaster_id = channel.broadcaster_id
-    if not (current_user.has_broadcaster_id(broadcaster_id) or current_user.has_permission([PermissionType.Admin])):
+    if not (current_user.has_broadcaster_id(broadcaster_id) or UserService.has_permission(current_user, PermissionType.Admin)):
         if request.headers.get('HX-Request'):
             return '<div class="alert alert-danger">You do not have permission to modify this channel</div>', 403
         return "You do not have permission to modify this channel", 403

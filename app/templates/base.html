@@ -76,14 +76,14 @@
               </div>
               
               <a class="nav-link" href="{{ url_for('broadcaster.broadcasters') }}">Broadcasters</a>
-              {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
+              {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"]) %}
                 <a class="nav-link" href="{{ url_for('root.users') }}">Users</a>
               {% endif %}
-              {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
+              {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) %}
                 <a class="nav-link" href="{{ url_for('management.management') }}">Management</a>
                 <a class="nav-link" href="{{ url_for('celery_active_tasks_view') }}">Workers</a>
                 <a class="nav-link" href="{{ url_for('root.utils') }}">Utils</a>
-              {% elif current_user.is_anonymous == False and current_user.is_broadcaster() %}
+              {% elif current_user.is_anonymous == False and user_service.is_broadcaster(current_user) %}
                 <a class="nav-link" href="{{ url_for('management.management') }}">Management</a>
               {% endif %}
               <a class="nav-link" href="{{ url_for('root.stats') }}">Stats</a>

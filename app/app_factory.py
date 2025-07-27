@@ -27,6 +27,7 @@ from .routes.users import users_blueprint
 from werkzeug.middleware.proxy_fix import ProxyFix
 from .rate_limit import limiter
 from .csrf import csrf
+from app.services import BroadcasterService, VideoService, TranscriptionService, SegmentService, UserService
 
 
 socketio = SocketIO()
@@ -101,8 +102,15 @@ def create_app(overrides: dict | None = None):
     
     # Make version available in templates, used for cache busting
     @app.context_processor
-    def inject_version():
-        return dict(version=str(config.version).strip(":"))
+    def inject_functions():
+        return dict(
+            version=str(config.version).strip(":"),
+            broadcaster_service=BroadcasterService(),
+            video_service=VideoService(),
+            transcription_service=TranscriptionService(),
+            segment_service=SegmentService(),
+            user_service=UserService(),
+        )
     
     cache.init_app(app)
     db.init_app(app)

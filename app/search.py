@@ -6,11 +6,7 @@ from .models import db
 from .models.channel import Channels
 from .models.transcription import Segments
 from .models.search import SegmentsResult, VideoResult
-from .retrievers import (
-    get_transcriptions_on_channels,
-    get_transcriptions_on_channels_daterange,
-    get_segment_by_id,
-)
+from .services import TranscriptionService, SegmentService
 from .utils import sanitize_sentence, loosely_sanitize_sentence
 import time
 
@@ -62,9 +58,9 @@ def search_v2(
 
     # Get transcriptions (same as original)
     if start_date is None and end_date is None:
-        transcriptions = get_transcriptions_on_channels(channels)
+        transcriptions = TranscriptionService.get_transcriptions_on_channels(channels)
     if start_date is not None and end_date is not None:
-        transcriptions = get_transcriptions_on_channels_daterange(
+        transcriptions = TranscriptionService.get_transcriptions_on_channels_daterange(
             channels, start_date, end_date
         )
     if transcriptions is None:
@@ -113,7 +109,7 @@ def search_v2(
             try:
                 word_index = current_sentence.index(search_words[0])
                 if word_index == 0 and segment.previous_segment_id is not None:
-                    adjacent_segment = get_segment_by_id(
+                    adjacent_segment = SegmentService.get_by_id(
                         segment.previous_segment_id)
                     all_segments = [adjacent_segment] + all_segments
                     # Use same sanitization as main segment for consistency
@@ -127,7 +123,7 @@ def search_v2(
                     word_index == len(current_sentence) - 1
                     and segment.next_segment_id is not None
                 ):
-                    adjacent_segment = get_segment_by_id(
+                    adjacent_segment = SegmentService.get_by_id(
                         segment.next_segment_id)
                     all_segments.append(adjacent_segment)
                     # Use same sanitization as main segment for consistency

@@ -3,13 +3,10 @@ from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime, timedelta, timezone
 from app.models import db
-from app.models.enums import PermissionType
-from app.models.content_queue_settings import ContentQueueSettings
-from app.models.content_queue import ContentQueue, ContentQueueSubmission
-from app.models.user import ExternalUser, ExternalUserWeight
+from app.models import PermissionType, ContentQueueSettings, ContentQueueSubmission, ContentQueue, ExternalUser, ExternalUserWeight
 from app.platforms.handler import PlatformRegistry
 from app.retrievers import get_content_queue
-from app.services import BroadcasterService
+from app.services import BroadcasterService, UserService
 from app.permissions import require_permission
 from app.content_queue import clip_score
 from flask_socketio import SocketIO
@@ -231,7 +228,7 @@ def get_queue_items():
                 broadcaster.id, include_watched=show_history, include_skipped=show_history)
 
             # Filter out rickroll if not active and not admin/mod
-            if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not current_user.has_permission(["mod", "admin"]):
+            if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not UserService.has_permission(current_user, [PermissionType.Mod, PermissionType.Admin]):
                 queue_items = [item for item in queue_items if item.content.url !=
                                "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
 
@@ -482,7 +479,7 @@ def reset_external_user_penalties(broadcaster_id: int, external_user_id: int):
 def settings():
     """Get allowed platforms for the broadcaster's queue"""
     try:
-        broadcaster = current_user.get_broadcaster()
+        broadcaster = UserService.get_broadcaster(current_user)
         if not broadcaster:
             logger.error("Broadcaster not found")
             return jsonify({"status": "error", "message": "Broadcaster not found"}), 404
@@ -556,11 +553,11 @@ def add_content():
     """Add new content to the queue"""
     logger.info("Loaded add_content.html")
     try:
-        if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
+        if UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
             broadcasters = BroadcasterService.get_all(show_hidden=True)
         else:
-            if current_user.is_broadcaster():
-                broadcasters = [current_user.get_broadcaster()]
+            if UserService.is_broadcaster(current_user):
+                broadcasters = [UserService.get_broadcaster(current_user)]
             broadcasters += BroadcasterService.get_all(show_hidden=False)
         if request.method == "GET":
             return render_template("add_content.html", broadcasters=broadcasters)
@@ -660,11 +657,11 @@ def search_content():
             if existing_content:
                 # If no broadcaster specified, search across all allowed broadcasters
                 if not broadcaster_id:
-                    if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
+                    if UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
                         broadcasters = BroadcasterService.get_all(show_hidden=True)
                     else:
-                        if current_user.is_broadcaster():
-                            broadcasters = [current_user.get_broadcaster()]
+                        if UserService.is_broadcaster(current_user):
+                            broadcasters = [UserService.get_broadcaster(current_user)]
                         broadcasters += BroadcasterService.get_all(show_hidden=False)
                     # Get all queue items for this content across all broadcasters
                     all_queue_items = db.session.execute(
@@ -755,11 +752,11 @@ def text_search_content_internal(query, broadcaster_id):
 
     # Get allowed broadcasters
     if not broadcaster_id:
-        if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
+        if UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
             broadcasters = BroadcasterService.get_all(show_hidden=True)
         else:
-            if current_user.is_broadcaster():
-                broadcasters = [current_user.get_broadcaster()]
+            if UserService.is_broadcaster(current_user):
+                broadcasters = [UserService.get_broadcaster(current_user)]
             broadcasters += BroadcasterService.get_all(show_hidden=False)
         broadcaster_ids = [broadcaster.id for broadcaster in broadcasters]
     else:

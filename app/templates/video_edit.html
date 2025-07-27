@@ -18,7 +18,7 @@
     
     <a class="btn btn-primary" role="button" href="{{ url_for('channel.channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
       {% if video.transcriptions|length == 0 and video.active == True %}
-        {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
+        {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) %}
           <a class="btn btn-primary"onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
           <br></br>
         {% endif %}
@@ -29,7 +29,7 @@
       <div class="col-md-4">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h3>{{ video.title }}</h3>
-          {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
+          {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"]) %}
             <div class="dropdown">
               <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="adminActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                 <i class="bi bi-three-dots-vertical"></i>
@@ -191,7 +191,7 @@
       </br>
       {% if video.source_video.id is defined %}
         <a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform.name}}</a>
-        {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) and video.source_video.transcriptions|length > 0 %}
+        {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) and video.source_video.transcriptions|length > 0 %}
           </br>
           <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform.name}} to {{video.channel.platform.name}}')" href="{{ url_for('video.video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
         {% endif %}
@@ -241,10 +241,10 @@
                 <i class="bi bi-three-dots-vertical"></i>
               </button>
               <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminActionsDropdown">
-            {% if current_user.is_anonymous == False and current_user.has_permission(["admin"]) %}
+            {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"]) %}
               <li><a type="button" class="btn btn-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('transcription.delete_transcription', transcription_id=t.id) }}"> Delete transcription</a></li>
             {% endif %}
-            {% if current_user.is_anonymous == False and current_user.has_permission(["admin", "mod"]) %}
+            {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) %}
               <li><a class="btn btn-primary" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a></li>
               <li><a class="btn btn-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('transcription.purge_transcription', transcription_id=t.id) }}">Remove from search</a></li>
             {% endif %}
@@ -288,7 +288,7 @@
             <tbody>
               {% for s in t.get_segments_sorted() %}
               <tr class="transcript-row">
-                <td><a href={{s.get_url_timestamped()}}>Link</a></td>
+                <td><a href={{segment_service.get_url_timestamped(s)}}}}>Link</a></td> 
                 <td>{{ s.start }}</td>
                 <td>{{ s.end }}</td>
                 <td class="transcript-text">{{ s.text }}</td>

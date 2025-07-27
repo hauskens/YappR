@@ -37,6 +37,10 @@ class VideoService:
         ).scalars().one_or_none()
     
     @staticmethod
+    def get_count() -> int:
+        return db.session.query(func.count(Video.id)).scalar()
+
+    @staticmethod
     def get_videos_by_channel(channel_id: int) -> Sequence[Video]:
         """Get all videos for a channel, ordered by upload date."""
         return db.session.execute(

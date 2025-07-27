@@ -1,8 +1,8 @@
 from flask import Blueprint, redirect, request, abort
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
-from app.models.enums import PermissionType
-from app.services import TranscriptionService
+from app.models import PermissionType
+from app.services import TranscriptionService, UserService
 from io import BytesIO
 from flask import send_file
 from app.logger import logger
@@ -69,7 +69,7 @@ def delete_transcription(transcription_id: int):
     broadcaster_id = transcription.video.channel.broadcaster_id
 
     # Custom permission check since we need to check multiple conditions
-    if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]) or current_user.has_broadcaster_id(broadcaster_id):
+    if UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]) or UserService.has_broadcaster_id(current_user, broadcaster_id):
         logger.info("Deleting transcription", extra={
                     "transcription_id": transcription_id, "video_id": transcription.video_id, "user_id": current_user.id})
         TranscriptionService.delete_transcription(transcription_id)

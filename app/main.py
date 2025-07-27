@@ -17,7 +17,7 @@ from app.models import db
 from app.models import Transcription, TranscriptionSource, TranscriptionResult, PermissionType
 from app.transcribe import transcribe
 from app.models.config import config
-from app.services import ChannelService, VideoService, TranscriptionService
+from app.services import ChannelService, VideoService, TranscriptionService, UserService
 from app import app, login_manager, socketio
 from app.csrf import csrf
 from app.permissions import require_api_key, require_permission
@@ -425,7 +425,7 @@ def parse_transcription(transcription_id: int):
 @app.route("/channel/<int:channel_id>/fetch_transcriptions")
 @login_required
 def channel_fetch_transcriptions(channel_id: int):
-    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and UserService.has_permission(current_user, PermissionType.Admin):
         channel = ChannelService.get_by_id(channel_id)
         logger.info("Fetching all transcriptions for channel",
                     extra={"channel_id": channel_id})
@@ -437,7 +437,7 @@ def channel_fetch_transcriptions(channel_id: int):
 @app.route("/channel/<int:channel_id>/parse_transcriptions")
 @login_required
 def channel_parse_transcriptions(channel_id: int, force: bool = False):
-    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and UserService.has_permission(current_user, PermissionType.Admin):
         channel = ChannelService.get_by_id(channel_id)
         for video in channel.videos:
             _ = task_parse_video_transcriptions.delay(video.id, force)
@@ -447,7 +447,7 @@ def channel_parse_transcriptions(channel_id: int, force: bool = False):
 @app.route("/channel/<int:channel_id>/fetch_audio")
 @login_required
 def channel_fetch_audio(channel_id: int):
-    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and UserService.has_permission(current_user, PermissionType.Admin):
         channel = ChannelService.get_by_id(channel_id)
         for video in channel.videos:
             _ = task_fetch_audio.delay(video.id)
@@ -457,7 +457,7 @@ def channel_fetch_audio(channel_id: int):
 @app.route("/channel/<int:channel_id>/transcribe_audio")
 @login_required
 def channel_transcribe_audio(channel_id: int):
-    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and UserService.has_permission(current_user, PermissionType.Admin):
         channel = ChannelService.get_by_id(channel_id)
         logger.info("Bulk queue audio processing for channel",
                     extra={"channel_id": channel_id})
@@ -723,7 +723,7 @@ def error_handler(e):
 @login_required
 def handle_join():
     """Browser tells us which broadcaster it cares about."""
-    broadcaster_id = current_user.get_broadcaster().id
+    broadcaster_id = UserService.get_broadcaster(current_user).id
     if broadcaster_id is None:
         logger.warning("User has no broadcaster id",
                        extra={"user_id": current_user.id})
@@ -755,7 +755,7 @@ def my_event():
 @socketio.on("disconnect")
 @login_required
 def handle_disconnect(_):
-    broadcaster_id = current_user.get_broadcaster().id
+    broadcaster_id = UserService.get_broadcaster(current_user).id
     if broadcaster_id is None:
         logger.warning("User has no broadcaster id",
                        extra={"user_id": current_user.id})

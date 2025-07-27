@@ -13,7 +13,7 @@ import mimetypes
 import math
 from sqlalchemy import or_
 from typing import Dict, Any
-from app.services import VideoService
+from app.services import VideoService, UserService
 
 video_blueprint = Blueprint('video', __name__, url_prefix='/video',
                             template_folder='templates', static_folder='static')
@@ -54,7 +54,7 @@ def video_fetch_transcriptions(video_id: int):
 @login_required
 @require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
 def video_delete(video_id: int):
-    if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
+    if current_user.is_anonymous == False and UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
         logger.warning("Deleting video", extra={"video_id": video_id})
         video = VideoService.get_by_id(video_id)
         channel_id = video.channel_id

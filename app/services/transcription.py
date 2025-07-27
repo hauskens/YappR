@@ -6,10 +6,12 @@ import re
 import webvtt # type: ignore[import-untyped]
 from collections.abc import Sequence
 from io import BytesIO
+from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from app.models import db
 from app.models import Transcription, Segments, TranscriptionResult, TranscriptionSource
+from app.models.channel import Channels
 from app.logger import logger
 from app.utils import get_sec, format_duration_to_srt_timestamp
 
@@ -30,6 +32,9 @@ class TranscriptionService:
         return db.session.execute(
             select(Transcription).filter_by(video_id=video_id)
         ).scalars().all()
+    @staticmethod
+    def get_count() -> int:
+        return db.session.query(func.count(Transcription.id)).scalar()
     
     @staticmethod
     def get_segments_sorted(transcription: Transcription, descending: bool = False) -> list[Segments]:
@@ -283,6 +288,35 @@ class TranscriptionService:
                 setattr(transcription, key, value)
         db.session.commit()
         return transcription
+    
+    @staticmethod
+    def get_transcriptions_on_channels(
+        channels: Sequence[Channels],
+    ) -> Sequence[Transcription]:
+        """Get transcriptions for all active videos on the given channels."""
+        transcriptions: list[Transcription] = []
+        for channel in channels:
+            for video in channel.videos:
+                if video.active:
+                    transcriptions += video.transcriptions
+        return transcriptions
+
+    @staticmethod
+    def get_transcriptions_on_channels_daterange(
+        channels: Sequence[Channels], start_date: datetime, end_date: datetime
+    ) -> Sequence[Transcription]:
+        """Get transcriptions for active videos on the given channels within a date range."""
+        transcriptions: list[Transcription] = []
+        for channel in channels:
+            for video in channel.videos:
+                if video.active:
+                    logger.debug(
+                        f"Checking DATE: {start_date} < {video.uploaded} < {end_date}"
+                    )
+                    if start_date <= video.uploaded <= end_date:
+                        transcriptions += video.transcriptions
+                        logger.debug("Found match!")
+        return transcriptions
     
     @staticmethod
     

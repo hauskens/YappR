@@ -165,7 +165,7 @@
           <div class="border rounded p-2" style="height: 500px; overflow-y: auto;">
             <div id="chat-messages-container" 
                  hx-post="{{ url_for('video.video_chatlogs', video_id=video.id) }}" 
-                 hx-trigger="click"
+                 hx-trigger="load delay:100ms, keyup changed delay:300ms from:#chatSearchInput, change delay:300ms from:#userFilter, search-cleared from:body"
                  hx-include="[id='chatSearchInput'], [id='userFilter']"
                  hx-swap="innerHTML"
                  hx-indicator="#loading-indicator">
@@ -181,7 +181,7 @@
       </div>
       
 
-      <a href="{{ video.get_url() }}" >
+      <a href="{{ video_service.get_url(video) }}" >
         <img
         id="{{video.channel.platform.name}}"
         src="https://img.shields.io/badge/link_to_video-5dade2?style=for-the-badge&labelColor={{video.channel.platform.color}}&logo={{video.channel.platform.name}}&logoColor=white"

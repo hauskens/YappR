@@ -2,12 +2,10 @@ from flask import Blueprint, render_template, request
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
-from app.models import db
 from app.models.enums import PermissionType
-from app.models.broadcaster import Broadcaster
-from app.retrievers import get_bots, get_moderated_channels, get_content_queue
-from app.services.broadcaster import BroadcasterService
-from datetime import datetime, timedelta, timezone
+from app.retrievers import get_bots, get_content_queue
+from app.services import BroadcasterService, ChannelService
+from datetime import datetime, timedelta
 
 management_blueprint = Blueprint(
     'management', __name__, url_prefix='/management', template_folder='templates', static_folder='static')
@@ -18,7 +16,7 @@ management_blueprint = Blueprint(
 @require_permission()
 def management():
     logger.info("Loaded management.html")
-    moderated_channels = get_moderated_channels(current_user.id)
+    moderated_channels = ChannelService.get_moderated_channels(current_user.id)
     bots = None
     if current_user.has_permission(PermissionType.Admin):
         bots = get_bots()

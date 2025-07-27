@@ -3,12 +3,9 @@ from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models import db
-from app.models.channel import Channels
-from app.models.video import VideoType
-from app.models.enums import PermissionType
-from app.models.channel import ChannelSettings
-from app.retrievers import get_platforms, get_channel, get_stats_videos_with_audio, get_stats_videos_with_good_transcription
-from app.services.broadcaster import BroadcasterService
+from app.models import Channels, VideoType, PermissionType, ChannelSettings
+from app.retrievers import get_platforms
+from app.services import BroadcasterService, ChannelService
 from app.rate_limit import limiter, rate_limit_exempt
 from app.cache import cache, make_cache_key
 
@@ -51,29 +48,28 @@ def channel_create():
     )
 
 
-@channel_blueprint.route("/<int:channel_id>/link", methods=["POST"])
-@login_required
-@require_permission(permissions=PermissionType.Admin)
-def channel_link(channel_id: int):
-    try:
-        link_channel_id = int(request.form["link_channel_id"])
-    except:
-        link_channel_id = None
-    logger.info("Linking channel to %s", link_channel_id,
-                extra={"channel_id": channel_id})
-    _ = get_channel(channel_id).link_to_channel(link_channel_id)
-    return redirect(request.referrer)
+# @channel_blueprint.route("/<int:channel_id>/link", methods=["POST"])
+# @login_required
+# @require_permission(permissions=PermissionType.Admin)
+# def channel_link(channel_id: int):
+#     try:
+#         link_channel_id = int(request.form["link_channel_id"])
+#     except:
+#         link_channel_id = None
+#     logger.info("Linking channel to %s", link_channel_id,
+#                 extra={"channel_id": channel_id})
+#     _ = ChannelService.get_by_id(channel_id).link_to_channel(link_channel_id)
+#     return redirect(request.referrer)
 
 
 @channel_blueprint.route("/<int:channel_id>/look_for_linked")
 @login_required
 @require_permission(permissions=PermissionType.Admin)
 def channel_look_for_linked(channel_id: int):
-    channel = get_channel(channel_id)
+    channel = ChannelService.get_by_id(channel_id)
     logger.info("Looking for linked videos for channel",
                 extra={"channel_id": channel_id})
-    # channel.look_for_linked_videos()
-    channel.update_thumbnail()
+    ChannelService.update_thumbnails(channel)
     return redirect(request.referrer)
 
 
@@ -82,8 +78,7 @@ def channel_look_for_linked(channel_id: int):
 @require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
 def channel_delete(channel_id: int):
     logger.warning("Deleting channel", extra={"channel_id": channel_id})
-    channel = get_channel(channel_id)
-    channel.delete()
+    ChannelService.delete_channel(channel_id)
     return "ok"
 
 
@@ -93,14 +88,14 @@ def channel_delete(channel_id: int):
 @cache.cached(timeout=10, make_cache_key=make_cache_key)
 def channel_get_videos(channel_id: int):
     logger.info("Getting videos for channel", extra={"channel_id": channel_id})
-    channel = get_channel(channel_id)
+    channel = ChannelService.get_by_id(channel_id)
     return render_template(
         "channel_edit.html",
-        videos=channel.get_videos_sorted_by_uploaded(),
+        videos=ChannelService.get_videos_by_channel(channel_id),
         channel=channel,
-        audio_count="{:,}".format(get_stats_videos_with_audio(channel_id)),
+        audio_count="{:,}".format(ChannelService.get_stats_videos_with_audio(channel_id)),
         transcription_count="{:,}".format(
-            get_stats_videos_with_good_transcription(channel_id)
+            ChannelService.get_stats_videos_with_good_transcription(channel_id)
         ),
     )
 
@@ -111,8 +106,8 @@ def channel_get_videos(channel_id: int):
 def channel_fetch_details(channel_id: int):
     logger.info("Fetching details for channel",
                 extra={"channel_id": channel_id})
-    channel = get_channel(channel_id)
-    channel.update()
+    channel = ChannelService.get_by_id(channel_id)
+    ChannelService.update_channel_details(channel)
     return render_template(
         "broadcaster_edit.html",
         broadcaster=channel.broadcaster_id,
@@ -129,8 +124,8 @@ def channel_fetch_details(channel_id: int):
 def channel_fetch_videos(channel_id: int):
     logger.info("Fetching videos for channel",
                 extra={"channel_id": channel_id})
-    channel = get_channel(channel_id)
-    channel.fetch_latest_videos()
+    channel = ChannelService.get_by_id(channel_id)
+    ChannelService.fetch_latest_videos(channel)
     return redirect(request.referrer)
 
 
@@ -140,8 +135,8 @@ def channel_fetch_videos(channel_id: int):
 def channel_fetch_videos_all(channel_id: int):
     logger.info("Fetching all videos for channel",
                 extra={"channel_id": channel_id})
-    channel = get_channel(channel_id)
-    channel.fetch_videos_all()
+    channel = ChannelService.get_by_id(channel_id)
+    ChannelService.fetch_videos_all(channel)
     return redirect(request.referrer)
 
 
@@ -150,7 +145,7 @@ def channel_fetch_videos_all(channel_id: int):
 @require_permission(check_banned=True)
 def channel_settings_update(channel_id: int):
     # Check if user has permission to modify this channel
-    channel = db.session.query(Channels).filter_by(id=channel_id).first()
+    channel = ChannelService.get_by_id(channel_id)
     if not channel:
         if request.headers.get('HX-Request'):
             return '<div class="alert alert-danger">Channel not found</div>', 404

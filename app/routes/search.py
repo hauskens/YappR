@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, session
 from app.logger import logger
-from app.services.broadcaster import BroadcasterService
+from app.services import BroadcasterService
 from app.rate_limit import limiter, rate_limit_exempt
 from app.search import search_v2
 from app.utils import get_valid_date

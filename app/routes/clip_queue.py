@@ -9,7 +9,7 @@ from app.models.content_queue import ContentQueue, ContentQueueSubmission
 from app.models.user import ExternalUser, ExternalUserWeight
 from app.platforms.handler import PlatformRegistry
 from app.retrievers import get_content_queue
-from app.services.broadcaster import BroadcasterService
+from app.services import BroadcasterService
 from app.permissions import require_permission
 from app.content_queue import clip_score
 from flask_socketio import SocketIO

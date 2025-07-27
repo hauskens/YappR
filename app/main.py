@@ -13,14 +13,13 @@ from flask import (
     redirect,
 )
 from celery import Celery, Task, chain
-from app.models.enums import PermissionType
 from app.models import db
-from app.models.channel import Channels
-from app.models.transcription import Transcription, TranscriptionSource, TranscriptionResult
+from app.models import Transcription, TranscriptionSource, TranscriptionResult, PermissionType
 from app.transcribe import transcribe
 from app.models.config import config
-from app.retrievers import get_transcription, get_video, get_all_twitch_channels, get_channel
-from app import app, login_manager, socketio, csrf
+from app.services import ChannelService, VideoService, TranscriptionService
+from app import app, login_manager, socketio
+from app.csrf import csrf
 from app.permissions import require_api_key, require_permission
 from app.twitch_api import get_current_live_streams
 from urllib.parse import unquote
@@ -58,7 +57,7 @@ logger.info("Service started")
 def setup_periodic_tasks(sender: Celery, **kwargs):
     logger.info("Setting up periodic tasks")
     with app.app_context():
-        channels = db.session.query(Channels).all()
+        channels = ChannelService.get_all(show_hidden=True)
         for channel in channels:
             if channel.platform.name.lower() == "twitch":
                 logger.info("Setting up tasks for channel",
@@ -96,14 +95,14 @@ def redirect_unauthorized():
 @celery.task()
 def full_processing_task(channel_id: int):
     logger.info("Processing channel", extra={"channel_id": channel_id})
-    channel = get_channel(channel_id)
+    channel = ChannelService.get_by_id(channel_id)
     if channel.last_active is not None and channel.last_active > datetime.now() - timedelta(minutes=30):
         logger.info("Channel was active less than 30 minutes ago, skipping", extra={
                     "channel_id": channel_id})
         return
     logger.info("Channel was active more than 30 minutes ago, processing", extra={
                 "channel_id": channel_id})
-    video = channel.fetch_latest_videos(process=True)
+    video = ChannelService.fetch_latest_videos(channel, process=True)
     if video is not None:
         _ = chain(task_fetch_audio.s(video), task_transcribe_audio.s(
         ), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)
@@ -189,23 +188,23 @@ def celery_active_tasks_view():
 @celery.task()
 def task_fetch_audio(video_id: int):
     logger.info("Fetching audio for", extra={"video_id": video_id})
-    video = get_video(video_id)
-    video.save_audio()
+    video = VideoService.get_by_id(video_id)
+    VideoService.save_audio(video)
     return video_id
 
 
 @celery.task()
 def task_fetch_transcription(video_id: int):
-    video = get_video(video_id)
+    video = VideoService.get_by_id(video_id)
     logger.info("Task queued, fetching transcription for",
                 extra={"video_id": video_id})
-    _ = video.download_transcription()
+    _ = VideoService.download_transcription(video)
     return video_id
 
 
 @celery.task
 def update_channels_last_active():
-    channels = get_all_twitch_channels()
+    channels = ChannelService.get_all_twitch_channels()
     twitch_user_ids = [channel.platform_channel_id for channel in channels]
     logger.info("Updating channels last active")
     if len(twitch_user_ids) > 0:
@@ -220,7 +219,7 @@ def update_channels_last_active():
 @celery.task
 def task_transcribe_audio(video_id: int, force: bool = False):
     headers = {"X-API-Key": config.api_key}
-    video = get_video(video_id)
+    video = VideoService.get_by_id(video_id)
 
     for t in video.transcriptions:
         if t.source == TranscriptionSource.Unknown:
@@ -390,14 +389,14 @@ def task_transcribe_file(job_id: str):
 
 @celery.task
 def task_parse_transcription(transcription_id: int, force: bool = False):
-    trans = get_transcription(transcription_id)
-    trans.process_transcription(force)
+    trans = TranscriptionService.get_by_id(transcription_id)
+    TranscriptionService.process_transcription(trans, force)
 
 
 @celery.task
 def task_parse_video_transcriptions(video_id: int, force: bool = False):
-    video = get_video(video_id)
-    video.process_transcriptions(force)
+    video = VideoService.get_by_id(video_id)
+    VideoService.process_transcriptions(video, force)
     return video_id
 
 
@@ -427,7 +426,7 @@ def parse_transcription(transcription_id: int):
 @login_required
 def channel_fetch_transcriptions(channel_id: int):
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
-        channel = get_channel(channel_id)
+        channel = ChannelService.get_by_id(channel_id)
         logger.info("Fetching all transcriptions for channel",
                     extra={"channel_id": channel_id})
         for video in channel.videos:
@@ -439,7 +438,7 @@ def channel_fetch_transcriptions(channel_id: int):
 @login_required
 def channel_parse_transcriptions(channel_id: int, force: bool = False):
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
-        channel = get_channel(channel_id)
+        channel = ChannelService.get_by_id(channel_id)
         for video in channel.videos:
             _ = task_parse_video_transcriptions.delay(video.id, force)
     return redirect(request.referrer)
@@ -449,7 +448,7 @@ def channel_parse_transcriptions(channel_id: int, force: bool = False):
 @login_required
 def channel_fetch_audio(channel_id: int):
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
-        channel = get_channel(channel_id)
+        channel = ChannelService.get_by_id(channel_id)
         for video in channel.videos:
             _ = task_fetch_audio.delay(video.id)
     return redirect(request.referrer)
@@ -459,7 +458,7 @@ def channel_fetch_audio(channel_id: int):
 @login_required
 def channel_transcribe_audio(channel_id: int):
     if current_user.is_anonymous == False and current_user.has_permission(PermissionType.Admin):
-        channel = get_channel(channel_id)
+        channel = ChannelService.get_by_id(channel_id)
         logger.info("Bulk queue audio processing for channel",
                     extra={"channel_id": channel_id})
         for video in channel.videos:
@@ -492,8 +491,8 @@ def download_clip(video_id: int):
     if total_duration == 0:
         return '<div class="alert alert-danger">Clip duration must be at least 1 second</div>', 400
 
-    video = get_video(video_id)
-    if "twitch" not in video.get_url().lower():
+    video = VideoService.get_by_id(video_id)
+    if "twitch" not in VideoService.get_url(video).lower():
         return '<div class="alert alert-danger">Only Twitch videos supported</div>', 400
 
     # Calculate clip start and duration
@@ -501,13 +500,13 @@ def download_clip(video_id: int):
     duration = total_duration
 
     # Generate the expected clip basename
-    video_id_from_url = video.get_url().split('/')[-1]
+    video_id_from_url = VideoService.get_url(video).split('/')[-1]
     clip_basename = f"{video_id_from_url}_{clip_start}_{duration}_clip"
 
     logger.info("Queuing clip download for video %s from %s for %s seconds (-%ss/+%ss)",
                 video_id, clip_start, duration, before_seconds, after_seconds)
     task = task_download_twitch_clip.delay(
-        video.get_url(), clip_start, duration)
+        VideoService.get_url(video), clip_start, duration)
 
     # Return HTML with polling for status updates using file-based checking
     return f'''
@@ -675,10 +674,10 @@ Files:
 
 @app.route("/video/<int:video_id>/upload_transcription", methods=["POST"])
 @require_api_key
-@csrf.exempt
+@csrf.exempt # type: ignore
 def upload_transcription(video_id: int):
     logger.info(f"ready to receive json on {video_id}")
-    video = get_video(video_id)
+    video = VideoService.get_by_id(video_id)
     if request.json is None:
         logger.error("Json not found in request")
         return "something wrong", 500

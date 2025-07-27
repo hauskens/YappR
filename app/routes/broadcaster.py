@@ -1,19 +1,28 @@
 from flask import Blueprint, render_template, redirect, request, url_for, flash
 from app.permissions import require_permission
 from app.models import db
-from app.models.platform import Platforms
-from app.models.video import VideoType
-from app.models.enums import PermissionType, AccountSource
-from app.models.broadcaster import Broadcaster
-from app.models.channel import ChannelSettings, Channels, ChannelModerator
-from app.models.broadcaster import BroadcasterSettings
-from app.models.content_queue import ContentQueue, ContentQueueSubmission, ContentQueueSubmissionSource, Content
-from app.models.user import ExternalUser
-from app.services.broadcaster import BroadcasterService
+from app.models import (
+    Platforms,
+    VideoType,
+    PermissionType,
+    AccountSource,
+    Broadcaster,
+    ChannelSettings,
+    Channels,
+    ChannelModerator,
+    BroadcasterSettings,
+    ContentQueue,
+    ContentQueueSubmission,
+    ContentQueueSubmissionSource,
+    Content,
+    ExternalUser,
+)
+from app.services import BroadcasterService
 from app.cache import cache, make_cache_key
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime
+from app.retrievers import get_platforms
 
 broadcaster_blueprint = Blueprint(
     'broadcaster', __name__, url_prefix='/broadcaster', template_folder='templates', static_folder='static')

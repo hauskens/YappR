@@ -35,27 +35,6 @@ class Channels(Base):
     last_active: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True)
 
-#     def update_thumbnail(self):
-#         for video in self.videos:
-#             if video.thumbnail is None:
-#                 video.fetch_details(force=True)
-
-#     def get_url(self) -> str:
-#         url = self.platform.url
-#         if self.platform.name.lower() == "youtube":
-#             return f"{url}/@{self.platform_ref}"
-#         elif self.platform.name.lower() == "twitch":
-#             return f"{url}/{self.platform_ref}"
-#         raise ValueError(f"Could not generate url for channel: {self.id}")
-
-#     def update(self):
-#         if self.platform.name.lower() == "youtube":
-#             result = get_youtube_channel_details(self.platform_ref)
-#             self.platform_channel_id = result.id
-#         elif self.platform.name.lower() == "twitch":
-#             result = asyncio.run(get_twitch_user(self.platform_ref))
-#             self.platform_channel_id = result.id
-#         db.session.commit()
 
 #     def link_to_channel(self, channel_id: int | None = None):
 #         if channel_id is not None:
@@ -76,26 +55,6 @@ class Channels(Base):
 #         else:
 #             self.source_channel_id = None
 #             db.session.commit()
-
-#     def delete(self):
-#         for video in self.videos:
-#             video.delete()
-#         db.session.query(ChatLog).filter_by(channel_id=self.id).delete()
-#         db.session.query(ChannelSettings).filter_by(
-#             channel_id=self.id).delete()
-#         db.session.query(ChannelModerator).filter_by(
-#             channel_id=self.id).delete()
-#         if self.broadcaster_id is not None:
-#             queue = db.session.query(ContentQueue).filter_by(
-#                 broadcaster_id=self.broadcaster_id).all()
-#             for q_item in queue:
-#                 db.session.query(ContentQueueSubmission).filter_by(
-#                     content_queue_id=q_item.id).delete()
-#             db.session.query(ContentQueue).filter_by(
-#                 broadcaster_id=self.broadcaster_id).delete()
-
-#         _ = db.session.query(Channels).filter_by(id=self.id).delete()
-#         db.session.commit()
 
 #     def process_videos(self, force: bool = False):
 #         for video in self.videos:

@@ -1,7 +1,9 @@
 from flask import Blueprint, redirect, request, abort
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
-from app.models.db import db, Transcription, PermissionType
+from app.models.transcription import Transcription
+from app.models import db
+from app.models.enums import PermissionType
 from app.retrievers import get_transcription
 from io import BytesIO
 from flask import send_file

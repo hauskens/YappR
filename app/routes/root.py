@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, flash, send_from_directory, url_fo
 from app.logger import logger
 from flask_login import current_user, logout_user, login_required  # type: ignore
 from app.permissions import require_permission, require_api_key
-from app.models.db import PermissionType
+from app.models.enums import PermissionType
 from app.csrf import csrf
 from app.retrievers import (
     get_users, get_stats_videos,

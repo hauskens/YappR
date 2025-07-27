@@ -2,11 +2,9 @@ from datetime import datetime
 from collections.abc import Sequence
 from sqlalchemy import select
 from app.logger import logger
-from .models.db import (
-    Segments,
-    Channels,
-    db,
-)
+from .models import db
+from .models.channel import Channels
+from .models.transcription import Segments
 from .models.search import SegmentsResult, VideoResult
 from .retrievers import (
     get_transcriptions_on_channels,

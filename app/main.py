@@ -13,16 +13,14 @@ from flask import (
     redirect,
 )
 from celery import Celery, Task, chain
-from app.models.db import (
-    PermissionType,
-    db,
-    Channels,
-)
+from app.models.enums import PermissionType
+from app.models import db
+from app.models.channel import Channels
+from app.models.transcription import Transcription, TranscriptionSource, TranscriptionResult
 from app.transcribe import transcribe
 from app.models.config import config
 from app.retrievers import get_transcription, get_video, get_all_twitch_channels, get_channel
 from app import app, login_manager, socketio, csrf
-from app.models.db import TranscriptionSource, Transcription, TranscriptionResult
 from app.permissions import require_api_key, require_permission
 from app.twitch_api import get_current_live_streams
 from urllib.parse import unquote

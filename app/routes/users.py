@@ -1,7 +1,10 @@
 from flask import Blueprint, render_template, request, redirect
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
-from app.models.db import db, ExternalUser, ExternalUserWeight, ContentQueueSubmission, PermissionType
+from app.models import db
+from app.models.user import ExternalUser, ExternalUserWeight
+from app.models.content_queue import ContentQueueSubmission
+from app.models.enums import PermissionType
 from app.logger import logger
 from app.retrievers import get_user_by_id, get_users, get_broadcasters
 

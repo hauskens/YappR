@@ -3,7 +3,10 @@ from flask_dance.contrib.twitch import make_twitch_blueprint  # type: ignore
 from flask_dance.consumer.storage.sqla import SQLAlchemyStorage  # type: ignore
 from flask_dance.consumer import oauth_authorized  # type: ignore
 from flask_login import current_user, login_user  # type: ignore
-from ..models.db import db, OAuth, Users, AccountSource
+from ..models import db
+from ..models.auth import OAuth
+from ..models.user import Users
+from ..models.enums import AccountSource
 from ..models.config import config
 from sqlalchemy.exc import NoResultFound
 from datetime import timedelta, datetime

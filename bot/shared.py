@@ -6,7 +6,10 @@ from typing import TypedDict
 from app.redis_client import RedisTaskQueue
 from app.logger import logger
 import re
-from app.models.db import ContentQueueSettings, Content, ContentQueue, ContentQueueSubmission, ExternalUser, ExternalUserWeight, ContentQueueSubmissionSource, AccountSource
+from app.models.content_queue_settings import ContentQueueSettings
+from app.models.content_queue import Content, ContentQueue, ContentQueueSubmission, ContentQueueSubmissionSource
+from app.models.user import ExternalUser, ExternalUserWeight
+from app.models.enums import AccountSource
 from sqlalchemy import select
 from app.twitch_api import Twitch
 from datetime import datetime

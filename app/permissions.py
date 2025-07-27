@@ -5,7 +5,8 @@ from functools import wraps
 from typing import Callable, Any, TypeVar, cast
 from flask import request, abort
 from app.models.config import config
-from app.models.db import PermissionType, Users
+from app.models.enums import PermissionType
+from app.models.user import Users
 
 F = TypeVar("F", bound=Callable[..., Any])
 

@@ -5,7 +5,8 @@ from app.permissions import require_permission
 from app.models import db
 from app.models.enums import PermissionType
 from app.models.broadcaster import Broadcaster
-from app.retrievers import get_bots, get_broadcasters, get_moderated_channels, get_broadcaster, get_content_queue
+from app.retrievers import get_bots, get_moderated_channels, get_content_queue
+from app.services.broadcaster import BroadcasterService
 from datetime import datetime, timedelta, timezone
 
 management_blueprint = Blueprint(
@@ -21,7 +22,7 @@ def management():
     bots = None
     if current_user.has_permission(PermissionType.Admin):
         bots = get_bots()
-        broadcasters = get_broadcasters(show_hidden=True)
+        broadcasters = BroadcasterService.get_all(show_hidden=True)
 
     elif moderated_channels is not None or current_user.is_broadcaster():
         # Convert moderated channels to a list of broadcasters
@@ -29,8 +30,7 @@ def management():
             channel.channel.broadcaster_id for channel in moderated_channels]
         if current_user.is_broadcaster():
             broadcaster_ids.append(current_user.get_broadcaster().id)
-        broadcasters = db.session.query(Broadcaster).filter(
-            Broadcaster.id.in_(broadcaster_ids)).all()
+        broadcasters = BroadcasterService.get_all(show_hidden=False)
 
     if moderated_channels is None and not (current_user.has_permission(PermissionType.Admin) or current_user.is_broadcaster()):
         return "You do not have access", 403
@@ -81,7 +81,7 @@ def management_items():
             broadcaster_id = current_user.get_broadcaster().id
 
         if broadcaster_id is not None:
-            broadcaster = get_broadcaster(broadcaster_id)
+            broadcaster = BroadcasterService.get_by_id(broadcaster_id)
             if broadcaster is None:
                 return "Broadcaster not found", 404
 

@@ -8,7 +8,8 @@ from app.models.content_queue_settings import ContentQueueSettings
 from app.models.content_queue import ContentQueue, ContentQueueSubmission
 from app.models.user import ExternalUser, ExternalUserWeight
 from app.platforms.handler import PlatformRegistry
-from app.retrievers import get_broadcaster_by_external_id, get_content_queue, get_broadcasters
+from app.retrievers import get_content_queue
+from app.services.broadcaster import BroadcasterService
 from app.permissions import require_permission
 from app.content_queue import clip_score
 from flask_socketio import SocketIO
@@ -45,7 +46,7 @@ def clip_queue():
         try:
             logger.info("Loading clip queue", extra={
                         "user_id": current_user.id})
-            broadcaster = get_broadcaster_by_external_id(
+            broadcaster = BroadcasterService.get_by_external_id(
                 current_user.external_account_id)
             if broadcaster is None:
                 return render_template("promo.html")
@@ -78,7 +79,7 @@ def mark_clip_watched(item_id: int):
         broadcaster_id = queue_item.broadcaster_id
 
         # Check if user has permission to mark this clip as watched
-        broadcaster = get_broadcaster_by_external_id(
+        broadcaster = BroadcasterService.get_by_external_id(
             current_user.external_account_id)
         if broadcaster is None:
             return jsonify({"error": "Broadcaster not found"}), 404
@@ -120,7 +121,7 @@ def skip_clip_queue_item(item_id: int):
         broadcaster_id = queue_item.broadcaster_id
 
         # Check if user has permission to skip this clip
-        broadcaster = get_broadcaster_by_external_id(
+        broadcaster = BroadcasterService.get_by_external_id(
             current_user.external_account_id)
         if broadcaster is None:
             return jsonify({"error": "Broadcaster not found"}), 404
@@ -154,7 +155,7 @@ def skip_clip_queue_item(item_id: int):
 def skip_all_queue_items():
     """Mark all unwatched and non-skipped queue items as skipped"""
     try:
-        broadcaster = get_broadcaster_by_external_id(
+        broadcaster = BroadcasterService.get_by_external_id(
             current_user.external_account_id)
         if broadcaster is None:
             return jsonify({"error": "Broadcaster not found"}), 404
@@ -194,7 +195,7 @@ def get_queue_items():
             'show_history', 'false').lower() == 'true'
 
         # Get broadcaster and content queue settings
-        broadcaster = get_broadcaster_by_external_id(
+        broadcaster = BroadcasterService.get_by_external_id(
             current_user.external_account_id)
 
         # Get prefer_shorter_content setting from database
@@ -217,7 +218,7 @@ def get_queue_items():
         limit = int(request.args.get('limit', 20))
         offset = (page - 1) * limit
 
-        broadcaster = get_broadcaster_by_external_id(
+        broadcaster = BroadcasterService.get_by_external_id(
             current_user.external_account_id)
         queue_enabled = False
         for channel in broadcaster.channels:
@@ -481,7 +482,6 @@ def reset_external_user_penalties(broadcaster_id: int, external_user_id: int):
 def settings():
     """Get allowed platforms for the broadcaster's queue"""
     try:
-        # Convert the ID to string to match expected type in get_broadcaster_by_external_id
         broadcaster = current_user.get_broadcaster()
         if not broadcaster:
             logger.error("Broadcaster not found")
@@ -557,11 +557,11 @@ def add_content():
     logger.info("Loaded add_content.html")
     try:
         if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
-            broadcasters = get_broadcasters(show_hidden=True)
+            broadcasters = BroadcasterService.get_all(show_hidden=True)
         else:
             if current_user.is_broadcaster():
                 broadcasters = [current_user.get_broadcaster()]
-            broadcasters += get_broadcasters(show_hidden=False)
+            broadcasters += BroadcasterService.get_all(show_hidden=False)
         if request.method == "GET":
             return render_template("add_content.html", broadcasters=broadcasters)
 
@@ -661,11 +661,11 @@ def search_content():
                 # If no broadcaster specified, search across all allowed broadcasters
                 if not broadcaster_id:
                     if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
-                        broadcasters = get_broadcasters(show_hidden=True)
+                        broadcasters = BroadcasterService.get_all(show_hidden=True)
                     else:
                         if current_user.is_broadcaster():
                             broadcasters = [current_user.get_broadcaster()]
-                        broadcasters += get_broadcasters(show_hidden=False)
+                        broadcasters += BroadcasterService.get_all(show_hidden=False)
                     # Get all queue items for this content across all broadcasters
                     all_queue_items = db.session.execute(
                         select(ContentQueue).filter(
@@ -756,11 +756,11 @@ def text_search_content_internal(query, broadcaster_id):
     # Get allowed broadcasters
     if not broadcaster_id:
         if current_user.has_permission([PermissionType.Admin, PermissionType.Moderator]):
-            broadcasters = get_broadcasters(show_hidden=True)
+            broadcasters = BroadcasterService.get_all(show_hidden=True)
         else:
             if current_user.is_broadcaster():
                 broadcasters = [current_user.get_broadcaster()]
-            broadcasters += get_broadcasters(show_hidden=False)
+            broadcasters += BroadcasterService.get_all(show_hidden=False)
         broadcaster_ids = [broadcaster.id for broadcaster in broadcasters]
     else:
         broadcaster_ids = [int(broadcaster_id)]

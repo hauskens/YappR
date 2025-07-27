@@ -7,7 +7,8 @@ from app.models.channel import Channels
 from app.models.video import VideoType
 from app.models.enums import PermissionType
 from app.models.channel import ChannelSettings
-from app.retrievers import get_broadcaster, get_broadcaster_channels, get_platforms, get_channel, get_stats_videos_with_audio, get_stats_videos_with_good_transcription
+from app.retrievers import get_platforms, get_channel, get_stats_videos_with_audio, get_stats_videos_with_good_transcription
+from app.services.broadcaster import BroadcasterService
 from app.rate_limit import limiter, rate_limit_exempt
 from app.cache import cache, make_cache_key
 
@@ -43,8 +44,8 @@ def channel_create():
                 "channel_id": new_channel.id, "broadcaster_id": broadcaster_id})
     return render_template(
         "broadcaster_edit.html",
-        broadcaster=get_broadcaster(broadcaster_id),
-        channels=get_broadcaster_channels(broadcaster_id=broadcaster_id),
+        broadcaster=BroadcasterService.get_by_id(broadcaster_id),
+        channels=BroadcasterService.get_channels(broadcaster_id=broadcaster_id),
         platforms=get_platforms(),
         video_types=VideoType,
     )
@@ -115,7 +116,7 @@ def channel_fetch_details(channel_id: int):
     return render_template(
         "broadcaster_edit.html",
         broadcaster=channel.broadcaster_id,
-        channels=get_broadcaster_channels(
+        channels=BroadcasterService.get_channels(
             broadcaster_id=channel.broadcaster_id),
         platforms=get_platforms(),
         video_types=VideoType,

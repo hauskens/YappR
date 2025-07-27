@@ -8,10 +8,10 @@ from app.retrievers import (
     get_users, get_stats_videos,
     get_stats_transcriptions,
     get_stats_high_quality_transcriptions,
-    get_video, get_broadcasters,
-    get_total_good_transcribed_video_duration,
+    get_video, get_total_good_transcribed_video_duration,
     get_stats_videos_with_low_transcription,
 )
+from app.services.broadcaster import BroadcasterService
 from app.cache import cache
 from io import BytesIO
 from app.rate_limit import limiter, rate_limit_exempt
@@ -33,7 +33,7 @@ root_blueprint = Blueprint('root', __name__, url_prefix='/',
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 def index():
     logger.info("Loaded frontpage")
-    broadcasters = get_broadcasters()
+    broadcasters = BroadcasterService.get_all()
     return render_template("search.html", broadcasters=broadcasters)
 
 

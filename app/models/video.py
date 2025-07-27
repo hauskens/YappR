@@ -14,7 +14,7 @@ class Video(Base):
     duration: Mapped[float] = mapped_column(Float())
     channel_id: Mapped[int] = mapped_column(
         ForeignKey("channels.id"), index=True)
-    channel: Mapped["Channels"] = relationship()
+    channel: Mapped["Channels"] = relationship() # type: ignore[name-defined]
     source_video_id: Mapped[int | None] = mapped_column(
         ForeignKey("video.id"), index=True, nullable=True
     )
@@ -33,7 +33,7 @@ class Video(Base):
     thumbnail: Mapped[File | None] = mapped_column(
         FileField(upload_storage="thumbnails"))
     audio: Mapped[File | None] = mapped_column(FileField())
-    transcriptions: Mapped[list["Transcription"]] = relationship(
+    transcriptions: Mapped[list["Transcription"]] = relationship( # type: ignore[name-defined]
         back_populates="video", cascade="all, delete-orphan"
     )
 

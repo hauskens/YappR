@@ -6,7 +6,8 @@ from app.models.user import ExternalUser, ExternalUserWeight
 from app.models.content_queue import ContentQueueSubmission
 from app.models.enums import PermissionType
 from app.logger import logger
-from app.retrievers import get_user_by_id, get_users, get_broadcasters
+from app.services.broadcaster import BroadcasterService
+from app.retrievers import get_user_by_id, get_users
 
 users_blueprint = Blueprint('users', __name__, url_prefix='/users',
                             template_folder='templates', static_folder='static')
@@ -70,7 +71,7 @@ def user_edit(user_id: int):
     user = get_user_by_id(user_id)
     if request.method == "GET":
         logger.info("Loaded users.html")
-        broadcasters = get_broadcasters()
+        broadcasters = BroadcasterService.get_all()
         return render_template(
             "user_edit.html",
             user=user,

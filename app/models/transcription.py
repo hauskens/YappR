@@ -30,7 +30,7 @@ class Transcription(Base):
     __tablename__: str = "transcriptions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     video_id: Mapped[int] = mapped_column(ForeignKey("video.id"), index=True)
-    video: Mapped["Video"] = relationship()
+    video: Mapped["Video"] = relationship() # type: ignore[name-defined]
     language: Mapped[str] = mapped_column(String(250))
     last_updated: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now())

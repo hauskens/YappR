@@ -9,9 +9,9 @@ class Channels(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(250))
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    broadcaster: Mapped["Broadcaster"] = relationship()
+    broadcaster: Mapped["Broadcaster"] = relationship() # type: ignore[name-defined]
     platform_id: Mapped[int] = mapped_column(ForeignKey("platforms.id"))
-    platform: Mapped["Platforms"] = relationship()
+    platform: Mapped["Platforms"] = relationship() # type: ignore[name-defined]
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
     platform_channel_id: Mapped[str | None] = mapped_column(
         String(), unique=True, nullable=True
@@ -23,7 +23,7 @@ class Channels(Base):
     main_video_type: Mapped[str] = mapped_column(
         Enum(VideoType), default=VideoType.Unknown
     )
-    videos: Mapped[list["Video"]] = relationship(
+    videos: Mapped[list["Video"]] = relationship( # type: ignore[name-defined]
         back_populates="channel", cascade="all, delete-orphan"
     )
     settings: Mapped["ChannelSettings"] = relationship(
@@ -298,7 +298,7 @@ class ChannelModerator(Base):
     __tablename__: str = "channel_moderators"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    user: Mapped["Users"] = relationship(back_populates="channel_moderators")
+    user: Mapped["Users"] = relationship(back_populates="channel_moderators") # type: ignore[name-defined]
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
     channel: Mapped["Channels"] = relationship(back_populates="moderators")
 

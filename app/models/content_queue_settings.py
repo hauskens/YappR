@@ -200,7 +200,7 @@ class ContentQueueSettings(Base):
     __tablename__ = "content_queue_settings"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    broadcaster: Mapped["Broadcaster"] = relationship()
+    broadcaster: Mapped["Broadcaster"] = relationship() # type: ignore[name-defined]
     prefer_shorter_content: Mapped[bool] = mapped_column(
         Boolean, default=False)
     view_count_min: Mapped[int] = mapped_column(Integer, default=0)

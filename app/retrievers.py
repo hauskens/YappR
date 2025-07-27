@@ -18,26 +18,6 @@ from app.logger import logger
 from app.cache import cache, make_cache_key
 
 
-def get_broadcasters(show_hidden: bool = False) -> Sequence[Broadcaster]:
-    if show_hidden:
-        return (
-            db.session.execute(select(Broadcaster).order_by(
-                Broadcaster.id)).scalars().all()
-        )
-    else:
-        return (
-            db.session.execute(select(Broadcaster).filter_by(
-                hidden=False).order_by(Broadcaster.id)).scalars().all()
-        )
-
-
-def get_broadcaster(broadcaster_id: int) -> Broadcaster:
-    return (
-        db.session.execute(select(Broadcaster).filter_by(id=broadcaster_id))
-        .scalars()
-        .one()
-    )
-
 
 def get_channel(channel_id: int) -> Channels:
     return db.session.execute(select(Channels).filter_by(id=channel_id)).scalars().one()
@@ -45,62 +25,6 @@ def get_channel(channel_id: int) -> Channels:
 
 def get_platforms() -> Sequence[Platforms] | None:
     return db.session.execute(select(Platforms)).scalars().all()
-
-
-def get_broadcaster_channels(broadcaster_id: int) -> Sequence[Channels] | None:
-    return (
-        db.session.execute(select(Channels).filter_by(
-            broadcaster_id=broadcaster_id))
-        .scalars()
-        .all()
-    )
-
-
-def get_broadcaster_transcription_stats(broadcaster_id: int) -> dict:
-    # Get all videos for the broadcaster
-    all_videos_count = db.session.query(func.count(Video.id)).join(Video.channel).filter(
-        Channels.broadcaster_id == broadcaster_id
-    ).scalar() or 0
-
-    # Get all videos with at least one high quality transcription (Unknown source)
-    # These are counted first since high quality takes precedence
-    high_quality_videos = db.session.query(Video.id).distinct().join(Video.transcriptions).join(Video.channel).filter(
-        Channels.broadcaster_id == broadcaster_id,
-        Video.active == True,
-        Transcription.source == TranscriptionSource.Unknown
-    ).all()
-    high_quality_video_ids = {video_id for (video_id,) in high_quality_videos}
-    high_quality_count = len(high_quality_video_ids)
-
-    # Get videos with low quality transcriptions (YouTube source) but no high quality ones
-    query = db.session.query(Video.id).distinct().join(Video.transcriptions).join(Video.channel).filter(
-        Channels.broadcaster_id == broadcaster_id,
-        Transcription.source == TranscriptionSource.YouTube,
-        Video.active == True
-    )
-
-    # Only apply the filter if there are high quality videos to exclude
-    if high_quality_video_ids:
-        query = query.filter(~Video.id.in_(high_quality_video_ids))
-
-    low_quality_videos = query.all()
-    low_quality_count = len(low_quality_videos)
-
-    # Count videos with no transcriptions
-    with_transcriptions_videos = db.session.query(Video.id).distinct().join(Video.transcriptions).join(Video.channel).filter(
-        Channels.broadcaster_id == broadcaster_id,
-        Video.active == True,
-    ).all()
-    with_transcriptions_video_ids = {video_id for (
-        video_id,) in with_transcriptions_videos}
-    no_transcriptions_count = all_videos_count - \
-        len(with_transcriptions_video_ids)
-
-    return {
-        'high_quality': high_quality_count,
-        'low_quality': low_quality_count,
-        'no_transcription': no_transcriptions_count
-    }
 
 
 def get_video(video_id: int) -> Video:
@@ -175,9 +99,6 @@ def get_transcriptions_on_channels_daterange(
 def get_segment_by_id(segment_id: int) -> Segments:
     return db.session.query(Segments).filter_by(id=segment_id).one()
 
-
-def delete_broadcaster(broadcaster_id: int):
-    return db.session.query(Broadcaster).filter_by(id=broadcaster_id).delete()
 
 
 def get_users() -> list[Users]:
@@ -296,15 +217,6 @@ def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool =
         if not include_watched:
             query = query.filter(ContentQueue.watched == include_watched)
     return db.session.execute(query.order_by(ContentQueue.id.desc())).scalars().all()
-
-
-def get_broadcaster_by_external_id(external_id: str) -> Broadcaster | None:
-    return db.session.execute(
-        select(Broadcaster)
-        .join(Broadcaster.channels)
-        .where(Channels.platform_channel_id == external_id)
-        .limit(1)
-    ).scalars().one_or_none()
 
 
 def get_all_twitch_channels() -> Sequence[Channels]:

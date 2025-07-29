@@ -23,11 +23,9 @@ pytest.mark.unit = pytest.mark.unit
 # Import models only if we're not running unit tests
 db_required = not unit_test_mode
 if db_required:
-    from app import create_app
-    from app.models.db import db as _db
-    from app.models.db import (
-        Platforms, Broadcaster, Users, AccountSource, OAuth
-    )
+    from app.app_factory import create_app
+    from app.models import db as _db
+    from app.models import Platforms, Broadcaster, Users, AccountSource, OAuth
 
     os.environ["TC_REUSE_LOCAL"] = "true"
 else:

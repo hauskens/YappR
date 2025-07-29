@@ -1,5 +1,8 @@
 from dataclasses import dataclass
-from .db import Segments, Video
+from app.services import SegmentService
+
+from .transcription import Segments
+from .video import Video
 
 
 @dataclass
@@ -27,7 +30,7 @@ class SegmentsResult:
         return max(self.segments, key=lambda x: x.end).end
 
     def get_url(self) -> str:
-        return min(self.segments, key=lambda x: x.start).get_url_timestamped()
+        return SegmentService.get_url_timestamped(min(self.segments, key=lambda x: x.start))
 
 
 @dataclass

@@ -8,8 +8,6 @@ let
   ];
 in
 {
-  # https://devenv.sh/basics/
-  env.GREET = "devenv";
 
   # https://devenv.sh/packages/
   packages = with pkgs; [ 
@@ -47,11 +45,11 @@ in
     . .devenv/state/venv/bin/activate
   '';
 
-  # https://devenv.sh/tasks/
-  # tasks = {
-  #   "myproj:setup".exec = "mytool build";
-  #   "devenv:enterShell".after = [ "myproj:setup" ];
-  # };
+  scripts = {
+    "db:new".exec = "alembic revision --autogenerate -m '$@'";
+    "db:upgrade".exec = "alembic upgrade head";
+    "db:downgrade".exec = "alembic downgrade -1";
+  };
 
   # https://devenv.sh/tests/
   enterTest = ''

@@ -1,8 +1,16 @@
-from sqlalchemy.orm import DeclarativeBase
 from flask_sqlalchemy import SQLAlchemy
 
-class Base(DeclarativeBase):
-    pass
+from .broadcaster import *
+from .channel import *
+from .content_queue_settings import *
+from .auth import *
+from .platform import *
+from .transcription import *
+from .user import *
+from .video import *
+from .chatlog import *
+from .content_queue import *
 
+from .base import Base
 
 db = SQLAlchemy(model_class=Base)

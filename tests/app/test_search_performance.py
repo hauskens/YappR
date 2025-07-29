@@ -73,8 +73,8 @@ class TestSearchPerformance:
         assert search_words_present_in_sentence(sentence, search_words) == True
         assert search_words_present_in_sentence_strict(sentence, search_words) == True
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
+    @patch('app.search.SegmentService.get_by_id')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     def test_search_v2_performance_small_dataset(self, mock_sanitize, mock_db_session, 
@@ -85,8 +85,8 @@ class TestSearchPerformance:
             segment_count=100, test_name="Small Dataset (100 segments)"
         )
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
+    @patch('app.search.SegmentService.get_by_id')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     def test_search_v2_performance_medium_dataset(self, mock_sanitize, mock_db_session, 
@@ -97,8 +97,8 @@ class TestSearchPerformance:
             segment_count=1000, test_name="Medium Dataset (1000 segments)"
         )
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
+    @patch('app.search.SegmentService.get_by_id')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     def test_search_v2_performance_large_dataset(self, mock_sanitize, mock_db_session, 
@@ -155,8 +155,8 @@ class TestSearchPerformance:
         assert execution_time < 5000, f"Search took too long: {execution_time:.2f}ms"
         assert len(result) > 0, "Should find at least one result"
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
+    @patch('app.search.SegmentService.get_by_id')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     def test_search_v2_performance_with_adjacent_segments(self, mock_sanitize, mock_db_session, 
@@ -211,8 +211,8 @@ class TestSearchPerformance:
         # Performance assertion - should still be reasonably fast
         assert execution_time < 10000, f"Search with adjacent segments took too long: {execution_time:.2f}ms"
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
+    @patch('app.search.SegmentService.get_by_id')
     @patch('app.search.db.session')
     @patch('app.search.loosely_sanitize_sentence')
     def test_search_v2_strict_search_performance(self, mock_loosely_sanitize, mock_db_session, 
@@ -288,8 +288,8 @@ class TestSearchPerformance:
 class TestSearchScalability:
     """Test how search performance scales with different parameters"""
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
+    @patch('app.search.SegmentService.get_by_id')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     def test_search_scalability_by_result_size(self, mock_sanitize, mock_db_session, 

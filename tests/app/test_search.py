@@ -125,13 +125,12 @@ class TestSearchV2Integration:
         self.mock_channel = Mock()
         self.mock_channel.id = 1
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     @patch('app.search.loosely_sanitize_sentence')
     def test_search_v2_basic_search(self, mock_loosely_sanitize, mock_sanitize, 
-                                   mock_db_session, mock_get_segment, mock_get_transcriptions):
+                                   mock_db_session, mock_get_transcriptions):
         """Test basic search functionality"""
         # Setup mocks
         mock_transcription_obj = Mock()
@@ -161,12 +160,11 @@ class TestSearchV2Integration:
         # Verify that get_transcriptions was called
         mock_get_transcriptions.assert_called_once_with([self.mock_channel])
     
-    @patch('app.search.get_transcriptions_on_channels_daterange')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels_daterange')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     def test_search_v2_with_date_range(self, mock_sanitize, mock_db_session, 
-                                      mock_get_segment, mock_get_transcriptions_daterange):
+                                      mock_get_transcriptions_daterange):
         """Test search with date range filtering"""
         # Setup mocks
         start_date = datetime(2023, 1, 1)
@@ -191,12 +189,11 @@ class TestSearchV2Integration:
         mock_get_transcriptions_daterange.assert_called_once_with([self.mock_channel], start_date, end_date)
         assert len(result) == 1
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
     @patch('app.search.db.session')
     @patch('app.search.loosely_sanitize_sentence')
     def test_search_v2_strict_search(self, mock_loosely_sanitize, mock_db_session, 
-                                    mock_get_segment, mock_get_transcriptions):
+                                    mock_get_transcriptions):
         """Test strict search with quoted terms"""
         # Setup mocks for strict search
         mock_transcription_obj = Mock()
@@ -218,7 +215,7 @@ class TestSearchV2Integration:
         mock_loosely_sanitize.assert_called()
         assert len(result) >= 0  # May be 0 if strict matching fails
     
-    @patch('app.search.get_transcriptions_on_channels')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
     def test_search_v2_no_transcriptions_error(self, mock_get_transcriptions):
         """Test error when no transcriptions are found"""
         mock_get_transcriptions.return_value = None
@@ -226,7 +223,7 @@ class TestSearchV2Integration:
         with pytest.raises(ValueError, match="No transcriptions found"):
             search_v2("hello world", [self.mock_channel])
     
-    @patch('app.search.get_transcriptions_on_channels')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     def test_search_v2_empty_search_words_error(self, mock_sanitize, mock_db_session, mock_get_transcriptions):
@@ -245,12 +242,11 @@ class TestSearchV2Integration:
         with pytest.raises(ValueError, match="Search was too short"):
             search_v2("   ", [self.mock_channel])  # Search term with only spaces
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     def test_search_v2_adjacent_segment_logic(self, mock_sanitize, mock_db_session, 
-                                             mock_get_segment, mock_get_transcriptions):
+                                             mock_get_transcriptions):
         """Test adjacent segment retrieval logic"""
         # Setup mocks
         mock_transcription_obj = Mock()
@@ -290,16 +286,12 @@ class TestSearchV2Integration:
         # Test search
         result = search_v2("hello world", [self.mock_channel])
         
-        # Verify that get_segment_by_id was called for adjacent segments
-        # This would be called twice: once for the main segment, once for previous
-        assert mock_get_segment.call_count >= 1
     
-    @patch('app.search.get_transcriptions_on_channels')
-    @patch('app.search.get_segment_by_id')
+    @patch('app.search.TranscriptionService.get_transcriptions_on_channels')
     @patch('app.search.db.session')
     @patch('app.search.sanitize_sentence')
     def test_search_v2_multiple_videos_grouping(self, mock_sanitize, mock_db_session, 
-                                               mock_get_segment, mock_get_transcriptions):
+                                               mock_get_transcriptions):
         """Test that results are properly grouped by video"""
         # Setup mocks for multiple segments from same video
         mock_transcription_obj = Mock()

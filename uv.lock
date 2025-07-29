@@ -2872,6 +2872,11 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/1c/fc/9ba22f01b5cdacc8f5ed0d22304718d2c758fce3fd49a5372b886a86f37c/sqlalchemy-2.0.41-py3-none-any.whl", hash = "sha256:57df5dc6fdb5ed1a88a1ed2195fd31927e705cad62dedd86b46972752a80f576", size = 1911224, upload_time = "2025-05-14T17:39:42.154Z" },
 ]
 
+[package.optional-dependencies]
+mypy = [
+    { name = "mypy" },
+]
+
 [[package]]
 name = "sqlalchemy-file"
 version = "0.6.0"
@@ -3438,7 +3443,7 @@ dependencies = [
     { name = "pytimeparse" },
     { name = "redis" },
     { name = "retry" },
-    { name = "sqlalchemy" },
+    { name = "sqlalchemy", extra = ["mypy"] },
     { name = "sqlalchemy-file" },
     { name = "sqlalchemy-utils" },
     { name = "testcontainers" },
@@ -3457,6 +3462,7 @@ bot = [
 ]
 dev = [
     { name = "docker" },
+    { name = "mypy" },
     { name = "twitchapi" },
     { name = "whisperx" },
 ]
@@ -3497,7 +3503,7 @@ requires-dist = [
     { name = "pytimeparse", specifier = ">=1.1.8" },
     { name = "redis", specifier = ">=5.2.1" },
     { name = "retry", specifier = ">=0.9.2" },
-    { name = "sqlalchemy", specifier = ">=2.0.40" },
+    { name = "sqlalchemy", extras = ["mypy"], specifier = ">=2.0.40" },
     { name = "sqlalchemy-file", specifier = ">=0.6.0" },
     { name = "sqlalchemy-utils", specifier = ">=0.41.2" },
     { name = "testcontainers", extras = ["postgresql"], specifier = ">=4.10.0" },
@@ -3514,6 +3520,7 @@ requires-dist = [
 bot = [{ name = "twitchapi", specifier = ">=4.4.0" }]
 dev = [
     { name = "docker", specifier = ">=7.1.0" },
+    { name = "mypy", specifier = ">=1.17.0" },
     { name = "twitchapi", specifier = ">=4.4.0" },
     { name = "whisperx", specifier = ">=3.3.4" },
 ]

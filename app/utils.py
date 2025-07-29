@@ -4,7 +4,6 @@ import re
 import os
 import requests
 from datetime import datetime, timedelta
-from app.models.youtube.video import VideoDetails
 from app.models.config import config
 from twitchAPI.twitch import Video
 from app.logger import logger
@@ -79,6 +78,7 @@ def get_sec(time_str: str) -> int:
 
     return total_seconds
 
+
 def format_duration_to_srt_timestamp(seconds):
     """
     Format seconds to SRT timestamp format (HH:MM:SS,mmm).
@@ -102,11 +102,12 @@ def format_duration_to_srt_timestamp(seconds):
 
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds}"
 
+
 def save_generic_thumbnail(url: HttpUrl, force: bool = False) -> str:
     """Save a generic thumbnail from a URL. 
     Returns the path to the thumbnail. 
     If thumbnail already exists in cache, returns the path to the existing thumbnail.
-    
+
     Args:
         url: The URL of the thumbnail
         force: Whether to force the download of the thumbnail (overrides cached thumbnail)
@@ -120,13 +121,14 @@ def save_generic_thumbnail(url: HttpUrl, force: bool = False) -> str:
             return path
     return path
 
+
 def get_youtube_thumbnail_url(video_ref: str) -> HttpUrl:
     """
     Get the highest quality YouTube thumbnail URL for a given video ID.
-    
+
     Args:
         video_id (str): YouTube video ID
-        
+
     Returns:
         str: URL of the highest quality thumbnail available
     """
@@ -138,13 +140,13 @@ def get_youtube_thumbnail_url(video_ref: str) -> HttpUrl:
         'mqdefault',      # 320x180
         'default'         # 120x90
     ]
-    
+
     base_url = f"https://img.youtube.com/vi/{video_ref}/"
-    
+
     # Try each quality option, starting with highest
     for quality in quality_options:
         thumbnail_url = f"{base_url}{quality}.jpg"
-        
+
         try:
             # Check if the thumbnail exists by making a HEAD request
             save_generic_thumbnail(HttpUrl(thumbnail_url))
@@ -152,7 +154,7 @@ def get_youtube_thumbnail_url(video_ref: str) -> HttpUrl:
         except Exception:
             # If request fails, continue to next quality option
             continue
-    
+
     # Fallback to default if all else fails
     return HttpUrl(f"{base_url}default.jpg")
 

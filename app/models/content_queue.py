@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from .user import ExternalUser
 
 
-
 class ContentQueueSubmission(Base):
     __tablename__ = "content_queue_submissions"
     id: Mapped[int] = mapped_column(
@@ -23,7 +22,7 @@ class ContentQueueSubmission(Base):
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
     user_id: Mapped[int] = mapped_column(ForeignKey("external_users.id"))
-    user: Mapped["ExternalUser"] = relationship() # type: ignore[name-defined]
+    user: Mapped["ExternalUser"] = relationship()  # type: ignore[name-defined]
     submitted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     submission_source_type: Mapped[ContentQueueSubmissionSource] = mapped_column(
         Enum(ContentQueueSubmissionSource), nullable=False)
@@ -55,6 +54,7 @@ class Content(Base):
     def get_video_timestamp_url(self, timestamp: int):
         return PlatformRegistry.get_url_with_timestamp(self.url, timestamp)
 
+
 class ContentQueue(Base):
     __tablename__ = "content_queue"
     __table_args__ = (
@@ -64,7 +64,8 @@ class ContentQueue(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    broadcaster: Mapped["Broadcaster"] = relationship() # type: ignore[name-defined]
+    # type: ignore[name-defined]
+    broadcaster: Mapped["Broadcaster"] = relationship()
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
     content_timestamp: Mapped[int | None] = mapped_column(

@@ -2,6 +2,7 @@ from sqlalchemy import String, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 from .base import Base
 
+
 class Platforms(Base):
     __tablename__: str = "platforms"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

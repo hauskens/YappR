@@ -6,12 +6,14 @@ from .user import Users
 from .enums import PermissionType
 from datetime import datetime
 
+
 class OAuth(OAuthConsumerMixin, Base):
     provider_user_id: Mapped[str] = mapped_column(
         String(256), unique=True, nullable=False
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     user: Mapped["Users"] = relationship()
+
 
 class Permissions(Base):
     __tablename__: str = "permissions"

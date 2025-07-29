@@ -11,7 +11,7 @@
         <hr>
         {% if current_user.is_anonymous %}
         <p class="mb-0">Log in to get clip queue and more features!</p>
-        {% elif current_user.is_moderator() %}
+        {% elif user_service.is_moderator(current_user) %}
         <p class="mb-0">Seems like you are a Twitch Moderator, head over to <a href="{{ url_for('management.management') }}">management page</a> to manage your broadcaster's clip queue!</p>
         {% else %}
         <p class="mb-0">You are almost there! </p>

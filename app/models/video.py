@@ -6,6 +6,12 @@ from typing import Annotated
 from pydantic import BaseModel, Field, HttpUrl
 from .base import Base
 from .enums import VideoType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .channel import Channels
+    from .transcription import Transcription
+
 
 class VideoDetails(BaseModel):
     """Pydantic model for video creation."""
@@ -18,8 +24,10 @@ class VideoDetails(BaseModel):
     thumbnail_url: HttpUrl
     source_video_id: int | None = None
 
+
 class VideoCreate(VideoDetails):
     channel_id: int
+
 
 class Video(Base):
     __tablename__: str = "video"
@@ -29,7 +37,7 @@ class Video(Base):
     duration: Mapped[float] = mapped_column(Float())
     channel_id: Mapped[int] = mapped_column(
         ForeignKey("channels.id"), index=True)
-    channel: Mapped["Channels"] = relationship() # type: ignore[name-defined]
+    channel: Mapped["Channels"] = relationship()
     source_video_id: Mapped[int | None] = mapped_column(
         ForeignKey("video.id"), index=True, nullable=True
     )
@@ -48,6 +56,6 @@ class Video(Base):
     thumbnail: Mapped[File | None] = mapped_column(
         FileField(upload_storage="thumbnails"))
     audio: Mapped[File | None] = mapped_column(FileField())
-    transcriptions: Mapped[list["Transcription"]] = relationship( # type: ignore[name-defined]
+    transcriptions: Mapped[list["Transcription"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
     )

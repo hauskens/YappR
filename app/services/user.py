@@ -18,27 +18,27 @@ from app.logger import logger
 
 class UserService:
     """Service class for user-related operations."""
-    
+
     @staticmethod
     def get_by_id(user_id: int) -> Users:
         """Get user by ID."""
         return db.session.query(Users).filter_by(id=user_id).one()
-    
+
     @staticmethod
     def get_by_external_id(external_id: str) -> Users:
         """Get user by external account ID."""
         return db.session.query(Users).filter_by(external_account_id=external_id).one()
-    
+
     @staticmethod
     def get_all() -> list[Users]:
         """Get all users."""
         return db.session.query(Users).all()
-    
+
     @staticmethod
     def get_permissions(user: Users) -> list[Permissions]:
         """Get all permissions for a user."""
         return db.session.query(Permissions).filter_by(user_id=user.id).all()
-    
+
     @staticmethod
     def has_permission(user: Users, permissions: PermissionType | str | Iterable[PermissionType | str]) -> bool:
         """Check if user has specific permission(s)."""
@@ -53,7 +53,7 @@ class UserService:
         if user.banned_reason is None:
             return any(p.permission_type in permission_types for p in user.permissions)
         return False
-    
+
     @staticmethod
     def has_broadcaster_id(user: Users, broadcaster_id: int) -> bool:
         """Check if user has access to a specific broadcaster."""
@@ -63,7 +63,7 @@ class UserService:
             .where(Channels.platform_channel_id == user.external_account_id, Broadcaster.id == broadcaster_id)
             .limit(1)
         ).scalars().one_or_none() is not None
-    
+
     @staticmethod
     def is_moderator(user: Users, broadcaster_id: int | None = None) -> bool:
         """Check if user is a moderator (optionally for specific broadcaster)."""
@@ -71,7 +71,7 @@ class UserService:
             return db.session.query(ChannelModerator).filter_by(user_id=user.id).one_or_none() is not None
         else:
             return db.session.query(ChannelModerator).filter_by(user_id=user.id, channel_id=broadcaster_id).one_or_none() is not None
-    
+
     @staticmethod
     def is_broadcaster(user: Users) -> bool:
         """Check if user is a broadcaster."""
@@ -81,7 +81,7 @@ class UserService:
             .where(Channels.platform_channel_id == user.external_account_id)
             .limit(1)
         ).scalars().one_or_none() is not None
-    
+
     @staticmethod
     def get_broadcaster(user: Users) -> Broadcaster | None:
         """Get broadcaster instance for user if they are a broadcaster."""
@@ -91,7 +91,7 @@ class UserService:
             .where(Channels.platform_channel_id == user.external_account_id)
             .limit(1)
         ).scalars().one_or_none()
-    
+
     @staticmethod
     def add_permissions(user: Users, permission_type: PermissionType):
         """Add permission to user if they don't already have it."""
@@ -101,7 +101,7 @@ class UserService:
             )
             db.session.commit()
             logger.info(f"Granted {permission_type.name} to {user.name}!")
-    
+
     @staticmethod
     def update_moderated_channels(user: Users) -> list:
         """Update moderated channels for Twitch users."""
@@ -109,36 +109,40 @@ class UserService:
             try:
                 from .platform import PlatformServiceRegistry
                 from app.models.enums import PlatformType
-                platform_service = PlatformServiceRegistry.get_service(PlatformType.Twitch)
+                platform_service = PlatformServiceRegistry.get_service(
+                    PlatformType.Twitch)
                 if platform_service is None:
                     raise ValueError("Twitch platform service not found")
-                
-                channels = asyncio.run(platform_service.fetch_moderated_channels(user))
+
+                channels = asyncio.run(
+                    platform_service.fetch_moderated_channels(user))
                 db.session.delete(ChannelModerator(user_id=user.id))
                 db.session.flush()
                 for channel in channels:
-                    db.session.add(ChannelModerator(user_id=user.id, channel_id=channel.id))
+                    db.session.add(ChannelModerator(
+                        user_id=user.id, channel_id=channel.id))
                 db.session.commit()
-                
+
             except Exception as e:
-                logger.error(f"Failed to update moderated channels for {user.name}: {e}")
+                logger.error(
+                    f"Failed to update moderated channels for {user.name}: {e}")
                 return []
         else:
             return []
-    
+
     @staticmethod
     def get_twitch_account_type(user: Users) -> TwitchAccountType:
         """Get Twitch account type for user."""
         from app.services.platform import TwitchPlatformService
         if user.account_type == AccountSource.Twitch:
-            if (config.debug == True and 
-                config.debug_broadcaster_id is not None and 
-                user.external_account_id == str(config.debug_broadcaster_id)):
+            if (config.debug == True and
+                config.debug_broadcaster_id is not None and
+                    user.external_account_id == str(config.debug_broadcaster_id)):
                 return TwitchAccountType.Partner
-            
+
             return TwitchPlatformService().fetch_account_type(user)
         return TwitchAccountType.Regular
-    
+
     @staticmethod
     def create(name: str, external_account_id: str | None, account_type: AccountSource,
                avatar_url: str | None = None, broadcaster_id: int | None = None) -> Users:
@@ -154,7 +158,7 @@ class UserService:
         db.session.commit()
         logger.info(f"Created user: {name}")
         return user
-    
+
     @staticmethod
     def update(user_id: int, **kwargs) -> Users:
         """Update user fields."""
@@ -164,17 +168,17 @@ class UserService:
                 setattr(user, key, value)
         db.session.commit()
         return user
-    
+
     @staticmethod
     def ban_user(user_id: int, reason: str) -> Users:
         """Ban a user with a reason."""
         return UserService.update(user_id, banned=True, banned_reason=reason)
-    
+
     @staticmethod
     def unban_user(user_id: int) -> Users:
         """Unban a user."""
         return UserService.update(user_id, banned=False, banned_reason=None)
-    
+
     @staticmethod
     def update_last_login(user_id: int) -> Users:
         """Update user's last login timestamp."""
@@ -183,12 +187,12 @@ class UserService:
 
 class ExternalUserService:
     """Service class for external user-related operations."""
-    
+
     @staticmethod
     def get_by_id(external_user_id: int) -> ExternalUser:
         """Get external user by ID."""
         return db.session.query(ExternalUser).filter_by(id=external_user_id).one()
-    
+
     @staticmethod
     def get_by_external_id(external_account_id: int, account_type: AccountSource) -> ExternalUser | None:
         """Get external user by external account ID and type."""
@@ -196,7 +200,7 @@ class ExternalUserService:
             external_account_id=external_account_id,
             account_type=account_type
         ).one_or_none()
-    
+
     @staticmethod
     def create(username: str, external_account_id: int | None, account_type: AccountSource,
                disabled: bool = False, ignore_weight_penalty: bool = False) -> ExternalUser:
@@ -212,7 +216,7 @@ class ExternalUserService:
         db.session.commit()
         logger.info(f"Created external user: {username}")
         return external_user
-    
+
     @staticmethod
     def update(external_user_id: int, **kwargs) -> ExternalUser:
         """Update external user fields."""
@@ -222,17 +226,16 @@ class ExternalUserService:
                 setattr(external_user, key, value)
         db.session.commit()
         return external_user
-    
+
     @staticmethod
     def disable_user(external_user_id: int) -> ExternalUser:
         """Disable an external user."""
         return ExternalUserService.update(external_user_id, disabled=True)
-    
+
     @staticmethod
     def enable_user(external_user_id: int) -> ExternalUser:
         """Enable an external user."""
         return ExternalUserService.update(external_user_id, disabled=False)
-
 
 
 # For template accessibility, create simple function interfaces

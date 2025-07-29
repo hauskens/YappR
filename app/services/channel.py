@@ -93,24 +93,26 @@ class ChannelService:
     def get_url(channel: Channels) -> str:
         """Get the URL for a channel based on its platform."""
         from .platform import PlatformServiceRegistry
-        
-        platform_service = PlatformServiceRegistry.get_service_for_channel(channel)
+
+        platform_service = PlatformServiceRegistry.get_service_for_channel(
+            channel)
         if platform_service:
             return platform_service.get_channel_url(channel.platform_ref)
-        
+
         raise ValueError(f"Could not generate url for channel: {channel.id}")
 
     @staticmethod
     def update_channel_details(channel: Channels):
         """Update channel details from platform APIs."""
         from .platform import PlatformServiceRegistry
-        platform_service = PlatformServiceRegistry.get_service_for_channel(channel)
+        platform_service = PlatformServiceRegistry.get_service_for_channel(
+            channel)
         if platform_service:
-            details = asyncio.run(platform_service.fetch_channel_details(channel.platform_ref))
+            details = asyncio.run(
+                platform_service.fetch_channel_details(channel.platform_ref))
             channel.platform_channel_id = details.platform_ref
             db.session.commit()
             return
-        
 
     @staticmethod
     def link_to_channel(channel: Channels, target_channel_id: Optional[int] = None):
@@ -238,7 +240,7 @@ class ChannelService:
                     db.session.flush()
         db.session.commit()
 
-    ## TODO: implement
+    # TODO: implement
     # @staticmethod
     # def fetch_videos_all(channel: Channels):
     #     """Fetch all videos from platform (YouTube only)."""
@@ -272,38 +274,41 @@ class ChannelService:
     #                 VideoService.create(video_create)
     #         else:
     #             logger.info("No new videos found")
-            
 
     @staticmethod
     def fetch_latest_videos(channel: Channels, force: bool = False):
         """Fetch latest videos from platform."""
         from .platform import PlatformServiceRegistry
         from .video import VideoService
-        platform_service = PlatformServiceRegistry.get_service_for_channel(channel)
+        platform_service = PlatformServiceRegistry.get_service_for_channel(
+            channel)
         if platform_service is None:
             logger.error(f"Platform {channel.platform_name} not found")
             return None
-        
+
         videos = asyncio.run(platform_service.fetch_latest_videos(channel))
         if videos is None:
-            logger.error(f"Failed to fetch latest videos for channel {channel.name}")
+            logger.error(
+                f"Failed to fetch latest videos for channel {channel.name}")
             return None
-        
+
         for video in videos:
-            existing_video = VideoService.get_by_platform_ref(video.platform_ref)
+            existing_video = VideoService.get_by_platform_ref(
+                video.platform_ref)
             if existing_video is None:
                 VideoService.create(video)
             else:
                 if force:
                     thumbnail = save_generic_thumbnail(video.thumbnail_url)
-                    existing_video.thumbnail = open(thumbnail, "rb") # type: ignore[assignment]
+                    existing_video.thumbnail = open(
+                        thumbnail, "rb")  # type: ignore[assignment]
                 existing_video.title = video.title
                 existing_video.video_type = video.video_type
                 existing_video.duration = video.duration
                 existing_video.uploaded = video.uploaded
                 existing_video.active = video.active
                 existing_video.source_video_id = video.source_video_id
-            
+
         db.session.commit()
 
     @staticmethod

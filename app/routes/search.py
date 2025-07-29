@@ -36,7 +36,8 @@ def search_word():
     ]
     logger.info("channels: %s", len(channels))
     video_result = search_v2(search_term, channels, start_date, end_date)
-    transcription_stats = BroadcasterService.get_transcription_stats(broadcaster_id)
+    transcription_stats = BroadcasterService.get_transcription_stats(
+        broadcaster_id)
     return render_template(
         "result.html",
         search_word=search_term,

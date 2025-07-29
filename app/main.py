@@ -59,7 +59,8 @@ def setup_periodic_tasks(sender: Celery, **kwargs):
     with app.app_context():
         channels = ChannelService.get_all(show_hidden=True)
         for channel in channels:
-            if channel.platform.name.lower() == "twitch":
+            # TODO: add channel setting for this
+            if str(channel.platform_name).lower() == "twitch":
                 logger.info("Setting up tasks for channel",
                             extra={"channel_id": channel.id})
                 sender.add_periodic_task(crontab(hour="*", minute="*/15"), full_processing_task.s(
@@ -102,7 +103,7 @@ def full_processing_task(channel_id: int):
         return
     logger.info("Channel was active more than 30 minutes ago, processing", extra={
                 "channel_id": channel_id})
-    video = ChannelService.fetch_latest_videos(channel, process=True)
+    video = ChannelService.update_latest_videos(channel)
     if video is not None:
         _ = chain(task_fetch_audio.s(video), task_transcribe_audio.s(
         ), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)

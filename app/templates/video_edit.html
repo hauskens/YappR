@@ -11,7 +11,7 @@
   {% if video.active == False %}
     <div class="container">
       <h1>Video is not active</h1>
-      <p>This video is not available, likely disabled on {{video.channel.platform.name}} or deleted</p>
+      <p>This video is not available, likely disabled on {{video.channel.platform_name}} or deleted</p>
     </div>
   {% else %}
     <div class="container">
@@ -41,7 +41,7 @@
                   {% if video.audio.filename is defined %}
                     <a class="dropdown-item" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process audio: {{ video.audio.filename }}</a>
                   {% else %}
-                    <a class="dropdown-item" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>
+                    <a class="dropdown-item" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform_name }}</a>
                   {% endif %}
                 </li>
                 <li><hr class="dropdown-divider"></li>
@@ -183,17 +183,17 @@
 
       <a href="{{ video_service.get_url(video) }}" >
         <img
-        id="{{video.channel.platform.name}}"
-        src="https://img.shields.io/badge/link_to_video-5dade2?style=for-the-badge&labelColor={{video.channel.platform.color}}&logo={{video.channel.platform.name}}&logoColor=white"
-        alt="{{video.channel.platform.name}}"
+        id="{{video.channel.platform_name}}"
+        src="https://img.shields.io/badge/link_to_video-5dade2?style=for-the-badge&labelColor={{platform_service_registry.get_service_by_name(video.channel.platform_name).primary_color}}&logo={{video.channel.platform_name}}&logoColor=white"
+        alt="{{video.channel.platform_name}}"
       />
       </a> 
       </br>
       {% if video.source_video.id is defined %}
-        <a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform.name}}</a>
+        <a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform_name}}</a>
         {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) and video.source_video.transcriptions|length > 0 %}
           </br>
-          <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform.name}} to {{video.channel.platform.name}}')" href="{{ url_for('video.video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
+          <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform_name}} to {{video.channel.platform_name}}')" href="{{ url_for('video.video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
         {% endif %}
       {% endif %}
       <p>Uploaded: {{ video.uploaded }}</p>

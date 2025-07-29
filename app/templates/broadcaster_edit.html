@@ -62,12 +62,12 @@
           </tr>
         </thead>
         <tbody>
-          {% for channel in channels | sort(attribute='platform.name', reverse=true) %}
+          {% for channel in channels | sort(attribute='platform_name', reverse=true) %}
           <tr>
             <td>{{ channel.id }}</td>
             <td>{{ channel.platform_channel_id }}</td>
             <td>{{ channel.name }}</td>
-            <td>{{ channel.platform.name }}</td>
+            <td>{{ channel.platform_name }}</td>
             <td>{{ channel.platform_ref }}</td>
             <td>{{ channel.main_video_type.name }}</td>
             <td>{{ channel.source_channel.id }}</td>
@@ -116,7 +116,7 @@
                   <h5>Twitch Bot Settings</h5>
                 </div>
                 <div class="card-body">
-                  {% for channel in broadcaster.channels | sort(attribute='platform.name', reverse=true) %}
+                  {% for channel in broadcaster.channels | sort(attribute='platform_name', reverse=true) %}
                     <div class="mb-4">
                       <h6>{{ channel.name }}</h6>
                       <div class="mb-3 form-check">
@@ -213,7 +213,7 @@
           <label for="platform_id">Platform:</label>
           <select id="platform_id" name="platform_id" class="form-select" onchange="toggleTwitchLookup()">
             {% for platform in platforms %}
-              <option value="{{ platform.id }}">{{ platform.name }}</option>
+              <option value="{{ platform.id }}">{{ platform_name }}</option>
             {% endfor %}
           </select>
 

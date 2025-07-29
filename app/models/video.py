@@ -2,9 +2,24 @@ from sqlalchemy import String, Integer, Float, Boolean, DateTime, ForeignKey, En
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy_file import FileField, File
 from datetime import datetime
+from typing import Annotated
+from pydantic import BaseModel, Field, HttpUrl
 from .base import Base
 from .enums import VideoType
 
+class VideoDetails(BaseModel):
+    """Pydantic model for video creation."""
+    title: str
+    video_type: VideoType
+    duration: Annotated[float, Field(gt=0)]
+    platform_ref: str
+    uploaded: datetime
+    active: bool = True
+    thumbnail_url: HttpUrl
+    source_video_id: int | None = None
+
+class VideoCreate(VideoDetails):
+    channel_id: int
 
 class Video(Base):
     __tablename__: str = "video"

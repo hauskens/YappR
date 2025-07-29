@@ -2,22 +2,13 @@
 import pytest
 from unittest.mock import Mock, patch
 from app.services import ChannelService
+from app.models import PlatformType
 from datetime import datetime
-
-@pytest.fixture
-def platforms():
-    youtube = Mock()
-    youtube.name = "YouTube"
-    youtube.url = "https://youtube.com"
-    twitch = Mock()
-    twitch.name = "Twitch"
-    twitch.url = "https://twitch.tv"
-    return {"YouTube": youtube, "Twitch": twitch}
 
 @pytest.fixture
 def channel():
     channel = Mock()
-    channel.platform = Mock()
+    channel.platform_name = PlatformType.YouTube.name
     channel.platform_ref = "testchannel"
     return channel
 
@@ -37,15 +28,15 @@ def videos():
 
 class TestChannelServiceUnit:
     @pytest.mark.parametrize("platform, expected", [
-        ("YouTube", "https://youtube.com/@testchannel"),
-        ("Twitch", "https://twitch.tv/testchannel"),
+        ("youtube", "https://youtube.com/@testchannel"),
+        ("twitch", "https://twitch.tv/testchannel"),
     ])
     @pytest.mark.unit
-    def test_get_url_logic(self, platforms, channel, platform, expected):
+    def test_get_url_logic(self, platform, expected, channel):
         """Test URL generation logic for channels. It should return the correct URL based on the platform and platform_ref."""
         
-        platform = platforms[platform]
-        channel.platform = platform
+        channel.platform_name = PlatformType(platform)
+        channel.platform_ref = "testchannel"
         
         result = ChannelService.get_url(channel)
         assert result == expected
@@ -54,15 +45,10 @@ class TestChannelServiceUnit:
     def test_get_url_unsupported_platform_logic(self):
         """Test URL generation logic for unsupported platforms raises ValueError."""
         
-        platform = Mock()
-        platform.name = "UnsupportedPlatform"
-        platform.url = "https://example.com"
-        
-        channel.platform = platform
-        channel.platform_ref = "testuser"
-        channel.id = 123
-        
         with pytest.raises(ValueError):
+            channel.platform_name = PlatformType("UnsupportedPlatform")
+            channel.platform_ref = "testuser"
+            channel.id = 123
             ChannelService.get_url(channel)
     
     @pytest.mark.unit

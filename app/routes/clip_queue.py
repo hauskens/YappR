@@ -219,7 +219,7 @@ def get_queue_items():
             current_user.external_account_id)
         queue_enabled = False
         for channel in broadcaster.channels:
-            if channel.platform.name.lower() == "twitch" and channel.settings.content_queue_enabled:
+            if str(channel.platform_name).lower() == "twitch" and channel.settings.content_queue_enabled:
                 queue_enabled = True
                 break
         if broadcaster is not None and queue_enabled:

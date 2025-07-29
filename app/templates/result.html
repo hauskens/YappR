@@ -93,9 +93,9 @@
                 </h5>
                 <a href="{{ url_for('video.video_edit', video_id=v.video.id) }}">
                   <img
-                    id="{{v.video.channel.platform.name}}"
-                    src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{v.video.channel.platform.color}}&logo={{v.video.channel.platform.name}}&logoColor=white"
-                    alt="{{v.video.channel.platform.name}}"/></a> - {{video_service.get_date_str(v.video)}}
+                    id="{{v.video.channel.platform_name}}"
+                    src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{platform_service_registry.get_service_by_name(v.video.channel.platform_name).primary_color}}&logo={{v.video.channel.platform_name}}&logoColor=white"
+                    alt="{{v.video.channel.platform_name}}"/></a> - {{video_service.get_date_str(v.video)}}
                 <div style="max-height: 400px; overflow-y: auto">
                   <div class="list-group list-group-flush">
                   {% for segment in v.segment_results %}

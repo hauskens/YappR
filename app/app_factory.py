@@ -1,6 +1,6 @@
 
 from flask import Flask, request, g
-from flask_login import LoginManager, current_user # type: ignore
+from flask_login import LoginManager, current_user  # type: ignore
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from uuid import uuid4
@@ -27,27 +27,32 @@ from .routes.users import users_blueprint
 from werkzeug.middleware.proxy_fix import ProxyFix
 from .rate_limit import limiter
 from .csrf import csrf
-from app.services import BroadcasterService, VideoService, TranscriptionService, SegmentService, UserService, ContentQueueService, ContentService
+from app.services import (
+    BroadcasterService, VideoService, TranscriptionService, SegmentService,
+    UserService, ContentQueueService, ContentService, PlatformServiceRegistry
+)
 
 
 socketio = SocketIO()
+
+
 def init_storage(container: str = "transcriptions"):
     makedirs(
         config.storage_location + "/" + container, 0o777, exist_ok=True
-    ) 
+    )
     makedirs(
         config.storage_location + "/thumbnails", 0o777, exist_ok=True
-    ) 
-
-
+    )
 
 
 login_manager = LoginManager()
 login_manager.login_view = "discord.login"
 init_storage()
 
-container = LocalStorageDriver(config.storage_location).get_container("transcriptions")
-thumbnail_container = LocalStorageDriver(config.storage_location).get_container("thumbnails")
+container = LocalStorageDriver(
+    config.storage_location).get_container("transcriptions")
+thumbnail_container = LocalStorageDriver(
+    config.storage_location).get_container("thumbnails")
 StorageManager.add_storage("default", container)
 StorageManager.add_storage("thumbnails", thumbnail_container)
 
@@ -62,6 +67,7 @@ def load_user(oauth_id: int):
 
 
 cors = CORS()
+
 
 def create_app(overrides: dict | None = None):
     logger.info("Creating app")
@@ -87,19 +93,19 @@ def create_app(overrides: dict | None = None):
     environ["OAUTHLIB_RELAX_TOKEN_SCOPE"] = "1"
     if config.debug:
         environ["OAUTHLIB_INSECURE_TRANSPORT"] = "true"
-    
+
     # Set up request ID tracking
     @app.before_request
     def before_request():
         g.request_id = request.headers.get("X-Request-Id", str(uuid4()))
-        
+
     # Add request ID to response headers
     @app.after_request
     def after_request(response):
         if hasattr(g, 'request_id'):
             response.headers.set("X-Request-Id", g.request_id)
         return response
-    
+
     # Make version available in templates, used for cache busting
     @app.context_processor
     def inject_functions():
@@ -112,28 +118,30 @@ def create_app(overrides: dict | None = None):
             content_queue_service=ContentQueueService(),
             content_service=ContentService(),
             user_service=UserService(),
+            platform_service_registry=PlatformServiceRegistry(),
         )
-    
+
     cache.init_app(app)
     db.init_app(app)
     login_manager.init_app(app)
     csrf.init_app(app)
-    cors.init_app(app, resources={r"/*": {"origins": config.app_url}}, supports_credentials=True)
-    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1) # type: ignore
+    cors.init_app(app, resources={
+                  r"/*": {"origins": config.app_url}}, supports_credentials=True)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # type: ignore
     socketio.init_app(app)
-    
+
     # Only initialize rate limiter when not in testing mode
     if not app.config.get("TESTING"):
         limiter._storage_uri = config.redis_uri
     else:
         limiter._storage_uri = "memory://"
-    
+
     limiter.init_app(app)
-    
 
     app.register_blueprint(discord_blueprint, url_prefix="/login")
     app.register_blueprint(twitch_blueprint, url_prefix="/login")
-    app.register_blueprint(twitch_blueprint_bot, url_prefix="/login/bot", name="twitch_bot")
+    app.register_blueprint(twitch_blueprint_bot,
+                           url_prefix="/login/bot", name="twitch_bot")
     app.register_blueprint(root_blueprint)
     app.register_blueprint(search_blueprint)
     app.register_blueprint(clip_queue_blueprint)

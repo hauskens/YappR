@@ -208,13 +208,13 @@
           {% endif %}
         </div>
         {% if item.watched %}
-        <span class="text-muted">• You watched this at {% if item.get_vod_timestamp_url() %}<a
-            href="{{ item.get_vod_timestamp_url() }}" target="_blank">{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S')
+        <span class="text-muted">• You watched this at {% if content_queue_service.get_vod_timestamp_url(item.id) %}<a
+            href="{{ content_queue_service.get_vod_timestamp_url(item.id) }}" target="_blank">{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S')
             }} VOD</a>{% else %}{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %} </span>
         {% endif %}
       </div>
-      {% if item.watched and item.get_vod_timestamp_url() %}
-      <a href="{{ item.get_vod_timestamp_url() }}" target="_blank" class="btn btn-sm btn-outline-info"
+      {% if item.watched and content_queue_service.get_vod_timestamp_url(item.id) %}
+      <a href="{{ content_queue_service.get_vod_timestamp_url(item.id) }}" target="_blank" class="btn btn-sm btn-outline-info"
         title="Go to VOD timestamp">
         <i class="bi bi-clock-history"></i> VOD
       </a>

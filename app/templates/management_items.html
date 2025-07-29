@@ -67,8 +67,8 @@
               <a href="{{ item.content.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
                 <i class="bi bi-play-fill"></i> Open
               </a>
-              {% if item.watched and item.get_vod_timestamp_url() %}
-              <a href="{{ item.get_vod_timestamp_url() }}" target="_blank" class="btn btn-sm btn-outline-info" title="Go to VOD timestamp">
+              {% if item.watched and content_queue_service.get_vod_timestamp_url(item.id) %}
+              <a href="{{ content_queue_service.get_vod_timestamp_url(item.id) }}" target="_blank" class="btn btn-sm btn-outline-info" title="Go to VOD timestamp">
                 <i class="bi bi-clock-history"></i> VOD
               </a>
               {% endif %}

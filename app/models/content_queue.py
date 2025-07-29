@@ -2,6 +2,7 @@ from sqlalchemy import Integer, ForeignKey, DateTime, Float, String, BigInteger,
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
 from .enums import ContentQueueSubmissionSource
+from app.platforms.handler import PlatformRegistry
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -48,11 +49,11 @@ class Content(Base):
     created_at: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True, server_default=None)
 
-    # def get_platform(self):
-    #     return PlatformRegistry.get_handler_by_url(self.url).platform_name
+    def get_platform(self):
+        return PlatformRegistry.get_handler_by_url(self.url).platform_name
 
-    # def get_video_timestamp_url(self, timestamp: int):
-    #     return PlatformRegistry.get_url_with_timestamp(self.url, timestamp)
+    def get_video_timestamp_url(self, timestamp: int):
+        return PlatformRegistry.get_url_with_timestamp(self.url, timestamp)
 
 class ContentQueue(Base):
     __tablename__ = "content_queue"
@@ -76,17 +77,17 @@ class ContentQueue(Base):
                         ] = relationship(back_populates="content_queue")
     score: Mapped[float] = mapped_column(Float, default=0, server_default='0')
 
-    # @property
-    # def total_weight(self) -> float:
-    #     """Calculate the total weight of all related ContentQueueSubmission entries.
-    #     This is a calculated property and not stored in the database.
+    @property
+    def total_weight(self) -> float:
+        """Calculate the total weight of all related ContentQueueSubmission entries.
+        This is a calculated property and not stored in the database.
 
-    #     Returns:
-    #         float: Sum of all submission weights, or 0 if there are no submissions
-    #     """
-    #     if not self.submissions:
-    #         return 0.0
-    #     return sum(submission.weight for submission in self.submissions)
+        Returns:
+            float: Sum of all submission weights, or 0 if there are no submissions
+        """
+        if not self.submissions:
+            return 0.0
+        return sum(submission.weight for submission in self.submissions)
 
     # def get_video_timestamp_url(self) -> str:
     #     if self.content_timestamp is None:

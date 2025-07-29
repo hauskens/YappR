@@ -14,10 +14,3 @@ from .content_queue import *
 from .base import Base
 
 db = SQLAlchemy(model_class=Base)
-
-if __name__ == "__main__":
-    print("test")
-
-
-def testies():
-    print("testies")

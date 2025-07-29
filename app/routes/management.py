@@ -27,7 +27,8 @@ def management():
         broadcaster_ids = [
             channel.channel.broadcaster_id for channel in moderated_channels]
         if UserService.is_broadcaster(current_user):
-            broadcaster_ids.append(UserService.get_broadcaster(current_user).id)
+            broadcaster_ids.append(
+                UserService.get_broadcaster(current_user).id)
         broadcasters = BroadcasterService.get_all(show_hidden=False)
 
     if moderated_channels is None and not (UserService.has_permission(current_user, [PermissionType.Admin]) or UserService.is_broadcaster(current_user)):

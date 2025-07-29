@@ -9,6 +9,8 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from .video import Video
     from .user import Users
+    from .broadcaster import Broadcaster
+
 
 class ChannelCreate(BaseModel):
     name: str
@@ -19,15 +21,18 @@ class ChannelCreate(BaseModel):
     source_channel_id: int | None = None
     main_video_type: VideoType = VideoType.Unknown
 
+
 class ChannelPlatformDetails(BaseModel):
     platform_ref: str
+
 
 class Channels(Base):
     __tablename__: str = "channels"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(250))
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    broadcaster: Mapped["Broadcaster"] = relationship() # type: ignore[name-defined]
+    # type: ignore[name-defined]
+    broadcaster: Mapped["Broadcaster"] = relationship()
     platform_name: Mapped[PlatformType] = mapped_column(String(250))
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
     platform_channel_id: Mapped[str] = mapped_column(
@@ -40,7 +45,7 @@ class Channels(Base):
     main_video_type: Mapped[VideoType] = mapped_column(
         Enum(VideoType), default=VideoType.Unknown
     )
-    videos: Mapped[list["Video"]] = relationship( # type: ignore[name-defined]
+    videos: Mapped[list["Video"]] = relationship(  # type: ignore[name-defined]
         back_populates="channel", cascade="all, delete-orphan"
     )
     settings: Mapped["ChannelSettings"] = relationship(
@@ -104,13 +109,16 @@ class ChannelEvent(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     raw_message: Mapped[str] = mapped_column(String(512), nullable=False)
 
+
 class ChannelModerator(Base):
     __tablename__: str = "channel_moderators"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    user: Mapped["Users"] = relationship(back_populates="channel_moderators") # type: ignore[name-defined]
+    user: Mapped["Users"] = relationship(
+        back_populates="channel_moderators")  # type: ignore[name-defined]
     channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
     channel: Mapped["Channels"] = relationship(back_populates="moderators")
+
 
 class ChannelSettings(Base):
     __tablename__ = "channel_settings"

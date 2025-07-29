@@ -3,8 +3,7 @@ from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models import db
-from app.models import Channels, VideoType, PermissionType, ChannelSettings
-from app.retrievers import get_platforms
+from app.models import Channels, VideoType, PermissionType, ChannelSettings, PlatformType
 from app.services import BroadcasterService, ChannelService, UserService
 from app.rate_limit import limiter, rate_limit_exempt
 from app.cache import cache, make_cache_key
@@ -42,9 +41,10 @@ def channel_create():
     return render_template(
         "broadcaster_edit.html",
         broadcaster=BroadcasterService.get_by_id(broadcaster_id),
-        channels=BroadcasterService.get_channels(broadcaster_id=broadcaster_id),
-        platforms=get_platforms(),
-        video_types=VideoType,
+        channels=BroadcasterService.get_channels(
+            broadcaster_id=broadcaster_id),
+        platforms=[platform.name for platform in PlatformType],
+        video_types=[video_type.name for video_type in VideoType],
     )
 
 
@@ -94,7 +94,8 @@ def channel_get_videos(channel_id: int):
         "channel_edit.html",
         videos=ChannelService.get_videos_by_channel(channel_id),
         channel=channel,
-        audio_count="{:,}".format(ChannelService.get_stats_videos_with_audio(channel_id)),
+        audio_count="{:,}".format(
+            ChannelService.get_stats_videos_with_audio(channel_id)),
         transcription_count="{:,}".format(
             ChannelService.get_stats_videos_with_good_transcription(channel_id)
         ),
@@ -114,8 +115,8 @@ def channel_fetch_details(channel_id: int):
         broadcaster=channel.broadcaster_id,
         channels=BroadcasterService.get_channels(
             broadcaster_id=channel.broadcaster_id),
-        platforms=get_platforms(),
-        video_types=VideoType,
+        platforms=[platform.name for platform in PlatformType],
+        video_types=[video_type.name for video_type in VideoType],
     )
 
 

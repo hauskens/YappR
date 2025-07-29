@@ -3,7 +3,7 @@ Transcription service for handling transcription-related business logic.
 """
 import json
 import re
-import webvtt # type: ignore[import-untyped]
+import webvtt  # type: ignore[import-untyped]
 from collections.abc import Sequence
 from io import BytesIO
 from datetime import datetime
@@ -18,77 +18,83 @@ from app.utils import get_sec, format_duration_to_srt_timestamp
 
 class TranscriptionService:
     """Service class for transcription-related operations."""
-    
+
     @staticmethod
     def get_by_id(transcription_id: int) -> Transcription:
         """Get transcription by ID."""
         return db.session.execute(
             select(Transcription).filter_by(id=transcription_id)
         ).scalars().one()
-    
+
     @staticmethod
     def get_by_video_id(video_id: int) -> Sequence[Transcription]:
         """Get all transcriptions for a video."""
         return db.session.execute(
             select(Transcription).filter_by(video_id=video_id)
         ).scalars().all()
+
     @staticmethod
     def get_count() -> int:
         return db.session.query(func.count(Transcription.id)).scalar()
-    
+
     @staticmethod
     def get_segments_sorted(transcription: Transcription, descending: bool = False) -> list[Segments]:
         """Get segments for a transcription sorted by start time."""
         return sorted(transcription.segments, key=lambda v: v.start, reverse=descending)
-    
+
     @staticmethod
     def delete_transcription(transcription_id: int) -> bool:
         """Delete a transcription and all associated data."""
         try:
             transcription = TranscriptionService.get_by_id(transcription_id)
             TranscriptionService.reset_transcription(transcription)
-            db.session.query(Transcription).filter_by(id=transcription_id).delete()
+            db.session.query(Transcription).filter_by(
+                id=transcription_id).delete()
             db.session.commit()
             logger.info(f"Deleted transcription {transcription_id}")
             return True
         except Exception as e:
-            logger.error(f"Failed to delete transcription {transcription_id}: {e}")
+            logger.error(
+                f"Failed to delete transcription {transcription_id}: {e}")
             db.session.rollback()
             return False
-    
+
     @staticmethod
     def reset_transcription(transcription: Transcription):
         """Reset a transcription by deleting segments and marking as unprocessed."""
         TranscriptionService.delete_attached_segments(transcription)
         transcription.processed = False
-    
+
     @staticmethod
     def delete_attached_segments(transcription: Transcription):
         """Delete all segments attached to a transcription."""
-        db.session.query(Segments).filter_by(transcription_id=transcription.id).delete()
+        db.session.query(Segments).filter_by(
+            transcription_id=transcription.id).delete()
         transcription.processed = False
-        db.session.commit()
-    
+        db.session.flush()
+
     @staticmethod
     def process_transcription(transcription: Transcription, force: bool = False):
         """Process a transcription file into segments."""
-        logger.info(f"Task queued, parsing transcription for {transcription.id}, - {force}")
-        
+        logger.info(
+            f"Task queued, parsing transcription for {transcription.id}, - {force}")
+
         if transcription.processed and not force and len(transcription.segments) == 0:
-            logger.info(f"Transcription {transcription.id}, already processed.. skipping")
+            logger.info(
+                f"Transcription {transcription.id}, already processed.. skipping")
             return
-            
+
         if force:
             TranscriptionService.reset_transcription(transcription)
-            
+
         if transcription.file_extention == "vtt":
             TranscriptionService.parse_vtt(transcription)
         elif transcription.file_extention == "json":
             TranscriptionService.parse_json(transcription)
-            
+
         transcription.processed = True
         db.session.commit()
-    
+
     @staticmethod
     def to_srt(transcription: Transcription) -> str:
         """Convert the transcription to SRT format.
@@ -101,7 +107,7 @@ class TranscriptionService:
 
         srt_content = TranscriptionService.convert_to_srt(transcription)
         return srt_content
-    
+
     @staticmethod
     def to_json(transcription: Transcription) -> str:
         """Convert the transcription to JSON format.
@@ -128,7 +134,7 @@ class TranscriptionService:
         }
 
         return json.dumps(result, ensure_ascii=False)
-    
+
     @staticmethod
     def save_as_srt(transcription: Transcription, output_path: str | None = None) -> str:
         """Convert the transcription to SRT format and save it to a file.
@@ -152,7 +158,7 @@ class TranscriptionService:
 
         logger.info(f"Saved SRT file to {output_path}")
         return output_path
-    
+
     @staticmethod
     def save_as_json(transcription: Transcription, output_path: str | None = None) -> str:
         """Convert the transcription to JSON format and save it to a file.
@@ -176,7 +182,7 @@ class TranscriptionService:
 
         logger.info(f"Saved JSON file to {output_path}")
         return output_path
-    
+
     @staticmethod
     def parse_json(transcription: Transcription):
         """Parse a JSON transcription file into segments."""
@@ -189,7 +195,7 @@ class TranscriptionService:
 
         previous_segment: Segments | None = None
         logger.info(f"Processing json transcription: {transcription.id}")
-        
+
         for caption in content.segments:
             start = int(caption.start)
             if caption.text == "":
@@ -208,7 +214,7 @@ class TranscriptionService:
             )
             db.session.add(segment)
             db.session.flush()
-            
+
             if previous_segment is not None:
                 previous_segment.next_segment_id = segment.id
                 db.session.add(previous_segment)
@@ -216,10 +222,10 @@ class TranscriptionService:
 
             previous_segment = segment
             segments.append(segment)
-            
+
         db.session.commit()
         logger.info(f"Done processing transcription: {transcription.id}")
-    
+
     @staticmethod
     def parse_vtt(transcription: Transcription):
         """Parse a VTT transcription file into segments."""
@@ -227,7 +233,7 @@ class TranscriptionService:
         segments: list[Segments] = []
         content = BytesIO(transcription.file.file.read())
         previous_segment: Segments | None = None
-        
+
         for caption in webvtt.from_buffer(content):
             start = get_sec(caption.start)
             # remove annotations, such as [music]
@@ -251,7 +257,7 @@ class TranscriptionService:
             )
             db.session.add(segment)
             db.session.flush()
-            
+
             if previous_segment is not None:
                 previous_segment.next_segment_id = segment.id
                 db.session.add(previous_segment)
@@ -259,12 +265,12 @@ class TranscriptionService:
 
             previous_segment = segment
             segments.append(segment)
-            
+
         db.session.commit()
         logger.info(f"Done processing transcription: {transcription.id}")
-    
+
     @staticmethod
-    def create(video_id: int, language: str, file_extension: str, file_content, 
+    def create(video_id: int, language: str, file_extension: str, file_content,
                source: TranscriptionSource = TranscriptionSource.Unknown) -> Transcription:
         """Create a new transcription."""
         transcription = Transcription(
@@ -278,7 +284,7 @@ class TranscriptionService:
         db.session.commit()
         logger.info(f"Created transcription for video {video_id}")
         return transcription
-    
+
     @staticmethod
     def update(transcription_id: int, **kwargs) -> Transcription:
         """Update transcription fields."""
@@ -288,7 +294,13 @@ class TranscriptionService:
                 setattr(transcription, key, value)
         db.session.commit()
         return transcription
-    
+
+    @staticmethod
+    def delete(transcription: Transcription):
+        TranscriptionService.delete_attached_segments(transcription)
+        db.session.delete(transcription)
+        db.session.commit()
+
     @staticmethod
     def get_transcriptions_on_channels(
         channels: Sequence[Channels],
@@ -317,9 +329,8 @@ class TranscriptionService:
                         transcriptions += video.transcriptions
                         logger.debug("Found match!")
         return transcriptions
-    
+
     @staticmethod
-    
     def convert_to_srt(transcription: Transcription | dict) -> str:
         """Convert transcription data to SRT format.
         Only one of transcription or segments should be provided.
@@ -366,22 +377,22 @@ class TranscriptionService:
 
 class SegmentService:
     """Service class for segment-related operations."""
-    
+
     @staticmethod
     def get_by_id(segment_id: int) -> Segments:
         """Get segment by ID."""
         return db.session.query(Segments).filter_by(id=segment_id).one()
-    
+
     @staticmethod
     def get_url_timestamped(segment: Segments, time_shift: int = 5) -> str:
         """Get URL with timestamp for a segment."""
         # Import here to avoid circular imports
         from .video import VideoService
-        
+
         shifted_time = segment.start - time_shift
         if shifted_time < 0:
             shifted_time = 0
-            
+
         return VideoService.get_url_with_timestamp(segment.transcription.video, shifted_time)
 
 

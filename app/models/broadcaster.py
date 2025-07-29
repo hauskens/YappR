@@ -1,6 +1,6 @@
 from sqlalchemy import String, Integer, Boolean, ForeignKey, BigInteger
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 from .base import Base
 from typing import TYPE_CHECKING
 
@@ -9,20 +9,21 @@ if TYPE_CHECKING:
     from .content_queue import ContentQueue
     from .content_queue_settings import ContentQueueSettings
 
+
 class Broadcaster(Base):
     __tablename__: str = "broadcaster"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(250), unique=True)
-    channels: Mapped[list["Channels"]] = relationship( # type: ignore[name-defined]
+    channels: Mapped[list["Channels"]] = relationship(  # type: ignore[name-defined]
         back_populates="broadcaster", cascade="all, delete-orphan"
     )
     hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     settings: Mapped["BroadcasterSettings"] = relationship(
         back_populates="broadcaster", uselist=False)
-    content_queue: Mapped[list["ContentQueue"]] = relationship( # type: ignore[name-defined]
+    content_queue: Mapped[list["ContentQueue"]] = relationship(  # type: ignore[name-defined]
         back_populates="broadcaster", cascade="all, delete-orphan"
     )
-    content_queue_settings: Mapped["ContentQueueSettings"] = relationship( # type: ignore[name-defined]
+    content_queue_settings: Mapped["ContentQueueSettings"] = relationship(  # type: ignore[name-defined]
         "ContentQueueSettings", back_populates="broadcaster", uselist=False
     )
 
@@ -44,7 +45,3 @@ class BroadcasterSettings(Base):
         Boolean, default=False)
     linked_discord_threads_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false")
-
-
-if __name__ == "__main__":
-    print("test")

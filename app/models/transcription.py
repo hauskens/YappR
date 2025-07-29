@@ -26,11 +26,12 @@ class TranscriptionResult(BaseModel):
     segments: list[SingleSegment]
     language: str
 
+
 class Transcription(Base):
     __tablename__: str = "transcriptions"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     video_id: Mapped[int] = mapped_column(ForeignKey("video.id"), index=True)
-    video: Mapped["Video"] = relationship() # type: ignore[name-defined]
+    video: Mapped["Video"] = relationship()  # type: ignore[name-defined]
     language: Mapped[str] = mapped_column(String(250))
     last_updated: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now())
@@ -43,6 +44,7 @@ class Transcription(Base):
     segments: Mapped[list["Segments"]] = relationship(
         back_populates="transcription", cascade="all, delete-orphan"
     )
+
 
 class Segments(Base):
     __tablename__: str = "segments"

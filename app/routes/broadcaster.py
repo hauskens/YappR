@@ -22,7 +22,6 @@ from app.cache import cache, make_cache_key
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime
-from app.retrievers import get_platforms
 
 broadcaster_blueprint = Blueprint(
     'broadcaster', __name__, url_prefix='/broadcaster', template_folder='templates', static_folder='static')
@@ -200,8 +199,8 @@ def broadcaster_edit(id: int):
         "broadcaster_edit.html",
         broadcaster=broadcaster,
         channels=broadcaster.channels,
-        platforms=get_platforms(),
-        video_types=VideoType,
+        platforms=[platform.name for platform in PlatformType],
+        video_types=[video_type.name for video_type in VideoType],
     )
 
 

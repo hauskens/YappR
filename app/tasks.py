@@ -4,7 +4,6 @@ import glob
 from .models.yt import VideoData, Thumbnail
 import os
 from .models.config import config
-from datetime import datetime
 from app.logger import logger
 
 

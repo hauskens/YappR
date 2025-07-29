@@ -1,5 +1,3 @@
-from typing import Dict, Any
-from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy import ForeignKey, Boolean, Float, Integer, Text
@@ -13,37 +11,37 @@ if TYPE_CHECKING:
 # class ContentQueueWeightSettings(BaseModel):
 #     """
 #     Pydantic model for queue sorting preferences.
-    
+
 #     This model defines how the clip queue should be prioritized and sorted.
 #     All intensity values are normalized to 0.0-1.0 range for consistency.
 #     """
-    
+
 #     # Boolean preferences - enable/disable features
 #     prefer_shorter: bool = Field(
 #         default=False,
 #         description="Boost clips under X seconds in duration"
 #     )
-    
+
 #     keep_fresh: bool = Field(
 #         default=True,
 #         description="Prioritize recently submitted content"
 #     )
-    
+
 #     ignore_popularity: bool = Field(
 #         default=False,
 #         description="Multiple people submitting same clip will not increase its priority"
 #     )
-    
+
 #     boost_variety: bool = Field(
 #         default=False,
 #         description="Penalize repeated channels/creators for content diversity"
 #     )
-    
+
 #     viewer_priority: bool = Field(
 #         default=False,
 #         description="Give higher priority to VIP/MOD submissions"
 #     )
-    
+
 #     # Intensity settings - all normalized to 0.0-1.0 range
 #     prefer_shorter_intensity: float = Field(
 #         default=0.5,
@@ -51,35 +49,35 @@ if TYPE_CHECKING:
 #         le=1.0,
 #         description="Intensity of short content preference (0.0=none, 1.0=shorter clips get more priority)"
 #     )
-    
+
 #     keep_fresh_intensity: float = Field(
 #         default=0.5,
 #         ge=0.0,
 #         le=1.0,
 #         description="Intensity of freshness boost (0.0=none, 1.0=newer clips get more priority)"
 #     )
-    
+
 #     ignore_popularity_intensity: float = Field(
 #         default=0.5,
 #         ge=0.0,
 #         le=1.0,
 #         description="How much to reduce popularity impact (0.0=no reduction, 1.0=maximum reduction)"
 #     )
-    
+
 #     boost_variety_intensity: float = Field(
 #         default=0.5,
 #         ge=0.0,
 #         le=1.0,
 #         description="Intensity of variety penalty for repeated channels (0.0=none, 1.0=maximum)"
 #     )
-    
+
 #     viewer_priority_intensity: float = Field(
 #         default=0.5,
 #         ge=0.0,
 #         le=1.0,
 #         description="Intensity of viewer priority (0.0=none, 1.0=VIP/MOD submissions get more priority)"
 #     )
-    
+
 #     # Advanced settings
 #     short_clip_threshold_seconds: int = Field(
 #         default=60,
@@ -87,7 +85,7 @@ if TYPE_CHECKING:
 #         le=300,
 #         description="Duration threshold for considering a clip 'short' (seconds)"
 #     )
-    
+
 #     freshness_window_minutes: int = Field(
 #         default=30,
 #         ge=5,
@@ -110,7 +108,7 @@ if TYPE_CHECKING:
 #     def get_short_duration_multiplier(self) -> float:
 #         """
 #         Calculate the multiplier for short content based on intensity.
-        
+
 #         Returns:
 #             float: Multiplier between 1.0 (no boost) and 1.5 (max boost)
 #         """
@@ -121,10 +119,10 @@ if TYPE_CHECKING:
 #     def get_freshness_multiplier(self, age_minutes: int) -> float:
 #         """
 #         Calculate freshness boost based on content age and intensity.
-        
+
 #         Args:
 #             age_minutes: Age of content in minutes
-            
+
 #         Returns:
 #             float: Multiplier between 1.0 (no boost) and 2.0 (max boost)
 #         """
@@ -136,10 +134,10 @@ if TYPE_CHECKING:
 #     def get_popularity_multiplier(self, base_popularity: float) -> float:
 #         """
 #         Calculate adjusted popularity based on ignore_popularity setting.
-        
+
 #         Args:
 #             base_popularity: Original popularity score
-            
+
 #         Returns:
 #             float: Adjusted popularity score
 #         """
@@ -150,10 +148,10 @@ if TYPE_CHECKING:
 #     def get_variety_multiplier(self, channel_frequency: int) -> float:
 #         """
 #         Calculate variety penalty based on channel frequency.
-        
+
 #         Args:
 #             channel_frequency: Number of clips from this channel in queue
-            
+
 #         Returns:
 #             float: Penalty multiplier between 0.5 (max penalty) and 1.0 (no penalty)
 #         """
@@ -165,10 +163,10 @@ if TYPE_CHECKING:
 #     def get_viewer_priority_multiplier(self, is_trusted: bool) -> float:
 #         """
 #         Calculate boost for trusted viewers.
-        
+
 #         Args:
 #             is_trusted: Whether the submitter is trusted
-            
+
 #         Returns:
 #             float: Multiplier between 1.0 (no boost) and 1.5 (max boost)
 #         """
@@ -179,12 +177,12 @@ if TYPE_CHECKING:
 #     def get_active_preferences(self) -> Dict[str, float]:
 #         """
 #         Get only the preferences that are currently enabled.
-        
+
 #         Returns:
 #             Dictionary of active preference names and their intensities
 #         """
 #         active = {}
-        
+
 #         if self.prefer_shorter:
 #             active['prefer_shorter'] = self.prefer_shorter_intensity
 #         if self.keep_fresh:
@@ -196,7 +194,7 @@ if TYPE_CHECKING:
 #         if self.viewer_priority:
 #             active['viewer_priority'] = self.viewer_priority_intensity
 #         return active
-    
+
 #     def to_json(self) -> Dict[str, Any]:
 #         return self.model_dump()
 
@@ -204,7 +202,8 @@ class ContentQueueSettings(Base):
     __tablename__ = "content_queue_settings"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    broadcaster: Mapped["Broadcaster"] = relationship() # type: ignore[name-defined]
+    # type: ignore[name-defined]
+    broadcaster: Mapped["Broadcaster"] = relationship()
     prefer_shorter_content: Mapped[bool] = mapped_column(
         Boolean, default=False)
     view_count_min: Mapped[int] = mapped_column(Integer, default=0)

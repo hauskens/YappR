@@ -103,7 +103,7 @@ def full_processing_task(channel_id: int):
         return
     logger.info("Channel was active more than 30 minutes ago, processing", extra={
                 "channel_id": channel_id})
-    video = ChannelService.update_latest_videos(channel)
+    video = ChannelService.fetch_latest_videos(channel)
     if video is not None:
         _ = chain(task_fetch_audio.s(video), task_transcribe_audio.s(
         ), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)
@@ -230,7 +230,7 @@ def task_transcribe_audio(video_id: int, force: bool = False):
                 return video_id
             logger.info("Transcription already exists on video",
                         extra={"video_id": video_id})
-            t.delete()
+            TranscriptionService.delete(t)
 
     logger.info("Task queued, processing audio for video",
                 extra={"video_id": video_id})
@@ -675,7 +675,7 @@ Files:
 
 @app.route("/video/<int:video_id>/upload_transcription", methods=["POST"])
 @require_api_key
-@csrf.exempt # type: ignore
+@csrf.exempt  # type: ignore
 def upload_transcription(video_id: int):
     logger.info(f"ready to receive json on {video_id}")
     video = VideoService.get_by_id(video_id)

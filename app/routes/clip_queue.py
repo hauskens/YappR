@@ -658,11 +658,14 @@ def search_content():
                 # If no broadcaster specified, search across all allowed broadcasters
                 if not broadcaster_id:
                     if UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
-                        broadcasters = BroadcasterService.get_all(show_hidden=True)
+                        broadcasters = BroadcasterService.get_all(
+                            show_hidden=True)
                     else:
                         if UserService.is_broadcaster(current_user):
-                            broadcasters = [UserService.get_broadcaster(current_user)]
-                        broadcasters += BroadcasterService.get_all(show_hidden=False)
+                            broadcasters = [
+                                UserService.get_broadcaster(current_user)]
+                        broadcasters += BroadcasterService.get_all(
+                            show_hidden=False)
                     # Get all queue items for this content across all broadcasters
                     all_queue_items = db.session.execute(
                         select(ContentQueue).filter(

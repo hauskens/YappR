@@ -58,7 +58,8 @@ def search_v2(
 
     # Get transcriptions (same as original)
     if start_date is None and end_date is None:
-        transcriptions = TranscriptionService.get_transcriptions_on_channels(channels)
+        transcriptions = TranscriptionService.get_transcriptions_on_channels(
+            channels)
     if start_date is not None and end_date is not None:
         transcriptions = TranscriptionService.get_transcriptions_on_channels_daterange(
             channels, start_date, end_date

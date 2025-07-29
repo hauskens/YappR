@@ -11,43 +11,43 @@ from app.logger import logger
 
 class ContentQueueService:
     """Service class for content queue-related operations."""
-    
+
     @staticmethod
     def get_all() -> Sequence[ContentQueue]:
         """Get all content queue entries."""
         return db.session.execute(
             select(ContentQueue).order_by(ContentQueue.id)
         ).scalars().all()
-    
+
     @staticmethod
     def get_by_id(content_queue_id: int) -> ContentQueue:
         """Get content queue entry by ID."""
         return db.session.execute(
             select(ContentQueue).filter_by(id=content_queue_id)
         ).scalars().one()
-    
+
     @staticmethod
-    def get_by_broadcaster(broadcaster_id: int, watched: Optional[bool] = None, 
-                          skipped: Optional[bool] = None) -> Sequence[ContentQueue]:
+    def get_by_broadcaster(broadcaster_id: int, watched: Optional[bool] = None,
+                           skipped: Optional[bool] = None) -> Sequence[ContentQueue]:
         """Get content queue entries for a broadcaster with optional filters."""
         query = select(ContentQueue).filter_by(broadcaster_id=broadcaster_id)
-        
+
         if watched is not None:
             query = query.filter_by(watched=watched)
         if skipped is not None:
             query = query.filter_by(skipped=skipped)
-            
+
         return db.session.execute(
             query.order_by(ContentQueue.score.desc(), ContentQueue.id)
         ).scalars().all()
-    
+
     @staticmethod
     def get_unwatched_by_broadcaster(broadcaster_id: int) -> Sequence[ContentQueue]:
         """Get unwatched content queue entries for a broadcaster."""
         return ContentQueueService.get_by_broadcaster(
             broadcaster_id, watched=False, skipped=False
         )
-    
+
     @staticmethod
     def create(broadcaster_id: int, content_id: int, content_timestamp: Optional[int] = None,
                score: float = 0.0) -> ContentQueue:
@@ -62,9 +62,10 @@ class ContentQueueService:
         )
         db.session.add(content_queue)
         db.session.commit()
-        logger.info(f"Created content queue entry {content_queue.id} for broadcaster {broadcaster_id}")
+        logger.info(
+            f"Created content queue entry {content_queue.id} for broadcaster {broadcaster_id}")
         return content_queue
-    
+
     @staticmethod
     def mark_watched(content_queue_id: int, watched_at: Optional[datetime] = None) -> ContentQueue:
         """Mark a content queue entry as watched."""
@@ -73,9 +74,10 @@ class ContentQueueService:
         content_queue.watched_at = watched_at or datetime.utcnow()
         content_queue.skipped = False
         db.session.commit()
-        logger.info(f"Marked content queue entry {content_queue_id} as watched")
+        logger.info(
+            f"Marked content queue entry {content_queue_id} as watched")
         return content_queue
-    
+
     @staticmethod
     def mark_skipped(content_queue_id: int) -> ContentQueue:
         """Mark a content queue entry as skipped."""
@@ -84,18 +86,20 @@ class ContentQueueService:
         content_queue.watched = False
         content_queue.watched_at = None
         db.session.commit()
-        logger.info(f"Marked content queue entry {content_queue_id} as skipped")
+        logger.info(
+            f"Marked content queue entry {content_queue_id} as skipped")
         return content_queue
-    
+
     @staticmethod
     def update_score(content_queue_id: int, score: float) -> ContentQueue:
         """Update the score of a content queue entry."""
         content_queue = ContentQueueService.get_by_id(content_queue_id)
         content_queue.score = score
         db.session.commit()
-        logger.info(f"Updated score for content queue entry {content_queue_id} to {score}")
+        logger.info(
+            f"Updated score for content queue entry {content_queue_id} to {score}")
         return content_queue
-    
+
     @staticmethod
     def delete(content_queue_id: int) -> None:
         """Delete a content queue entry."""
@@ -103,7 +107,7 @@ class ContentQueueService:
         db.session.delete(content_queue)
         db.session.commit()
         logger.info(f"Deleted content queue entry {content_queue_id}")
-    
+
     @staticmethod
     def get_top_scored(broadcaster_id: int, limit: int = 10) -> Sequence[ContentQueue]:
         """Get top scored unwatched content queue entries for a broadcaster."""
@@ -113,7 +117,7 @@ class ContentQueueService:
             .order_by(ContentQueue.score.desc())
             .limit(limit)
         ).scalars().all()
-    
+
     @staticmethod
     def get_vod_timestamp_url(content_queue_id: int, time_shift: float = 60) -> Optional[str]:
         """Find the broadcaster's video that was live when this clip was marked as watched
@@ -131,7 +135,7 @@ class ContentQueueService:
             URL string with timestamp or None if no matching video found
         """
         content_queue = ContentQueueService.get_by_id(content_queue_id)
-        
+
         if not content_queue.watched or not content_queue.watched_at:
             return None
 
@@ -143,14 +147,15 @@ class ContentQueueService:
                 ContentQueue.watched_at < content_queue.watched_at
             ).order_by(ContentQueue.watched_at.desc())
         ).scalars().first()
-        
+
         # Calculate the time difference to use for the offset
         if previous_item and previous_item.watched_at:
             # Calculate time difference in seconds between current and previous item
             content_duration = content_queue.content.duration or 0
 
             # Subtract content duration from the time difference
-            time_diff = (content_queue.watched_at - previous_item.watched_at).total_seconds()
+            time_diff = (content_queue.watched_at -
+                         previous_item.watched_at).total_seconds()
 
             # Ensure time_diff is at least 0
             time_diff = max(0, time_diff)
@@ -171,11 +176,13 @@ class ContentQueueService:
 
             for video in candidate_videos:
                 # Check if video was live when clip was watched
-                video_end_time = video.uploaded + timedelta(seconds=video.duration)
+                video_end_time = video.uploaded + \
+                    timedelta(seconds=video.duration)
                 if video.uploaded <= content_queue.watched_at <= video_end_time:
                     # Calculate seconds from start of video to when clip was watched
                     seconds_offset = (
-                        content_queue.watched_at - video.uploaded - timedelta(seconds=time_shift)
+                        content_queue.watched_at - video.uploaded -
+                        timedelta(seconds=time_shift)
                     ).total_seconds()
 
                     # Generate URL with timestamp
@@ -186,35 +193,35 @@ class ContentQueueService:
 
 class ContentService:
     """Service class for content-related operations."""
-    
+
     @staticmethod
     def get_all() -> Sequence[Content]:
         """Get all content entries."""
         return db.session.execute(
             select(Content).order_by(Content.id)
         ).scalars().all()
-    
+
     @staticmethod
     def get_by_id(content_id: int) -> Content:
         """Get content by ID."""
         return db.session.execute(
             select(Content).filter_by(id=content_id)
         ).scalars().one()
-    
+
     @staticmethod
     def get_by_url(url: str) -> Optional[Content]:
         """Get content by URL."""
         return db.session.execute(
             select(Content).filter_by(url=url)
         ).scalars().one_or_none()
-    
+
     @staticmethod
     def get_by_stripped_url(stripped_url: str) -> Optional[Content]:
         """Get content by stripped URL."""
         return db.session.execute(
             select(Content).filter_by(stripped_url=stripped_url)
         ).scalars().one_or_none()
-    
+
     @staticmethod
     def create(url: str, stripped_url: str, title: str, channel_name: str,
                duration: Optional[int] = None, thumbnail_url: Optional[str] = None,
@@ -234,20 +241,20 @@ class ContentService:
         db.session.commit()
         logger.info(f"Created content entry {content.id} for URL {url}")
         return content
-    
+
     @staticmethod
     def update(content_id: int, **kwargs) -> Content:
         """Update content entry fields."""
         content = ContentService.get_by_id(content_id)
-        
+
         for key, value in kwargs.items():
             if hasattr(content, key):
                 setattr(content, key, value)
-        
+
         db.session.commit()
         logger.info(f"Updated content entry {content_id}")
         return content
-    
+
     @staticmethod
     def delete(content_id: int) -> None:
         """Delete a content entry."""
@@ -255,7 +262,7 @@ class ContentService:
         db.session.delete(content)
         db.session.commit()
         logger.info(f"Deleted content entry {content_id}")
-    
+
     @staticmethod
     def search_by_title(query: str, limit: int = 20) -> Sequence[Content]:
         """Search content by title."""
@@ -265,7 +272,7 @@ class ContentService:
             .order_by(Content.created_at.desc())
             .limit(limit)
         ).scalars().all()
-    
+
     @staticmethod
     def search_by_channel(channel_name: str, limit: int = 20) -> Sequence[Content]:
         """Search content by channel name."""
@@ -279,21 +286,22 @@ class ContentService:
 
 class ContentQueueSubmissionService:
     """Service class for content queue submission-related operations."""
-    
+
     @staticmethod
     def get_all() -> Sequence[ContentQueueSubmission]:
         """Get all content queue submissions."""
         return db.session.execute(
-            select(ContentQueueSubmission).order_by(ContentQueueSubmission.submitted_at.desc())
+            select(ContentQueueSubmission).order_by(
+                ContentQueueSubmission.submitted_at.desc())
         ).scalars().all()
-    
+
     @staticmethod
     def get_by_id(submission_id: int) -> ContentQueueSubmission:
         """Get content queue submission by ID."""
         return db.session.execute(
             select(ContentQueueSubmission).filter_by(id=submission_id)
         ).scalars().one()
-    
+
     @staticmethod
     def get_by_content_queue(content_queue_id: int) -> Sequence[ContentQueueSubmission]:
         """Get all submissions for a content queue entry."""
@@ -302,7 +310,7 @@ class ContentQueueSubmissionService:
             .filter_by(content_queue_id=content_queue_id)
             .order_by(ContentQueueSubmission.submitted_at.desc())
         ).scalars().all()
-    
+
     @staticmethod
     def get_by_user(user_id: int) -> Sequence[ContentQueueSubmission]:
         """Get all submissions by a user."""
@@ -311,7 +319,7 @@ class ContentQueueSubmissionService:
             .filter_by(user_id=user_id)
             .order_by(ContentQueueSubmission.submitted_at.desc())
         ).scalars().all()
-    
+
     @staticmethod
     def create(content_queue_id: int, content_id: int, user_id: int,
                submission_source_type: ContentQueueSubmissionSource, submission_source_id: int,
@@ -332,16 +340,17 @@ class ContentQueueSubmissionService:
         db.session.commit()
         logger.info(f"Created content queue submission {submission.id}")
         return submission
-    
+
     @staticmethod
     def update_weight(submission_id: int, weight: float) -> ContentQueueSubmission:
         """Update the weight of a submission."""
         submission = ContentQueueSubmissionService.get_by_id(submission_id)
         submission.weight = weight
         db.session.commit()
-        logger.info(f"Updated weight for submission {submission_id} to {weight}")
+        logger.info(
+            f"Updated weight for submission {submission_id} to {weight}")
         return submission
-    
+
     @staticmethod
     def update_comment(submission_id: int, user_comment: Optional[str]) -> ContentQueueSubmission:
         """Update the user comment of a submission."""
@@ -350,7 +359,7 @@ class ContentQueueSubmissionService:
         db.session.commit()
         logger.info(f"Updated comment for submission {submission_id}")
         return submission
-    
+
     @staticmethod
     def delete(submission_id: int) -> None:
         """Delete a content queue submission."""
@@ -358,4 +367,3 @@ class ContentQueueSubmissionService:
         db.session.delete(submission)
         db.session.commit()
         logger.info(f"Deleted content queue submission {submission_id}")
-    

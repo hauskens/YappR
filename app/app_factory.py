@@ -27,7 +27,7 @@ from .routes.users import users_blueprint
 from werkzeug.middleware.proxy_fix import ProxyFix
 from .rate_limit import limiter
 from .csrf import csrf
-from app.services import BroadcasterService, VideoService, TranscriptionService, SegmentService, UserService
+from app.services import BroadcasterService, VideoService, TranscriptionService, SegmentService, UserService, ContentQueueService, ContentService
 
 
 socketio = SocketIO()
@@ -109,6 +109,8 @@ def create_app(overrides: dict | None = None):
             video_service=VideoService(),
             transcription_service=TranscriptionService(),
             segment_service=SegmentService(),
+            content_queue_service=ContentQueueService(),
+            content_service=ContentService(),
             user_service=UserService(),
         )
     

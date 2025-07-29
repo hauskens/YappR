@@ -48,7 +48,7 @@ def clip_queue():
             if broadcaster is None:
                 return render_template("promo.html")
             queue_items = get_content_queue(broadcaster.id)
-            if broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10):
+            if BroadcasterService.get_last_active(broadcaster.id) is None or BroadcasterService.get_last_active(broadcaster.id) < datetime.now() - timedelta(minutes=10):
                 queue_items = [item for item in queue_items if item.content.url !=
                                "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
             logger.info("Successfully loaded clip queue", extra={
@@ -228,7 +228,7 @@ def get_queue_items():
                 broadcaster.id, include_watched=show_history, include_skipped=show_history)
 
             # Filter out rickroll if not active and not admin/mod
-            if (broadcaster.last_active() is None or broadcaster.last_active() < datetime.now() - timedelta(minutes=10)) and not UserService.has_permission(current_user, [PermissionType.Mod, PermissionType.Admin]):
+            if (BroadcasterService.get_last_active(broadcaster.id) is None or BroadcasterService.get_last_active(broadcaster.id) < datetime.now() - timedelta(minutes=10)) and not UserService.has_permission(current_user, [PermissionType.Moderator, PermissionType.Admin]):
                 queue_items = [item for item in queue_items if item.content.url !=
                                "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
 

@@ -70,5 +70,6 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-dev --group bot
 ENV NLTK_ENABLED=false
+COPY . .
 CMD ["python", "-m", "bot.main"]
 

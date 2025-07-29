@@ -685,6 +685,7 @@ function initializeChatSearch(): void {
   if (clearSearchBtn) {
     clearSearchBtn.addEventListener('click', () => {
       chatSearchInput.value = '';
+      window.htmx.trigger('body', 'search-cleared');
       if (usernameFilter) usernameFilter.value = '';
       performChatSearch('', '');
     });

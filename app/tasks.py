@@ -1,10 +1,9 @@
-import yt_dlp # type: ignore
-from yt_dlp.utils import download_range_func # type: ignore
+import yt_dlp  # type: ignore
+from yt_dlp.utils import download_range_func  # type: ignore
 import glob
 from .models.yt import VideoData, Thumbnail
 import os
 from .models.config import config
-from datetime import datetime
 from app.logger import logger
 
 
@@ -24,6 +23,7 @@ def get_largest_thumbnail(video: VideoData) -> Thumbnail:
         logger.error("Video has no thumbnails")
         raise ValueError("Video has no thumbnails")
 
+
 def find_downloaded_file(storage_directory: str, video_url: str) -> str:
     # if video_url contains youtube, use the video_id
     logger.debug("Finding downloaded file for %s", video_url)
@@ -35,12 +35,13 @@ def find_downloaded_file(storage_directory: str, video_url: str) -> str:
         raise ValueError("Unknown video_url")
     search_pattern = os.path.join(storage_directory, f"{prefix}.*")
     matches = glob.glob(search_pattern)
-    
+
     if not matches:
         logger.error("No file found matching: %s", search_pattern)
         raise FileNotFoundError(f"No file found matching: {search_pattern}")
-    
+
     return matches[0]
+
 
 def get_yt_segment(video_url: str, start_time: int, duration: int) -> str:
     storage_directory = "."
@@ -111,15 +112,15 @@ def get_twitch_audio(video_url: str) -> str:
 def get_twitch_segment(video_url: str, start_time: int, duration: int) -> str:
     clips_directory = os.path.join(storage_directory, "clips")
     os.makedirs(clips_directory, exist_ok=True)
-    
+
     logger.debug("Fetching Twitch segment for %s", video_url)
     video_id = video_url.split('/')[-1]
     clip_basename = f"{video_id}_{start_time}_{duration}_clip"
     download_path: str = f"{clips_directory}/{clip_basename}.%(ext)s"
-    
+
     # Calculate end time in seconds
     end_time = start_time + duration
-    
+
     twitch_opts = {
         "outtmpl": download_path,
         "format": "best",
@@ -128,7 +129,7 @@ def get_twitch_segment(video_url: str, start_time: int, duration: int) -> str:
         "match_filter": yt_dlp.utils.match_filter_func(['!is_live'], None),
         "download_ranges": download_range_func([], [[float(start_time), float(end_time)]]),
     }
-    
+
     with yt_dlp.YoutubeDL(twitch_opts) as ydl:
         logger.info(
             "Fetching Twitch clip for video: %s, from %ss to %ss",
@@ -143,6 +144,6 @@ def get_twitch_segment(video_url: str, start_time: int, duration: int) -> str:
             start_time,
             end_time,
         )
-        
+
         # Return the basename pattern for file checking
         return clip_basename

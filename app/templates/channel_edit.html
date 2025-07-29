@@ -3,17 +3,17 @@
 {% block content %}
   <div class="container">
     <h1>Videos on Channel: {{ channel.name }}</h1>
-    {% if current_user.is_anonymous == False and current_user.has_permission("admin") %}
+    {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, channel.broadcaster_id) or user_service.is_moderator(current_user, channel.broadcaster_id)) %}
       <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseManageChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
         Some admin buttons...
       </a>
       <div class="collapse" id="collapseManageChannel">
         <hr>
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_transcribe_audio', channel_id=channel.id) }}';">Process all audio</button>
-        {% if channel.platform.name.lower() == "youtube" %}
+        {% if channel.platform_name.lower() == "youtube" %}
           <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', channel_id=channel.id) }}';">Fetch all transcriptions</button>
         {% endif %}
-        {% if channel.platform.name.lower() == "twitch" %}
+        {% if channel.platform_name.lower() == "twitch" %}
           <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
         {% endif %}
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
@@ -36,10 +36,10 @@
       </div>
     {% endif %}
     <hr>
-    {% if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(channel.broadcaster_id) or current_user.is_moderator(channel.broadcaster_id)) %}
+    {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, channel.broadcaster_id) or user_service.is_moderator(current_user, channel.broadcaster_id)) %}
         <a class="btn btn-primary" onclick="return confirm('This will look new videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel.channel_fetch_videos', channel_id=channel.id) }}">Look for new videos on channel</a>
     {% endif %}
-    {% if current_user.is_anonymous == False and (current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(channel.broadcaster_id)) %}
+    {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, channel.broadcaster_id)) %}
         <a class="btn btn-primary" onclick="return confirm('This will look all videos on this channel, and results is instant. Its totally fine to use, just dont spam click it')" href="{{ url_for('channel.channel_fetch_videos_all', channel_id=channel.id) }}">Look for all videos on channel</a>
     {% endif %}
     <hr>
@@ -64,23 +64,23 @@
                   <img src="{{url_for('root.index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
           </td>
           <td>{{ video.title }}</td>
-          <td>{{ video.get_duration_str() }}</td>
+          <td>{{ video_service.get_duration_str(video) }}</td>
           <td> 
             {% if video.transcriptions|length == 0 and video.active == true %}
-              {% if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(channel.broadcaster_id) or current_user.is_moderator(channel.broadcaster_id)) %}
+              {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, channel.broadcaster_id) or user_service.is_moderator(current_user, channel.broadcaster_id)) %}
                   <a class="btn btn-primary" onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
               {% endif %}
             {% endif %}
             {% for t in video.transcriptions %}
                 {{ 'Processed' if t.processed else 'Not processed' }}
             {% endfor %}</td>
-          <td>{% if video.audio.filename is defined %}Has audio attached{%elif video.source_video.id is defined%}<a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with {{video.source_video.channel.platform.name}}</a>{% endif %}</td>
+          <td>{% if video.audio.filename is defined %}Has audio attached{%elif video.source_video.id is defined%}<a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with {{video.source_video.channel.platform_name}}</a>{% endif %}</td>
           <td>{{ video.uploaded }}</td>
           <td>
             <div class="container mb-2">
               <a class="btn btn-primary" role="button" href="{{ url_for('video.video_edit', video_id=video.id) }}">Edit Video</a>
             </div>
-            {% if current_user.is_anonymous == False and (current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(channel.broadcaster_id) or current_user.is_moderator(channel.broadcaster_id)) %}
+            {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, channel.broadcaster_id) or user_service.is_moderator(current_user, channel.broadcaster_id)) %}
               {% if video.segments|length == 0 and video.transcriptions|length != 0 %}
                 <div class="container mb-2">
                   {% for t in video.transcriptions %}
@@ -94,7 +94,7 @@
                 <a class="btn btn-primary" role="button" title="Transcribe audio, this will take long time depending on queue and video length" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process audio</a>
               {% elif video.audio.filename is undefined %}
                 <div class="container mb-2">
-                  <a class="btn btn-primary" role="button" title="Download audio from {{ video.channel.platform.name }}, this may take a while depending on queue and video length" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>                          
+                  <a class="btn btn-primary" role="button" title="Download audio from {{ video.channel.platform_name }}, this may take a while depending on queue and video length" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform_name }}</a>                          
                 </div>
               {% endif %}
             {% endif %}

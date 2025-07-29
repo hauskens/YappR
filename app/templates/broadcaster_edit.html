@@ -33,7 +33,7 @@
     cursor: not-allowed;
   }
 </style>
-  {% if not broadcaster.hidden or (broadcaster.hidden and current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(broadcaster.id) or current_user.is_moderator(broadcaster.id)) %}
+  {% if not broadcaster.hidden or (broadcaster.hidden and user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id)) %}
     <div class="container">
       <h1>{{ broadcaster.name }}</h1>
       {% if broadcaster.hidden %}
@@ -62,12 +62,12 @@
           </tr>
         </thead>
         <tbody>
-          {% for channel in channels | sort(attribute='platform.name', reverse=true) %}
+          {% for channel in channels | sort(attribute='platform_name', reverse=true) %}
           <tr>
             <td>{{ channel.id }}</td>
             <td>{{ channel.platform_channel_id }}</td>
             <td>{{ channel.name }}</td>
-            <td>{{ channel.platform.name }}</td>
+            <td>{{ channel.platform_name }}</td>
             <td>{{ channel.platform_ref }}</td>
             <td>{{ channel.main_video_type.name }}</td>
             <td>{{ channel.source_channel.id }}</td>
@@ -80,7 +80,7 @@
                   <li><a class="dropdown-item" href="{{ url_for('channel.channel_get_videos', channel_id=channel.id) }}">
                     <i class="bi bi-collection-play me-2"></i>Go to Channel
                   </a></li>
-                  {% if current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster.id) %}
+                  {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" href="{{ url_for('channel.channel_fetch_details', channel_id=channel.id) }}">
                       <i class="bi bi-arrow-clockwise me-2"></i>Update Channel Details
@@ -106,7 +106,7 @@
         </tbody>
       </table>
       <hr>
-      {% if current_user.has_permission(["admin", "mod"]) or current_user.has_broadcaster_id(broadcaster.id) or current_user.is_moderator(broadcaster.id) %}
+      {% if user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id) %}
         <h2>Broadcaster Settings</h2>
         <div id="settings-container">
           <div class="row">
@@ -116,7 +116,7 @@
                   <h5>Twitch Bot Settings</h5>
                 </div>
                 <div class="card-body">
-                  {% for channel in broadcaster.channels | sort(attribute='platform.name', reverse=true) %}
+                  {% for channel in broadcaster.channels | sort(attribute='platform_name', reverse=true) %}
                     <div class="mb-4">
                       <h6>{{ channel.name }}</h6>
                       <div class="mb-3 form-check">
@@ -167,7 +167,7 @@
                     <div class="form-text">The ID of the Discord channel where clips should be picked up by YappR discord bot. <a href="https://discord.com/oauth2/authorize?client_id=1359399600733290586">Add the bot to your</a> to your server, then go in one of your discord channels and type <code>/verify</code> to verify your server.</div>
                   </div>
                   
-                  {% if current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster.id) %}
+                  {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
                     <div class="mb-3">
                       <h6>General Settings</h6>
                       <div class="form-check">
@@ -200,7 +200,7 @@
       {% endif %}
 
 
-      {% if current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster.id) %}
+      {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
         <a class="btn btn-primary" data-bs-toggle="collapse" href="#collapseAddChannel" role="button" aria-expanded="false" aria-controls="collapseExample">
           Add new channel
         </a>
@@ -213,7 +213,7 @@
           <label for="platform_id">Platform:</label>
           <select id="platform_id" name="platform_id" class="form-select" onchange="toggleTwitchLookup()">
             {% for platform in platforms %}
-              <option value="{{ platform.id }}">{{ platform.name }}</option>
+              <option value="{{ platform.id }}">{{ platform_name }}</option>
             {% endfor %}
           </select>
 
@@ -257,9 +257,9 @@
         </form>
       </div>
      {% endif %}
-    {% if current_user.has_permission(["admin"]) or current_user.has_broadcaster_id(broadcaster.id) %}
+    {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
       <a class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this broadcaster? All channels and transcription work will be lost')" href="{{ url_for('broadcaster.broadcaster_delete', broadcaster_id=broadcaster.id) }}">Delete Broadcaster</a>
-    {% elif current_user.has_permission(["mod"]) or current_user.is_moderator(broadcaster.id) %}
+    {% elif user_service.has_permission(current_user, ["mod"]) or user_service.is_moderator(current_user, broadcaster.id) %}
       <a class="btn btn-danger" onclick="return confirm('Only broadcasters themselves or administrators can delete broadcasters')" href="#">Delete Broadcaster</a>
     {% endif %}
     </div>

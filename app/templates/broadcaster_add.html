@@ -11,8 +11,8 @@
           <h5>Broadcaster Information</h5>
         </div>
         <!-- Get moderated channels -->
-        {% set moderated_channels = current_user.update_moderated_channels() %}
-        {% set own_channel_type = current_user.get_twitch_account_type() %}
+        {% set moderated_channels = user_service.update_moderated_channels(current_user) %}
+        {% set own_channel_type = user_service.get_twitch_account_type(current_user) %}
         <div class="card-body">
           <form action="{{ url_for('broadcaster.broadcaster_create') }}" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>

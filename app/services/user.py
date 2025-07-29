@@ -1,16 +1,17 @@
 """
 User service for handling user-related business logic.
 """
-from typing import Iterable, Literal
+from typing import Iterable
 from datetime import datetime
+import asyncio
 
 from sqlalchemy import select
 from app.models import db
 from app.models.user import Users, ExternalUser
-from app.models.auth import Permissions, OAuth
+from app.models.auth import Permissions
 from app.models.channel import Channels, ChannelModerator
 from app.models.broadcaster import Broadcaster
-from app.models.enums import PermissionType, AccountSource
+from app.models.enums import PermissionType, AccountSource, TwitchAccountType
 from app.models.config import config
 from app.logger import logger
 
@@ -106,22 +107,18 @@ class UserService:
         """Update moderated channels for Twitch users."""
         if user.account_type == AccountSource.Twitch:
             try:
-                # Note: This would need Twitch API integration
-                # from app.twitch_api import get_moderated_channels
-                oauth = db.session.query(OAuth).filter_by(user_id=user.id).one_or_none()
-                if oauth is None:
-                    return []
+                from .platform import PlatformServiceRegistry
+                from app.models.enums import PlatformType
+                platform_service = PlatformServiceRegistry.get_service(PlatformType.Twitch)
+                if platform_service is None:
+                    raise ValueError("Twitch platform service not found")
                 
-                # moderated_channels = asyncio.run(get_moderated_channels(
-                #     user.external_account_id, 
-                #     user_token=oauth.token["access_token"], 
-                #     refresh_token=oauth.token["refresh_token"]
-                # ))
-                
-                logger.info(f"Would update moderated channels for {user.name}")
-                
-                # Placeholder implementation - would need actual Twitch API integration
-                return []
+                channels = asyncio.run(platform_service.fetch_moderated_channels(user))
+                db.session.delete(ChannelModerator(user_id=user.id))
+                db.session.flush()
+                for channel in channels:
+                    db.session.add(ChannelModerator(user_id=user.id, channel_id=channel.id))
+                db.session.commit()
                 
             except Exception as e:
                 logger.error(f"Failed to update moderated channels for {user.name}: {e}")
@@ -130,24 +127,17 @@ class UserService:
             return []
     
     @staticmethod
-    def get_twitch_account_type(user: Users) -> Literal["partner", "affiliate", "regular"]:
+    def get_twitch_account_type(user: Users) -> TwitchAccountType:
         """Get Twitch account type for user."""
+        from app.services.platform import TwitchPlatformService
         if user.account_type == AccountSource.Twitch:
             if (config.debug == True and 
                 config.debug_broadcaster_id is not None and 
                 user.external_account_id == str(config.debug_broadcaster_id)):
-                return "partner"
+                return TwitchAccountType.Partner
             
-            # Note: This would need Twitch API integration
-            # from app.twitch_api import get_twitch_user_by_id
-            # twitch_user = asyncio.run(get_twitch_user_by_id(user.external_account_id))
-            # logger.info(twitch_user.broadcaster_type)
-            # if twitch_user.id == user.external_account_id:
-            #     return twitch_user.broadcaster_type
-            
-            logger.info(f"Would get Twitch account type for {user.name}")
-            
-        return "regular"
+            return TwitchPlatformService().fetch_account_type(user)
+        return TwitchAccountType.Regular
     
     @staticmethod
     def create(name: str, external_account_id: str | None, account_type: AccountSource,

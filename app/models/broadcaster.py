@@ -26,20 +26,6 @@ class Broadcaster(Base):
         "ContentQueueSettings", back_populates="broadcaster", uselist=False
     )
 
-#     def delete(self):
-#         for channel in self.channels:
-#             channel.delete()
-#         db.session.query(Users).filter_by(
-#             broadcaster_id=self.id).update({"broadcaster_id": None})
-#         db.session.flush()
-#         db.session.query(BroadcasterSettings).filter_by(
-#             broadcaster_id=self.id).delete()
-#         db.session.flush()
-#         db.session.query(Broadcaster).filter_by(id=self.id).delete()
-#         db.session.commit()
-
-#     def last_active(self) -> datetime | None:
-#         return db.session.query(func.max(Channels.last_active)).filter_by(broadcaster_id=self.id).scalar()
 
 class BroadcasterModel(BaseModel):
     model_config = ConfigDict(validate_by_name=True, validate_by_alias=True)

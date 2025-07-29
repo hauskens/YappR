@@ -9,6 +9,7 @@ from app.models.config import config
 from twitchAPI.twitch import Video
 from app.logger import logger
 from urllib.parse import urlparse, parse_qs
+from pydantic import HttpUrl
 
 if os.getenv("NLTK_ENABLED", "true") == "true":
     import nltk  # type: ignore
@@ -101,41 +102,68 @@ def format_duration_to_srt_timestamp(seconds):
 
     return f"{hours:02d}:{minutes:02d}:{secs:02d},{milliseconds}"
 
-
-def save_yt_thumbnail(video: VideoDetails, force: bool = False) -> str:
-    path = config.cache_location + video.id
-    thumbnail = video.snippet.thumbnails.get("high")
-    if thumbnail is None:
-        thumbnail = video.snippet.thumbnails.get("default")
-    if thumbnail is None:
-        logger.error("No thumbnail available for video %s", video.id)
-        raise ValueError(f"No thumbnail available for video {video.id}")
-    if hasattr(thumbnail, "url"):
-        logger.info("Fetching thumbnail, %s", thumbnail.url)
-        if not os.path.exists(path):
-            response = requests.get(thumbnail.url)
-            if response.status_code == 200:
-                with open(path, "wb") as f:
-                    _ = f.write(response.content)
-                return path
-        return path
-    raise (ValueError(f"Failed to download thumbnail for video {video.id}"))
-
-
-def save_twitch_thumbnail(video: Video, force: bool = False) -> str:
-    path = config.cache_location + video.id
-    thumbnail = video.thumbnail_url
-    thumbnail_url = thumbnail.replace("%{width}", str(320)).replace(
-        "%{height}", str(180)
-    )
-    logger.debug("Fetching thumbnail, %s", thumbnail_url)
+def save_generic_thumbnail(url: HttpUrl, force: bool = False) -> str:
+    """Save a generic thumbnail from a URL. 
+    Returns the path to the thumbnail. 
+    If thumbnail already exists in cache, returns the path to the existing thumbnail.
+    
+    Args:
+        url: The URL of the thumbnail
+        force: Whether to force the download of the thumbnail (overrides cached thumbnail)
+    """
+    path = config.cache_location + (url.path or url.__str__())
     if not os.path.exists(path) or force:
-        response = requests.get(thumbnail_url)
+        response = requests.get(url.__str__())
         if response.status_code == 200:
             with open(path, "wb") as f:
                 _ = f.write(response.content)
             return path
     return path
+
+def get_youtube_thumbnail_url(video_ref: str) -> HttpUrl:
+    """
+    Get the highest quality YouTube thumbnail URL for a given video ID.
+    
+    Args:
+        video_id (str): YouTube video ID
+        
+    Returns:
+        str: URL of the highest quality thumbnail available
+    """
+    # YouTube thumbnail quality options in descending order of quality
+    quality_options = [
+        'maxresdefault',  # 1280x720
+        'sddefault',      # 640x480
+        'hqdefault',      # 480x360
+        'mqdefault',      # 320x180
+        'default'         # 120x90
+    ]
+    
+    base_url = f"https://img.youtube.com/vi/{video_ref}/"
+    
+    # Try each quality option, starting with highest
+    for quality in quality_options:
+        thumbnail_url = f"{base_url}{quality}.jpg"
+        
+        try:
+            # Check if the thumbnail exists by making a HEAD request
+            save_generic_thumbnail(HttpUrl(thumbnail_url))
+            return HttpUrl(thumbnail_url)
+        except Exception:
+            # If request fails, continue to next quality option
+            continue
+    
+    # Fallback to default if all else fails
+    return HttpUrl(f"{base_url}default.jpg")
+
+
+def get_twitch_thumbnail_url(video: Video, force: bool = False) -> HttpUrl:
+    thumbnail = video.thumbnail_url
+    thumbnail_url = thumbnail.replace("%{width}", str(320)).replace(
+        "%{height}", str(180)
+    )
+    logger.debug("Fetching thumbnail, %s", thumbnail_url)
+    return HttpUrl(thumbnail_url)
 
 
 def get_valid_date(date_string: str) -> datetime | None:

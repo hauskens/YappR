@@ -2,7 +2,6 @@ from flask import Blueprint, render_template, redirect, request, url_for, flash
 from app.permissions import require_permission
 from app.models import db
 from app.models import (
-    Platforms,
     VideoType,
     PermissionType,
     AccountSource,
@@ -17,6 +16,7 @@ from app.models import (
     Content,
     ExternalUser,
 )
+from app.models.enums import PlatformType
 from app.services import BroadcasterService, UserService
 from app.cache import cache, make_cache_key
 from app.logger import logger
@@ -95,14 +95,11 @@ def broadcaster_create():
             db.session.add(new_broadcaster)
             db.session.flush()
 
-            # Get the platform ID for Twitch
-            twitch_platform = db.session.query(
-                Platforms).filter_by(name="Twitch").one()
             # Create a channel for this broadcaster
             new_channel = Channels(
                 name=name,
                 broadcaster_id=new_broadcaster.id,
-                platform_id=twitch_platform.id,
+                platform_name=PlatformType.Twitch.name,
                 platform_ref=channel_name,
                 platform_channel_id=channel_id,
                 main_video_type=VideoType.VOD.name,

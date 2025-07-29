@@ -32,7 +32,7 @@ def search_word():
     channels = [
         channel
         for channel in broadcaster.channels
-        if channel.platform.name.lower() == channel_type or channel_type == "all"
+        if str(channel.platform_name).lower() == channel_type or channel_type == "all"
     ]
     logger.info("channels: %s", len(channels))
     video_result = search_v2(search_term, channels, start_date, end_date)

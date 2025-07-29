@@ -4,17 +4,17 @@ Video service for handling video-related business logic.
 import asyncio
 from collections.abc import Sequence
 from datetime import datetime
-from typing import Optional
 
+from pydantic import Field
 from sqlalchemy import select, func
 from app.models import db
-from app.models import Video, Transcription, TranscriptionSource, VideoType
+from app.models import Video, VideoCreate, Transcription, TranscriptionSource, VideoType, PlatformType
 from app.logger import logger
 from app.models.config import config
 from app.tasks import get_yt_audio, get_twitch_audio
 from app.youtube_api import get_videos
-from app.twitch_api import get_twitch_video_by_ids, parse_time
-from app.utils import save_yt_thumbnail, save_twitch_thumbnail
+# from app.twitch_api import get_twitch_video_by_ids, parse_time
+from app.utils import save_generic_thumbnail
 from app.youtube_api import fetch_transcription
 from youtube_transcript_api.formatters import WebVTTFormatter
 
@@ -74,11 +74,11 @@ class VideoService:
     @staticmethod
     def get_url(video: Video) -> str:
         """Get the URL for a video based on its platform."""
-        url = video.channel.platform.url
-        if video.channel.platform.name.lower() == "youtube":
-            return f"{url}/watch?v={video.platform_ref}"
-        elif video.channel.platform.name.lower() == "twitch":
-            return f"{url}/videos/{video.platform_ref}"
+        # TODO: Extract platform URLs from platform config
+        if str(video.channel.platform_name).lower() == "youtube":
+            return f"https://www.youtube.com/watch?v={video.platform_ref}"
+        elif str(video.channel.platform_name).lower() == "twitch":
+            return f"https://www.twitch.tv/videos/{video.platform_ref}"
         raise ValueError(f"Could not generate url for video: {video.id}")
     
     @staticmethod
@@ -98,10 +98,10 @@ class VideoService:
         seconds_offset = max(0, min(seconds_offset, video.duration))
 
         # Format timestamp based on platform
-        if video.channel.platform.name.lower() == "youtube":
+        if str(video.channel.platform_name).lower() == "youtube":
             # YouTube uses t=123s format (seconds)
             return f"{base_url}&t={int(seconds_offset)}s"
-        elif video.channel.platform.name.lower() == "twitch":
+        elif str(video.channel.platform_name).lower() == "twitch":
             # Twitch uses t=01h23m45s format
             hours = int(seconds_offset // 3600)
             minutes = int((seconds_offset % 3600) // 60)
@@ -154,46 +154,34 @@ class VideoService:
     @staticmethod
     def fetch_details(video: Video, force: bool = True):
         """Fetch and update video details from platform APIs."""
-        if video.channel.platform.name.lower() == "youtube":
+        from .platform import PlatformServiceRegistry
+        platform_service = PlatformServiceRegistry.get_service(PlatformType(video.channel.platform_name))
+        if platform_service is None:
+            raise ValueError(f"Platform service not found for platform {video.channel.platform_name}")
+        video_details = asyncio.run(platform_service.fetch_video_details(video.platform_ref))
+
+        if video.duration != video_details.duration:
+            # Handle duration change logic
+            logger.warning(
+                f"Duration changed for video {video.platform_ref}: {video.duration} -> {video_details.duration}"
+            )
+            for transcription in video.transcriptions:
+                from .transcription import TranscriptionService
+                TranscriptionService.delete_transcription(transcription.id)
             try:
-                result = get_videos([video.platform_ref])[0]
-                video.duration = result.contentDetails.duration.total_seconds()
-                video.title = result.snippet.title
-                video.uploaded = result.snippet.publishedAt
-                tn = save_yt_thumbnail(result)
-                video.thumbnail = open(tn, "rb")  # type: ignore[assignment]
-                logger.info(f"Fetched YouTube details for video {video.platform_ref}")
+                if video.audio is not None:
+                    video.audio.file.object.delete()
             except Exception as e:
-                logger.error(f"Failed to fetch details for video {video.id}: {e}")
-                return
-                
-        elif video.channel.platform.name.lower() == "twitch":
-            try:
-                twitch_result = asyncio.run(get_twitch_video_by_ids([video.platform_ref]))[0]
-                if video.duration != float(parse_time(twitch_result.duration)):
-                    # Handle duration change logic
-                    logger.info(
-                        f"Duration changed for video {video.platform_ref}: {video.duration} -> {parse_time(twitch_result.duration)}"
-                    )
-                    for transcription in video.transcriptions:
-                        from .transcription import TranscriptionService
-                        TranscriptionService.delete_transcription(transcription.id)
-                    try:
-                        if video.audio is not None:
-                            video.audio.file.object.delete()
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to delete audio for video {video.platform_ref}, exception: {e}")
-                    video.audio = None
-                    video.duration = parse_time(twitch_result.duration)
-                video.title = twitch_result.title
-                video.uploaded = twitch_result.created_at
-                tn = save_twitch_thumbnail(twitch_result)
-                video.thumbnail = open(tn, "rb")  # type: ignore[assignment]
-                logger.info(f"Fetched Twitch details for video {video.platform_ref}")
-            except Exception as e:
-                logger.error(f"Failed to fetch details for video {video.id}: {e}")
-                return
+                logger.error(
+                    f"Failed to delete audio for video {video.platform_ref}, exception: {e}")
+            video.audio = None
+            video.duration = video_details.duration
+
+            video.title = video_details.title
+            video.uploaded = video_details.uploaded
+            tn = save_generic_thumbnail(video_details.thumbnail_url)
+            video.thumbnail = open(tn, "rb")  # type: ignore[assignment]
+            logger.info(f"Fetched details for video {video.platform_ref}")
         
         db.session.commit()
     
@@ -258,37 +246,34 @@ class VideoService:
     @staticmethod
     def save_audio(video: Video, force: bool = False):
         """Save audio for a video."""
-        if video.channel.platform.name.lower() == "twitch":
+        if str(video.channel.platform_name).lower() == "twitch":
             audio = get_twitch_audio(VideoService.get_url(video))
             video.audio = open(audio, "rb")  # type: ignore[assignment]
             db.session.commit()
-        elif video.channel.platform.name.lower() == "youtube":
+        elif str(video.channel.platform_name).lower() == "youtube":
             audio = get_yt_audio(VideoService.get_url(video))
             video.audio = open(audio, "rb")  # type: ignore[assignment]
             db.session.commit()
     
     @staticmethod
-    def create(title: str, video_type: VideoType, duration: float, channel_id: int, 
-               platform_ref: str, uploaded: datetime, active: bool = True,
-               thumbnail_file=None, source_video_id: Optional[int] = None) -> Video:
+    def create(video: VideoCreate) -> Video:
         """Create a new video."""
-        video = Video(
-            title=title,
-            video_type=video_type,
-            duration=duration,
-            channel_id=channel_id,
-            platform_ref=platform_ref,
-            uploaded=uploaded,
-            active=active,
-            source_video_id=source_video_id
+        thumbnail = save_generic_thumbnail(video.thumbnail_url)
+        added_video = Video(
+            title=video.title,
+            video_type=video.video_type,
+            duration=video.duration,
+            channel_id=video.channel_id,
+            platform_ref=video.platform_ref,
+            uploaded=video.uploaded,
+            active=video.active,
+            source_video_id=video.source_video_id,
+            thumbnail=open(thumbnail, "rb")
         )
-        if thumbnail_file:
-            video.thumbnail = thumbnail_file
-        
-        db.session.add(video)
+        db.session.add(added_video)
         db.session.commit()
-        logger.info(f"Created video: {title}")
-        return video
+        logger.info(f"Created video: {video.title}")
+        return added_video
     
     @staticmethod
     def update(video_id: int, **kwargs) -> Video:

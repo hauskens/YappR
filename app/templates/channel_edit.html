@@ -10,10 +10,10 @@
       <div class="collapse" id="collapseManageChannel">
         <hr>
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_transcribe_audio', channel_id=channel.id) }}';">Process all audio</button>
-        {% if channel.platform.name.lower() == "youtube" %}
+        {% if str(channel.platform_name).lower() == "youtube" %}
           <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', channel_id=channel.id) }}';">Fetch all transcriptions</button>
         {% endif %}
-        {% if channel.platform.name.lower() == "twitch" %}
+        {% if str(channel.platform_name).lower() == "twitch" %}
           <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
         {% endif %}
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
@@ -74,7 +74,7 @@
             {% for t in video.transcriptions %}
                 {{ 'Processed' if t.processed else 'Not processed' }}
             {% endfor %}</td>
-          <td>{% if video.audio.filename is defined %}Has audio attached{%elif video.source_video.id is defined%}<a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with {{video.source_video.channel.platform.name}}</a>{% endif %}</td>
+          <td>{% if video.audio.filename is defined %}Has audio attached{%elif video.source_video.id is defined%}<a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with {{video.source_video.channel.platform_name}}</a>{% endif %}</td>
           <td>{{ video.uploaded }}</td>
           <td>
             <div class="container mb-2">
@@ -94,7 +94,7 @@
                 <a class="btn btn-primary" role="button" title="Transcribe audio, this will take long time depending on queue and video length" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process audio</a>
               {% elif video.audio.filename is undefined %}
                 <div class="container mb-2">
-                  <a class="btn btn-primary" role="button" title="Download audio from {{ video.channel.platform.name }}, this may take a while depending on queue and video length" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform.name }}</a>                          
+                  <a class="btn btn-primary" role="button" title="Download audio from {{ video.channel.platform_name }}, this may take a while depending on queue and video length" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform_name }}</a>                          
                 </div>
               {% endif %}
             {% endif %}

@@ -67,10 +67,21 @@ def get_twitch_video_id(url: str) -> str:
 
 
 async def get_twitch_client() -> Twitch:
-    if config.twitch_client_id is None or config.twitch_client_secret is None:
-        logger.error("Twitch client id or secret not configured!")
-        raise ValueError("Twitch client id or secret not configured!")
-    return await Twitch(config.twitch_client_id, config.twitch_client_secret)
+    """Legacy function for backward compatibility. Use TwitchClientFactory.get_server_client() instead."""
+    from app.twitch_client_factory import TwitchClientFactory
+    return await TwitchClientFactory.get_server_client()
+
+
+async def get_twitch_client_for_user(user_id: int) -> Twitch:
+    """Get Twitch client authenticated with user's OAuth token."""
+    from app.twitch_client_factory import TwitchClientFactory
+    return await TwitchClientFactory.get_user_client(user_id)
+
+
+async def get_twitch_client_for_bot() -> Twitch:
+    """Get Twitch client authenticated with bot's OAuth token."""
+    from app.twitch_client_factory import TwitchClientFactory
+    return await TwitchClientFactory.get_bot_client()
 
 
 async def get_twitch_user(twitch_username: str, api_client: Twitch | None = None) -> TwitchUser:

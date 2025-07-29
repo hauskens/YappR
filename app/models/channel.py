@@ -1,14 +1,26 @@
 from sqlalchemy import String, ForeignKey, DateTime, Integer, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
-from .enums import VideoType
+from .enums import VideoType, PlatformType
 from datetime import datetime
 from typing import TYPE_CHECKING
+from pydantic import BaseModel
 
 if TYPE_CHECKING:
-    from .platform import Platforms
     from .video import Video
     from .user import Users
+
+class ChannelCreate(BaseModel):
+    name: str
+    broadcaster_id: int
+    platform_name: PlatformType
+    platform_ref: str
+    platform_channel_id: str
+    source_channel_id: int | None = None
+    main_video_type: VideoType = VideoType.Unknown
+
+class ChannelPlatformDetails(BaseModel):
+    platform_ref: str
 
 class Channels(Base):
     __tablename__: str = "channels"
@@ -16,17 +28,16 @@ class Channels(Base):
     name: Mapped[str] = mapped_column(String(250))
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
     broadcaster: Mapped["Broadcaster"] = relationship() # type: ignore[name-defined]
-    platform_id: Mapped[int] = mapped_column(ForeignKey("platforms.id"))
-    platform: Mapped["Platforms"] = relationship() # type: ignore[name-defined]
+    platform_name: Mapped[PlatformType] = mapped_column(String(250))
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
-    platform_channel_id: Mapped[str | None] = mapped_column(
-        String(), unique=True, nullable=True
+    platform_channel_id: Mapped[str] = mapped_column(
+        String(), unique=True, nullable=False
     )
     source_channel_id: Mapped[int | None] = mapped_column(
         ForeignKey("channels.id"), index=True, nullable=True
     )
     source_channel: Mapped["Channels"] = relationship()
-    main_video_type: Mapped[str] = mapped_column(
+    main_video_type: Mapped[VideoType] = mapped_column(
         Enum(VideoType), default=VideoType.Unknown
     )
     videos: Mapped[list["Video"]] = relationship( # type: ignore[name-defined]

@@ -4,14 +4,15 @@ from datetime import datetime
 from .base import Base
 from .enums import AccountSource
 from flask_login import UserMixin  # type: ignore
+from pydantic import BaseModel
 
 
 class Users(Base, UserMixin):
     __tablename__: str = "users"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(500))
-    external_account_id: Mapped[str | None] = mapped_column(
-        String(500), unique=True, nullable=True
+    external_account_id: Mapped[str] = mapped_column(
+        String(500), unique=True, nullable=False
     )
     account_type: Mapped[str] = mapped_column(Enum(AccountSource))
     first_login: Mapped[datetime] = mapped_column(

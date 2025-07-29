@@ -134,11 +134,12 @@ def channel_fetch_videos(channel_id: int):
 @login_required
 @require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
 def channel_fetch_videos_all(channel_id: int):
-    logger.info("Fetching all videos for channel",
-                extra={"channel_id": channel_id})
-    channel = ChannelService.get_by_id(channel_id)
-    ChannelService.fetch_videos_all(channel)
-    return redirect(request.referrer)
+    return "Not implemented", 501
+    # logger.info("Fetching all videos for channel",
+    #             extra={"channel_id": channel_id})
+    # channel = ChannelService.get_by_id(channel_id)
+    # ChannelService.fetch_videos_all(channel)
+    # return redirect(request.referrer)
 
 
 @channel_blueprint.route("/<int:channel_id>/settings/update", methods=["POST"])

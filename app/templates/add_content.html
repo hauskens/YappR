@@ -8,70 +8,70 @@
                 <div class="card-header">
                     <h3 class="mb-0">
                         <i class="bi bi-plus-circle me-2"></i>
-                        Add Content to Queue
+                        Suggest content to your favorite broadcaster
                     </h3>
                 </div>
                 <div class="card-body">
-                    <form id="contentForm">
+                    <form id="contentForm" 
+                          hx-post="{{ url_for('clip_queue.search_content') }}"
+                          hx-target="#results"
+                          hx-indicator="#search-spinner"
+                          hx-swap="innerHTML">
                         <div class="mb-3">
                             <label for="url" class="form-label">Content URL or Search</label>
                             <input type="text" 
+                                   hx-trigger="keydown[key=='Enter']"
                                    class="form-control" 
                                    id="url" 
                                    name="url" 
                                    placeholder="Paste URL or search by title, channel, or user..." 
-                                   required
-                                   onkeypress="handleUrlKeyPress(event)"
-                                   oninput="validateForm()">
+                                   required>
                             <div class="form-text">
                                 Enter a URL (YouTube, Twitch) to add content, or search by text to find existing content.
                             </div>
                         </div>
 
-                        <div class="mb-3">
-                            <label for="broadcaster_id" class="form-label">Broadcaster Queue</label>
+                        <div class="mb-3" id="broadcaster-filter" style="display: none;">
+                            <label for="broadcaster_id" class="form-label">Filter by Broadcaster</label>
                             <select class="form-select" 
                                     id="broadcaster_id" 
                                     name="broadcaster_id"
-                                    onchange="validateForm()">
-                                <option value="">Select a broadcaster...</option>
+                                    onchange="filterResults()">
+                                <option value="">All broadcasters</option>
                                 {% for broadcaster in broadcasters %}
                                 <option value="{{ broadcaster.id }}">{{ broadcaster.name }}</option>
                                 {% endfor %}
                             </select>
                             <div class="form-text">
-                                Choose a broadcaster queue to add content to.
+                                Filter search results by broadcaster, or select one to add new content to their queue.
                             </div>
                         </div>
 
                         <div class="d-flex gap-2 align-items-center">
-                            <button type="button" 
-                                    class="btn btn-outline-primary"
-                                    hx-post="{{ url_for('clip_queue.search_content') }}"
-                                    hx-include="#contentForm"
-                                    hx-target="#results"
-                                    hx-indicator="#search-spinner">
+                            <button type="submit" 
+                                    class="btn btn-primary"
+                                    id="searchBtn">
                                 <i class="bi bi-search me-1"></i>
-                                Search for Existing
+                                Search
                                 <span id="search-spinner" class="spinner-border spinner-border-sm ms-2 htmx-indicator" role="status"></span>
                             </button>
                             <button type="button" 
-                                    class="btn btn-primary"
+                                    class="btn btn-success"
                                     id="addToQueueBtn"
                                     hx-post="{{ url_for('clip_queue.add_content') }}"
                                     hx-include="#contentForm"
                                     hx-target="#results"
                                     hx-indicator="#add-spinner"
-                                    disabled>
+                                    style="display: none;">
                                 <i class="bi bi-plus-lg me-1"></i>
                                 Add to Queue
                                 <span id="add-spinner" class="spinner-border spinner-border-sm ms-2 htmx-indicator" role="status"></span>
                             </button>
                             <i class="bi bi-question-circle text-muted" 
-                               id="addQueueHelp"
+                               id="helpIcon"
                                data-bs-toggle="tooltip"
                                data-bs-placement="top"
-                               title="Enter a valid URL and select a broadcaster"
+                               title="Enter a URL or search terms to find content"
                                style="cursor: help;"></i>
                         </div>
                     </form>

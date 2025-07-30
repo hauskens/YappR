@@ -119,7 +119,7 @@
               </div>
             </div>
             <div class="tab-pane fade" id="options" role="tabpanel" aria-labelledby="options-tab">
-              <div class="p-3">
+              <div class="p-3 overflow-auto custom-scrollbar" style="max-height: calc(95vh - 14rem);">
                 <div class="card mb-3">
                   <div class="card-body">
                     <h5 class="card-title">Queue Settings</h5>
@@ -158,7 +158,6 @@
                             </div>
                             <!-- Boolean Preferences -->
                             <div class="row mb-3">
-                              <div class="col-md-6">
                                 <div class="form-check form-switch mb-2">
                                   <input class="form-check-input weight-setting" type="checkbox" id="prefer-shorter" name="prefer_shorter">
                                   <label class="form-check-label" for="prefer-shorter">
@@ -180,8 +179,6 @@
                                     <small class="text-muted d-block">Multiple submissions won't increase priority</small>
                                   </label>
                                 </div>
-                              </div>
-                              <div class="col-md-6">
                                 <div class="form-check form-switch mb-2">
                                   <input class="form-check-input weight-setting" type="checkbox" id="viewer-priority" name="viewer_priority">
                                   <label class="form-check-label" for="viewer-priority">
@@ -189,7 +186,6 @@
                                     <small class="text-muted d-block">Higher priority for VIP/MOD submissions</small>
                                   </label>
                                 </div>
-                              </div>
                             </div>
                             
                             <!-- Intensity Settings -->
@@ -212,6 +208,8 @@
                                   </label>
                                   <input type="range" class="form-range weight-setting" min="0" max="1" step="0.1" id="keep-fresh-intensity" name="keep_fresh_intensity" value="0.5">
                                 </div>
+                              </div>
+                              <div class="col-md-6">
                                 <div class="mb-3">
                                   <label for="ignore-popularity-intensity" class="form-label">
                                     Popularity Reduction Intensity
@@ -219,8 +217,6 @@
                                   </label>
                                   <input type="range" class="form-range weight-setting" min="0" max="1" step="0.1" id="ignore-popularity-intensity" name="ignore_popularity_intensity" value="0.5">
                                 </div>
-                              </div>
-                              <div class="col-md-6">
                                 <div class="mb-3">
                                   <label for="viewer-priority-intensity" class="form-label">
                                     Viewer Priority Intensity (not fully implemented)

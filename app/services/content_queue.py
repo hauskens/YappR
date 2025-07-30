@@ -1,12 +1,13 @@
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
-from sqlalchemy import select, func
+from sqlalchemy import select
 from app.models import db
-from app.models import ContentQueue, ContentQueueSubmission, Content, ExternalUser, ContentQueueSubmissionSource, Video
+from app.models import ContentQueue, ContentQueueSubmission, Content, ContentQueueSubmissionSource, Video, ContentQueueSettings, WeightSettings, WeightSettingsBreakdown
 from app.models.enums import VideoType
 from app.services.video import VideoService
 from app.logger import logger
+from pydantic import ValidationError
 
 
 class ContentQueueService:
@@ -282,6 +283,150 @@ class ContentService:
             .order_by(Content.created_at.desc())
             .limit(limit)
         ).scalars().all()
+
+
+class WeightSettingsService:
+    """Service class for weight settings-related operations."""
+
+    @staticmethod
+    def get_by_broadcaster(broadcaster_id: int) -> WeightSettings:
+        """Get weight settings by broadcaster ID."""
+        content_queue_settings = db.session.execute(
+            select(ContentQueueSettings).filter_by(broadcaster_id=broadcaster_id)
+        ).scalars().one_or_none()
+
+        if not content_queue_settings:
+            content_queue_settings = ContentQueueSettings(broadcaster_id=broadcaster_id)
+            db.session.add(content_queue_settings)
+            db.session.commit()
+
+        try:
+            weight_settings = WeightSettings.model_validate(content_queue_settings.weight_settings)
+        except ValidationError as e:
+            logger.warning(f"Failed to validate weight settings for broadcaster {broadcaster_id}, using default settings: {e}")
+            weight_settings = WeightSettings()
+        return weight_settings
+
+    @staticmethod
+    def update_weight_settings(broadcaster_id: int, weight_settings: WeightSettings) -> None:
+        """Update weight settings for a broadcaster."""
+        content_queue_settings = db.session.execute(
+            select(ContentQueueSettings).filter_by(broadcaster_id=broadcaster_id)
+        ).scalars().one()
+        content_queue_settings.weight_settings = weight_settings.model_dump()
+        db.session.commit()
+
+    @staticmethod
+    def get_default_weight_settings() -> WeightSettings:
+        """Get default weight settings."""
+        return WeightSettings()
+
+    @staticmethod
+    def reset_weight_settings(broadcaster_id: int) -> None:
+        """Reset weight settings for a broadcaster."""
+        content_queue_settings = db.session.execute(
+            select(ContentQueueSettings).filter_by(broadcaster_id=broadcaster_id)
+        ).scalars().one()
+        content_queue_settings.weight_settings = WeightSettings().model_dump()
+        db.session.commit()
+
+    @staticmethod
+    def calculate_score(weight_settings: WeightSettings, base_popularity: float, age_minutes: int, 
+                       duration_seconds: int = 0, is_trusted: bool = False) -> tuple[float, WeightSettingsBreakdown]:
+        """
+        Calculate the final score for a content item with detailed breakdown.
+        
+        Args:
+            weight_settings: WeightSettings instance with preferences
+            base_popularity: Base popularity score (usually from submission count/weights)
+            age_minutes: Age of content in minutes
+            duration_seconds: Duration of content in seconds
+            is_trusted: Whether submitter is trusted (VIP/MOD)
+            
+        Returns:
+            tuple: (final_score, breakdown_dict)
+        """
+        breakdown: WeightSettingsBreakdown = WeightSettingsBreakdown(
+            base_popularity=base_popularity,
+            age_minutes=age_minutes,
+            components=[],
+            multipliers={},
+            duration_seconds=duration_seconds
+        )
+        
+        # Start with base popularity
+        score = base_popularity
+        breakdown.components.append(f"Base popularity: {base_popularity:.0f}")
+        
+        # Apply popularity adjustment
+        popularity_multiplier = weight_settings.get_popularity_multiplier(base_popularity)
+        if popularity_multiplier != base_popularity:
+            score = popularity_multiplier
+            breakdown.multipliers['popularity'] = popularity_multiplier / base_popularity if base_popularity > 0 else 1.0
+            breakdown.components.append(f"Popularity adjustment: ×{breakdown.multipliers['popularity']:.1f} = {score:.1f}")
+        
+        # Apply freshness boost
+        freshness_multiplier = weight_settings.get_freshness_multiplier(age_minutes)
+        if freshness_multiplier != 1.0:
+            score *= freshness_multiplier
+            breakdown.multipliers['freshness'] = freshness_multiplier
+            breakdown.components.append(f"Freshness boost: ×{freshness_multiplier:.1f} = {score:.1f}")
+        
+        # Apply duration preference
+        if duration_seconds:
+            duration_multiplier = weight_settings.get_short_duration_multiplier() if duration_seconds <= weight_settings.short_clip_threshold_seconds else 1.0
+        else:
+            duration_multiplier = 1.0
+            
+        if duration_multiplier != 1.0:
+            score *= duration_multiplier
+            breakdown.multipliers['duration'] = duration_multiplier
+            breakdown.components.append(f"Short duration boost: ×{duration_multiplier:.1f} = {score:.1f}")
+        
+        # Apply viewer priority boost
+        viewer_multiplier = weight_settings.get_viewer_priority_multiplier(is_trusted)
+        if viewer_multiplier != 1.0:
+            score *= viewer_multiplier
+            breakdown.multipliers['viewer_priority'] = viewer_multiplier
+            breakdown.components.append(f"Trusted viewer boost: ×{viewer_multiplier:.1f} = {score:.1f}")
+        
+        breakdown.final_score = score
+        return score, breakdown
+
+    @staticmethod
+    def get_score_breakdown(content_queue_item: ContentQueue, broadcaster_id: int) -> WeightSettingsBreakdown:
+        """Get detailed breakdown of how a content queue item's score is calculated using WeightSettings."""
+        weight_settings = WeightSettingsService.get_by_broadcaster(broadcaster_id)
+        
+        # Calculate age in minutes
+        if content_queue_item.submissions:
+            earliest_submission = min(content_queue_item.submissions, key=lambda s: s.submitted_at)
+            age_minutes = int((datetime.now(timezone.utc) - earliest_submission.submitted_at).total_seconds() / 60)
+        else:
+            age_minutes = 0
+        
+        # Get base popularity (total weight from submissions)
+        base_popularity = content_queue_item.total_weight if hasattr(content_queue_item, 'total_weight') else len(content_queue_item.submissions)
+        
+        # Check if user is trusted (VIP/MOD) - simplified for now
+        # TODO: Implement trusted user logic by looking at external user roles
+        is_trusted = False
+        
+        # Get duration in seconds
+        duration_seconds = content_queue_item.content.duration if content_queue_item.content.duration is not None else 0
+        
+        # Calculate score and get breakdown
+        final_score, breakdown = WeightSettingsService.calculate_score(
+            weight_settings=weight_settings,
+            base_popularity=base_popularity,
+            age_minutes=age_minutes,
+            duration_seconds=duration_seconds,
+            is_trusted=is_trusted,
+        )
+        
+        
+        
+        return breakdown
 
 
 class ContentQueueSubmissionService:

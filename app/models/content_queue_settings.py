@@ -1,214 +1,196 @@
-from sqlalchemy.dialects.postgresql import JSON
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import ForeignKey, Boolean, Float, Integer, Text
+from sqlalchemy import ForeignKey, Boolean, Integer, Text
 from .base import Base
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from .broadcaster import Broadcaster
 
 
-# class ContentQueueWeightSettings(BaseModel):
-#     """
-#     Pydantic model for queue sorting preferences.
+class WeightSettings(BaseModel):
+    """
+    Pydantic model for queue sorting preferences.
 
-#     This model defines how the clip queue should be prioritized and sorted.
-#     All intensity values are normalized to 0.0-1.0 range for consistency.
-#     """
+    This model defines how the clip queue should be prioritized and sorted.
+    All intensity values are normalized to 0.0-1.0 range for consistency.
+    """
 
-#     # Boolean preferences - enable/disable features
-#     prefer_shorter: bool = Field(
-#         default=False,
-#         description="Boost clips under X seconds in duration"
-#     )
+    # Boolean preferences - enable/disable features
+    prefer_shorter: bool = Field(
+        default=False,
+        description="Boost clips under X seconds in duration",
 
-#     keep_fresh: bool = Field(
-#         default=True,
-#         description="Prioritize recently submitted content"
-#     )
+    )
 
-#     ignore_popularity: bool = Field(
-#         default=False,
-#         description="Multiple people submitting same clip will not increase its priority"
-#     )
+    keep_fresh: bool = Field(
+        default=True,
+        description="Prioritize recently submitted content"
+    )
 
-#     boost_variety: bool = Field(
-#         default=False,
-#         description="Penalize repeated channels/creators for content diversity"
-#     )
+    ignore_popularity: bool = Field(
+        default=False,
+        description="Multiple people submitting same clip will not increase its priority"
+    )
 
-#     viewer_priority: bool = Field(
-#         default=False,
-#         description="Give higher priority to VIP/MOD submissions"
-#     )
+    viewer_priority: bool = Field(
+        default=False,
+        description="Give higher priority to VIP/MOD submissions"
+    )
 
-#     # Intensity settings - all normalized to 0.0-1.0 range
-#     prefer_shorter_intensity: float = Field(
-#         default=0.5,
-#         ge=0.0,
-#         le=1.0,
-#         description="Intensity of short content preference (0.0=none, 1.0=shorter clips get more priority)"
-#     )
+    # Intensity settings - all normalized to 0.0-1.0 range
+    prefer_shorter_intensity: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Intensity of short content preference (0.0=none, 1.0=shorter clips get more priority)"
+    )
 
-#     keep_fresh_intensity: float = Field(
-#         default=0.5,
-#         ge=0.0,
-#         le=1.0,
-#         description="Intensity of freshness boost (0.0=none, 1.0=newer clips get more priority)"
-#     )
+    keep_fresh_intensity: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Intensity of freshness boost (0.0=none, 1.0=newer clips get more priority)"
+    )
 
-#     ignore_popularity_intensity: float = Field(
-#         default=0.5,
-#         ge=0.0,
-#         le=1.0,
-#         description="How much to reduce popularity impact (0.0=no reduction, 1.0=maximum reduction)"
-#     )
+    ignore_popularity_intensity: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="How much to reduce popularity impact (0.0=no reduction, 1.0=maximum reduction)"
+    )
 
-#     boost_variety_intensity: float = Field(
-#         default=0.5,
-#         ge=0.0,
-#         le=1.0,
-#         description="Intensity of variety penalty for repeated channels (0.0=none, 1.0=maximum)"
-#     )
+    viewer_priority_intensity: float = Field(
+        default=0.5,
+        ge=0.0,
+        le=1.0,
+        description="Intensity of viewer priority (0.0=none, 1.0=VIP/MOD submissions get more priority)"
+    )
 
-#     viewer_priority_intensity: float = Field(
-#         default=0.5,
-#         ge=0.0,
-#         le=1.0,
-#         description="Intensity of viewer priority (0.0=none, 1.0=VIP/MOD submissions get more priority)"
-#     )
+    # Advanced settings
+    short_clip_threshold_seconds: int = Field(
+        default=60,
+        ge=10,
+        le=300,
+        description="Duration threshold for considering a clip 'short' (seconds)"
+    )
 
-#     # Advanced settings
-#     short_clip_threshold_seconds: int = Field(
-#         default=60,
-#         ge=10,
-#         le=300,
-#         description="Duration threshold for considering a clip 'short' (seconds)"
-#     )
+    freshness_window_minutes: int = Field(
+        default=30,
+        ge=5,
+        le=120,
+        description="Time window for considering content 'fresh' (minutes)"
+    )
 
-#     freshness_window_minutes: int = Field(
-#         default=30,
-#         ge=5,
-#         le=120,
-#         description="Time window for considering content 'fresh' (minutes)"
-#     )
+    def get_short_duration_multiplier(self) -> float:
+        """
+        Calculate the multiplier for short content based on intensity.
 
-#     class Config:
-#         """Pydantic config"""
-#         use_enum_values = True
+        Returns:
+            float: Multiplier between 1.0 (no boost) and 1.5 (max boost)
+        """
+        if not self.prefer_shorter:
+            return 1.0
+        return 1.0 + (self.prefer_shorter_intensity * 0.5)
 
-#     @field_validator('prefer_shorter_intensity', 'keep_fresh_intensity', 'ignore_popularity_intensity',
-#               'boost_variety_intensity', 'viewer_priority_intensity')
-#     def validate_intensity_range(cls, v):
-#         """Ensure all intensity values are within valid range"""
-#         if not 0.0 <= v <= 1.0:
-#             raise ValueError('Intensity values must be between 0.0 and 1.0')
-#         return round(v, 1)  # Round to 1 decimal place for consistency
+    def get_freshness_multiplier(self, age_minutes: int) -> float:
+        """
+        Calculate freshness boost based on content age and intensity.
 
-#     def get_short_duration_multiplier(self) -> float:
-#         """
-#         Calculate the multiplier for short content based on intensity.
+        Args:
+            age_minutes: Age of content in minutes
 
-#         Returns:
-#             float: Multiplier between 1.0 (no boost) and 1.5 (max boost)
-#         """
-#         if not self.prefer_shorter:
-#             return 1.0
-#         return 1.0 + (self.prefer_shorter_intensity * 0.5)
+        Returns:
+            float: Multiplier between 1.0 (no boost) and 2.0 (max boost)
+        """
+        if not self.keep_fresh or age_minutes > self.freshness_window_minutes:
+            return 1.0
+        freshness_ratio = 1.0 - (age_minutes / self.freshness_window_minutes)
+        return 1.0 + (self.keep_fresh_intensity * freshness_ratio)
 
-#     def get_freshness_multiplier(self, age_minutes: int) -> float:
-#         """
-#         Calculate freshness boost based on content age and intensity.
+    def get_popularity_multiplier(self, base_popularity: float) -> float:
+        """
+        Calculate adjusted popularity based on ignore_popularity setting.
 
-#         Args:
-#             age_minutes: Age of content in minutes
+        Args:
+            base_popularity: Original popularity score
 
-#         Returns:
-#             float: Multiplier between 1.0 (no boost) and 2.0 (max boost)
-#         """
-#         if not self.keep_fresh or age_minutes > self.freshness_window_minutes:
-#             return 1.0
-#         freshness_ratio = 1.0 - (age_minutes / self.freshness_window_minutes)
-#         return 1.0 + (self.keep_fresh_intensity * freshness_ratio)
+        Returns:
+            float: Adjusted popularity score
+        """
+        if not self.ignore_popularity:
+            return base_popularity
+        return 1.0 + (base_popularity - 1.0) * (1.0 - self.ignore_popularity_intensity)
 
-#     def get_popularity_multiplier(self, base_popularity: float) -> float:
-#         """
-#         Calculate adjusted popularity based on ignore_popularity setting.
 
-#         Args:
-#             base_popularity: Original popularity score
+    def get_viewer_priority_multiplier(self, is_trusted: bool) -> float:
+        """
+        Calculate boost for trusted viewers.
 
-#         Returns:
-#             float: Adjusted popularity score
-#         """
-#         if not self.ignore_popularity:
-#             return base_popularity
-#         return 1.0 + (base_popularity - 1.0) * (1.0 - self.ignore_popularity_intensity)
+        Args:
+            is_trusted: Whether the submitter is trusted
 
-#     def get_variety_multiplier(self, channel_frequency: int) -> float:
-#         """
-#         Calculate variety penalty based on channel frequency.
+        Returns:
+            float: Multiplier between 1.0 (no boost) and 1.5 (max boost)
+        """
+        if not self.viewer_priority or not is_trusted:
+            return 1.0
+        return 1.0 + (self.viewer_priority_intensity * 0.5)
 
-#         Args:
-#             channel_frequency: Number of clips from this channel in queue
+    def get_active_preferences(self) -> dict[str, float]:
+        """
+        Get only the preferences that are currently enabled.
 
-#         Returns:
-#             float: Penalty multiplier between 0.5 (max penalty) and 1.0 (no penalty)
-#         """
-#         if not self.boost_variety or channel_frequency <= 1:
-#             return 1.0
-#         penalty = self.boost_variety_intensity * (channel_frequency - 1) * 0.1
-#         return max(1.0 - penalty, 0.5)
+        Returns:
+            Dictionary of active preference names and their intensities
+        """
+        active = {}
 
-#     def get_viewer_priority_multiplier(self, is_trusted: bool) -> float:
-#         """
-#         Calculate boost for trusted viewers.
+        if self.prefer_shorter:
+            active['prefer_shorter'] = self.prefer_shorter_intensity
+        if self.keep_fresh:
+            active['keep_fresh'] = self.keep_fresh_intensity
+        if self.ignore_popularity:
+            active['ignore_popularity'] = self.ignore_popularity_intensity
+        if self.viewer_priority:
+            active['viewer_priority'] = self.viewer_priority_intensity
+        return active
 
-#         Args:
-#             is_trusted: Whether the submitter is trusted
+    def to_json(self) -> dict[str, Any]:
+        return self.model_dump()
 
-#         Returns:
-#             float: Multiplier between 1.0 (no boost) and 1.5 (max boost)
-#         """
-#         if not self.viewer_priority or not is_trusted:
-#             return 1.0
-#         return 1.0 + (self.viewer_priority_intensity * 0.5)
+class WeightSettingsBreakdown(BaseModel):
+    base_popularity: float
+    age_minutes: int
+    components: list[str]
+    multipliers: dict[str, float] 
+    final_score: float | None = None
+    duration_seconds: int = 0
 
-#     def get_active_preferences(self) -> Dict[str, float]:
-#         """
-#         Get only the preferences that are currently enabled.
 
-#         Returns:
-#             Dictionary of active preference names and their intensities
-#         """
-#         active = {}
+    def get_age_formatted(self) -> str:
+        if self.age_minutes < 60:
+            age_formatted = f"{self.age_minutes:.1f} minutes"
+        elif self.age_minutes < 1440:  # 24 hours
+            age_formatted = f"{self.age_minutes/60:.1f} hours"
+        else:
+            age_formatted = f"{self.age_minutes/1440:.1f} days"
+        return age_formatted
 
-#         if self.prefer_shorter:
-#             active['prefer_shorter'] = self.prefer_shorter_intensity
-#         if self.keep_fresh:
-#             active['keep_fresh'] = self.keep_fresh_intensity
-#         if self.ignore_popularity:
-#             active['ignore_popularity'] = self.ignore_popularity_intensity
-#         if self.boost_variety:
-#             active['boost_variety'] = self.boost_variety_intensity
-#         if self.viewer_priority:
-#             active['viewer_priority'] = self.viewer_priority_intensity
-#         return active
-
-#     def to_json(self) -> Dict[str, Any]:
-#         return self.model_dump()
+    def get_duration_formatted(self) -> str:
+        return f"{self.duration_seconds//60}:{self.duration_seconds%60:02d}" if self.duration_seconds else "N/A"
 
 class ContentQueueSettings(Base):
     __tablename__ = "content_queue_settings"
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    # type: ignore[name-defined]
     broadcaster: Mapped["Broadcaster"] = relationship()
     prefer_shorter_content: Mapped[bool] = mapped_column(
         Boolean, default=False)
     view_count_min: Mapped[int] = mapped_column(Integer, default=0)
     allowed_platforms: Mapped[str] = mapped_column(Text, default="")
-    # weight_settings: Mapped[JSON] = mapped_column(JSON)
+    weight_settings: Mapped[dict[str, Any]|None] = mapped_column(JSONB, nullable=True)
 
     @property
     def get_allowed_platforms(self) -> list[str]:

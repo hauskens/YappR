@@ -7,8 +7,8 @@ from app.models import PermissionType, ContentQueueSettings, ContentQueueSubmiss
 from app.platforms.handler import PlatformRegistry
 from app.retrievers import get_content_queue
 from app.services import BroadcasterService, UserService
+from app.services.content_queue import WeightSettingsService
 from app.permissions import require_permission
-from app.content_queue import clip_score
 from flask_socketio import SocketIO
 import random
 from sqlalchemy import select
@@ -196,15 +196,8 @@ def get_queue_items():
             current_user.external_account_id)
 
         # Get prefer_shorter_content setting from database
-        queue_settings = db.session.execute(
-            select(ContentQueueSettings).filter(
-                ContentQueueSettings.broadcaster_id == broadcaster.id
-            )
-        ).scalars().one_or_none()
+        weight_settings = WeightSettingsService.get_by_broadcaster(broadcaster.id)
 
-        prefer_shorter = False  # Default value
-        if queue_settings:
-            prefer_shorter = queue_settings.prefer_shorter_content
 
         # Search parameter
         search_query = request.args.get('search', '').strip()
@@ -255,9 +248,35 @@ def get_queue_items():
                 queue_items = sorted(
                     queue_items, key=lambda item: item.watched_at if item.watched_at else datetime.min, reverse=True)
             else:
-                # For upcoming queue, sort by score
-                queue_items.sort(key=lambda item: clip_score(
-                    item, now=now, prefer_shorter=prefer_shorter), reverse=True)
+                logger.info("Sorting queue items by score using the new WeightService calculation")
+                # For upcoming queue, sort by score using the new WeightService calculation
+                for item in queue_items:
+                    try:
+                        if not item.submissions:
+                            # If no submissions, set a default age
+                            age_minutes = 0
+                        else:
+                            earliest_submission = min(item.submissions, key=lambda s: s.submitted_at)
+                            # Ensure both datetimes have timezone information
+                            submission_time = earliest_submission.submitted_at
+                            if submission_time.tzinfo is None:
+                                # Convert naive datetime to aware datetime with UTC timezone
+                                submission_time = submission_time.replace(tzinfo=timezone.utc)
+                            age_minutes = int((now - submission_time).total_seconds() / 60)
+                    except Exception as e:
+                        logger.error(f"Error calculating age_minutes: {e}")
+                        # Use a default value if calculation fails
+                        age_minutes = 0
+                    # Calculate score using weight settings
+                    final_score, _ = WeightSettingsService.calculate_score(
+                        weight_settings=weight_settings,
+                        base_popularity=len(item.submissions),
+                        age_minutes=age_minutes,
+                        duration_seconds=item.content.duration or 0,  # Handle None values
+                        is_trusted=False
+                    )
+                    item.score = final_score
+                queue_items.sort(key=lambda item: item.score, reverse=True)
 
             # Store total count before pagination
             total_items = len(queue_items)
@@ -282,21 +301,41 @@ def get_queue_items():
                 "has_more": has_more,
                 "user_id": current_user.id,
                 "show_history": show_history,
-                "prefer_shorter": prefer_shorter
             })
 
-            return render_template(
-                "clip_queue_items.html",
-                queue_items=paginated_items,
-                broadcaster=broadcaster,
-                now=datetime.now(),
-                show_history=show_history,
-                prefer_shorter=prefer_shorter,
-                page=page,
-                has_more=has_more,
-                next_page=next_page,
-                search_query=search_query
-            )
+            try:
+                # Make all queue item datetime fields timezone-aware before passing to template
+                for item in paginated_items:
+                    if hasattr(item, 'watched_at') and item.watched_at and item.watched_at.tzinfo is None:
+                        item.watched_at = item.watched_at.replace(tzinfo=timezone.utc)
+                    
+                    # Ensure all submission datetimes are timezone-aware
+                    if hasattr(item, 'submissions'):
+                        for submission in item.submissions:
+                            if submission.submitted_at and submission.submitted_at.tzinfo is None:
+                                submission.submitted_at = submission.submitted_at.replace(tzinfo=timezone.utc)
+                
+                # Log some debug info about the items
+                logger.info(f"Rendering template with {len(paginated_items)} items")
+                
+                return render_template(
+                    "clip_queue_items.html",
+                    queue_items=paginated_items,
+                    broadcaster=broadcaster,
+                    now=datetime.now(timezone.utc),
+                    show_history=show_history,
+                    page=page,
+                    has_more=has_more,
+                    next_page=next_page,
+                    search_query=search_query,
+                    weight_settings_service=WeightSettingsService,
+                    timezone=timezone
+                )
+            except Exception as e:
+                logger.error(f"Error rendering template: {str(e)}")
+                import traceback
+                logger.error(traceback.format_exc())
+                return f"Error rendering template: {str(e)}", 500
         elif broadcaster is not None and not queue_enabled:
             return "You have disabled the queue, visit <a href='/broadcaster/edit/" + str(broadcaster.id) + "'>broadcaster settings</a> to enable it"
         else:
@@ -490,10 +529,21 @@ def settings():
             # Get prefer_shorter_content preference
             prefer_shorter = "prefer_shorter_content" in request.form
 
+            # Check if this is a weight settings update
+            weight_settings_fields = [
+                'prefer_shorter', 'keep_fresh', 'ignore_popularity', 'boost_variety', 'viewer_priority',
+                'prefer_shorter_intensity', 'keep_fresh_intensity', 'ignore_popularity_intensity',
+                'boost_variety_intensity', 'viewer_priority_intensity', 'short_clip_threshold_seconds',
+                'freshness_window_minutes'
+            ]
+            
+            has_weight_settings = any(field in request.form for field in weight_settings_fields)
+
             logger.info(f"Updating queue settings", extra={
                 "broadcaster_id": broadcaster.id,
                 "platforms": platforms,
-                "prefer_shorter_content": prefer_shorter
+                "prefer_shorter_content": prefer_shorter,
+                "has_weight_settings": has_weight_settings
             })
 
             # Get or create content queue settings
@@ -512,11 +562,51 @@ def settings():
             # Update allowed platforms and prefer_shorter_content preference
             queue_settings.set_allowed_platforms(platforms)
             queue_settings.prefer_shorter_content = prefer_shorter
+            
+            # Handle weight settings if present
+            if has_weight_settings:
+                from app.models.content_queue_settings import WeightSettings
+                
+                # Get current weight settings or create defaults
+                current_weight_settings = WeightSettingsService.get_by_broadcaster(broadcaster.id)
+                
+                # Build weight settings dict from form data
+                weight_data = {}
+                
+                # Boolean fields
+                for field in ['prefer_shorter', 'keep_fresh', 'ignore_popularity', 'boost_variety', 'viewer_priority']:
+                    weight_data[field] = field in request.form
+                
+                # Float fields (intensity settings)
+                for field in ['prefer_shorter_intensity', 'keep_fresh_intensity', 'ignore_popularity_intensity', 
+                             'boost_variety_intensity', 'viewer_priority_intensity']:
+                    if field in request.form:
+                        try:
+                            weight_data[field] = float(request.form[field])
+                        except (ValueError, TypeError):
+                            weight_data[field] = getattr(current_weight_settings, field)
+                
+                # Integer fields (advanced settings)
+                for field in ['short_clip_threshold_seconds', 'freshness_window_minutes']:
+                    if field in request.form:
+                        try:
+                            weight_data[field] = int(request.form[field])
+                        except (ValueError, TypeError):
+                            weight_data[field] = getattr(current_weight_settings, field)
+                
+                # Create new WeightSettings object and update
+                try:
+                    updated_weight_settings = WeightSettings(**weight_data)
+                    WeightSettingsService.update_weight_settings(broadcaster.id, updated_weight_settings)
+                except Exception as e:
+                    logger.error(f"Error updating weight settings: {e}")
+                    # Continue with platform settings update even if weight settings fail
+            
             db.session.commit()
 
             return jsonify({
                 "status": "success",
-                "message": "Platform settings updated successfully"
+                "message": "Settings updated successfully"
             })
         elif request.method == "GET":
             # Get content queue settings
@@ -534,12 +624,20 @@ def settings():
 
             platforms = queue_settings.get_allowed_platforms
             prefer_shorter = queue_settings.prefer_shorter_content
+            
+            # Get weight settings
+            weight_settings = WeightSettingsService.get_by_broadcaster(broadcaster.id)
 
-            return jsonify({
+            response_data = {
                 "status": "success",
                 "platforms": platforms,
                 "prefer_shorter_content": prefer_shorter
-            })
+            }
+            
+            # Include weight settings in response
+            response_data.update(weight_settings.model_dump())
+
+            return jsonify(response_data)
     except Exception as e:
         logger.error(f"Error updating platform settings: {e}")
         db.session.rollback()
@@ -807,3 +905,197 @@ def text_search_content_internal(query, broadcaster_id):
                                search_query=query)
     else:
         return f"<div class='alert alert-info'>No content found matching '{query}'.</div>"
+
+
+@clip_queue_blueprint.route("/default_weight_settings", methods=["GET"])
+@login_required
+@require_permission()
+def get_default_weight_settings():
+    """Get default weight settings form HTML after reset"""
+    try:
+        broadcaster = UserService.get_broadcaster(current_user)
+        if not broadcaster:
+            logger.error("Broadcaster not found")
+            return jsonify({"status": "error", "message": "Broadcaster not found"}), 404
+
+        # Reset to defaults first
+        WeightSettingsService.reset_weight_settings(broadcaster.id)
+        
+        # Get the default settings
+        default_settings = WeightSettingsService.get_default_weight_settings()
+        
+        # Return the weight settings form HTML with default values
+        return render_template("weight_settings_form.html", weight_settings=default_settings)
+    except Exception as e:
+        logger.error(f"Error getting default weight settings: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@clip_queue_blueprint.route("/reset_weight_settings", methods=["POST"])
+@login_required
+@require_permission()
+def reset_weight_settings():
+    """Reset weight settings to defaults"""
+    try:
+        broadcaster = UserService.get_broadcaster(current_user)
+        if not broadcaster:
+            logger.error("Broadcaster not found")
+            return jsonify({"status": "error", "message": "Broadcaster not found"}), 404
+
+        WeightSettingsService.reset_weight_settings(broadcaster.id)
+        
+        return jsonify({
+            "status": "success",
+            "message": "Weight settings reset to defaults"
+        })
+    except Exception as e:
+        logger.error(f"Error resetting weight settings: {e}")
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@clip_queue_blueprint.route("/weight_settings_preview", methods=["POST"])
+@login_required
+@require_permission()
+def weight_settings_preview():
+    """Generate preview of how weight settings affect queue ordering"""
+    try:
+        broadcaster = UserService.get_broadcaster(current_user)
+        if not broadcaster:
+            return jsonify({"status": "error", "message": "Broadcaster not found"}), 404
+
+        # Parse weight settings from request
+        from app.models.content_queue_settings import WeightSettings
+        
+        weight_data = {}
+        
+        # Boolean fields
+        for field in ['prefer_shorter', 'keep_fresh', 'ignore_popularity', 'boost_variety', 'viewer_priority']:
+            weight_data[field] = field in request.form
+        
+        # Float fields (intensity settings)
+        for field in ['prefer_shorter_intensity', 'keep_fresh_intensity', 'ignore_popularity_intensity', 
+                     'boost_variety_intensity', 'viewer_priority_intensity']:
+            if field in request.form:
+                try:
+                    weight_data[field] = float(request.form[field])
+                except (ValueError, TypeError):
+                    weight_data[field] = 0.5  # default
+        
+        # Integer fields (advanced settings)
+        for field in ['short_clip_threshold_seconds', 'freshness_window_minutes']:
+            if field in request.form:
+                try:
+                    weight_data[field] = int(request.form[field])
+                except (ValueError, TypeError):
+                    weight_data[field] = 60 if 'threshold' in field else 30  # defaults
+        
+        # Create preview weight settings
+        try:
+            preview_settings = WeightSettings(**weight_data)
+        except Exception as e:
+            logger.error(f"Error creating preview settings: {e}")
+            preview_settings = WeightSettings()  # use defaults
+        
+        # Generate fake queue items for preview
+        fake_items = generate_fake_queue_items(preview_settings)
+        
+        return render_template(
+            "weight_settings_preview.html",
+            preview_items=fake_items,
+            weight_settings=preview_settings
+        )
+    except Exception as e:
+        logger.error(f"Error generating weight settings preview: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+def generate_fake_queue_items(weight_settings):
+    """Generate fake queue items to demonstrate weight settings effects"""
+    import random
+    from datetime import datetime, timedelta
+    
+    # Sample data for fake items
+    titles = [
+        "Amazing clutch play in ranked!",
+        "Funny moment with chat",
+        "Epic fail compilation",
+        "New world record attempt",
+        "Reacting to viral video",
+        "Speedrun practice session",
+        "Viewer game suggestion",
+        "Late night gaming session",
+        "Tutorial: Advanced techniques",
+        "Collab stream highlights"
+    ]
+    
+    channels = [
+        "TopStreamer", "GamingGuru", "ChatMaster", "ProPlayer", "FunnyGamer",
+        "SpeedRunner", "ReactQueen", "TutorialKing", "CollabCentral", "NightOwl"
+    ]
+    
+    platforms = ["YouTube", "Twitch"]
+    
+    fake_items = []
+    base_time = datetime.now(timezone.utc)
+    
+    for i in range(15):  # Generate 15 fake items
+        # Vary the submission times
+        age_minutes = random.randint(1, 180)  # 1 to 180 minutes ago
+        submitted_at = base_time - timedelta(minutes=age_minutes)
+        
+        # Vary durations
+        duration_seconds = random.choice([30, 45, 60, 90, 120, 180, 240, 300, 420, 600])
+        
+        # Vary popularity (number of submissions)
+        popularity = random.choice([1, 1, 1, 2, 2, 3, 4, 5])  # Weighted toward lower values
+        
+        # Random channel (for variety testing)
+        channel = random.choice(channels)
+        
+        # Some users are "trusted" (VIP/MOD)
+        is_trusted = random.choice([True, False, False])  # 1/3 chance
+        
+        # Calculate frequency of this channel in the queue
+        channel_frequency = sum(1 for item in fake_items if item.get('channel') == channel) + 1
+        
+        # Calculate score using weight settings
+        final_score, breakdown = WeightSettingsService.calculate_score(
+            weight_settings=weight_settings,
+            base_popularity=popularity,
+            age_minutes=age_minutes,
+            duration_seconds=duration_seconds,
+            is_trusted=is_trusted
+        )
+        
+        # Format age properly
+        if age_minutes < 60:
+            age_formatted = f"{age_minutes:.0f}m"
+        elif age_minutes < 1440:  # 24 hours
+            age_formatted = f"{age_minutes/60:.1f}h"
+        else:
+            age_formatted = f"{age_minutes/1440:.1f}d"
+        
+        fake_item = {
+            'id': f'fake_{i}',
+            'title': random.choice(titles),
+            'channel': channel,
+            'platform': random.choice(platforms),
+            'duration_seconds': duration_seconds,
+            'duration_formatted': f"{duration_seconds//60}:{duration_seconds%60:02d}",
+            'popularity': popularity,
+            'age_minutes': age_minutes,
+            'age_formatted': age_formatted,
+            'is_trusted': is_trusted,
+            'channel_frequency': channel_frequency,
+            'final_score': final_score,
+            'breakdown': breakdown,
+            'submitted_at': submitted_at
+        }
+        
+        fake_items.append(fake_item)
+    
+    # Sort by final score (descending)
+    fake_items.sort(key=lambda x: x['final_score'], reverse=True)
+    
+    return fake_items

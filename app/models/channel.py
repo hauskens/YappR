@@ -31,9 +31,8 @@ class Channels(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     name: Mapped[str] = mapped_column(String(250))
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    # type: ignore[name-defined]
     broadcaster: Mapped["Broadcaster"] = relationship()
-    platform_name: Mapped[PlatformType] = mapped_column(String(250))
+    platform_name: Mapped[str] = mapped_column(String(250))
     platform_ref: Mapped[str] = mapped_column(String(), unique=True)
     platform_channel_id: Mapped[str] = mapped_column(
         String(), unique=True, nullable=False
@@ -45,7 +44,7 @@ class Channels(Base):
     main_video_type: Mapped[VideoType] = mapped_column(
         Enum(VideoType), default=VideoType.Unknown
     )
-    videos: Mapped[list["Video"]] = relationship(  # type: ignore[name-defined]
+    videos: Mapped[list["Video"]] = relationship(
         back_populates="channel", cascade="all, delete-orphan"
     )
     settings: Mapped["ChannelSettings"] = relationship(

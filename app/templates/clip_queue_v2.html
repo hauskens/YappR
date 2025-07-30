@@ -25,7 +25,7 @@
               <!-- Clip details will be loaded here via HTMX -->
             </div>
             <button 
-              class="btn btn-primary flex-shrink-0 ms-2 align-self-center"
+              class="btn btn-primary flex-shrink-0 me-2 align-self-center"
               id="mark-watched-btn"
               data-bs-toggle="tooltip"
               style="display:none"
@@ -129,12 +129,148 @@
                           hx-trigger="change delay:200ms"
                           hx-indicator="#platforms-spinner"
                           hx-on::after-request="updatePlatformsStatus(event)">
+                      <!-- Weight Settings Section -->
                       <div class="mb-4">
+                        <h6 class="mb-3">
+                          <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#weight-settings-collapse" aria-expanded="false" aria-controls="weight-settings-collapse">
+                            <i class="bi bi-sliders"></i> Priority & Sorting Settings
+                          </button>
+                        </h6>
+                        <div class="collapse" id="weight-settings-collapse">
+                          <div class="card card-body">
+                             <!-- Reset Button -->
+                            <div class="row mb-3">
+                              <div class="col-12 d-flex justify-content-between">
+                                <button type="button" class="btn btn-sm btn-outline-info" 
+                                        id="toggle-preview-button"
+                                        hx-swap-oob="true"
+                                        onclick="togglePreviewInPlayer()">
+                                  <i class="bi bi-eye"></i> <span id="preview-button-text">Show Preview</span>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-warning" 
+                                        hx-get="/clip_queue/default_weight_settings" 
+                                        hx-target="#weight-settings-collapse .card-body"
+                                        hx-swap="innerHTML"
+                                        hx-confirm="Reset all priority settings to default values?">
+                                  <i class="bi bi-arrow-clockwise"></i> Reset to Defaults
+                                </button>
+                              </div>
+                            </div>
+                            <!-- Boolean Preferences -->
+                            <div class="row mb-3">
+                              <div class="col-md-6">
+                                <div class="form-check form-switch mb-2">
+                                  <input class="form-check-input weight-setting" type="checkbox" id="prefer-shorter" name="prefer_shorter">
+                                  <label class="form-check-label" for="prefer-shorter">
+                                    Prefer Shorter Content
+                                    <small class="text-muted d-block">Boost clips under X seconds in duration</small>
+                                  </label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                  <input class="form-check-input weight-setting" type="checkbox" id="keep-fresh" name="keep_fresh">
+                                  <label class="form-check-label" for="keep-fresh">
+                                    Keep Fresh
+                                    <small class="text-muted d-block">Prioritize recently submitted content</small>
+                                  </label>
+                                </div>
+                                <div class="form-check form-switch mb-2">
+                                  <input class="form-check-input weight-setting" type="checkbox" id="ignore-popularity" name="ignore_popularity">
+                                  <label class="form-check-label" for="ignore-popularity">
+                                    Ignore Popularity
+                                    <small class="text-muted d-block">Multiple submissions won't increase priority</small>
+                                  </label>
+                                </div>
+                              </div>
+                              <div class="col-md-6">
+                                <div class="form-check form-switch mb-2">
+                                  <input class="form-check-input weight-setting" type="checkbox" id="viewer-priority" name="viewer_priority">
+                                  <label class="form-check-label" for="viewer-priority">
+                                    Viewer Priority
+                                    <small class="text-muted d-block">Higher priority for VIP/MOD submissions</small>
+                                  </label>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <!-- Intensity Settings -->
+                            <div class="row mb-3">
+                              <div class="col-12">
+                                <h6 class="text-muted mb-2">Intensity Settings (0.0 = none, 1.0 = maximum)</h6>
+                              </div>
+                              <div class="col-md-6">
+                                <div class="mb-3">
+                                  <label for="prefer-shorter-intensity" class="form-label">
+                                    Short Content Intensity
+                                    <span class="badge bg-secondary" id="prefer-shorter-intensity-value">0.5</span>
+                                  </label>
+                                  <input type="range" class="form-range weight-setting" min="0" max="1" step="0.1" id="prefer-shorter-intensity" name="prefer_shorter_intensity" value="0.5">
+                                </div>
+                                <div class="mb-3">
+                                  <label for="keep-fresh-intensity" class="form-label">
+                                    Freshness Intensity
+                                    <span class="badge bg-secondary" id="keep-fresh-intensity-value">0.5</span>
+                                  </label>
+                                  <input type="range" class="form-range weight-setting" min="0" max="1" step="0.1" id="keep-fresh-intensity" name="keep_fresh_intensity" value="0.5">
+                                </div>
+                                <div class="mb-3">
+                                  <label for="ignore-popularity-intensity" class="form-label">
+                                    Popularity Reduction Intensity
+                                    <span class="badge bg-secondary" id="ignore-popularity-intensity-value">0.5</span>
+                                  </label>
+                                  <input type="range" class="form-range weight-setting" min="0" max="1" step="0.1" id="ignore-popularity-intensity" name="ignore_popularity_intensity" value="0.5">
+                                </div>
+                              </div>
+                              <div class="col-md-6">
+                                <div class="mb-3">
+                                  <label for="viewer-priority-intensity" class="form-label">
+                                    Viewer Priority Intensity (not fully implemented)
+                                    <span class="badge bg-secondary" id="viewer-priority-intensity-value">0.5</span>
+                                  </label>
+                                  <input type="range" class="form-range weight-setting" min="0" max="1" step="0.1" id="viewer-priority-intensity" name="viewer_priority_intensity" value="0.5">
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <!-- Advanced Settings -->
+                            <div class="row">
+                              <div class="col-12">
+                                <h6 class="text-muted mb-2">Advanced Settings</h6>
+                              </div>
+                              <div class="col-md-6">
+                                <div class="mb-3">
+                                  <label for="short-clip-threshold" class="form-label">
+                                    Short Clip Threshold (seconds)
+                                    <span class="badge bg-secondary" id="short-clip-threshold-value">60</span>
+                                  </label>
+                                  <input type="range" class="form-range weight-setting" min="10" max="300" step="10" id="short-clip-threshold" name="short_clip_threshold_seconds" value="60">
+                                  <div class="form-text">Duration threshold for considering a clip 'short'</div>
+                                </div>
+                              </div>
+                              <div class="col-md-6">
+                                <div class="mb-3">
+                                  <label for="freshness-window" class="form-label">
+                                    Freshness Window (minutes)
+                                    <span class="badge bg-secondary" id="freshness-window-value">30</span>
+                                  </label>
+                                  <input type="range" class="form-range weight-setting" min="5" max="120" step="5" id="freshness-window" name="freshness_window_minutes" value="30">
+                                  <div class="form-text">Time window for considering content 'fresh'</div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                           
+                            
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div class="mb-4" style="display: none;">
                         <div class="form-check form-switch">
                           <input class="form-check-input" type="checkbox" id="prefer-short-toggle" name="prefer_shorter_content">
                           <label class="form-check-label" for="prefer-short-toggle">Prefer short content</label>
                         </div>
                       </div>
+                      
                       <h5 class="card-title">Allowed Platforms</h5>
                       <div class="mb-3">
                         <div class="d-flex gap-2 mb-2">
@@ -199,5 +335,4 @@
 
 {% block scripts %}
 <script src="{{ url_for('static', filename='js/clip-queue-v2.js', v=version) }}"></script>
-<script src="{{ url_for('static', filename='js/balloon_feedback.js', v=version) }}"></script>
 {% endblock %}

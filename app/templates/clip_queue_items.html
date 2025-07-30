@@ -144,6 +144,21 @@
           {% if item.skipped %}
           <span class="badge bg-warning text-dark">Skipped</span>
           {% endif %}
+          {% if not (item.watched or item.skipped) %}
+          <!-- Weight/Score chip with hover tooltip -->
+          {% set score_breakdown = weight_settings_service.get_score_breakdown(item, item.broadcaster_id) %}
+          <span class="badge bg-info text-dark" 
+                data-bs-toggle="popover"
+                data-bs-placement="top"
+                data-bs-trigger="click"
+                data-bs-html="true"
+                data-bs-title="<i class='bi bi-speedometer2'></i> Score Breakdown"
+                data-bs-content="<div class='text-center mb-2'><span class='badge bg-info text-dark'>{{ '%.2f'|format(score_breakdown.final_score) }}</span></div><div class='small'>{% for component in score_breakdown.components %}{{ component }}<br/>{% endfor %}</div>"
+                style="cursor: pointer;"
+                onclick="event.stopPropagation();">
+            <i class="bi bi-speedometer2"></i> {{ "%.2f"|format(score_breakdown.final_score) }}
+          </span>
+          {% endif %}
         </div>
       </div>
 
@@ -171,7 +186,16 @@
         <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
           {% if item.submissions %}
           {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
-          {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
+          {% set submitted_at = earliest.submitted_at %}
+          {% if submitted_at.tzinfo is none %}
+            {% set submitted_at = submitted_at.replace(tzinfo=now.tzinfo) %}
+          {% endif %}
+          {% if now.tzinfo is none %}
+            {% set now_aware = now.replace(tzinfo=timezone.utc) %}
+          {% else %}
+            {% set now_aware = now %}
+          {% endif %}
+          {% set seconds_diff = (now_aware - submitted_at).total_seconds()|int %}
           {% set minutes_diff = (seconds_diff / 60)|int %}
           {% set hours_diff = (seconds_diff / 3600)|int %}
           {% set days_diff = (hours_diff / 24)|int %}

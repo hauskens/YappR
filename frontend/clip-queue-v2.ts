@@ -2,7 +2,7 @@
 declare global {
   interface Window {
     htmx: any;
-    initializeBalloonFeedback?: () => void;
+    // initializeBalloonFeedback?: () => void;
   }
 }
 
@@ -53,10 +53,13 @@ function handleHtmxAfterSwap(): void {
     const clipDetailsEl = document.getElementById('clip-details');
     if (clipDetailsEl && (event.detail.target === clipDetailsEl || clipDetailsEl.contains(event.detail.target))) {
       initializeClipDetailsInteractions();
-      if (typeof window.initializeBalloonFeedback === 'function') {
-        window.initializeBalloonFeedback();
-      }
+      // if (typeof window.initializeBalloonFeedback === 'function') {
+      //   window.initializeBalloonFeedback();
+      // }
     }
+    
+    // Reinitialize popovers after any HTMX swap
+    initializePopovers();
   });
 }
 
@@ -143,9 +146,56 @@ function handlePlatformSettings(): void {
                 }
               });
             }
+            
+            // Update weight settings
+            updateWeightSettingsForm(response);
           }
         } catch (e) {
           console.error('Error parsing platform settings:', e);
+        }
+      }
+    }
+  });
+}
+
+// Update weight settings form with server data
+function updateWeightSettingsForm(data: any): void {
+  // Boolean weight settings
+  const booleanFields = [
+    { backend: 'prefer_shorter', frontend: 'prefer-shorter' },
+    { backend: 'keep_fresh', frontend: 'keep-fresh' },
+    { backend: 'ignore_popularity', frontend: 'ignore-popularity' },
+    { backend: 'boost_variety', frontend: 'boost-variety' },
+    { backend: 'viewer_priority', frontend: 'viewer-priority' }
+  ];
+  booleanFields.forEach(fieldMapping => {
+    if (data.hasOwnProperty(fieldMapping.backend)) {
+      const checkbox = document.getElementById(fieldMapping.frontend) as HTMLInputElement;
+      if (checkbox) {
+        checkbox.checked = data[fieldMapping.backend];
+      }
+    }
+  });
+  
+  // Range/numeric weight settings
+  const rangeFields = [
+    { backend: 'prefer_shorter_intensity', frontend: 'prefer-shorter-intensity' },
+    { backend: 'keep_fresh_intensity', frontend: 'keep-fresh-intensity' },
+    { backend: 'ignore_popularity_intensity', frontend: 'ignore-popularity-intensity' },
+    { backend: 'boost_variety_intensity', frontend: 'boost-variety-intensity' },
+    { backend: 'viewer_priority_intensity', frontend: 'viewer-priority-intensity' },
+    { backend: 'short_clip_threshold_seconds', frontend: 'short-clip-threshold' },
+    { backend: 'freshness_window_minutes', frontend: 'freshness-window' }
+  ];
+  rangeFields.forEach(fieldMapping => {
+    if (data.hasOwnProperty(fieldMapping.backend)) {
+      const input = document.getElementById(fieldMapping.frontend) as HTMLInputElement;
+      if (input) {
+        input.value = data[fieldMapping.backend].toString();
+        // Update the value badge
+        const valueSpan = document.getElementById(fieldMapping.frontend + '-value');
+        if (valueSpan) {
+          valueSpan.textContent = data[fieldMapping.backend].toString();
         }
       }
     }
@@ -455,6 +505,210 @@ function initializeResize(): void {
   window.addEventListener('resize', handleWindowResize);
 }
 
+// Weight settings functionality
+function initializeWeightSettings(): void {
+  function attachRangeUpdaters(): void {
+    const rangeInputs = document.querySelectorAll('input[type="range"].weight-setting') as NodeListOf<HTMLInputElement>;
+    rangeInputs.forEach(input => {
+      const valueSpan = document.getElementById(input.id + '-value');
+      if (valueSpan) {
+        // Remove existing listener to avoid duplicates
+        if ((input as any)._rangeUpdater) {
+          input.removeEventListener('input', (input as any)._rangeUpdater);
+        }
+        // Create and store the updater function
+        (input as any)._rangeUpdater = function(this: HTMLInputElement) {
+          if (valueSpan) {
+            valueSpan.textContent = this.value;
+          }
+        };
+        input.addEventListener('input', (input as any)._rangeUpdater);
+      }
+    });
+  }
+  
+  // Initial attachment
+  attachRangeUpdaters();
+  
+  // Re-attach after HTMX swaps (for reset functionality)
+  document.body.addEventListener('htmx:afterSwap', (event: any) => {
+    if (event.detail.target && event.detail.target.matches('#weight-settings-collapse .card-body')) {
+      attachRangeUpdaters();
+    }
+  });
+}
+
+// Show preview in player area
+// Keep track of the preview state
+let isPreviewVisible = false;
+let originalPlayerContent: string | null = null;
+
+function togglePreviewInPlayer(): void {
+  const playerArea = document.getElementById('player-area');
+  const previewButtonText = document.getElementById('preview-button-text');
+  if (!playerArea) return;
+  
+  if (!isPreviewVisible) {
+    // Show preview
+    // Store original content if we haven't already
+    if (!originalPlayerContent) {
+      originalPlayerContent = playerArea.innerHTML;
+    }
+    
+    // Get form data
+    const form = document.getElementById('platform-settings-form') as HTMLFormElement;
+    if (!form) return;
+    
+    const formData = new FormData(form);
+    
+    // Create split layout
+    playerArea.innerHTML = `
+      <div class="d-flex h-100 preview-split-container">
+        <div class="preview-left-panel">
+          ${originalPlayerContent}
+        </div>
+        <div class="preview-right-panel">
+          <div class="preview-header">
+            <h6 class="mb-2">
+              <i class="bi bi-eye"></i> Queue Preview
+              <button type="button" class="btn btn-sm btn-outline-secondary float-end" onclick="togglePreviewInPlayer()">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </h6>
+            <p class="small text-muted mb-3">How your weight settings affect ordering</p>
+          </div>
+          <div id="preview-content-area" class="preview-content-area">
+            <!-- Preview content will load here -->
+          </div>
+        </div>
+      </div>
+    `;
+    
+    // Load preview content into the right panel
+    if (window.htmx) {
+      window.htmx.ajax('POST', '/clip_queue/weight_settings_preview', {
+        target: '#preview-content-area',
+        swap: 'innerHTML',
+        values: formData
+      });
+    }
+    
+    // Update button text
+    if (previewButtonText) {
+      previewButtonText.textContent = 'Hide Preview';
+    }
+    
+    isPreviewVisible = true;
+  } else {
+    // Hide preview
+    // Restore original player area content
+    if (originalPlayerContent && playerArea) {
+      playerArea.innerHTML = originalPlayerContent;
+    }
+    
+    // Show initial message
+    const newInitialMessage = document.getElementById('initial-message');
+    if (newInitialMessage) {
+      newInitialMessage.style.display = 'flex';
+    }
+    
+    // Update button text
+    if (previewButtonText) {
+      previewButtonText.textContent = 'Show Preview';
+    }
+    
+    isPreviewVisible = false;
+  }
+}
+
+// Function to update the preview if it's currently visible
+function updatePreviewIfVisible(): void {
+  if (!isPreviewVisible) return;
+  
+  const previewContentArea = document.getElementById('preview-content-area');
+  if (!previewContentArea) return;
+  
+  // Get form data
+  const form = document.getElementById('platform-settings-form') as HTMLFormElement;
+  if (!form) return;
+  
+  const formData = new FormData(form);
+  
+  // Update preview content without showing loading state
+  if (window.htmx) {
+    window.htmx.ajax('POST', '/clip_queue/weight_settings_preview', {
+      target: '#preview-content-area',
+      swap: 'innerHTML',
+      values: formData,
+      indicator: false // Disable automatic indicators
+    });
+  }
+}
+
+// Make functions globally available
+(window as any).togglePreviewInPlayer = togglePreviewInPlayer;
+(window as any).updatePreviewIfVisible = updatePreviewIfVisible;
+
+// Initialize weight settings preview updates
+function initializeWeightSettingsPreviewUpdates(): void {
+  const form = document.getElementById('platform-settings-form');
+  if (!form) return;
+  
+  // Update preview when form changes
+  form.addEventListener('change', () => {
+    // Use a small debounce to avoid too many updates
+    setTimeout(() => updatePreviewIfVisible(), 300);
+  });
+  
+  // Listen for HTMX events in case elements are updated via HTMX
+  document.body.addEventListener('htmx:afterSwap', (event) => {
+    const target = (event as any).detail.target;
+    // Check if the swap happened inside the weight settings
+    if (target && target.closest && target.closest('#weight-settings-collapse')) {
+      updatePreviewIfVisible();
+    }
+  });
+}
+
+// Popover management
+function initializePopovers(): void {
+  // Dispose of existing popovers first
+  document.querySelectorAll('[data-bs-toggle="popover"]').forEach(element => {
+    const existingPopover = (window as any).bootstrap?.Popover?.getInstance(element);
+    if (existingPopover) {
+      existingPopover.dispose();
+    }
+  });
+  
+  // Initialize new popovers with proper dismissal behavior
+  const popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+  popoverTriggerList.map(function (popoverTriggerEl: Element) {
+    return new (window as any).bootstrap.Popover(popoverTriggerEl, {
+      trigger: 'click',
+      placement: 'auto',
+      dismissible: true
+    });
+  });
+  
+  // Add global click handler to dismiss popovers when clicking elsewhere
+  document.addEventListener('click', function(event: Event) {
+    const target = event.target as Element;
+    
+    // Don't dismiss if clicking on a popover trigger or inside a popover
+    if (target.closest('[data-bs-toggle="popover"]') || target.closest('.popover')) {
+      return;
+    }
+    
+    // Dismiss all open popovers
+    document.querySelectorAll('[data-bs-toggle="popover"]').forEach(element => {
+      const popover = (window as any).bootstrap?.Popover?.getInstance(element);
+      if (popover) {
+        popover.hide();
+      }
+    });
+  });
+}
+
 // Initialize everything on page load
 document.addEventListener('DOMContentLoaded', () => {
   initializePreferences();
@@ -463,4 +717,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeTabSwitching();
   handleHtmxAfterSwap();
   initializeResize();
+  initializeWeightSettingsPreviewUpdates();
+  initializeWeightSettings();
+  initializePopovers();
 });

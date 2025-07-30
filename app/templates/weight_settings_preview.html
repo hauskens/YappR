@@ -1,0 +1,55 @@
+<div class="mt-3">
+  <h6 class="text-muted mb-2">
+    <i class="bi bi-eye"></i> Preview: How your settings affect queue ordering
+  </h6>
+  <div class="small text-muted mb-2">
+    This preview shows 15 fake clips sorted by your current weight settings. Higher scores appear first in the queue.
+  </div>
+  
+  <div class="preview-container preview-container-full" style="overflow-y: auto; max-height: 70vh;">
+    {% for item in preview_items %}
+    <div class="card mb-2 preview-item container-fluid">
+      <div class="card-body" style="height: auto; min-height: 100px; padding: 1rem;">
+        <div class="d-flex justify-content-between align-items-start">
+          <div class="flex-grow-1">
+            <div class="fw-bold text-truncate" style="max-width: 300px;">
+              {{ item.title }}
+            </div>
+            <div class="d-flex flex-wrap gap-1 mt-1">
+              <span class="badge bg-secondary">{{ item.duration_formatted }}</span>
+              <span class="badge bg-primary">{{ item.channel }}</span>
+              <span class="badge bg-{{ 'success' if item.platform == 'YouTube' else 'info' }}">{{ item.platform }}</span>
+              {% if item.popularity > 1 %}
+              <span class="badge bg-warning text-dark">{{ item.popularity }} submissions</span>
+              {% endif %}
+              {% if item.is_trusted %}
+              <span class="badge bg-danger">VIP/MOD</span>
+              {% endif %}
+            </div>
+            <div class="text-muted small mt-1">
+              Submitted {{ item.age_formatted }} ago
+            </div>
+          </div>
+          <div class="text-end ms-2">
+            <span class="badge bg-info text-dark fs-6" 
+                  data-bs-toggle="popover"
+                  data-bs-placement="left"
+                  data-bs-trigger="click"
+                  data-bs-html="true"
+                  data-bs-title="<i class='bi bi-speedometer2'></i> Score Breakdown"
+                  data-bs-content="<div class='text-center mb-2'><span class='badge bg-info text-dark'>{{ '%.2f'|format(item.final_score) }}</span></div><div class='small'>{% for component in item.breakdown.components %}{{ component }}<br/>{% endfor %}</div>"
+                  style="cursor: pointer;">
+              <i class="bi bi-speedometer2"></i> {{ "%.2f"|format(item.final_score) }}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  
+  <div class="text-muted small mt-2">
+    <i class="bi bi-info-circle"></i> 
+    Click on score badges to see detailed breakdowns. Adjust settings above to see how they affect ordering.
+  </div>
+</div>

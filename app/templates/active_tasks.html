@@ -17,6 +17,15 @@
                             <div>Working on task</div>
                             <div><strong>Task name:</strong> {{ task.name }}</div>
                             <div><strong>Args:</strong> {{ task.args }}</div>
+                            <div><strong>Task ID:</strong> {{ task.id }}</div>
+                            <div class="mt-2">
+                                <div class="progress-status"
+                                     hx-get="/celery/task-status/{{ task.id }}"
+                                     hx-trigger="load, every 2s"
+                                     hx-swap="innerHTML">
+                                    <div class="text-muted">Loading...</div>
+                                </div>
+                            </div>
                         </li>
                     {% endfor %}
                 </ul>

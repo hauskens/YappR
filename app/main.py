@@ -3,6 +3,7 @@ import requests
 import os
 import json
 import tempfile
+from .models.utils import DownloadProgress
 import mimetypes
 import asyncio
 from flask_login import current_user, login_required  # type: ignore
@@ -13,6 +14,7 @@ from flask import (
     redirect,
 )
 from celery import Celery, Task, chain
+from celery.result import AsyncResult
 from app.models import db
 from app.models import Transcription, TranscriptionSource, TranscriptionResult, PermissionType
 from app.transcribe import transcribe
@@ -186,11 +188,167 @@ def celery_active_tasks_view():
     )
 
 
-@celery.task()
-def task_fetch_audio(video_id: int):
+@app.route("/celery/task-status/<task_id>")
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def get_task_status_html(task_id: str):
+    from .models.utils import DownloadProgress
+    from app.transcribe import transcription_tracker
+    
+    result: AsyncResult = AsyncResult(task_id, app=celery)
+
+    if result.state == 'PROGRESS':
+        # Check if result.result is a dictionary before unpacking
+        if isinstance(result.result, dict):
+            meta: DownloadProgress = DownloadProgress(**result.result)
+            percent = meta.percent
+            status = meta.status
+            speed = meta.speed
+            eta = meta.eta
+            
+            speed_str = f"{speed/1024/1024:.1f} MB/s" if speed > 0 else ""
+            eta_str = f"{eta}s" if eta > 0 else ""
+
+            return f'''
+            <div class="progress mb-2">
+                <div class="progress-bar" role="progressbar" 
+                     style="width: {percent}%" 
+                     aria-valuenow="{percent}" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                    {percent}%
+                </div>
+            </div>
+            <div class="small text-muted">
+                {status}{f" • {speed_str}" if speed_str else ""}{f" • ETA: {eta_str}" if eta_str else ""}
+            </div>
+            <div hx-get="/celery/task-status/{task_id}" 
+                 hx-trigger="every 2s" 
+                 hx-target="closest .progress-status"
+                 hx-swap="innerHTML">
+            </div>
+            '''
+        else:
+            # Handle the case where result.result is not a dictionary
+            return '<div class="text-warning">⚠️ Task in progress but invalid progress data, it probably works fine, it just doesn\'t show progress</div>'
+    elif result.state == 'SUCCESS':
+        return '<div class="text-success">✓ Completed</div>'
+    elif result.state == 'FAILURE':
+        return '<div class="text-danger">✗ Failed</div>'
+    elif result.state == 'STARTED':
+        # Check if this is a transcription task with progress tracking
+        progress_data = transcription_tracker.get_progress_estimate(task_id)
+        if progress_data:
+            percent = progress_data['percent']
+            status = progress_data['status']
+            eta = progress_data['eta']
+            
+            eta_str = f"{eta}s" if eta > 0 else ""
+            
+            return f'''
+            <div class="progress mb-2">
+                <div class="progress-bar" role="progressbar" 
+                     style="width: {percent}%" 
+                     aria-valuenow="{percent}" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                    {percent}%
+                </div>
+            </div>
+            <div class="small text-muted">
+                {status}{f" • ETA: {eta_str}" if eta_str else ""}
+            </div>
+            <div hx-get="/celery/task-status/{task_id}" 
+                 hx-trigger="every 2s" 
+                 hx-target="closest .progress-status"
+                 hx-swap="innerHTML">
+            </div>
+            '''
+        else:
+            return f'''
+            <div class="text-info">
+                <i class="bi bi-play-circle"></i> Task started...
+            </div>
+            <div hx-get="/celery/task-status/{task_id}" 
+                 hx-trigger="every 2s" 
+                 hx-target="closest .progress-status"
+                 hx-swap="innerHTML">
+            </div>
+            '''
+    else:
+        # Check if this is a transcription task with progress tracking (for PENDING state)
+        progress_data = transcription_tracker.get_progress_estimate(task_id)
+        if progress_data:
+            percent = progress_data['percent']
+            status = progress_data['status']
+            eta = progress_data['eta']
+            
+            eta_str = f"{eta}s" if eta > 0 else ""
+            
+            return f'''
+            <div class="progress mb-2">
+                <div class="progress-bar" role="progressbar" 
+                     style="width: {percent}%" 
+                     aria-valuenow="{percent}" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                    {percent}%
+                </div>
+            </div>
+            <div class="small text-muted">
+                {status}{f" • ETA: {eta_str}" if eta_str else ""}
+            </div>
+            <div hx-get="/celery/task-status/{task_id}" 
+                 hx-trigger="every 2s" 
+                 hx-target="closest .progress-status"
+                 hx-swap="innerHTML">
+            </div>
+            '''
+        else:
+            return f'''
+            <div class="text-muted">
+                <i class="bi bi-clock"></i> Working...
+            </div>
+            <div hx-get="/celery/task-status/{task_id}" 
+                 hx-trigger="every 2s" 
+                 hx-target="closest .progress-status"
+                 hx-swap="innerHTML">
+            </div>
+            '''
+
+
+@celery.task(bind=True, name='app.main.task_fetch_audio')
+def task_fetch_audio(self, video_id: int):
     logger.info("Fetching audio for", extra={"video_id": video_id})
     video = VideoService.get_by_id(video_id)
-    VideoService.save_audio(video)
+
+    # Create a progress callback for yt-dlp
+    def progress_hook(d):
+        if d['status'] == 'downloading':
+            downloaded = d.get('downloaded_bytes', 0)
+            total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+            if total > 0:
+                percent = int((downloaded / total) * 100)
+                speed = d.get('speed', 0)
+                eta = d.get('eta', 0)
+
+                # Create a DownloadProgress object and use it to update Celery task state
+                progress = DownloadProgress(
+                    current=downloaded,
+                    total=total,
+                    percent=percent,
+                    speed=speed,
+                    eta=eta,
+                    status=f'Downloading audio... {percent}%'
+                )
+
+                # Update Celery task state
+                self.update_state(
+                    state='PROGRESS',
+                    meta=progress.dict()
+                )
+
+    VideoService.save_audio(video, progress_callback=progress_hook)
     return video_id
 
 
@@ -217,8 +375,11 @@ def update_channels_last_active():
     db.session.commit()
 
 
-@celery.task
-def task_transcribe_audio(video_id: int, force: bool = False):
+@celery.task(bind=True, name='app.main.task_transcribe_audio')
+def task_transcribe_audio(self, video_id: int, force: bool = False):
+    from app.transcribe import transcription_tracker
+    import time
+    
     headers = {"X-API-Key": config.api_key}
     video = VideoService.get_by_id(video_id)
 
@@ -240,6 +401,10 @@ def task_transcribe_audio(video_id: int, force: bool = False):
                        extra={"video_id": video_id})
         return video_id
 
+    # Start progress tracking with video duration
+    transcription_tracker.start_progress_tracking(self.request.id, video.duration)
+    transcription_start_time = time.time()
+
     download_url = f"{config.app_url}/video/{video.id}/download_audio"
 
     try:
@@ -255,6 +420,11 @@ def task_transcribe_audio(video_id: int, force: bool = False):
                     local_filename, extra={"video_id": video_id})
 
         result_file = transcribe(local_filename)
+        
+        # Calculate transcription time and store metrics
+        transcription_end_time = time.time()
+        transcription_time = transcription_end_time - transcription_start_time
+        transcription_tracker.store_completion_metrics(video.duration, transcription_time)
 
         with open(result_file, "r") as f:
             result = json.load(f)
@@ -273,13 +443,16 @@ def task_transcribe_audio(video_id: int, force: bool = False):
         raise
 
     finally:
-        # Clean up temp file
+        # Clean up temp file and progress tracking
         try:
             if os.path.exists(local_filename):
                 os.remove(local_filename)
         except Exception as cleanup_error:
             logger.warning("Failed to delete temp file %s",
                            cleanup_error, extra={"video_id": video_id})
+        
+        # Cleanup progress tracking
+        transcription_tracker.cleanup_progress_tracking(self.request.id)
 
     return video_id
 

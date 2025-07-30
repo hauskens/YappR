@@ -5,6 +5,7 @@ from .models.yt import VideoData, Thumbnail
 import os
 from .models.config import config
 from app.logger import logger
+from .models.utils import ProgressCallbackType
 
 
 storage_directory = os.path.abspath(config.cache_location)
@@ -75,7 +76,7 @@ def get_yt_segment(video_url: str, start_time: int, duration: int) -> str:
         return download_path
 
 
-def get_yt_audio(video_url: str) -> str:
+def get_yt_audio(video_url: str, progress_callback: ProgressCallbackType | None = None) -> str:
     download_path: str = f"{storage_directory}/{video_url.split('=')[-1]}s.%(ext)s"
     cookie_path: str = f"{storage_directory}/cookies.txt"
 
@@ -87,6 +88,9 @@ def get_yt_audio(video_url: str) -> str:
 
     if os.path.exists(cookie_path):
         yt_opts["cookiefile"] = cookie_path
+    
+    if progress_callback:
+        yt_opts["progress_hooks"] = [progress_callback]
 
     logger.info("Fetching audio for video: %s", video_url)
     with yt_dlp.YoutubeDL(yt_opts) as ydl:
@@ -94,7 +98,7 @@ def get_yt_audio(video_url: str) -> str:
         return find_downloaded_file(storage_directory, video_url)
 
 
-def get_twitch_audio(video_url: str) -> str:
+def get_twitch_audio(video_url: str, progress_callback: ProgressCallbackType | None = None) -> str:
     download_path: str = f"{storage_directory}/{video_url.split('/')[-1]}s.%(ext)s"
 
     twitch_opts = {
@@ -102,6 +106,9 @@ def get_twitch_audio(video_url: str) -> str:
         "match_filter": yt_dlp.utils.match_filter_func(['!is_live'], None),
         "outtmpl": download_path,
     }
+    
+    if progress_callback:
+        twitch_opts["progress_hooks"] = [progress_callback]
 
     logger.info("Fetching audio for video: %s", video_url)
     with yt_dlp.YoutubeDL(twitch_opts) as ydl:

@@ -41,7 +41,7 @@
         
         <div class="card-body">
           <h6 class="card-title text-truncate" title="{{ item.content.title }}">{{ item.content.title|truncate(40) }}</h6>
-          <h6 class="card-title text-truncate" title="{{ item.content.url }}">Queue: {{ item.broadcaster.name }}</h6>
+          <h6 class="card-title text-truncate" title="{{ item.content.url }}">Queue: <span class="badge bg-primary">{{ item.broadcaster.name }}</span></h6>
           <span class="badge bg-dark">User weight: {{ item.submissions|sum(attribute='weight') }}</span>
           <div class="d-flex flex-wrap gap-1 mb-1">
             {% for submission in item.submissions[:3] %}

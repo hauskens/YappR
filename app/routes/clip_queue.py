@@ -676,6 +676,7 @@ def add_content():
             from app.models.content_queue import ContentQueueSubmissionSource
             from app.twitch_api import get_twitch_client
 
+            broadcaster = BroadcasterService.get_by_id(selected_broadcaster_id)
             # Use asyncio.run to handle the async function
             async def add_content_async():
                 # Initialize Twitch client for Twitch URLs
@@ -702,16 +703,9 @@ def add_content():
             queue_item_id = asyncio.run(add_content_async())
 
             if queue_item_id:
-                queue_item = db.session.query(ContentQueue).filter(
-                    ContentQueue.id == queue_item_id).one()
-                return render_template("management_items.html",
-                                       queue_items=[queue_item],
-                                       total_items=1,
-                                       total_pages=1,
-                                       page=1,
-                                       search_query="")
+                return f"<div class='alert alert-success'><i class='bi bi-check-circle me-2'></i>Content successfully submitted to the {broadcaster.name}'s queue!</div>"
             else:
-                return jsonify({"status": "error", "message": "Failed to add content or content not supported"})
+                return "<div class='alert alert-danger'><i class='bi bi-exclamation-triangle me-2'></i>Failed to add content or content not supported.</div>"
 
     except Exception as e:
         logger.error(f"Error adding content: {e}")

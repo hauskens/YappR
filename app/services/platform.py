@@ -2,7 +2,7 @@
 Platform service for handling platform-specific business logic.
 """
 from abc import ABC, abstractmethod
-from typing import Dict, Literal
+from typing import Dict
 from app.models import PlatformType, VideoType
 
 from app.logger import logger
@@ -276,7 +276,7 @@ class PlatformServiceRegistry:
     def get_service_for_channel(cls, channel: Channels) -> PlatformService | None:
         """Get platform service for a channel object"""
         platform_name = channel.platform_name
-        return cls.get_service(platform_name)
+        return cls.get_service(PlatformType(platform_name))
 
 
 # Register platform services

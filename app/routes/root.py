@@ -371,13 +371,16 @@ def stats():
 
 
 @root_blueprint.route("/thumbnails/<int:video_id>")
-@cache.memoize(timeout=120)
+# @cache.memoize(timeout=120)
 @limiter.shared_limit("10000 per hour", exempt_when=rate_limit_exempt, scope="images")
 def serve_thumbnails(video_id: int):
     try:
         video = VideoService.get_by_id(video_id)
         if video.thumbnail is not None:
-            content = video.thumbnail.file.read()
+            try:
+                content = video.thumbnail.file.read()
+            except Exception:
+                return "404", 404
             response = make_response(
                 send_file(
                     BytesIO(content),
@@ -388,8 +391,7 @@ def serve_thumbnails(video_id: int):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
             return response
     except:
-        abort(404)
-    abort(500)
+        return "404", 404
 
 
 @root_blueprint.route("/api/lookup_twitch_id")

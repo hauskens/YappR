@@ -189,7 +189,6 @@ def get_valid_date(date_string: str) -> datetime | None:
         date = datetime.strptime(date_string, "%Y-%m-%d")
         return date
     except ValueError:
-        logger.warning("didnt match date on %s", date_string)
         return None
 
 

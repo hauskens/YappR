@@ -112,9 +112,25 @@ def save_generic_thumbnail(url: HttpUrl, force: bool = False) -> str:
         url: The URL of the thumbnail
         force: Whether to force the download of the thumbnail (overrides cached thumbnail)
     """
-    path = config.cache_location + (url.path or url.__str__())
+    # Create a safe filename using hash of the URL
+    import hashlib
+    url_str = url.__str__()
+    # Get file extension from URL if available
+    file_ext = os.path.splitext(url_str.split('?')[0])[1] or '.jpg'
+    if file_ext not in ['.jpg', '.png', '.jpeg', '.webp', '.gif', '.bmp', '.tiff', '.svg', '.ico']:
+        raise ValueError(f"Unsupported file extension: {file_ext}")
+    # Create hash of URL for a safe, unique filename
+    url_hash = hashlib.md5(url_str.encode()).hexdigest()
+    safe_filename = f"{url_hash}{file_ext}"
+    
+    # Ensure cache directory exists
+    os.makedirs(config.cache_location, exist_ok=True)
+    
+    # Create full path
+    path = os.path.join(config.cache_location, safe_filename)
+    
     if not os.path.exists(path) or force:
-        response = requests.get(url.__str__())
+        response = requests.get(url_str)
         if response.status_code == 200:
             with open(path, "wb") as f:
                 _ = f.write(response.content)

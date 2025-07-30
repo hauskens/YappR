@@ -138,6 +138,22 @@ def create_app(overrides: dict | None = None):
 
     limiter.init_app(app)
 
+    # Global exception handler
+    @app.errorhandler(Exception)
+    def handle_exception(e):
+        # Log the exception with full stack trace
+        logger.error("Unhandled exception occurred", exc_info=True, extra={
+            "exception_type": type(e).__name__,
+            "exception_message": str(e),
+            "endpoint": request.endpoint,
+            "method": request.method,
+            "url": request.url,
+            "request_id": getattr(g, 'request_id', None)
+        })
+        
+        # Re-raise the exception to let Flask handle it normally
+        raise e
+
     app.register_blueprint(discord_blueprint, url_prefix="/login")
     app.register_blueprint(twitch_blueprint, url_prefix="/login")
     app.register_blueprint(twitch_blueprint_bot,

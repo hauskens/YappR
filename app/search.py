@@ -47,7 +47,7 @@ def search_v2(
     end_date: datetime | None = None,
 ) -> list[VideoResult]:
     """
-    Properly optimized version of search_v2 with fast Python operations
+    Search for videos containing the given search term.
     """
     timer = time.perf_counter()
     video_result: list[VideoResult] = []
@@ -156,7 +156,7 @@ def search_v2(
 
     end_time = time.perf_counter()
     execution_time = end_time - timer
-    logger.info(f"search_v2 executed in {execution_time*1000:.2f}ms")
+    logger.info(f"search executed in {execution_time*1000:.2f}ms", extra={"channels": [c.name for c in channels], "duration": execution_time*1000, "result_count": len(video_result)})
     return video_result
 
 

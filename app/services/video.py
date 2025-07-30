@@ -247,14 +247,14 @@ class VideoService:
                 transcription_to_process, force)
 
     @staticmethod
-    def save_audio(video: Video, force: bool = False):
+    def save_audio(video: Video, force: bool = False, progress_callback=None):
         """Save audio for a video."""
         if str(video.channel.platform_name).lower() == "twitch":
-            audio = get_twitch_audio(VideoService.get_url(video))
+            audio = get_twitch_audio(VideoService.get_url(video), progress_callback=progress_callback)
             video.audio = open(audio, "rb")  # type: ignore[assignment]
             db.session.commit()
         elif str(video.channel.platform_name).lower() == "youtube":
-            audio = get_yt_audio(VideoService.get_url(video))
+            audio = get_yt_audio(VideoService.get_url(video), progress_callback=progress_callback)
             video.audio = open(audio, "rb")  # type: ignore[assignment]
             db.session.commit()
 

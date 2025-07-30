@@ -80,8 +80,10 @@ def create_app(overrides: dict | None = None):
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_pre_ping": True}
     app.config["CELERY"] = dict(
         broker_url=config.redis_uri,
-        backend=config.database_uri,
+        result_backend=config.redis_uri,
         task_ignore_result=False,
+        result_expires=3600,  # Results expire after 1 hour
+        task_track_started=True,  # Track when tasks start
         task_routes={
             "app.tasks.default": {"queue": "default-queue"},
             "app.main.update_channels_last_active": {"queue": "priority-queue"},

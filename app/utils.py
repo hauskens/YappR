@@ -9,19 +9,42 @@ from twitchAPI.twitch import Video
 from app.logger import logger
 from urllib.parse import urlparse, parse_qs
 from pydantic import HttpUrl
+import nltk  # type: ignore
+from nltk.corpus import stopwords  # type: ignore
+from nltk.tag import pos_tag  # type: ignore
+from nltk.tokenize import word_tokenize  # type: ignore
+from nltk.stem import PorterStemmer  # type: ignore
+
+
+def download_nltk(force: bool = False) -> None:
+    """Download NLTK data if not already downloaded"""
+    try:
+        if not force:
+            nltk.data.find("stopwords")
+            return
+        _ = nltk.download("stopwords")
+    except LookupError:
+        _ = nltk.download("stopwords")
+    try:
+        if not force:
+            nltk.data.find("averaged_perceptron_tagger_eng")
+            return
+        _ = nltk.download("averaged_perceptron_tagger_eng")
+    except LookupError:
+        _ = nltk.download("averaged_perceptron_tagger_eng")
+    try:
+        if not force:
+            nltk.data.find("punkt_tab")
+            return
+        _ = nltk.download("punkt_tab")
+    except LookupError:
+        _ = nltk.download("punkt_tab")
 
 if os.getenv("NLTK_ENABLED", "true") == "true":
-    import nltk  # type: ignore
-    from nltk.corpus import stopwords  # type: ignore
-    from nltk.tag import pos_tag  # type: ignore
-    from nltk.tokenize import word_tokenize  # type: ignore
-    from nltk.stem import PorterStemmer  # type: ignore
-    _ = nltk.download("stopwords")
-    _ = nltk.download("averaged_perceptron_tagger_eng")
-    _ = nltk.download("punkt_tab")
+    download_nltk()
 
-    sw = stopwords.words("english")
-    ps = PorterStemmer()
+sw = stopwords.words("english")
+ps = PorterStemmer()
 
 
 # This function is used by both parsing and searching to ensure we are getting good search results.

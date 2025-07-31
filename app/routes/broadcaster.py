@@ -50,7 +50,7 @@ def broadcaster_delete(broadcaster_id: int):
 @broadcaster_blueprint.route("/create", methods=["POST", "GET"])
 @login_required
 @require_permission()
-@cache.cached(timeout=60, make_cache_key=make_cache_key)
+# @cache.cached(timeout=60, make_cache_key=make_cache_key)
 def broadcaster_create():
     if request.method == "GET":
         logger.info("Loaded broadcaster_add.html")

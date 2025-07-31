@@ -9,14 +9,17 @@ from ..models.user import Users
 from ..models.enums import AccountSource
 from ..models.config import config
 from sqlalchemy.exc import NoResultFound
-from datetime import timedelta, datetime
-from twitchAPI.twitch import Twitch, AuthScope
+from datetime import timedelta
 from app.logger import logger
+from twitchAPI.twitch import AuthScope
+
+user_oauth_scope=[AuthScope.USER_READ_MODERATED_CHANNELS]
+bot_oauth_scope=[AuthScope.CHAT_READ, AuthScope.CHAT_EDIT, AuthScope.CLIPS_EDIT, AuthScope.USER_BOT]
 
 blueprint = make_twitch_blueprint(
     client_id=config.twitch_client_id,
     client_secret=config.twitch_client_secret,
-    scope=['user:read:moderated_channels'],
+    scope=user_oauth_scope,
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user)
 )
 
@@ -76,7 +79,7 @@ def handle_login(blueprint, token):
 blueprint_bot = make_twitch_blueprint(
     client_id=config.twitch_client_id,
     client_secret=config.twitch_client_secret,
-    scope=['chat:read', 'chat:edit', 'clips:edit', 'user:bot'],
+    scope=bot_oauth_scope,
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user),
 )
 

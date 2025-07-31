@@ -7,11 +7,8 @@ import asyncio
 
 from sqlalchemy import select
 from app.models import db
-from app.models.user import Users, ExternalUser
-from app.models.auth import Permissions
-from app.models.channel import Channels, ChannelModerator
-from app.models.broadcaster import Broadcaster
-from app.models.enums import PermissionType, AccountSource, TwitchAccountType
+from app.models import Users, ExternalUser, Permissions, Channels, ChannelModerator, Broadcaster, UserBase
+from app.models.enums import PermissionType, AccountSource, TwitchAccountType, PlatformType
 from app.models.config import config
 from app.logger import logger
 
@@ -107,8 +104,7 @@ class UserService:
         """Update moderated channels for Twitch users."""
         if user.account_type == AccountSource.Twitch:
             try:
-                from .platform import PlatformServiceRegistry
-                from app.models.enums import PlatformType
+                from app.services.platform import PlatformServiceRegistry
                 platform_service = PlatformServiceRegistry.get_service(
                     PlatformType.Twitch)
                 if platform_service is None:
@@ -116,16 +112,45 @@ class UserService:
 
                 channels = asyncio.run(
                     platform_service.fetch_moderated_channels(user))
-                db.session.delete(ChannelModerator(user_id=user.id))
+                logger.debug("Updating moderated channels for user", extra={"user": user.name})
+                existing_channel_moderators = db.session.query(ChannelModerator).filter_by(user_id=user.id).all()
+                logger.debug("Found %s moderated channels for user", len(existing_channel_moderators), extra={"user": user.name})
+                if len(existing_channel_moderators) > 0:
+                    db.session.delete(existing_channel_moderators)
+                logger.debug("Deleted %s moderated channels for user", len(existing_channel_moderators), extra={"user": user.name})
                 db.session.flush()
                 for channel in channels:
+                    logger.debug("Adding channel %s to user", channel.name, extra={"channel": channel.name})
                     db.session.add(ChannelModerator(
                         user_id=user.id, channel_id=channel.id))
                 db.session.commit()
+                logger.debug("Updated %s moderated channels for user", len(channels), extra={"user": user.name})
 
             except Exception as e:
                 logger.error(
-                    f"Failed to update moderated channels for {user.name}: {e}")
+                    "Failed to update moderated channels for user", extra={"user": user.name, "error": str(e)})
+                return []
+        else:
+            return []
+
+    @staticmethod
+    def get_moderated_channels(user: Users) -> list[str]:
+        """Get moderated channels for user."""
+        return asyncio.run(UserService.fetch_moderated_channels(user))
+
+    @staticmethod
+    async def fetch_moderated_channels(user: Users) -> list[str]:
+        """Fetch moderated channels for user."""
+        if user.account_type == AccountSource.Twitch:
+            from app.twitch_client_factory import TwitchClientFactory
+            from app.twitch_api import get_moderated_channels
+            try:
+                twitch_client = await TwitchClientFactory.get_user_client(user)
+                channels = await get_moderated_channels(user.external_account_id, api_client=twitch_client)
+                return channels
+            except Exception as e:
+                logger.error(
+                    "Failed to fetch moderated channels for user", extra={"user": user.name, "error": str(e)})
                 return []
         else:
             return []

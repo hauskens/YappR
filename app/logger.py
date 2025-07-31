@@ -55,7 +55,7 @@ class UserContextFilter(logging.Filter):
 
 # Configure the logger
 logger = logging.getLogger("custom_logger")
-logger.setLevel(logging.INFO)
+logger.setLevel(config.log_level)
 
 if config.debug:
     logger.addHandler(logging.StreamHandler())

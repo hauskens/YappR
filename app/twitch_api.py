@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from twitchAPI.twitch import Twitch, TwitchUser, Video, SortMethod, VideoType, Clip, CreatedClip, ChannelModerator, AuthScope, Stream
 from twitchAPI.helper import first
+from app.models import Users
 from app.models.config import config
 from pytimeparse.timeparse import timeparse  # type: ignore
 from urllib.parse import urlparse
@@ -72,10 +73,10 @@ async def get_twitch_client() -> Twitch:
     return await TwitchClientFactory.get_server_client()
 
 
-async def get_twitch_client_for_user(user_id: int) -> Twitch:
+async def get_twitch_client_for_user(user: Users) -> Twitch:
     """Get Twitch client authenticated with user's OAuth token."""
     from app.twitch_client_factory import TwitchClientFactory
-    return await TwitchClientFactory.get_user_client(user_id)
+    return await TwitchClientFactory.get_user_client(user)
 
 
 async def get_twitch_client_for_bot() -> Twitch:
@@ -187,15 +188,13 @@ async def create_clip(broadcaster_id: str, api_client: Twitch | None = None) -> 
     return clip
 
 
-async def get_moderated_channels(twitch_user_id: str, api_client: Twitch | None = None, user_token: str | None = None, refresh_token: str | None = None) -> Sequence[ChannelModerator]:
+async def get_moderated_channels(twitch_user_id: str, api_client: Twitch | None = None) -> Sequence[ChannelModerator]:
     if api_client is None:
         twitch = await get_twitch_client()
     else:
         twitch = api_client
     logger.info(
         "Getting twitch moderated channels for user id: %s", twitch_user_id)
-    if api_client is None and user_token is not None and refresh_token is not None:
-        await twitch.set_user_authentication(token=user_token, refresh_token=refresh_token, scope=[AuthScope.USER_READ_MODERATED_CHANNELS])
     moderators = twitch.get_moderated_channels(user_id=twitch_user_id)
     logger.debug("Got twitch moderated channels for user id: %s",
                  twitch_user_id)

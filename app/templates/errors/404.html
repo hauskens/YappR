@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}HTTP 404 - Page Not Found - YappR{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <h2 class="mb-2">HTTP 404 - Page Not Found</h2>
+            <p class="lead mb-4">
+                The page you're looking for doesn't exist or has been moved.
+            </p>
+            <img src="{{ url_for('static', filename='404.jpg') }}" alt="404 Page Not Found" class="img-fluid mb-4">
+            <div class="d-grid gap-2 d-md-block">
+                <a href="{{ url_for('root.index') }}" class="btn btn-primary">
+                    Go to Homepage
+                </a>
+                <a href="javascript:history.back()" class="btn btn-outline-secondary">
+                    Go Back
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

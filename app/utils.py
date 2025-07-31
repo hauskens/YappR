@@ -16,29 +16,16 @@ from nltk.tokenize import word_tokenize  # type: ignore
 from nltk.stem import PorterStemmer  # type: ignore
 
 
-def download_nltk(force: bool = False) -> None:
+def download_nltk() -> None:
     """Download NLTK data if not already downloaded"""
-    try:
-        if not force:
-            nltk.data.find("stopwords")
-            return
-        _ = nltk.download("stopwords")
-    except LookupError:
-        _ = nltk.download("stopwords")
-    try:
-        if not force:
-            nltk.data.find("averaged_perceptron_tagger_eng")
-            return
-        _ = nltk.download("averaged_perceptron_tagger_eng")
-    except LookupError:
-        _ = nltk.download("averaged_perceptron_tagger_eng")
-    try:
-        if not force:
-            nltk.data.find("punkt_tab")
-            return
-        _ = nltk.download("punkt_tab")
-    except LookupError:
-        _ = nltk.download("punkt_tab")
+    data_dir = f"{config.cache_location}/nltk_data"
+    os.environ["NLTK_DATA"] = data_dir
+    if not os.path.exists(data_dir + "/corpora/stopwords"):
+        nltk.download("stopwords", download_dir=data_dir, quiet=True)
+    if not os.path.exists(data_dir + "/taggers/averaged_perceptron_tagger"):
+        nltk.download("averaged_perceptron_tagger", download_dir=data_dir, quiet=True)
+    if not os.path.exists(data_dir + "/tokenizers/punkt"):
+        nltk.download("punkt", download_dir=data_dir, quiet=True)
 
 if os.getenv("NLTK_ENABLED", "true") == "true":
     download_nltk()

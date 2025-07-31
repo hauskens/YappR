@@ -4,7 +4,7 @@ from datetime import datetime
 from .base import Base
 from .enums import AccountSource
 from flask_login import UserMixin  # type: ignore
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, HttpUrl
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -13,6 +13,17 @@ if TYPE_CHECKING:
     from .auth import Permissions, OAuth
     from .channel import ChannelModerator
 
+class UserBase(BaseModel):
+    id: int
+    name: str = Field(..., max_length=500)
+    external_account_id: str = Field(..., max_length=500)
+    account_type: AccountSource
+    first_login: datetime
+    last_login: datetime
+    avatar_url: HttpUrl | None = Field(..., max_length=500)
+    broadcaster_id: int | None
+    banned: bool = Field(default=False)
+    banned_reason: str | None
 
 class Users(Base, UserMixin):
     __tablename__: str = "users"

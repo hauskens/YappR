@@ -47,6 +47,7 @@ def access_denied():
 @root_blueprint.route("/robots.txt")
 def robots_txt() -> Response:
     """Serve robots.txt file"""
+    logger.info("Loaded robots.txt")
     robots_content = """User-agent: *
 Disallow: /admin
 Disallow: /login

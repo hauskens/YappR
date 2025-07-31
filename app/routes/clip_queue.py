@@ -22,7 +22,6 @@ clip_queue_blueprint = Blueprint(
 
 @clip_queue_blueprint.route("", strict_slashes=False)
 def clip_queue():
-    logger.info("Loading clip queue")
     messages = [
         "Hi mom :)",
         "Don't forget to thank your local server admin",
@@ -38,6 +37,7 @@ def clip_queue():
         "The cake is a lie, the cake is a lie, the cake is a...",
     ]
     if current_user.is_anonymous:
+        logger.info("Anonymous user accessing clip queue, sending to promo")
         return render_template("promo.html")
     else:
         try:
@@ -46,6 +46,7 @@ def clip_queue():
             broadcaster = BroadcasterService.get_by_external_id(
                 current_user.external_account_id)
             if broadcaster is None:
+                logger.info("User is not a broadcaster, sending to promo")
                 return render_template("promo.html")
             queue_items = get_content_queue(broadcaster.id)
             if BroadcasterService.get_last_active(broadcaster.id) is None or BroadcasterService.get_last_active(broadcaster.id) < datetime.now() - timedelta(minutes=10):
@@ -185,7 +186,7 @@ def skip_all_queue_items():
 @login_required
 @require_permission()
 def get_queue_items():
-    logger.info("Loading clip queue items")
+    logger.debug("Loading clip queue items")
     try:
         # Check if we should show history (watched clips)
         show_history = request.args.get(
@@ -248,7 +249,7 @@ def get_queue_items():
                 queue_items = sorted(
                     queue_items, key=lambda item: item.watched_at if item.watched_at else datetime.min, reverse=True)
             else:
-                logger.info("Sorting queue items by score using the new WeightService calculation")
+                logger.debug("Sorting queue items by score using the new WeightService calculation")
                 # For upcoming queue, sort by score using the new WeightService calculation
                 for item in queue_items:
                     try:
@@ -293,7 +294,7 @@ def get_queue_items():
             elif len(paginated_items) == 0:
                 return ""  # Return empty for additional pages with no content
 
-            logger.info("Successfully loaded clip queue items", extra={
+            logger.debug("Successfully loaded clip queue items", extra={
                 "broadcaster_id": broadcaster.id,
                 "queue_items": len(paginated_items),
                 "total_items": total_items,
@@ -314,9 +315,6 @@ def get_queue_items():
                         for submission in item.submissions:
                             if submission.submitted_at and submission.submitted_at.tzinfo is None:
                                 submission.submitted_at = submission.submitted_at.replace(tzinfo=timezone.utc)
-                
-                # Log some debug info about the items
-                logger.info(f"Rendering template with {len(paginated_items)} items")
                 
                 return render_template(
                     "clip_queue_items.html",

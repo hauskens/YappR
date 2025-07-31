@@ -143,6 +143,7 @@ class TestSearchV2Integration:
         mock_db_session.execute.return_value = mock_query_result
         
         # Mock segment retrieval
+        mock_get_segment = Mock()
         mock_get_segment.return_value = self.mock_segment1
         
         # Mock sanitization functions
@@ -179,6 +180,7 @@ class TestSearchV2Integration:
         mock_query_result.scalars.return_value.all.return_value = [self.mock_segment1]
         mock_db_session.execute.return_value = mock_query_result
         
+        mock_get_segment = Mock()
         mock_get_segment.return_value = self.mock_segment1
         mock_sanitize.return_value = ["hello", "world"]
         
@@ -205,6 +207,7 @@ class TestSearchV2Integration:
         mock_query_result.scalars.return_value.all.return_value = [self.mock_segment1]
         mock_db_session.execute.return_value = mock_query_result
         
+        mock_get_segment = Mock()
         mock_get_segment.return_value = self.mock_segment1
         mock_loosely_sanitize.return_value = ["hello", "world"]
         
@@ -278,6 +281,7 @@ class TestSearchV2Integration:
                 return previous_segment
             return segment_with_word_at_start
         
+        mock_get_segment = Mock()
         mock_get_segment.side_effect = mock_get_segment_side_effect
         
         # Mock sanitize to return words where "hello" is first
@@ -329,6 +333,7 @@ class TestSearchV2Integration:
             elif segment_id == 2:
                 return segment2
         
+        mock_get_segment = Mock()
         mock_get_segment.side_effect = mock_get_segment_side_effect
         mock_sanitize.return_value = ["hello", "world"]
         

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, flash, send_from_directory, url_for, send_file, make_response, abort, jsonify, request
+from flask import Blueprint, render_template, flash, send_from_directory, url_for, send_file, make_response, abort, jsonify, request, Response
 from app.logger import logger
 from flask_login import current_user, logout_user, login_required  # type: ignore
 from app.permissions import require_permission, require_api_key
@@ -44,6 +44,19 @@ def access_denied():
     logger.warning("Access denied", extra={
                    "user_id": current_user.id if not current_user.is_anonymous else None})
     return send_from_directory("static", "401.jpg")
+
+
+@root_blueprint.route("/robots.txt")
+def robots_txt():
+    """Serve robots.txt file"""
+    robots_content = """
+User-agent: *
+Disallow: /admin
+Disallow: /login
+Disallow: /logout
+Disallow: /users
+"""
+    return Response(robots_content, mimetype="text/plain")
 
 
 @root_blueprint.route("/logout")

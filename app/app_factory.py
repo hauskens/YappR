@@ -1,11 +1,11 @@
 
-from flask import Flask, request, g
+from flask import Flask, request, g, render_template
 from flask_login import LoginManager, current_user  # type: ignore
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from uuid import uuid4
 
-from werkzeug.exceptions import NotFound
+from werkzeug.exceptions import NotFound, Unauthorized, InternalServerError
 from .cache import cache
 from .models.config import config
 from .models import db
@@ -142,10 +142,25 @@ def create_app(overrides: dict | None = None):
 
     limiter.init_app(app)
 
-    # Global exception handler
+    # 404 error handler
+    @app.errorhandler(404)
+    def handle_404(e):
+        # Log 404 requests at debug level (not error level)
+        logger.debug("404 Not Found", extra={
+            "method": request.method,
+            "url": request.url,
+            "request_id": getattr(g, 'request_id', None)
+        })
+        try:
+            return render_template('errors/404.html'), 404
+        except:
+            # Fallback if template doesn't exist
+            return "404 Not Found", 404
+
+    # Global exception handler for non-404 errors
     @app.errorhandler(Exception)
     def handle_exception(e):
-        if e is not NotFound:
+        if not isinstance(e, NotFound):
             # Log the exception with full stack trace
             logger.error("Unhandled exception occurred", exc_info=True, extra={
                 "exception_type": type(e).__name__,
@@ -155,6 +170,10 @@ def create_app(overrides: dict | None = None):
                 "url": request.url,
                 "request_id": getattr(g, 'request_id', None)
             })
+        if isinstance(e, Unauthorized):
+            return render_template('errors/401.html'), 401
+        if isinstance(e, InternalServerError):
+            return render_template('errors/500.html'), 500
         
         # Re-raise the exception to let Flask handle it normally
         raise e

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}HTTP 401 - Unauthorized - YappR{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <h2 class="mb-2">HTTP 401 - Unauthorized</h2>
+            <p class="lead mb-4">
+                You are not authorized to access this page.
+            </p>
+            <img src="{{ url_for('static', filename='401.jpg') }}" alt="401 Unauthorized" class="img-fluid">
+        </div>
+    </div>
+</div>
+{% endblock %}

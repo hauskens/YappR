@@ -41,16 +41,13 @@ def login():
 
 @root_blueprint.route("/admin")
 def access_denied():
-    logger.warning("Access denied", extra={
-                   "user_id": current_user.id if not current_user.is_anonymous else None})
-    return send_from_directory("static", "401.jpg")
+    return render_template("errors/404.html")
 
 
 @root_blueprint.route("/robots.txt")
-def robots_txt():
+def robots_txt() -> Response:
     """Serve robots.txt file"""
-    robots_content = """
-User-agent: *
+    robots_content = """User-agent: *
 Disallow: /admin
 Disallow: /login
 Disallow: /logout

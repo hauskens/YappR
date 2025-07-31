@@ -207,7 +207,7 @@ def get_task_status_html(task_id: str):
             eta = meta.eta
             
             speed_str = f"{speed/1024/1024:.1f} MB/s" if speed > 0 else ""
-            eta_str = f"{eta}s" if eta > 0 else ""
+            eta_str = f"{eta:.2f}s" if eta is not None and eta > 0 else ""
 
             return f'''
             <div class="progress mb-2">
@@ -243,7 +243,7 @@ def get_task_status_html(task_id: str):
             status = progress_data['status']
             eta = progress_data['eta']
             
-            eta_str = f"{eta}s" if eta > 0 else ""
+            eta_str = f"{eta:.2f}s" if eta > 0 else ""
             
             return f'''
             <div class="progress mb-2">
@@ -283,7 +283,7 @@ def get_task_status_html(task_id: str):
             status = progress_data['status']
             eta = progress_data['eta']
             
-            eta_str = f"{eta}s" if eta > 0 else ""
+            eta_str = f"{eta:.2f}s" if eta > 0 else ""
             
             return f'''
             <div class="progress mb-2">
@@ -330,7 +330,7 @@ def task_fetch_audio(self, video_id: int):
             if total > 0:
                 percent = int((downloaded / total) * 100)
                 speed = d.get('speed', 0)
-                eta = d.get('eta', 0)
+                eta = d.get('eta')
 
                 # Create a DownloadProgress object and use it to update Celery task state
                 progress = DownloadProgress(

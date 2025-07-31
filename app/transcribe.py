@@ -214,7 +214,7 @@ class TranscriptionProgressTracker:
             }
             
         except Exception as e:
-            logger.error("Failed to get progress estimate for task %s: %s", task_id, e)
+            logger.debug("Failed to get progress estimate for task %s: %s", task_id, e)
             return None
     
     def cleanup_progress_tracking(self, task_id: str):
@@ -223,7 +223,7 @@ class TranscriptionProgressTracker:
             key = f"{self.PROGRESS_KEY_PREFIX}{task_id}"
             self.redis_client.delete(key)
         except Exception as e:
-            logger.error("Failed to cleanup progress tracking for task %s: %s", task_id, e)
+            logger.debug("Failed to cleanup progress tracking for task %s: %s", task_id, e)
 
 
 # Global instance

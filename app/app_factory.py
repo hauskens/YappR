@@ -1,6 +1,7 @@
 
 from flask import Flask, request, g, render_template
 from flask_login import LoginManager, current_user  # type: ignore
+from flask_wtf.csrf import CSRFError # type: ignore
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from uuid import uuid4
@@ -174,6 +175,8 @@ def create_app(overrides: dict | None = None):
             return render_template('errors/401.html'), 401
         if isinstance(e, InternalServerError):
             return render_template('errors/500.html'), 500
+        if isinstance(e, CSRFError):
+            return render_template('errors/generic.html', error_message="CSRF token expired, please refresh the page and try again"), 400
         
         # Re-raise the exception to let Flask handle it normally
         raise e

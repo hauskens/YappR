@@ -96,8 +96,44 @@ def search_v2(
         raise ValueError(
             "Search was too short and didnt have any useful words")
 
+    # First pass: collect all adjacent segment IDs that we need to fetch
+    adjacent_segment_ids: set[int] = set()
+    segments_needing_adjacent: list[tuple[Segments, str]] = []  # (segment, direction)
+    
     for segment in search_result:
-        # Sanitize the segment text using same function as original
+        if segment.id not in seen_segment_ids:
+            current_sentence: list[str] = (
+                loosely_sanitize_sentence(segment.text)
+                if strict_search
+                else sanitize_sentence(segment.text)
+            )
+            
+            try:
+                word_index = current_sentence.index(search_words[0])
+                if word_index == 0 and segment.previous_segment_id is not None:
+                    adjacent_segment_ids.add(segment.previous_segment_id)
+                    segments_needing_adjacent.append((segment, "previous"))
+                elif (
+                    word_index == len(current_sentence) - 1
+                    and segment.next_segment_id is not None
+                ):
+                    adjacent_segment_ids.add(segment.next_segment_id)
+                    segments_needing_adjacent.append((segment, "next"))
+                else:
+                    segments_needing_adjacent.append((segment, "none"))
+            except (ValueError, AttributeError):
+                segments_needing_adjacent.append((segment, "none"))
+
+    # Batch fetch all adjacent segments in one query
+    adjacent_segments_map: dict[int, Segments] = {}
+    if adjacent_segment_ids:
+        adjacent_segments = db.session.execute(
+            select(Segments).where(Segments.id.in_(adjacent_segment_ids))
+        ).scalars().all()
+        adjacent_segments_map = {seg.id: seg for seg in adjacent_segments}
+
+    # Second pass: process segments with batched adjacent data
+    for segment, direction in segments_needing_adjacent:
         current_sentence: list[str] = (
             loosely_sanitize_sentence(segment.text)
             if strict_search
@@ -105,50 +141,39 @@ def search_v2(
         )
         all_segments: list[Segments] = [segment]
 
-        if segment.id not in seen_segment_ids:
-            # Implement adjacent segment logic (missing from previous optimized version)
-            try:
-                word_index = current_sentence.index(search_words[0])
-                if word_index == 0 and segment.previous_segment_id is not None:
-                    adjacent_segment = SegmentService.get_by_id(
-                        segment.previous_segment_id)
-                    all_segments = [adjacent_segment] + all_segments
-                    # Use same sanitization as main segment for consistency
-                    adjacent_sentence = (
-                        loosely_sanitize_sentence(adjacent_segment.text)
-                        if strict_search
-                        else sanitize_sentence(adjacent_segment.text)
-                    )
-                    current_sentence = adjacent_sentence + current_sentence
-                elif (
-                    word_index == len(current_sentence) - 1
-                    and segment.next_segment_id is not None
-                ):
-                    adjacent_segment = SegmentService.get_by_id(
-                        segment.next_segment_id)
-                    all_segments.append(adjacent_segment)
-                    # Use same sanitization as main segment for consistency
-                    adjacent_sentence = (
-                        loosely_sanitize_sentence(adjacent_segment.text)
-                        if strict_search
-                        else sanitize_sentence(adjacent_segment.text)
-                    )
-                    current_sentence += adjacent_sentence
-            except (ValueError, AttributeError):
-                pass
-            # Check if segment matches search criteria
-            matches = (
-                search_words_present_in_sentence_strict(
-                    current_sentence, search_words)
+        # Handle adjacent segments using batched data
+        if direction == "previous" and segment.previous_segment_id in adjacent_segments_map:
+            adjacent_segment = adjacent_segments_map[segment.previous_segment_id]
+            all_segments = [adjacent_segment] + all_segments
+            adjacent_sentence = (
+                loosely_sanitize_sentence(adjacent_segment.text)
                 if strict_search
-                else search_words_present_in_sentence(current_sentence, search_words[1:])
+                else sanitize_sentence(adjacent_segment.text)
             )
+            current_sentence = adjacent_sentence + current_sentence
+        elif direction == "next" and segment.next_segment_id in adjacent_segments_map:
+            adjacent_segment = adjacent_segments_map[segment.next_segment_id]
+            all_segments.append(adjacent_segment)
+            adjacent_sentence = (
+                loosely_sanitize_sentence(adjacent_segment.text)
+                if strict_search
+                else sanitize_sentence(adjacent_segment.text)
+            )
+            current_sentence += adjacent_sentence
 
-            if matches:
-                res = SegmentsResult(
-                    all_segments, segment.transcription.video, search_words)
-                _add_segment_to_results(
-                    res, video_result, video_lookup, seen_segment_ids, segment.id)
+        # Check if segment matches search criteria
+        matches = (
+            search_words_present_in_sentence_strict(
+                current_sentence, search_words)
+            if strict_search
+            else search_words_present_in_sentence(current_sentence, search_words[1:])
+        )
+
+        if matches:
+            res = SegmentsResult(
+                all_segments, segment.transcription.video, search_words)
+            _add_segment_to_results(
+                res, video_result, video_lookup, seen_segment_ids, segment.id)
 
     for v in video_result:
         v.segment_results.sort(key=lambda r: min(s.start for s in r.segments))

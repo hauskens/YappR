@@ -8,6 +8,7 @@ from app.models import OAuth, Users
 from app.auth import user_oauth_scope, bot_oauth_scope
 from app.models import db
 from app.logger import logger
+from app.services import UserService
 
 
 class TwitchClientFactory:
@@ -93,7 +94,7 @@ class TwitchClientFactory:
     @staticmethod
     async def get_client_for_context(
         client_type: str = "server", 
-        user_id: Optional[int] = None
+        user_id: int | None = None
     ) -> Twitch:
         """
         Get appropriate Twitch client based on context.
@@ -110,7 +111,7 @@ class TwitchClientFactory:
         elif client_type == "user":
             if user_id is None:
                 raise ValueError("user_id is required when client_type is 'user'")
-            return await TwitchClientFactory.get_user_client(user_id)
+            return await TwitchClientFactory.get_user_client(UserService.get_by_id(user_id))
         elif client_type == "bot":
             return await TwitchClientFactory.get_bot_client()
         else:

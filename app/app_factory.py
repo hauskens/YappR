@@ -18,6 +18,7 @@ from .redis_client import RedisTaskQueue
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from app.logger import logger
+from app.utils import download_nltk
 from .routes.root import root_blueprint
 from .routes.clip_queue import clip_queue_blueprint
 from .routes.search import search_blueprint
@@ -75,6 +76,7 @@ cors = CORS()
 def create_app(overrides: dict | None = None):
     logger.info("Creating app")
     init_storage()
+    download_nltk()
     app = Flask(__name__)
     app.secret_key = config.app_secret
     app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri

@@ -56,8 +56,7 @@ class ChannelService:
         """Get all Twitch channels."""
         return db.session.execute(
             select(Channels)
-            .join(Platforms)
-            .filter(Platforms.name.ilike("twitch"))
+            .filter(Channels.platform_name.ilike("twitch"))
             .order_by(Channels.name)
         ).scalars().all()
 

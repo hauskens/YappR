@@ -152,7 +152,7 @@ class TestSearchPerformance:
         print(f"Time per segment: {execution_time/segment_count:.4f}ms")
         
         # Performance assertions
-        assert execution_time < 10000, f"Search took too long: {execution_time:.2f}ms"
+        assert execution_time < 5000, f"Search took too long: {execution_time:.2f}ms"
         assert len(result) > 0, "Should find at least one result"
     
     @patch('app.search.TranscriptionService.get_transcriptions_on_channels')

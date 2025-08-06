@@ -3,8 +3,12 @@ WORKDIR /src
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV BUN_INSTALL_CACHE_DIR="/bun-cache"
-RUN apt update && apt install -y ffmpeg npm curl unzip \
+RUN apt update && apt install -y ffmpeg npm curl unzip build-essential \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Install Rust
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:$PATH"
 
 RUN groupadd -g 770 yappr && \
     useradd -g 770 -u 770 -d /var/lib/yappr -s /bin/bash yappr && \
@@ -31,6 +35,10 @@ RUN --mount=type=cache,target=/bun-cache \
   bun install
 COPY --chown=yappr:yappr . .
 RUN bun run build
+
+# Build Rust module
+RUN uv run maturin develop --release || echo "Rust module build failed, will use Python fallback"
+
 USER yappr
 
 

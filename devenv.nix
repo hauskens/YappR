@@ -25,6 +25,9 @@ in
         sync.enable = true;
       };
     };
+    rust = {
+      enable = true;
+    };
     javascript = {
       enable = true;
       bun = {

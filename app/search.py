@@ -10,10 +10,22 @@ from .services import TranscriptionService, SegmentService
 from .utils import sanitize_sentence, loosely_sanitize_sentence
 import time
 
+# Try to import Rust module, fall back to Python if not available
+try:
+    import yappr_search
+    USE_RUST = True
+    logger.info("Using Rust search functions for improved performance")
+except ImportError:
+    USE_RUST = False
+    logger.info("Rust search module not available, using Python implementations")
+
 
 def search_words_present_in_sentence(
     sentence: list[str], search_words: list[str]
 ) -> bool:
+    if USE_RUST:
+        return yappr_search.search_words_present_in_sentence(sentence, search_words)
+    
     sentence_set = set(sentence)
     return all(word in sentence_set for word in search_words)
 
@@ -189,6 +201,9 @@ def search_words_present_in_sentence_strict(
     sentence: list[str], search_words: list[str]
 ) -> bool:
     """looks for consecutive words"""
+    if USE_RUST:
+        return yappr_search.search_words_present_in_sentence_strict(sentence, search_words)
+    
     if not search_words:
         return False
 

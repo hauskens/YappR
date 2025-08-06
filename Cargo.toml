@@ -1,0 +1,12 @@
+[package]
+name = "yappr_search"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "yappr_search"
+crate-type = ["cdylib"]
+path = "app/rust/lib.rs"
+
+[dependencies]
+pyo3 = { version = "0.23", features = ["extension-module"] }

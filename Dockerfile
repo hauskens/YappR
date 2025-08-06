@@ -76,6 +76,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
   --mount=type=bind,source=README.md,target=README.md \
   uv sync --frozen --no-dev --group worker
+
+COPY --chown=yappr:yappr app/rust ./app/rust
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \

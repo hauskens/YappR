@@ -53,9 +53,7 @@ dependencies = [
 dev = [
     "whisperx>=3.3.4",
     "twitchapi>=4.4.0",
-    "docker>=7.1.0",
     "mypy>=1.17.0",
-    "maturin>=1.9.3",
 ]
 worker = [
     "whisperx>=3.3.4",
@@ -63,13 +61,6 @@ worker = [
 bot = [
     "twitchapi>=4.4.0",
 ]
-
-[build-system]
-requires = ["maturin>=1.0,<2.0"]
-build-backend = "maturin"
-
-[tool.maturin]
-features = ["pyo3/extension-module"]
 
 [tool.mypy]
 exclude = [

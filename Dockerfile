@@ -3,12 +3,8 @@ WORKDIR /src
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV BUN_INSTALL_CACHE_DIR="/bun-cache"
-RUN apt update && apt install -y ffmpeg npm curl unzip build-essential \
+RUN apt update && apt install -y ffmpeg npm curl unzip \
   && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Install Rust
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-ENV PATH="/root/.cargo/bin:$PATH"
 
 RUN groupadd -g 770 yappr && \
     useradd -g 770 -u 770 -d /var/lib/yappr -s /bin/bash yappr && \
@@ -18,30 +14,16 @@ RUN groupadd -g 770 yappr && \
 RUN curl -fsSL https://bun.com/install | bash
 ENV BUN_INSTALL="/root/.bun"
 ENV PATH="$BUN_INSTALL/bin:/root/.cargo/bin:/src/.venv/bin:$PATH"
-COPY --chown=yappr:yappr app/rust ./app/rust
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-  --mount=type=bind,source=README.md,target=README.md \
   uv sync --frozen --no-install-project --no-dev
 
 FROM base AS main
-COPY --chown=yappr:yappr app/rust ./app/rust
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-  --mount=type=bind,source=README.md,target=README.md \
   uv sync --frozen --no-dev
-
-# Build Rust module
-RUN --mount=type=cache,target=/root/.cache/uv \
-  --mount=type=bind,source=uv.lock,target=uv.lock \
-  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-  --mount=type=bind,source=README.md,target=README.md \
-uv run maturin develop --release 
 
 RUN --mount=type=cache,target=/bun-cache \
   --mount=type=bind,source=package.json,target=package.json \
@@ -60,30 +42,19 @@ ADD https://developer.download.nvidia.com/compute/cuda/repos/ubuntu2204/x86_64/c
 RUN apt clean && \
     dpkg -i cuda-keyring_1.0-1_all.deb && \
     apt update && \
-    apt install -y ffmpeg python3 build-essential libcudnn8-dev libcudnn8\
+    apt install -y ffmpeg python3 libcudnn8-dev libcudnn8\
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-  --mount=type=bind,source=README.md,target=README.md \
   uv sync --frozen --no-install-project --no-dev --group worker
 
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-  --mount=type=bind,source=README.md,target=README.md \
   uv sync --frozen --no-dev --group worker
 
-COPY --chown=yappr:yappr app/rust ./app/rust
-RUN --mount=type=cache,target=/root/.cache/uv \
-  --mount=type=bind,source=uv.lock,target=uv.lock \
-  --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-  --mount=type=bind,source=README.md,target=README.md \
-uv run maturin develop --release 
 COPY app ./app
 COPY pyproject.toml uv.lock .
 
@@ -108,8 +79,6 @@ COPY --chown=yappr:yappr app/rust ./app/rust
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
-  --mount=type=bind,source=Cargo.toml,target=Cargo.toml \
-  --mount=type=bind,source=README.md,target=README.md \
   uv sync --frozen --no-dev --group bot
 ENV NLTK_ENABLED=false
 COPY . .

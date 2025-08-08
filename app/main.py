@@ -107,7 +107,7 @@ def full_processing_task(channel_id: int):
                 "channel_id": channel_id})
     video = ChannelService.fetch_latest_videos(channel)
     if video is not None:
-        _ = chain(task_fetch_audio.s(video), task_transcribe_audio.s(
+        _ = chain(task_fetch_audio.s(video.id), task_transcribe_audio.s(
         ), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)
 
 

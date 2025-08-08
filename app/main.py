@@ -105,10 +105,33 @@ def full_processing_task(channel_id: int):
         return
     logger.info("Channel was active more than 30 minutes ago, processing", extra={
                 "channel_id": channel_id})
-    video = ChannelService.fetch_latest_videos(channel)
-    if video is not None:
-        _ = chain(task_fetch_audio.s(video.id), task_transcribe_audio.s(
-        ), task_parse_video_transcriptions.s()).apply_async(ignore_result=True)
+    
+    # Get last 5 existing videos from channel, ordered by upload date
+    recent_videos = ChannelService.get_videos_by_channel(channel_id)[:5]
+    
+    unprocessed_count = 0
+    for video in recent_videos:
+        # Check if video has transcription from system (TranscriptionSource.Unknown)
+        has_system_transcription = any(
+            t.source == TranscriptionSource.Unknown 
+            for t in video.transcriptions
+        )
+        
+        if not has_system_transcription:
+            logger.info("Starting full processing for unprocessed video", 
+                       extra={"video_id": video.id, "channel_id": channel_id})
+            _ = chain(
+                task_fetch_audio.s(video.id),
+                task_transcribe_audio.s(),
+                task_parse_video_transcriptions.s(),
+            ).apply_async(ignore_result=True)
+            unprocessed_count += 1
+    
+    logger.info("Full processing task completed", extra={
+        "channel_id": channel_id,
+        "total_videos_checked": len(recent_videos),
+        "unprocessed_videos_queued": unprocessed_count
+    })
 
 
 @app.route("/<int:channel_id>/parse_logs/<folder_path>")

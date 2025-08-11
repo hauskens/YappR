@@ -101,14 +101,14 @@ services:
     depends_on:
       - app
     deploy:
-      replicas: 1
+      replicas: 0
   worker-priority:
     extends: worker
     command: ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1", "-Q", "priority-queue"]
     environment:
       - SERVICE_NAME=worker-priority
     deploy:
-      replicas: 1
+      replicas: 0
   beat:
     extends: worker
     command: ["--app","app.main.celery","beat","--loglevel=info" ]

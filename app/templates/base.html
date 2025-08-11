@@ -13,6 +13,7 @@
     <script src="{{ url_for('static', filename='js/vendor.js', v=version) }}"></script>
     <script src="{{ url_for('static', filename='js/htmx-config.js', v=version) }}"></script>
     <script src="{{ url_for('static', filename='js/theme-toggle.js', v=version) }}"></script>
+    <script src="{{ url_for('static', filename='js/yappr-wasm.js', v=version) }}"></script>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css', v=version) }}">
     <link rel="icon" href="{{ url_for('static', filename='logo.ico') }}" type="image/x-icon">
     <script type="text/javascript">
@@ -149,6 +150,10 @@
              data-color-scheme="no-preference: light; light: light; dark: light;"
              data-show-count="true" size="small" data-icon="octicon-star"
              aria-label="Star hauskens/YappR on GitHub">GitHub</a>
+        </span>
+        <span>
+          <button type="button" onclick="document.getElementById('hewwo-result').innerText = hewwo('test');">Test hewwo()</button>
+          <span id="hewwo-result"></span>
         </span>
       </div>
     </footer>

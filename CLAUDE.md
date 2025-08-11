@@ -30,6 +30,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run Discord/Twitch bots: `uv run bot/main.py`
 - Bots are enabled via `BOT_DISCORD_ENABLED` and `BOT_TWITCH_ENABLED` environment variables
 
+### WebAssembly Module
+- Build WebAssembly module: `wasm-pack build --target web`
+- Build for bundler: `wasm-pack build --target bundler`
+- Output directory: `pkg/` (contains generated JS bindings and WASM file)
+
 ## Architecture Overview
 
 YappR is a transcription and metadata search platform for YouTube and Twitch content built with:

@@ -19,6 +19,13 @@ RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \
   uv sync --frozen --no-install-project --no-dev
 
+FROM rust:bookworm AS rust-builder
+WORKDIR /src
+RUN cargo install wasm-pack
+COPY Cargo.toml ./
+COPY src ./src
+RUN wasm-pack build --target web --out-dir pkg
+
 FROM base AS main
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
@@ -31,6 +38,7 @@ RUN --mount=type=cache,target=/bun-cache \
   --mount=type=bind,source=yarn.lock,target=yarn.lock \
   bun install
 COPY --chown=yappr:yappr . .
+COPY --from=rust-builder --chown=yappr:yappr /src/pkg ./app/static/wasm/
 RUN bun run build
 USER yappr
 
@@ -75,7 +83,6 @@ ENTRYPOINT ["/src/entrypoint.sh"]
 
 FROM base AS bot
 ENV SERVICE_NAME="bot"
-COPY --chown=yappr:yappr app/rust ./app/rust
 RUN --mount=type=cache,target=/root/.cache/uv \
   --mount=type=bind,source=uv.lock,target=uv.lock \
   --mount=type=bind,source=pyproject.toml,target=pyproject.toml \

@@ -15,6 +15,9 @@ in
     zsh 
     python3Packages.psycopg2
     psqlodbc
+    wasm-pack
+    cargo-watch
+    lld
     ];
 
   languages = {
@@ -54,15 +57,4 @@ in
     "db:downgrade".exec = "alembic downgrade -1";
   };
 
-  # https://devenv.sh/tests/
-  enterTest = ''
-    echo "Running search performance tests..."
-    uv run pytest tests/app/test_search_performance.py --unit -v -s
-    echo "Performance tests completed!"
-  '';
-
-  # https://devenv.sh/git-hooks/
-  # git-hooks.hooks.shellcheck.enable = true;
-
-  # See full reference at https://devenv.sh/reference/options/
 }

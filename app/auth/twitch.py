@@ -79,7 +79,7 @@ def handle_login(blueprint, token):
 blueprint_bot = make_twitch_blueprint(
     client_id=config.twitch_client_id,
     client_secret=config.twitch_client_secret,
-    scope=bot_oauth_scope,
+    scope=[scope.value for scope in bot_oauth_scope],
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user),
 )
 

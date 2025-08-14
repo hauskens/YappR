@@ -24,6 +24,7 @@ WORKDIR /src
 RUN cargo install wasm-pack
 COPY Cargo.toml ./
 COPY src ./src
+# Build WASM library for existing functionality
 RUN wasm-pack build --target web --out-dir pkg
 
 FROM base AS main

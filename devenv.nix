@@ -18,6 +18,7 @@ in
     wasm-pack
     cargo-watch
     lld
+    trunk
     ];
 
   languages = {

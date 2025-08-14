@@ -14,6 +14,7 @@ import math
 from sqlalchemy import or_
 from typing import Dict, Any
 from app.services import VideoService, UserService
+from app.services.platform import PlatformService
 
 video_blueprint = Blueprint('video', __name__, url_prefix='/video',
                             template_folder='templates', static_folder='static')
@@ -78,40 +79,59 @@ def video_edit(video_id: int):
     )
 
 
-@video_blueprint.route("/<int:video_id>/chatlogs", methods=["POST"])
+@video_blueprint.route("/<int:video_id>/chatlogs", methods=["POST", "GET"])
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
-# @cache.cached(timeout=600)
 def video_chatlogs(video_id: int):
     logger.info("Getting chatlogs for video", extra={"video_id": video_id})
     video = VideoService.get_by_id(video_id)
-
-    search = request.form.get("chatSearchInput")
-    user_filter = request.form.get("userFilter")
-    logger.info("chat search: %s, user filter: %s", search,
-                user_filter, extra={"video_id": video_id})
-
     start_time = video.uploaded
     end_time = video.uploaded + timedelta(seconds=video.duration)
-    if search:
-        chat_logs = db.session.query(ChatLog).filter(
-            ChatLog.channel_id == video.channel_id,
-            ChatLog.timestamp >= start_time,
-            ChatLog.timestamp <= end_time,
-            ChatLog.message.contains(search)
-        ).order_by(ChatLog.timestamp).all()
+
+    if request.method == "POST":
+        search = request.form.get("chatSearchInput")
+        user_filter = request.form.get("userFilter")
+        logger.info("chat search: %s, user filter: %s", search,
+                    user_filter, extra={"video_id": video_id})
+
+        if search:
+            chat_logs = db.session.query(ChatLog).filter(
+                ChatLog.channel_id == video.channel_id,
+                ChatLog.timestamp >= start_time,
+                ChatLog.timestamp <= end_time,
+                ChatLog.message.contains(search)
+            ).order_by(ChatLog.timestamp).all()
+        else:
+            chat_logs = db.session.query(ChatLog).filter(
+                ChatLog.channel_id == video.channel_id,
+                ChatLog.timestamp >= start_time,
+                ChatLog.timestamp <= end_time
+            ).order_by(ChatLog.timestamp).all()
+        return render_template(
+            "video_chatlogs.html",
+            chat_logs=chat_logs,
+            video=video
+        )
     else:
         chat_logs = db.session.query(ChatLog).filter(
             ChatLog.channel_id == video.channel_id,
             ChatLog.timestamp >= start_time,
             ChatLog.timestamp <= end_time
         ).order_by(ChatLog.timestamp).all()
-
-    return render_template(
-        "video_chatlogs.html",
-        chat_logs=chat_logs,
-        video=video
-    )
+        
+        formatted_logs = [{
+            "id": log.id,
+            "username": log.username,
+            "message": log.message,
+            "timestamp": log.timestamp.isoformat(),
+            "offset_seconds": (log.timestamp - start_time).total_seconds()
+        } for log in chat_logs]
+        
+        return jsonify({
+            "video_platform_ref": video.platform_ref,
+            "video_platform_type": video.channel.platform_name,
+            "chat_logs": formatted_logs
+        })
 
 
 @video_blueprint.route("/<int:video_id>/category_chatlogs", methods=["POST"])

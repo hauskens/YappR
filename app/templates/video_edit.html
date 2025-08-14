@@ -61,57 +61,7 @@
           <h3>Chat Messages</h3>
           
           <!-- Tag Categories Management -->
-          <div class="mb-3">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h5 class="mb-0">Tag Categories</h5>
-              <div>
-                <button id="addCategoryBtn" class="btn btn-sm btn-outline-primary" onclick="openAddCategoryModal()">
-                  <i class="bi bi-plus-circle me-1"></i>Add Category
-                </button>
-              </div>
-            </div>
-            <div id="tagCategoriesContainer" class="mb-2">
-              <!-- Tag categories will be displayed here -->
-              <div class="text-muted small" id="noCategoriesMsg">No tag categories defined. Add some to track message patterns.</div>
-            </div>
-          </div>
-          
-          <!-- Tag Category Modal -->
-          <div class="modal fade" id="tagCategoryModal" tabindex="-1" aria-labelledby="tagCategoryModalLabel" aria-hidden="true">
-            <div class="modal-dialog">
-              <div class="modal-content">
-                <div class="modal-header">
-                  <h5 class="modal-title" id="tagCategoryModalLabel">Add Tag Category</h5>
-                  <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                  <div class="mb-3">
-                    <label for="categoryName" class="form-label">Category Name</label>
-                    <input type="text" class="form-control" id="categoryName" placeholder="e.g., Happy Words">
-                  </div>
-                  <div class="mb-3">
-                    <label for="categoryColor" class="form-label">Category Color</label>
-                    <input type="color" class="form-control form-control-color" id="categoryColor" value="#4C2A80">
-                  </div>
-                  <div class="mb-3">
-                    <label for="categoryTags" class="form-label">Tags (comma separated)</label>
-                    <textarea class="form-control" id="categoryTags" rows="3" placeholder="e.g., goated, KEKW, LMAO, KekShook"></textarea>
-                  </div>
-                  <input type="hidden" id="editCategoryId" value="">
-                </div>
-                <div class="modal-footer">
-                  <button id="importCategoriesBtn" class="btn btn-secondary" title="Import Categories" onclick="importTagCategories()">
-                    <i class="bi bi-upload me-1"></i>Import
-                  </button>
-                  <button id="exportCategoriesBtn" class="btn btn-secondary" title="Export Categories" onclick="exportTagCategories()">
-                    <i class="bi bi-download me-1"></i>Export
-                  </button>
-                  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                  <button type="button" class="btn btn-primary" id="saveCategoryBtn" onclick="saveCategoryWasm()">Save</button>
-                </div>
-              </div>
-            </div>
-          </div>
+          <div id="tag-category-manager"></div>
 
           <!-- Chat Timeline Chart -->
           <div class="mb-4">
@@ -139,45 +89,8 @@
           </div>
           
           <!-- Search and filter controls -->
-          <div class="mb-3">
-            <div class="row">
-              <div class="col-md-8">
-                <!-- Search bar for messages -->
-                <div class="input-group">
-                  <span class="input-group-text"><i class="bi bi-search"></i></span>
-                  <input type="text" id="chatSearchInput" name="chatSearchInput" class="form-control" placeholder="Search in messages..." aria-label="Search messages">
-                  <button class="btn btn-outline-secondary" type="button" id="clearSearchBtn">Clear</button>
-                </div>
-              </div>
-              <div class="col-md-4">
-                <!-- Username filter dropdown -->
-                <select id="userFilter" name="userFilter" class="form-select">
-                  <option value="">All users</option>
-                  <!-- Will be populated dynamically -->
-                </select>
-              </div>
-            </div>
-            <div class="mt-1">
-              <small class="text-muted">Found: <span id="matchCount">0</span> messages</small>
-            </div>
-          </div>
-          
-          <div class="border rounded p-2" style="height: 500px; overflow-y: auto;">
-            <div id="chat-messages-container" 
-                 hx-post="{{ url_for('video.video_chatlogs', video_id=video.id) }}" 
-                 hx-trigger="load delay:100ms, keyup changed delay:300ms from:#chatSearchInput, change delay:300ms from:#userFilter, search-cleared from:body"
-                 hx-include="[id='chatSearchInput'], [id='userFilter']"
-                 hx-swap="innerHTML"
-                 hx-indicator="#loading-indicator"
-                 hx-on::after-request="convertTimestamps();"
-              >
-              <div id="loading-indicator" class="text-center p-3">
-                <div class="spinner-border text-primary" role="status">
-                  <span class="visually-hidden">Loading...</span>
-                </div>
-                <p>Loading chat messages...</p>
-              </div>
-            </div>
+          <div class="mb-3" id="chat-logs-container">
+            <button onclick="renderChatLogs({{ video.id }})">Render Chat Logs</button>
           </div>
         </div>
       </div>
@@ -304,33 +217,57 @@
 
 
   </div>
+  <div>
+    <h2>Chat Logs</h2>
+</div>
 {% endif %}
 {% endblock %}
 {% block scripts %}
-<script>
-// Initialize tag categories when WASM is ready
-document.addEventListener('DOMContentLoaded', function() {
-  const initTagCategories = () => {
-    if (typeof loadTagCategories !== 'function') {
-      // WASM not ready yet, retry in 100ms
-      setTimeout(initTagCategories, 100);
-      return;
-    }
-    
-    console.log('WASM tag category functions loaded, initializing...');
-    
-    // Load and render existing categories
-    const categories = loadTagCategories();
-    renderTagCategories(categories);
-    
-    // Initialize chart
-    if (typeof initializeChatTimeline === 'function') {
-      initializeChatTimeline();
-    }
-  };
-  
-  initTagCategories();
-});
-</script>
+<script type="module">
+  import init, { convert_timestamps, render_component_by_name, render_chat_logs, render_tag_category_manager } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
+        
+        let wasmReady = false;
+        
+        async function initWasm() {
+            await init("{{ url_for('static', filename='wasm/yappr_wasm_bg.wasm', v=version) }}");
+            wasmReady = true;
+        }
+        
+        // Make functions available globally
+        window.renderHello = function() {
+            if (wasmReady) {
+                render_component_by_name("hello", "hello-container");
+            } else {
+                console.log("WASM not ready yet");
+            }
+        };
+
+        window.renderTagCategoryManager = function() {
+            if (wasmReady) {
+                render_tag_category_manager("tag-category-manager");
+            } else {
+                console.log("WASM not ready yet");
+            }
+        };
+        
+        window.renderChatLogs = function() {
+            if (wasmReady) {
+                render_chat_logs({{ video.id }}, "chat-logs-container");
+            } else {
+                console.log("WASM not ready yet");
+            }
+        };
+
+        window.convertTimestamps = function() {
+            if (wasmReady) {
+                convert_timestamps();
+            } else {
+                console.log("WASM not ready yet");
+            }
+        };
+        
+        await initWasm();
+        renderTagCategoryManager();
+
+    </script>
 {% endblock %}
-  

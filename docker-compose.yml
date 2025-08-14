@@ -64,6 +64,9 @@ services:
         - action: sync
           path: ./frontend/
           target: /src/frontend/
+        - action: sync
+          path: ./pkg/
+          target: /src/app/static/wasm/
         - action: rebuild
           path: ./pyproject.toml
         - action: rebuild

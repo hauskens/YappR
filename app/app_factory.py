@@ -35,7 +35,7 @@ from app.services import (
     BroadcasterService, VideoService, TranscriptionService, SegmentService,
     UserService, ContentQueueService, ContentService, PlatformServiceRegistry
 )
-
+import mimetypes
 
 socketio = SocketIO()
 
@@ -144,6 +144,7 @@ def create_app(overrides: dict | None = None):
         limiter._storage_uri = "memory://"
 
     limiter.init_app(app)
+    mimetypes.add_type('application/wasm', '.wasm')
 
     # 404 error handler
     @app.errorhandler(404)

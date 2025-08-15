@@ -86,7 +86,6 @@ def channel_delete(channel_id: int):
 @channel_blueprint.route("/<int:channel_id>/videos")
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
-@cache.cached(timeout=10, make_cache_key=make_cache_key)
 def channel_get_videos(channel_id: int):
     logger.info("Getting videos for channel", extra={"channel_id": channel_id})
     channel = ChannelService.get_by_id(channel_id)

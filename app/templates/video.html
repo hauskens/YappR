@@ -200,53 +200,10 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
-<script type="module">
-  import init, { convert_timestamps, render_component_by_name, render_chat_logs, render_tag_category_manager, render_transcription_table } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
-        
-        let wasmReady = false;
-        
-        async function initWasm() {
-            await init("{{ url_for('static', filename='wasm/yappr_wasm_bg.wasm', v=version) }}");
-            wasmReady = true;
-        }
-        
-        window.renderTagCategoryManager = function() {
-            if (wasmReady) {
-                render_tag_category_manager("tag-category-manager");
-            } else {
-                console.log("WASM not ready yet");
-            }
-        };
+<!-- Video ID meta tag for TypeScript -->
+<meta name="video-id" content="{{ video.id }}">
+<meta name="wasm-url" content="{{ url_for('static', filename='wasm/yappr_wasm_bg.wasm', v=version) }}">
+<meta name="version" content="{{ version }}">
 
-        
-        window.renderChatLogs = function() {
-            if (wasmReady) {
-                render_chat_logs({{ video.id }}, "chat-logs-container");
-            } else {
-                console.log("WASM not ready yet");
-            }
-        };
-
-        window.renderTranscriptionTable = function(videoId) {
-            if (wasmReady) {
-                render_transcription_table(videoId, "transcription-segments-container");
-            } else {
-                console.log("WASM not ready yet");
-            }
-        };
-
-        window.convertTimestamps = function() {
-            if (wasmReady) {
-                convert_timestamps();
-            } else {
-                console.log("WASM not ready yet");
-            }
-        };
-        
-        await initWasm();
-        renderTagCategoryManager();
-        renderChatLogs();
-        renderTranscriptionTable({{ video.id }});
-
-    </script>
+<script type="module" src="{{ url_for('static', filename='js/video.js', v=version) }}"></script>
 {% endblock %}

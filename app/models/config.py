@@ -75,6 +75,7 @@ class Config:
         self.loki_url: str | None = os.environ.get("LOKI_URL")
         self.timezone: str = os.environ.get("TIMEZONE", "Europe/Oslo")
         self.version: str = os.environ.get("VERSION", "0.0.0")
+        self.default_cache_time: int = int(os.environ.get("DEFAULT_CACHE_TIME", 300))
 
 
 _ = load_dotenv()

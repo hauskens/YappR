@@ -225,6 +225,15 @@ fn add_chart_click_handler(
     platform_type: &PlatformType,
     platform_ref: &str,
 ) -> Result<(), String> {
+    // First, remove any existing click handlers to prevent duplicates
+    let off = Reflect::get(chart_instance, &"off".into())
+        .map_err(|_| "Chart object should have 'off' method")?
+        .dyn_into::<js_sys::Function>()
+        .map_err(|_| "'off' should be a function")?;
+    
+    // Remove all existing click handlers
+    let _ = off.call1(chart_instance, &"click".into());
+    
     // Clone data for the closure
     let timeline_buckets = timeline_data.buckets.clone();
     let platform_type_clone = platform_type.clone();

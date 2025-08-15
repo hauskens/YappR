@@ -10,6 +10,8 @@ mod platforms;
 
 mod chat_tag_manager;
 mod chat_timeline_chart;
+mod generic_table;
+mod transcription_table;
 
 #[derive(Deserialize, Clone, PartialEq)]
 struct ChatLog {
@@ -112,7 +114,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
 
         filtered.sort_by(|a, b| {
             let comparison = match sort_field {
-                SortField::Timestamp => a.timestamp.cmp(&b.timestamp),
+                SortField::Timestamp => a.offset_seconds.partial_cmp(&b.offset_seconds).unwrap_or(std::cmp::Ordering::Equal),
                 SortField::Username => a.username.cmp(&b.username),
                 SortField::Message => a.message.cmp(&b.message),
             };
@@ -558,4 +560,9 @@ pub fn render_tag_category_manager(element_id: &str) -> Result<(), String> {
     
     yew::Renderer::<chat_tag_manager::TagCategoryManager>::with_root(element).render();
     Ok(())
+}
+
+#[wasm_bindgen]
+pub fn render_transcription_table(video_id: i32, element_id: &str) -> Result<(), String> {
+    transcription_table::render_transcription_table(video_id, element_id)
 }

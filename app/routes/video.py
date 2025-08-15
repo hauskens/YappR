@@ -73,7 +73,7 @@ def video_delete(video_id: int):
 def video_edit(video_id: int):
     video = VideoService.get_by_id(video_id)
     return render_template(
-        "video_edit.html",
+        "video.html",
         transcriptions=video.transcriptions,
         video=video,
     )
@@ -281,3 +281,37 @@ def serve_audio(video_id: int):
         # Log the error to aid debugging
         logger.error(f"Failed to serve audio for video {video_id}: {e}")
         abort(500, description="Internal Server Error")
+
+
+@video_blueprint.route("/<int:video_id>/transcription_segments")
+@login_required
+@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+def video_transcription_segments(video_id: int):
+    """Return transcription segments as JSON for searchable table"""
+    logger.info("Getting transcription segments for video", extra={"video_id": video_id})
+    video = VideoService.get_by_id(video_id)
+    
+    if not video:
+        abort(404, description="Video not found")
+    
+    segments = []
+    for transcription in video.transcriptions:
+        if transcription.processed:
+            for segment in transcription.segments:
+                segments.append({
+                    "id": segment.id,
+                    "transcription_id": transcription.id,
+                    "start": segment.start,
+                    "end": segment.end,
+                    "text": segment.text,
+                    "timestamp_url": f"{VideoService.get_url(video)}{'&' if '?' in VideoService.get_url(video) else '?'}t={int(segment.start)}s"
+                })
+    
+    # Sort by start time
+    segments.sort(key=lambda x: float(x["start"])) # type: ignore
+    
+    return jsonify({
+        "video_platform_ref": video.platform_ref,
+        "video_platform_type": video.channel.platform_name,
+        "segments": segments
+    })

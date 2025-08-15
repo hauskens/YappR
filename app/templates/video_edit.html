@@ -63,31 +63,6 @@
           <!-- Tag Categories Management -->
           <div id="tag-category-manager"></div>
 
-          <!-- Chat Timeline Chart -->
-          <div class="mb-4">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <h5 class="mb-0">Message Timeline</h5>
-              <div class="d-flex align-items-center gap-2">
-                <label for="timelineInterval" class="form-label mb-0 small">Interval:</label>
-                <select id="timelineInterval" class="form-select form-select-sm" style="width: auto;" onchange="updateChatTimelineInterval()">
-                  <option value="1">1 min</option>
-                  <option value="2">2 min</option>
-                  <option value="5">5 min</option>
-                  <option value="10">10 min</option>
-                  <option value="15">15 min</option>
-                  <option value="30" selected>30 min</option>
-                </select>
-              </div>
-            </div>
-            <div class="card border-0 shadow-sm">
-              <div class="card-body p-2">
-                <div style="height: 200px;">
-                  <canvas id="chatTimelineChart"></canvas>
-                </div>
-              </div>
-            </div>
-          </div>
-          
           <!-- Search and filter controls -->
           <div class="mb-3" id="chat-logs-container">
             <button onclick="renderChatLogs({{ video.id }})">Render Chat Logs</button>
@@ -233,15 +208,6 @@
             wasmReady = true;
         }
         
-        // Make functions available globally
-        window.renderHello = function() {
-            if (wasmReady) {
-                render_component_by_name("hello", "hello-container");
-            } else {
-                console.log("WASM not ready yet");
-            }
-        };
-
         window.renderTagCategoryManager = function() {
             if (wasmReady) {
                 render_tag_category_manager("tag-category-manager");
@@ -249,6 +215,7 @@
                 console.log("WASM not ready yet");
             }
         };
+
         
         window.renderChatLogs = function() {
             if (wasmReady) {
@@ -268,6 +235,7 @@
         
         await initWasm();
         renderTagCategoryManager();
+        renderChatLogs();
 
     </script>
 {% endblock %}

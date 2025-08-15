@@ -9,8 +9,9 @@ mod utils;
 mod platforms;
 
 mod chat_tag_manager;
+mod chat_timeline_chart;
 
-#[derive(Deserialize, Clone)]
+#[derive(Deserialize, Clone, PartialEq)]
 struct ChatLog {
     id: i32,
     username: String,
@@ -319,6 +320,29 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
 
     html! {
         <div class="chat-logs-table">
+            // Timeline Chart Section
+            <div class="mb-4">
+                {
+                    if let Some((platform_type, platform_ref)) = (*platform_info).as_ref() {
+                        html! {
+                            <chat_timeline_chart::ChatTimelineChart 
+                                chat_logs={(*chat_logs).clone()}
+                                platform_info={platform_type.clone()}
+                                platform_ref={platform_ref.clone()}
+                            />
+                        }
+                    } else {
+                        html! {
+                            <chat_timeline_chart::ChatTimelineChart 
+                                chat_logs={(*chat_logs).clone()}
+                                platform_info={platforms::PlatformType::YouTube}
+                                platform_ref={"".to_string()}
+                            />
+                        }
+                    }
+                }
+            </div>
+            
             <div class="row mb-3">
                 <div class="col-md-4">
                     <div class="input-group">
@@ -497,6 +521,33 @@ pub fn render_component_by_name(component_name: &str, element_id: &str) -> Resul
         },
         _ => Err(format!("Unknown component: '{}'", component_name))
     }
+}
+
+#[wasm_bindgen]
+pub fn render_chat_timeline_chart(
+    element_id: &str,
+    platform_type: &str,
+    platform_ref: &str
+) -> Result<(), String> {
+    let document = web_sys::window().unwrap().document().unwrap();
+    let element = document.get_element_by_id(element_id)
+        .ok_or(format!("Element with id '{}' not found", element_id))?;
+    
+    // Parse platform type
+    let platform_type_enum = platforms::PlatformType::from_string(platform_type)
+        .unwrap_or(platforms::PlatformType::YouTube);
+    
+    // For now, render with empty data - in real usage, you'd pass the chat logs
+    yew::Renderer::<chat_timeline_chart::ChatTimelineChart>::with_root_and_props(
+        element,
+        chat_timeline_chart::ChatTimelineChartProps {
+            chat_logs: Vec::new(),
+            platform_info: platform_type_enum,
+            platform_ref: platform_ref.to_string(),
+        }
+    ).render();
+    
+    Ok(())
 }
 
 #[wasm_bindgen]

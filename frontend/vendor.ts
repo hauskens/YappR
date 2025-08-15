@@ -5,6 +5,8 @@ import { render } from 'github-buttons';
 import 'vanilla-cookieconsent';
 import bootstrap from 'bootstrap/dist/js/bootstrap.bundle.min.js';
 import { Chart, registerables } from 'chart.js';
+import * as echarts from 'echarts'; // Todo: do a min import https://echarts.apache.org/handbook/en/basics/import/#
+
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -17,6 +19,9 @@ Chart.register(...registerables);
 
 // Make Chart.js available globally
 (window as any).Chart = Chart;
+
+// Make ECharts available globally
+(window as any).echarts = echarts;
 
 // Initialize GitHub buttons when DOM is ready
 document.addEventListener('DOMContentLoaded', function() {

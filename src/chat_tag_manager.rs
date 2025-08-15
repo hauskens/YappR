@@ -4,7 +4,7 @@ use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 use web_sys::HtmlInputElement;
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 #[wasm_bindgen]
 pub struct TagCategory {
     id: String,
@@ -83,7 +83,7 @@ fn get_contrast_yiq(hex_color: &str) -> String {
     }
 }
 
-fn load_tag_categories_yew() -> Vec<TagCategory> {
+pub fn load_tag_categories_yew() -> Vec<TagCategory> {
     let window = web_sys::window().unwrap();
     let storage = window.local_storage().unwrap().unwrap();
     
@@ -104,6 +104,11 @@ fn save_tag_categories_yew(categories: Vec<TagCategory>) {
     
     let json = serde_json::to_string_pretty(&categories).unwrap();
     let _ = storage.set_item("tagCategories", &json);
+    
+    // Dispatch custom event to notify other components
+    if let Ok(event) = web_sys::CustomEvent::new("tagCategoriesChanged") {
+        let _ = window.dispatch_event(&event);
+    }
 }
 
 #[derive(Clone, PartialEq)]

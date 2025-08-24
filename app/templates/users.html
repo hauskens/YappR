@@ -1,64 +1,57 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"]) %}
-    <div class="container">
-      <h1>Users</h1>
-      <table class="table table-striped">
-        <thead>
-          <tr>
-            <th scope="col">ID</th>
-            <th scope="col">BroadcasterID</th>
-            <th scope="col">Username</th>
-            <th scope="col">Roles</th>
-            <th scope="col">Created</th>
-            <th scope="col">LastLogin</th>
-            <th scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-        {% for user in users %}
-          <tr>
-          <td>
-            {{ user.id }}
-          </td>
-          <td>
-            {{ user.broadcaster_id }}
-          </td>
-          <td>
-            {{ user.name }}
-          </td>
-          <td>
-            {% for perm in user.permissions %}
-              <a>{{ perm.permission_type.name }}</a>
-            {% endfor %}
-          </td>
-          <td>
-            {{ user.first_login }}
-          </td>
-          <td>
-            {{ user.last_login }}
-          </td>
-          <td>
-              <a class="btn btn-primary" role="button" href="{{ url_for('users.user_edit', user_id=user.id) }}">Edit User</a>
-          </td>
-          </tr>
-        {% endfor %}
-        </tbody>
-      </table>
-      </div>
+{% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"]) %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>User Management</h1>
+        <div class="d-flex gap-2">
+            <input type="text" 
+                   class="form-control" 
+                   placeholder="Search users..." 
+                   name="search" 
+                   value="{{ search or '' }}"
+                   style="width: 300px;"
+                   hx-get="{{ url_for('users.search_users') }}"
+                   hx-trigger="keyup changed delay:500ms"
+                   hx-target="#users-table-container"
+                   hx-include="[name='search']">
+        </div>
     </div>
 
-    {% with messages = get_flashed_messages() %}
-      {% if messages %}
-        <div class="alert alert-success" role="alert">
-          {% for message in messages %}
-            {{ message }}
-          {% endfor %}
+    <div id="users-table-container">
+        {% include 'components/users_table.html' %}
+    </div>
+</div>
+
+<!-- User Modal Container (same pattern as management.html) -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+  <div id="userModalContent">
+        <!-- Content will be loaded here via htmx -->
+  </div>
+</div>
+
+<!-- Moderation History Modal -->
+<div class="modal fade" id="historyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Moderation History</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="history-content">
+                <!-- Content loaded via HTMX -->
+            </div>
         </div>
-      {% endif %}
-    {% endwith %}
-  {% else %}
-    <p> WTF are you doing here?</p>
-  {% endif %}
+    </div>
+</div>
+
+{% else %}
+<div class="container">
+    <div class="alert alert-danger" role="alert">
+        <h4>Access Denied</h4>
+        <p>You don't have permission to access the user management interface.</p>
+    </div>
+</div>
+{% endif %}
 {% endblock %}

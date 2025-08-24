@@ -1,0 +1,100 @@
+<div class="modal-dialog">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title">Unban User: {{ user.name }}</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    
+    <div class="modal-body">
+      <!-- Show current bans -->
+      <div class="mb-3">
+        <h6>Current Bans:</h6>
+        <div class="list-group">
+          {% if user.globally_banned %}
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>Global Ban</strong>
+                {% if user.global_ban_expires_at %}
+                <br><small class="text-muted">Expires: {{ user.global_ban_expires_at }}</small>
+                {% else %}
+                <br><small class="text-muted">Permanent</small>
+                {% endif %}
+                {% if user.global_ban_reason %}
+                <br><small class="text-muted">Reason: {{ user.global_ban_reason }}</small>
+                {% endif %}
+              </div>
+              <form style="display: inline;" 
+                    hx-post="{{ url_for('users.unban_user', user_id=user.id) }}"
+                    hx-target="#user-status-{{ user.id }}"
+                    hx-confirm="Are you sure you want to remove the global ban?"
+                    hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('userModal')).hide()">
+                <input type="hidden" name="reason" value="Global ban removed by admin">
+                <button type="submit" class="btn btn-sm btn-outline-success">Remove</button>
+              </form>
+            </div>
+          </div>
+          {% endif %}
+          
+          {% if user.banned %}
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <strong>Legacy Ban</strong>
+                {% if user.banned_reason %}
+                <br><small class="text-muted">Reason: {{ user.banned_reason }}</small>
+                {% endif %}
+              </div>
+              <form style="display: inline;" 
+                    hx-post="{{ url_for('users.unban_user', user_id=user.id) }}"
+                    hx-target="#user-status-{{ user.id }}"
+                    hx-confirm="Are you sure you want to remove the legacy ban?"
+                    hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('userModal')).hide()">
+                <input type="hidden" name="reason" value="Legacy ban removed by admin">
+                <button type="submit" class="btn btn-sm btn-outline-success">Remove</button>
+              </form>
+            </div>
+          </div>
+          {% endif %}
+          
+          {% for action in user.moderation_actions_received %}
+            {% if action.active and action.action_type == 'ban' and action.scope == 'channel' %}
+            <div class="list-group-item">
+              <div class="d-flex justify-content-between align-items-center">
+                <div>
+                  <strong>{{ action.channel.name if action.channel else 'Unknown Channel' }}</strong>
+                  {% if action.expires_at %}
+                  <br><small class="text-muted">Expires: {{ action.expires_at }}</small>
+                  {% else %}
+                  <br><small class="text-muted">Permanent</small>
+                  {% endif %}
+                  <br><small class="text-muted">Reason: {{ action.reason }}</small>
+                </div>
+                <form style="display: inline;" 
+                      hx-post="{{ url_for('users.unban_user', user_id=user.id) }}"
+                      hx-target="#user-status-{{ user.id }}"
+                      hx-confirm="Are you sure you want to unban from {{ action.channel.name if action.channel else 'this channel' }}?"
+                      hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('userModal')).hide()">
+                  <input type="hidden" name="channel_id" value="{{ action.channel_id }}">
+                  <input type="hidden" name="reason" value="Channel ban removed by admin">
+                  <button type="submit" class="btn btn-sm btn-outline-success">Remove</button>
+                </form>
+              </div>
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+      
+      {% if not user.globally_banned and not user.banned and not (user.moderation_actions_received | selectattr('active', 'equalto', True) | selectattr('action_type', 'equalto', 'ban') | selectattr('scope', 'equalto', 'channel') | list) %}
+      <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> This user has no active bans.
+      </div>
+      {% endif %}
+      
+      <div class="d-flex gap-2 mt-3">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

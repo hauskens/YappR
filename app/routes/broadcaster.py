@@ -8,7 +8,6 @@ from app.models import (
     Broadcaster,
     ChannelSettings,
     Channels,
-    ChannelModerator,
     BroadcasterSettings,
     ContentQueue,
     ContentQueueSubmission,
@@ -17,11 +16,12 @@ from app.models import (
     ExternalUser,
 )
 from app.models.enums import PlatformType
-from app.services import BroadcasterService, UserService
+from app.services import BroadcasterService, UserService, ModerationService
 from app.cache import cache, make_cache_key
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime
+from sqlalchemy import select
 
 broadcaster_blueprint = Blueprint(
     'broadcaster', __name__, url_prefix='/broadcaster', template_folder='templates', static_folder='static')
@@ -30,10 +30,20 @@ broadcaster_blueprint = Blueprint(
 @broadcaster_blueprint.route("")
 @login_required
 @require_permission()
-@cache.memoize(timeout=60)
 def broadcasters():
-    broadcasters = BroadcasterService.get_all()
-    logger.info("Loaded broadcasters.html")
+    if UserService.is_moderator(current_user) or UserService.is_admin(current_user):
+        all_broadcasters = BroadcasterService.get_all(show_hidden=True)
+    else:
+        all_broadcasters = BroadcasterService.get_all(show_hidden=False)
+    banned_channel_ids = ModerationService.get_banned_channel_ids(current_user)
+    banned_broadcaster_ids = [BroadcasterService.get_by_internal_channel_id(channel_id).id for channel_id in banned_channel_ids]
+
+    broadcasters = [broadcaster for broadcaster in all_broadcasters if broadcaster.id not in banned_broadcaster_ids]
+
+    if UserService.is_broadcaster(current_user):
+        broadcasters.append(UserService.get_broadcaster(current_user))
+
+    logger.info("Loaded broadcasters.html", extra={"banned_broadcaster_ids": banned_broadcaster_ids})
     return render_template("broadcasters.html", broadcasters=broadcasters)
 
 
@@ -42,7 +52,6 @@ def broadcasters():
 @require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", permissions=PermissionType.Admin)
 def broadcaster_delete(broadcaster_id: int):
     logger.warning("Attempting to delete broadcaster %s", broadcaster_id)
-    logger.info("Deleting broadcaster %s", broadcaster_id)
     BroadcasterService.delete(broadcaster_id)
     return redirect(url_for("broadcasters"))
 
@@ -50,7 +59,6 @@ def broadcaster_delete(broadcaster_id: int):
 @broadcaster_blueprint.route("/create", methods=["POST", "GET"])
 @login_required
 @require_permission()
-# @cache.cached(timeout=60, make_cache_key=make_cache_key)
 def broadcaster_create():
     if request.method == "GET":
         logger.info("Loaded broadcaster_add.html")
@@ -98,7 +106,7 @@ def broadcaster_create():
             new_channel = Channels(
                 name=name,
                 broadcaster_id=new_broadcaster.id,
-                platform_name=PlatformType.Twitch.name,
+                platform_name=PlatformType.Twitch.value,
                 platform_ref=channel_name,
                 platform_channel_id=channel_id,
                 main_video_type=VideoType.VOD.name,
@@ -132,14 +140,9 @@ def broadcaster_create():
                 logger.info(
                     "Added initial broadcaster settings - Discord channel ID: %s", discord_channel_id)
 
-            if channel_id != current_user.external_account_id:
-                db.session.add(
-                    ChannelModerator(
-                        channel_id=new_broadcaster.id,
-                        user_id=current_user.id,
-                    )
-                )
             db.session.commit()
+            if channel_id != current_user.external_account_id:
+                UserService.update_moderated_channels(current_user)
 
             intro_clip = db.session.query(Content).filter_by(
                 url="https://www.youtube.com/watch?v=dQw4w9WgXcQ").one_or_none()
@@ -180,11 +183,11 @@ def broadcaster_create():
             flash(f"Broadcaster '{name}' was successfully created", "success")
             logger.info("Broadcaster %s was successfully created",
                         name, extra={"broadcaster_id": new_broadcaster.id})
-            return redirect(url_for("broadcaster_edit", id=new_broadcaster.id))
+            return redirect(url_for("broadcaster.broadcaster_edit", id=new_broadcaster.id))
         except Exception as e:
             flash(f"Failed to create broadcaster", "danger")
             logger.error("Failed to create broadcaster %s: %s", name, e)
-            return redirect(url_for("broadcaster_add"))
+            return redirect(url_for("broadcaster.broadcaster_add"))
 
 
 @broadcaster_blueprint.route("/edit/<int:id>", methods=["GET"])
@@ -233,7 +236,7 @@ def broadcaster_create_clip(broadcaster_id: int):
 
 @broadcaster_blueprint.route("/<int:broadcaster_id>/settings/update", methods=["POST"])
 @login_required
-@require_permission(permissions=[PermissionType.Admin], require_broadcaster=True, broadcaster_id_param="broadcaster_id", check_banned=True)
+@require_permission(permissions=[PermissionType.Admin], require_broadcaster=True, broadcaster_id_param="broadcaster_id")
 def broadcaster_settings_update(broadcaster_id: int):
     settings = db.session.query(BroadcasterSettings).filter_by(
         broadcaster_id=broadcaster_id).first()

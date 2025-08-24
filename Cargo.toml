@@ -34,6 +34,7 @@ features = [
   "HtmlTextAreaElement",
   "HtmlCanvasElement",
   "HtmlSelectElement",
+  "HtmlButtonElement",
   "HtmlAnchorElement",
   "CanvasRenderingContext2d",
   "NodeList",

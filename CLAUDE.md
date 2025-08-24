@@ -93,7 +93,6 @@ Performance testing suite available in `tests/app/test_search_performance.py` wi
 
 ### Development Notes
 - Frontend uses Bootstrap with HTMX for dynamic interactions
-- WebSocket support via Flask-SocketIO for real-time updates
 - Multi-worker architecture supports distributed transcription processing
 - Docker Compose setup includes all necessary services (PostgreSQL, Redis, GPU workers)
 - Search optimization focused on pure Python performance - avoided JIT compilation (Numba) due to type conversion overhead

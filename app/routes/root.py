@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, flash, send_from_directory, url_for, send_file, make_response, abort, jsonify, request, Response
 from app.logger import logger
 from flask_login import current_user, logout_user, login_required  # type: ignore
-from app.permissions import require_permission, require_api_key
+from app.permissions import require_permission, require_api_key, check_banned
 from app.models import PermissionType
 from app.csrf import csrf
 from app.retrievers import (
@@ -28,6 +28,7 @@ root_blueprint = Blueprint('root', __name__, url_prefix='/',
 
 @root_blueprint.route("/")
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@check_banned()
 def index():
     logger.info("Loaded frontpage")
     broadcasters = BroadcasterService.get_all()

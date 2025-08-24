@@ -1,0 +1,20 @@
+{% if user and channel %}
+    {% set user_role = user_service.get_channel_role(user, channel.id) %}
+    {% if user_role %}
+        {% set config = get_role_config(user_role) %}
+        <div class="d-flex align-items-center justify-content-between">
+            <span class="badge" 
+                  style="background-color: {{ config.background_color }}; color: {{ config.text_color }};">
+                {{ user_role.value }} - {{ config.description }}
+            </span>
+            <button class="btn btn-sm btn-outline-danger" 
+                    hx-delete="{{ url_for('users.revoke_role', user_id=user.id, channel_id=channel.id) }}"
+                    hx-target="#role-result"
+                    hx-confirm="Are you sure you want to revoke this role?">
+                Remove
+            </button>
+        </div>
+    {% else %}
+        <p class="text-muted">No role assigned in {{ channel.name }}</p>
+    {% endif %}
+{% endif %}

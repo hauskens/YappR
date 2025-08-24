@@ -1,0 +1,67 @@
+<div class="modal-dialog">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title">Ban User: {{ user.name }}</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    
+    <div class="modal-body">
+      <form hx-post="{{ url_for('users.ban_user', user_id=user.id) }}" 
+            hx-target="#user-status-{{ user.id }}"
+            hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('userModal')).hide()">
+        
+        <div class="mb-3">
+          <label class="form-label">Scope</label>
+          <select name="scope" class="form-select" id="ban-scope" 
+                  onchange="toggleChannelSelect(this)">
+            <option value="global">Global Ban</option>
+            <option value="channel">Channel Ban</option>
+          </select>
+        </div>
+        
+        <div class="mb-3" id="channel-select" style="display: none;">
+          <label class="form-label">Channel</label>
+          <select name="channel_id" class="form-select">
+            <option value="">Select a channel</option>
+            {% for channel in channels %}
+            <option value="{{ channel.id }}">{{ channel.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label">Reason</label>
+          <textarea name="reason" class="form-control" rows="3" required 
+                    placeholder="Enter ban reason..."></textarea>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label">Duration (hours, leave empty for permanent)</label>
+          <input type="number" name="duration_hours" class="form-control" 
+                 placeholder="e.g. 24 for 24 hours">
+        </div>
+        
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-danger">Ban User</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Global function to toggle channel select
+function toggleChannelSelect(selectElement) {
+  const channelSelect = document.getElementById('channel-select');
+  const channelSelectInput = channelSelect ? channelSelect.querySelector('select') : null;
+  
+  if (selectElement.value === 'channel') {
+    if (channelSelect) channelSelect.style.display = 'block';
+    if (channelSelectInput) channelSelectInput.required = true;
+  } else {
+    if (channelSelect) channelSelect.style.display = 'none';
+    if (channelSelectInput) channelSelectInput.required = false;
+  }
+}
+</script>

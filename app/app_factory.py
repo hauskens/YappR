@@ -16,7 +16,6 @@ from libcloud.storage.drivers.local import LocalStorageDriver
 from .auth import discord_blueprint, twitch_blueprint, twitch_blueprint_bot
 from .redis_client import RedisTaskQueue
 from flask_cors import CORS
-from flask_socketio import SocketIO
 from app.logger import logger
 from app.utils import download_nltk
 from .routes.root import root_blueprint
@@ -37,7 +36,6 @@ from app.services import (
 )
 import mimetypes
 
-socketio = SocketIO()
 
 
 def init_storage(container: str = "transcriptions"):
@@ -50,7 +48,7 @@ def init_storage(container: str = "transcriptions"):
 
 
 login_manager = LoginManager()
-login_manager.login_view = "discord.login"
+login_manager.login_view = "twitch.login"
 init_storage()
 
 container = LocalStorageDriver(
@@ -135,7 +133,6 @@ def create_app(overrides: dict | None = None):
     cors.init_app(app, resources={
                   r"/*": {"origins": config.app_url}}, supports_credentials=True)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # type: ignore
-    socketio.init_app(app)
 
     # Only initialize rate limiter when not in testing mode
     if not app.config.get("TESTING"):

@@ -200,10 +200,7 @@
 {% endif %}
 {% endblock %}
 {% block scripts %}
-<!-- Video ID meta tag for TypeScript -->
 <meta name="video-id" content="{{ video.id }}">
-<meta name="wasm-url" content="{{ url_for('static', filename='wasm/yappr_wasm_bg.wasm', v=version) }}">
 <meta name="version" content="{{ version }}">
-
 <script type="module" src="{{ url_for('static', filename='js/video.js', v=version) }}"></script>
 {% endblock %}

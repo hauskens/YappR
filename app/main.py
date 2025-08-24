@@ -20,16 +20,14 @@ from app.models import Transcription, TranscriptionSource, TranscriptionResult, 
 from app.transcribe import transcribe
 from app.models.config import config
 from app.services import ChannelService, VideoService, TranscriptionService, UserService
-from app import app, login_manager, socketio
+from app import app, login_manager
 from app.csrf import csrf
 from app.permissions import require_api_key, require_permission
 from app.twitch_api import get_current_live_streams
 from urllib.parse import unquote
 from celery.schedules import crontab
 from app.chatlogparse import parse_logs
-from flask_socketio import emit, send
 from app.logger import logger
-from flask_socketio import emit, join_room, leave_room, send
 from datetime import datetime, timedelta
 import uuid
 from werkzeug.utils import secure_filename
@@ -898,71 +896,7 @@ def upload_transcription(video_id: int):
     return "ok", 200
 
 
-@socketio.on("connect")
-@login_required
-def connected():
-    """event listener when client connects to the server"""
-    if current_user.is_anonymous == False and current_user.banned == False:
-        logger.info(request.sid)
-        logger.info("client has connected")
-        emit("connect", {"data": f"id: {request.sid} is connected"})
-    else:
-        logger.warning("client has connected, but is banned")
-        return False
-
-
-@socketio.on_error()        # Handles the default namespace
-def error_handler(e):
-    logger.error(f'An error occurred: {e}')
-
-
-@socketio.on("join_queue")
-@login_required
-def handle_join():
-    """Browser tells us which broadcaster it cares about."""
-    broadcaster_id = UserService.get_broadcaster(current_user).id
-    if broadcaster_id is None:
-        logger.warning("User has no broadcaster id",
-                       extra={"user_id": current_user.id})
-        return
-    join_room(f"queue-{broadcaster_id}")
-    logger.info("Client has joined queue %s", broadcaster_id,
-                extra={"user_id": current_user.id})
-
-
-@socketio.on('message')
-@login_required
-def handleMessage(msg):
-    if current_user.is_anonymous == False and current_user.banned == False:
-        logger.info('Message: ' + msg, extra={"user_id": current_user.id})
-        logger.info(current_user.permissions, extra={
-                    "user_id": current_user.id})
-        send(msg, broadcast=True)
-    else:
-        logger.warning("User is anonymous or banned")
-        return False
-
-
-@socketio.on("connect")
-@login_required
-def my_event():
-    logger.info("Client has connected", extra={"user_id": current_user.id})
-
-
-@socketio.on("disconnect")
-@login_required
-def handle_disconnect(_):
-    broadcaster_id = UserService.get_broadcaster(current_user).id
-    if broadcaster_id is None:
-        logger.warning("User has no broadcaster id",
-                       extra={"user_id": current_user.id})
-        return
-    leave_room(f"queue-{broadcaster_id}")
-    logger.info("Client has disconnected %s", broadcaster_id,
-                extra={"user_id": current_user.id})
-
 
 if __name__ == "__main__":
-    # socketio.run(app, debug=config.debug, host=config.app_host, port=config.app_port)
-    socketio.run(app, allow_unsafe_werkzeug=config.debug,
-                 host=config.app_host, port=config.app_port, debug=config.debug)
+
+    app.run(debug=config.debug, host=config.app_host, port=config.app_port)

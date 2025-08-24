@@ -1,14 +1,16 @@
 """
 User service for handling user-related business logic.
 """
-from typing import Iterable
+from typing import Iterable, Sequence
 from datetime import datetime
 import asyncio
 
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 from app.models import db
-from app.models import Users, ExternalUser, Permissions, Channels, ChannelModerator, Broadcaster, UserBase
-from app.models.enums import PermissionType, AccountSource, TwitchAccountType, PlatformType
+from app.models import Users, ExternalUser, Permissions, Channels, ChannelModerator, Broadcaster
+from app.models.user import UserChannelRole, ModerationAction
+from app.models.enums import PermissionType, AccountSource, TwitchAccountType, PlatformType, ChannelRole, ModerationScope, ModerationActionType
+from app.models.user import string_to_role, role_to_string
 from app.models.config import config
 from app.logger import logger
 
@@ -78,6 +80,11 @@ class UserService:
             .where(Channels.platform_channel_id == user.external_account_id)
             .limit(1)
         ).scalars().one_or_none() is not None
+
+    @staticmethod
+    def is_admin(user: Users) -> bool:
+        """Check if user is an admin."""
+        return db.session.query(Permissions).filter_by(user_id=user.id, permission_type=PermissionType.Admin).one_or_none() is not None
 
     @staticmethod
     def get_broadcaster(user: Users) -> Broadcaster | None:
@@ -195,19 +202,160 @@ class UserService:
         return user
 
     @staticmethod
-    def ban_user(user_id: int, reason: str) -> Users:
-        """Ban a user with a reason."""
-        return UserService.update(user_id, banned=True, banned_reason=reason)
-
-    @staticmethod
-    def unban_user(user_id: int) -> Users:
-        """Unban a user."""
-        return UserService.update(user_id, banned=False, banned_reason=None)
-
-    @staticmethod
     def update_last_login(user_id: int) -> Users:
         """Update user's last login timestamp."""
         return UserService.update(user_id, last_login=datetime.now())
+
+    # Role Management Methods
+    @staticmethod
+    def get_channel_role(user: Users, channel_id: int) -> ChannelRole | None:
+        """Get user's role in a specific channel."""
+        role_record = db.session.execute(
+            select(UserChannelRole)
+            .where(
+                UserChannelRole.user_id == user.id,
+                UserChannelRole.channel_id == channel_id,
+                UserChannelRole.active == True
+            )
+        ).scalar_one_or_none()
+        
+        return string_to_role(role_record.role) if role_record else None
+
+    @staticmethod
+    def has_channel_permission(user: Users, channel_id: int, required_roles: list[ChannelRole]) -> bool:
+        """Check if user has any of the required roles in a channel."""
+        current_role = UserService.get_channel_role(user, channel_id)
+        return current_role in required_roles if current_role else False
+
+    @staticmethod
+    def grant_channel_role(user_id: int, channel_id: int, role: ChannelRole, 
+                          granted_by_user_id: int | None = None, 
+                          expires_at: datetime | None = None) -> UserChannelRole:
+        """Grant or update a user's role in a specific channel."""
+        existing_role = db.session.execute(
+            select(UserChannelRole)
+            .where(
+                UserChannelRole.user_id == user_id,
+                UserChannelRole.channel_id == channel_id
+            )
+        ).scalar_one_or_none()
+        
+        if existing_role:
+            existing_role.role = role_to_string(role)
+            existing_role.granted_by = granted_by_user_id
+            existing_role.granted_at = datetime.now()
+            existing_role.expires_at = expires_at
+            existing_role.active = True
+            role_record = existing_role
+        else:
+            role_record = UserChannelRole(
+                user_id=user_id,
+                channel_id=channel_id,
+                role=role_to_string(role),
+                granted_by=granted_by_user_id,
+                expires_at=expires_at
+            )
+            db.session.add(role_record)
+        
+        db.session.commit()
+        logger.info(f"Granted role {role.value} to user {user_id} in channel {channel_id}")
+        return role_record
+
+    @staticmethod
+    def revoke_channel_role(user_id: int, channel_id: int) -> bool:
+        """Revoke a user's role in a specific channel."""
+        role_record = db.session.execute(
+            select(UserChannelRole)
+            .where(
+                UserChannelRole.user_id == user_id,
+                UserChannelRole.channel_id == channel_id,
+                UserChannelRole.active == True
+            )
+        ).scalar_one_or_none()
+        
+        if role_record:
+            role_record.active = False
+            db.session.commit()
+            logger.info(f"Revoked role from user {user_id} in channel {channel_id}")
+            return True
+        return False
+
+    @staticmethod
+    def get_channel_users_by_role(channel_id: int, role: ChannelRole | None = None) -> Sequence[Users]:
+        """Get users in a channel, optionally filtered by role."""
+        query = select(Users).join(UserChannelRole).where(
+            UserChannelRole.channel_id == channel_id,
+            UserChannelRole.active == True
+        )
+        
+        if role:
+            query = query.where(UserChannelRole.role == role_to_string(role))
+        
+        return db.session.execute(query).scalars().all()
+
+    # Moderation Methods
+    @staticmethod
+    def is_banned_from_channel(user: Users, channel_id: int) -> bool:
+        """Check if user is banned from a specific channel."""
+        if user.globally_banned:
+            if user.global_ban_expires_at is None:  # Permanent
+                return True
+            if user.global_ban_expires_at > datetime.now():  # Active temporary
+                return True
+        
+        # Check channel-specific ban
+        active_ban = db.session.execute(
+            select(ModerationAction)
+            .where(
+                ModerationAction.target_user_id == user.id,
+                ModerationAction.action_type == ModerationActionType.ban,
+                ModerationAction.scope == ModerationScope.channel,
+                ModerationAction.channel_id == channel_id,
+                ModerationAction.active == True,
+                or_(
+                    ModerationAction.expires_at.is_(None),
+                    ModerationAction.expires_at > datetime.now()
+                )
+            )
+        ).scalar_one_or_none()
+        
+        return active_ban is not None
+
+    @staticmethod
+    def is_globally_banned(user: Users) -> bool:
+        """Check if user is globally banned."""
+        if not user.globally_banned:
+            return False
+        
+        if user.global_ban_expires_at is None:  # Permanent
+            return True
+        
+        return user.global_ban_expires_at > datetime.now()
+
+    @staticmethod
+    def get_active_moderation_actions(user: Users, channel_id: int | None = None) -> Sequence[ModerationAction]:
+        """Get all active moderation actions for this user."""
+        query = select(ModerationAction).where(
+            ModerationAction.target_user_id == user.id,
+            ModerationAction.active == True,
+            or_(
+                ModerationAction.expires_at.is_(None),
+                ModerationAction.expires_at > datetime.now()
+            )
+        )
+        
+        if channel_id is not None:
+            query = query.where(
+                or_(
+                    ModerationAction.scope == ModerationScope.global_,
+                    and_(
+                        ModerationAction.scope == ModerationScope.channel,
+                        ModerationAction.channel_id == channel_id
+                    )
+                )
+            )
+        
+        return db.session.execute(query).scalars().all()
 
 
 class ExternalUserService:
@@ -228,14 +376,13 @@ class ExternalUserService:
 
     @staticmethod
     def create(username: str, external_account_id: int | None, account_type: AccountSource,
-               disabled: bool = False, ignore_weight_penalty: bool = False) -> ExternalUser:
+               disabled: bool = False) -> ExternalUser:
         """Create a new external user."""
         external_user = ExternalUser(
             username=username,
             external_account_id=external_account_id,
             account_type=account_type,
             disabled=disabled,
-            ignore_weight_penalty=ignore_weight_penalty
         )
         db.session.add(external_user)
         db.session.commit()

@@ -8,6 +8,7 @@ use serde::{Deserialize};
 mod utils;
 mod platforms;
 
+mod broadcaster_add;
 mod chat_tag_manager;
 mod chat_timeline_chart;
 mod generic_table;
@@ -565,4 +566,19 @@ pub fn render_tag_category_manager(element_id: &str) -> Result<(), String> {
 #[wasm_bindgen]
 pub fn render_transcription_table(video_id: i32, element_id: &str) -> Result<(), String> {
     transcription_table::render_transcription_table(video_id, element_id)
+}
+
+#[wasm_bindgen]
+pub fn init_broadcaster_add_form() {
+    broadcaster_add::broadcaster_init_form();
+}
+
+#[wasm_bindgen] 
+pub fn update_broadcaster_name() {
+    broadcaster_add::broadcaster_update_name();
+}
+
+#[wasm_bindgen]
+pub fn check_broadcaster_form_validity() {
+    broadcaster_add::broadcaster_check_validity();
 }

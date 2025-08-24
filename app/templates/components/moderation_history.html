@@ -1,0 +1,94 @@
+{% if history %}
+<div class="table-responsive">
+    <table class="table table-sm">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Action</th>
+                <th>Scope</th>
+                <th>Reason</th>
+                <th>Issued By</th>
+                <th>Status</th>
+                <th>Duration</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for action in history %}
+            <tr class="{{ 'table-secondary' if not action.active else '' }}">
+                <td>
+                    <small>{{ action.issued_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                </td>
+                <td>
+                    {% if action.action_type == ModerationActionType.ban %}
+                        <span class="badge bg-danger">Ban</span>
+                    {% elif action.action_type == ModerationActionType.timeout %}
+                        <span class="badge bg-warning">Timeout</span>
+                    {% elif action.action_type == ModerationActionType.warning %}
+                        <span class="badge bg-info">Warning</span>
+                    {% elif action.action_type == ModerationActionType.unban %}
+                        <span class="badge bg-success">Unban</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if action.scope == ModerationScope.global_ %}
+                        <span class="badge bg-dark">Global</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Channel</span>
+                        {% if action.channel %}
+                        <br><small>{{ action.channel.name }}</small>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td>
+                    <small>{{ action.reason }}</small>
+                    {% if action.revoked_reason %}
+                    <br><small class="text-muted">Revoked: {{ action.revoked_reason }}</small>
+                    {% endif %}
+                </td>
+                <td>
+                    <small>{{ action.issued_by_user.name if action.issued_by_user else 'System' }}</small>
+                    {% if action.revoked_by_user %}
+                    <br><small class="text-muted">Revoked by: {{ action.revoked_by_user.name }}</small>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if action.active %}
+                        {% if action.expires_at %}
+                            {% if action.expires_at > current_time %}
+                                <span class="badge bg-warning">Active</span>
+                                <br><small>Expires: {{ action.expires_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                            {% else %}
+                                <span class="badge bg-secondary">Expired</span>
+                            {% endif %}
+                        {% else %}
+                            <span class="badge bg-danger">Permanent</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="badge bg-secondary">Revoked</span>
+                        {% if action.revoked_at %}
+                        <br><small>{{ action.revoked_at.strftime('%Y-%m-%d %H:%M') }}</small>
+                        {% endif %}
+                    {% endif %}
+                </td>
+                <td>
+                    {% if action.duration_seconds %}
+                        {% set hours = (action.duration_seconds // 3600) %}
+                        {% set minutes = ((action.duration_seconds % 3600) // 60) %}
+                        <small>
+                            {% if hours > 0 %}{{ hours }}h {% endif %}
+                            {% if minutes > 0 %}{{ minutes }}m{% endif %}
+                        </small>
+                    {% else %}
+                        <small class="text-muted">N/A</small>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="text-center py-4">
+    <p class="text-muted">No moderation history found for this user.</p>
+</div>
+{% endif %}

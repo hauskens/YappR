@@ -111,9 +111,9 @@ def channel_fetch_details(channel_id: int):
     ChannelService.update_channel_details(channel)
     return render_template(
         "broadcaster_edit.html",
-        broadcaster=channel.broadcaster_id,
+        broadcaster=channel.broadcaster,
         channels=BroadcasterService.get_channels(
-            broadcaster_id=channel.broadcaster_id),
+            broadcaster_id=channel.broadcaster.id),
         platforms=[platform.name for platform in PlatformType],
         video_types=[video_type.name for video_type in VideoType],
     )
@@ -144,7 +144,7 @@ def channel_fetch_videos_all(channel_id: int):
 
 @channel_blueprint.route("/<int:channel_id>/settings/update", methods=["POST"])
 @login_required
-@require_permission(check_banned=True)
+@require_permission()
 def channel_settings_update(channel_id: int):
     # Check if user has permission to modify this channel
     channel = ChannelService.get_by_id(channel_id)

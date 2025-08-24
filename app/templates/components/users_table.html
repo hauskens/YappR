@@ -1,0 +1,147 @@
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead class="table-responsive">
+            <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Account Type</th>
+                <th>Status</th>
+                <th>Roles</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="users-table">
+            {% for user in users %}
+            <tr>
+                <td>{{ user.id }}</td>
+                <td>
+                    <div class="d-flex align-items-center">
+                        {% if user.avatar_url %}
+                        <img src="{{ user.avatar_url }}" class="rounded-circle me-2" width="32" height="32" alt="Avatar">
+                        {% endif %}
+                        <div>
+                            <strong>{{ user.name or 'N/A' }}</strong>
+                            {% if user.external_account_id %}
+                            <br><small class="text-muted">{{ user.external_account_id }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td>
+                <td>
+                    <span class="badge bg-secondary">{{ user.account_type.value if user.account_type else 'N/A' }}</span>
+                </td>
+                <td id="user-status-{{ user.id }}">
+                    {% include 'components/user_moderation_status.html' %}
+                </td>
+                <td id="user-roles-{{ user.id }}">
+                    {% include 'components/user_roles_display.html' %}
+                </td>
+                <td>
+                    {% if user.last_login %}
+                    <span title="{{ user.last_login }}">{{ user.last_login.strftime('%Y-%m-%d %H:%M') }}</span>
+                    {% else %}
+                    <span class="text-muted">Never</span>
+                    {% endif %}
+                </td>
+                <td>
+                    <div class="btn-group" role="group">
+                        <button class="btn btn-sm btn-outline-primary" 
+                                hx-get="{{ url_for('users.role_modal', user_id=user.id) }}"
+                                hx-target="#userModalContent"
+                                hx-trigger="click"
+                                hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()"
+                                title="Manage Roles">
+                            <i class="bi bi-person-badge"></i>
+                        </button>
+                        
+                        <button class="btn btn-sm btn-outline-warning" 
+                                hx-get="{{ url_for('users.ban_modal', user_id=user.id) }}"
+                                hx-target="#userModalContent"
+                                hx-trigger="click"
+                                hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()"
+                                title="Ban User">
+                            <i class="bi bi-ban"></i>
+                        </button>
+                        
+                        {% set has_channel_ban = user.moderation_actions_received | selectattr('active', 'equalto', True) | selectattr('action_type', 'equalto', 'ban') | selectattr('scope', 'equalto', 'channel') | list | length > 0 %}
+                        {% if user.globally_banned or user.banned or has_channel_ban %}
+                        <button class="btn btn-sm btn-outline-success" 
+                                hx-get="{{ url_for('users.unban_modal', user_id=user.id) }}"
+                                hx-target="#userModalContent"
+                                hx-trigger="click"
+                                hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()"
+                                title="Manage Bans">
+                            <i class="bi bi-check-circle"></i>
+                        </button>
+                        {% endif %}
+                        
+                        <button class="btn btn-sm btn-outline-info" 
+                                hx-get="{{ url_for('users.moderation_history', user_id=user.id) }}"
+                                hx-target="#history-content"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#historyModal"
+                                title="Moderation History">
+                            <i class="bi bi-clock-history"></i>
+                        </button>
+                        
+                        <a href="{{ url_for('users.user_edit', user_id=user.id) }}" 
+                           class="btn btn-sm btn-outline-secondary"
+                           title="Edit User">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if pagination and pagination.pages > 1 %}
+<nav aria-label="User pagination">
+    <ul class="pagination justify-content-center">
+        {% if pagination.has_prev %}
+        <li class="page-item">
+            <a class="page-link" 
+               hx-get="{{ url_for('users.search_users', page=pagination.prev_num, search=search) }}"
+               hx-target="#users-table-container">Previous</a>
+        </li>
+        {% endif %}
+        
+        {% for page_num in pagination.iter_pages() %}
+        {% if page_num %}
+        {% if page_num != pagination.page %}
+        <li class="page-item">
+            <a class="page-link" 
+               hx-get="{{ url_for('users.search_users', page=page_num, search=search) }}"
+               hx-target="#users-table-container">{{ page_num }}</a>
+        </li>
+        {% else %}
+        <li class="page-item active">
+            <span class="page-link">{{ page_num }}</span>
+        </li>
+        {% endif %}
+        {% else %}
+        <li class="page-item disabled">
+            <span class="page-link">…</span>
+        </li>
+        {% endif %}
+        {% endfor %}
+        
+        {% if pagination.has_next %}
+        <li class="page-item">
+            <a class="page-link" 
+               hx-get="{{ url_for('users.search_users', page=pagination.next_num, search=search) }}"
+               hx-target="#users-table-container">Next</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+
+{% if not users %}
+<div class="text-center py-4">
+    <p class="text-muted">No users found.</p>
+</div>
+{% endif %}

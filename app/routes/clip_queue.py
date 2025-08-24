@@ -9,18 +9,18 @@ from app.retrievers import get_content_queue
 from app.services import BroadcasterService, UserService
 from app.services.content_queue import WeightSettingsService
 from app.permissions import require_permission
-from flask_socketio import SocketIO
 import random
 from sqlalchemy import select
 from app.rate_limit import limiter
+from app.permissions import require_permission, check_banned
 
-socketio = SocketIO()
 
 clip_queue_blueprint = Blueprint(
     'clip_queue', __name__, url_prefix='/clip_queue', template_folder='templates', static_folder='static')
 
 
 @clip_queue_blueprint.route("", strict_slashes=False)
+@check_banned()
 def clip_queue():
     messages = [
         "Hi mom :)",
@@ -134,10 +134,6 @@ def skip_clip_queue_item(item_id: int):
                         "queue_item_id": queue_item.id, "user_id": current_user.id})
             queue_item.skipped = True
         db.session.commit()
-        socketio.emit(
-            "queue_update",
-            to=f"queue-{queue_item.broadcaster_id}",
-        )
         return jsonify({"skipped": queue_item.skipped})
     except Exception as e:
         logger.error("Error updating skip status for item %s: %s",

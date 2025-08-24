@@ -1,0 +1,206 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <!-- Highlight style -->
+  <style>
+    .highlight {
+      background-color: #ffff00;
+      font-weight: bold;
+    }
+  </style>
+  {% if video.active == False %}
+    <div class="container">
+      <h1>Video is not active</h1>
+      <p>This video is not available, likely disabled on {{video.channel.platform_name}} or deleted</p>
+    </div>
+  {% else %}
+    <div class="container">
+    
+    <a class="btn btn-primary" role="button" href="{{ url_for('channel.channel_get_videos', channel_id=video.channel.id) }}">Back to Channel</a>
+      {% if video.transcriptions|length == 0 and video.active == True %}
+        {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) %}
+          <a class="btn btn-primary"onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
+          <br></br>
+        {% endif %}
+      {% endif %}
+    <hr>
+    
+    <!-- Video Title and Thumbnail -->
+    <div class="row mb-4">
+      <div class="col-md-4">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h3>{{ video.title }}</h3>
+          {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"]) %}
+            <div class="dropdown">
+              <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="adminActionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-three-dots-vertical"></i>
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminActionsDropdown">
+                <li><a class="dropdown-item" href="{{ url_for('video.video_fetch_details', video_id=video.id) }}">Fetch video details</a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  {% if video.audio.filename is defined %}
+                    <a class="dropdown-item" href="{{ url_for('video_process_audio', video_id=video.id) }}">Process audio: {{ video.audio.filename }}</a>
+                  {% else %}
+                    <a class="dropdown-item" href="{{ url_for('video_fetch_audio', video_id=video.id) }}">Fetch audio from {{ video.channel.platform_name }}</a>
+                  {% endif %}
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="{{ url_for('video.video_fetch_transcriptions', video_id=video.id) }}">Fetch transcriptions</a></li>
+              </ul>
+            </div>
+          {% endif %}
+        </div>
+        <div class="mt-3 mb-3">
+          <img src="{{url_for('root.index')}}thumbnails/{{video.id}}" alt="Video thumbnail" style="max-width:100%; max-height:250px;">
+        </div>
+      </div>
+      
+      <div class="col-md-8">
+        <a href="{{ video_service.get_url(video) }}" >
+          <img
+          id="{{video.channel.platform_name}}"
+          src="https://img.shields.io/badge/link_to_video-5dade2?style=for-the-badge&labelColor={{platform_service_registry.get_service_by_name(video.channel.platform_name).primary_color}}&logo={{video.channel.platform_name}}&logoColor=white"
+          alt="{{video.channel.platform_name}}"
+        />
+        </a> 
+        <br><br>
+        {% if video.source_video.id is defined %}
+          <a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform_name}}</a>
+          {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) and video.source_video.transcriptions|length > 0 %}
+            <br>
+            <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform_name}} to {{video.channel.platform_name}}')" href="{{ url_for('video.video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
+          {% endif %}
+        {% endif %}
+        <p>Uploaded: {{ video.uploaded }}</p>
+      </div>
+    </div>
+
+    <!-- Chat Messages Collapsible Section -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h4 class="mb-0">
+          <button class="btn btn-link text-decoration-none w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#chatMessagesCollapse" aria-expanded="true" aria-controls="chatMessagesCollapse">
+            <i class="bi bi-chat-dots me-2"></i>Chat Messages
+            <i class="bi bi-chevron-down float-end"></i>
+          </button>
+        </h4>
+      </div>
+      <div id="chatMessagesCollapse" class="collapse show">
+        <div class="card-body">
+          <!-- Tag Categories Management -->
+          <div id="tag-category-manager"></div>
+
+          <!-- Search and filter controls -->
+          <div class="mb-3" id="chat-logs-container">
+            <button onclick="renderChatLogs({{ video.id }})" class="btn btn-primary">Load Chat Logs</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Transcriptions Collapsible Section -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <h4 class="mb-0">
+          <button class="btn btn-link text-decoration-none w-100 text-start" type="button" data-bs-toggle="collapse" data-bs-target="#transcriptionsCollapse" aria-expanded="false" aria-controls="transcriptionsCollapse">
+            <i class="bi bi-file-text me-2"></i>Transcriptions
+            <span class="badge bg-secondary ms-2">{{ transcriptions|length }}</span>
+            <i class="bi bi-chevron-down float-end"></i>
+          </button>
+        </h4>
+      </div>
+      <div id="transcriptionsCollapse" class="collapse">
+        <div class="card-body">
+          {% if transcriptions|length > 0 %}
+            <div class="mb-4">
+              <h5>Transcription Files</h5>
+              <div class="table-responsive">
+                <table class="table table-striped table-sm" id="transcription-list">
+                  <thead>
+                    <tr>
+                      <th scope="col">ID</th>
+                      <th scope="col">Type</th>
+                      <th scope="col">Source</th>
+                      <th scope="col">Last Updated</th>
+                      <th scope="col">Processed</th>
+                      <th scope="col">Segments</th>
+                      <th scope="col">File</th>
+                      <th scope="col">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for t in transcriptions %}
+                      <tr>
+                        <td>{{ t.id }}</td>
+                        <td>{{ t.file_extention }}</td>
+                        <td>{{ t.source.name }}</td>
+                        <td>{{ t.last_updated }}</td>
+                        <td>
+                          {% if t.processed %}
+                            <span class="badge bg-success">Processed</span>
+                          {% else %}
+                            <span class="badge bg-warning">Pending</span>
+                          {% endif %}
+                        </td>
+                        <td>{{ t.segments|length }}</td>
+                        <td title="{{ 'Users that are not logged in are not allowed to download transcriptions' if current_user is undefined else 'Download transcription' }}">
+                          <div class="dropdown">
+                            <button class="btn btn-primary btn-sm dropdown-toggle {{ 'disabled' if current_user is undefined else '' }}" type="button" id="downloadDropdown{{ t.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                              Download
+                            </button>
+                            <ul class="dropdown-menu" aria-labelledby="downloadDropdown{{ t.id }}">
+                              {% if t.file_extention != "json" %}
+                              <li><a class="dropdown-item" href="{{ url_for('transcription.download_transcription', transcription_id=t.id) }}" download="{{ t.file_extention }}">Original ({{ t.file_extention }} Format)</a></li>
+                              {% endif %}
+                              <li><a class="dropdown-item" href="{{ url_for('transcription.download_transcription_srt', transcription_id=t.id) }}" download="{{ t.id }}.srt">SRT Format</a></li>
+                              <li><a class="dropdown-item" href="{{ url_for('transcription.download_transcription_json', transcription_id=t.id) }}" download="{{ t.id }}.json">JSON Format</a></li>
+                            </ul>
+                          </div>
+                        </td>
+                        <td>
+                        <div class="dropdown">
+                          <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="adminActionsDropdown{{ t.id }}" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-three-dots-vertical"></i>
+                          </button>
+                          <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="adminActionsDropdown{{ t.id }}">
+                        {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"]) %}
+                          <li><a type="button" class="dropdown-item text-danger" onclick="return confirm('Are you sure? It is normally not a good reason to do this')" href="{{ url_for('transcription.delete_transcription', transcription_id=t.id) }}"> Delete transcription</a></li>
+                        {% endif %}
+                        {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) %}
+                          <li><a class="dropdown-item" title="This is a small task and will parse the transcriptions to make them searchable, its normally part of full processing, but can be triggered manually if needed"  href="{{ url_for('parse_transcription', transcription_id=t.id) }}"> Process transcription</a></li>
+                          <li><a class="dropdown-item text-danger" title="Not a dangerous task, it removes this particular transcription from search results, you can always process the transcription again, which is a cheap task"  href="{{ url_for('transcription.purge_transcription', transcription_id=t.id) }}">Remove from search</a></li>
+                        {% endif %}
+                        </ul>
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            
+            {% if transcriptions|selectattr("processed", "equalto", true)|list|length > 0 %}
+              <hr class="my-4">
+              <div id="transcription-segments-container">
+                <button onclick="renderTranscriptionTable({{ video.id }})" class="btn btn-primary">Load Transcription Segments</button>
+              </div>
+            {% endif %}
+          {% else %}
+            <div class="text-center text-muted py-4">
+              <i class="bi bi-file-text fs-1 mb-2"></i>
+              <p>No transcriptions available for this video.</p>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    </div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<meta name="video-id" content="{{ video.id }}">
+<meta name="version" content="{{ version }}">
+<script type="module" src="{{ url_for('static', filename='js/video.js', v=version) }}"></script>
+{% endblock %}

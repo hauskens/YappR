@@ -32,9 +32,7 @@
                 <div class="form-floating">
                     <select id="broadcaster" name="broadcaster" class="form-select" aria-label="Broadcaster selection">
                         {% for broadcaster in broadcasters %}
-                            {% if not broadcaster.hidden or (current_user.is_anonymous == False and broadcaster.hidden and user_service.has_permission(current_user, ["admin", "mod"])) %}
-                                <option value="{{ broadcaster.id }}" {% if session.get("last_selected_broadcaster") and broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
-                            {% endif %}
+                            <option value="{{ broadcaster.id }}" {% if session.get("last_selected_broadcaster") and broadcaster.id == session["last_selected_broadcaster"] %} selected {% endif %}>{{ broadcaster.name }}</option>
                         {% endfor %}
                     </select>
                     <label for="broadcaster">Broadcaster</label>

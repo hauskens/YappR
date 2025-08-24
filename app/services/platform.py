@@ -236,8 +236,11 @@ class TwitchPlatformService(PlatformService):
 
     async def fetch_moderated_channels(self, user: Users) -> list[Channels]:
         from .channel import ChannelService
-        twitch_client = await TwitchClientFactory.get_user_client(user.id)
+        logger.info("Fetching moderated channels for %s", user.name)
+        twitch_client = await TwitchClientFactory.get_user_client(user)
         moderated_channels = await get_moderated_channels(user.external_account_id, api_client=twitch_client)
+        logger.info("Got twitch moderated channels for user id: %s - %s channels",
+                     user.external_account_id, len(moderated_channels))
         result: list[Channels] = []
         for moderated_channel in moderated_channels:
             channel = ChannelService.get_by_platform_ref(
@@ -248,7 +251,7 @@ class TwitchPlatformService(PlatformService):
 
     async def fetch_account_type(self, user: Users) -> TwitchAccountType:
         """Get account type for a user on Twitch, partner, affiliate or regular"""
-        twitch_client = await TwitchClientFactory.get_user_client(user.id)
+        twitch_client = await TwitchClientFactory.get_user_client(user)
         twitch_user = await get_twitch_user_by_id(user.external_account_id, api_client=twitch_client)
         return TwitchAccountType(twitch_user.broadcaster_type.lower())
 

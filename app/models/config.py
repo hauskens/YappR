@@ -42,8 +42,8 @@ class Config:
         self.webshare_proxy_password: str | None = os.environ.get(
             "WEBSHARE_PROXY_PASSWORD"
         )
-        self.twitch_client_id: str | None = os.environ.get("TWITCH_CLIENT_ID")
-        self.twitch_client_secret: str | None = os.environ.get(
+        self.twitch_client_id: str = os.environ.get("TWITCH_CLIENT_ID")
+        self.twitch_client_secret: str = os.environ.get(
             "TWITCH_CLIENT_SECRET")
         self.twitch_dl_gql_client_id: str | None = os.environ.get(
             "TWITCH_DL_GQL_CLIENT_ID"
@@ -65,7 +65,7 @@ class Config:
             "DISCORD_BOT_TOKEN")
         self.bot_discord_enabled: bool = os.environ.get(
             "BOT_DISCORD_ENABLED", "false").lower() == "true"
-        self.bot_discord_admin_guild: int | None = os.environ.get(
+        self.bot_discord_admin_guild: int = os.environ.get(
             "BOT_DISCORD_ADMIN_GUILD")
         self.bot_twitch_enabled: bool = os.environ.get(
             "BOT_TWITCH_ENABLED", "false").lower() == "true"
@@ -75,6 +75,7 @@ class Config:
         self.loki_url: str | None = os.environ.get("LOKI_URL")
         self.timezone: str = os.environ.get("TIMEZONE", "Europe/Oslo")
         self.version: str = os.environ.get("VERSION", "0.0.0")
+        self.default_cache_time: int = int(os.environ.get("DEFAULT_CACHE_TIME", 300))
 
 
 _ = load_dotenv()

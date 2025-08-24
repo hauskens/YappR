@@ -1,0 +1,24 @@
+{% if user.channel_roles %}
+    {% for channel_role in user.channel_roles %}
+        {% if channel_role.active %}
+            {% set config = get_role_config(channel_role.role) %}
+            <span class="badge me-1" 
+                  style="background-color: {{ config.background_color }}; color: {{ config.text_color }};"
+                  title="{{ config.description }}">
+                {{ channel_role.role.value }}
+            </span>
+        {% endif %}
+    {% endfor %}
+{% endif %}
+
+{% if user.permissions %}
+    {% for perm in user.permissions %}
+        <span class="badge bg-dark me-1" title="Global permission">
+            {{ perm.permission_type.name }}
+        </span>
+    {% endfor %}
+{% endif %}
+
+{% if not user.channel_roles and not user.permissions %}
+    <span class="text-muted">No roles</span>
+{% endif %}

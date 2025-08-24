@@ -1,0 +1,47 @@
+<div class="modal-dialog">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h5 class="modal-title">Manage Roles: {{ user.name }}</h5>
+      <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+    </div>
+    
+    <div class="modal-body">
+      <form hx-post="{{ url_for('users.grant_role') }}" 
+            hx-target="#role-result"
+            hx-swap="innerHTML">
+        <input type="hidden" name="user_id" value="{{ user.id }}">
+        
+        <div class="mb-3">
+          <label class="form-label">Channel</label>
+          <select name="channel_id" class="form-select" required>
+            <option value="">Select a channel</option>
+            {% for channel in channels %}
+            <option value="{{ channel.id }}">{{ channel.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div class="mb-3">
+          <label class="form-label">Role</label>
+          <select name="role" class="form-select" required>
+            <option value="">Select a role</option>
+            {% for role in channel_roles %}
+            {% set config = get_role_config(role) %}
+            <option value="{{ role.value }}" 
+                    style="background-color: {{ config.background_color }}; color: {{ config.text_color }};">
+              {{ role.value }} - {{ config.description }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        
+        <div id="role-result"></div>
+        
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">Grant Role</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

@@ -2,7 +2,8 @@
 from flask_dance.contrib.twitch import make_twitch_blueprint  # type: ignore
 from flask_dance.consumer.storage.sqla import SQLAlchemyStorage  # type: ignore
 from flask_dance.consumer import oauth_authorized  # type: ignore
-from flask_login import current_user, login_user  # type: ignore
+from flask_login import current_user, login_user # type: ignore
+
 from ..models import db
 from ..models.auth import OAuth
 from ..models.user import Users
@@ -10,13 +11,16 @@ from ..models.enums import AccountSource
 from ..models.config import config
 from sqlalchemy.exc import NoResultFound
 from datetime import timedelta, datetime
-from twitchAPI.twitch import Twitch, AuthScope
 from app.logger import logger
+from twitchAPI.twitch import AuthScope
+
+user_oauth_scope=[AuthScope.USER_READ_MODERATED_CHANNELS]
+bot_oauth_scope=[AuthScope.CHAT_READ, AuthScope.CHAT_EDIT, AuthScope.CLIPS_EDIT, AuthScope.USER_BOT]
 
 blueprint = make_twitch_blueprint(
     client_id=config.twitch_client_id,
     client_secret=config.twitch_client_secret,
-    scope=['user:read:moderated_channels'],
+    scope=[scope.value for scope in user_oauth_scope],
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user)
 )
 
@@ -43,7 +47,6 @@ def handle_login(blueprint, token):
     if oauth.user:
         _ = login_user(oauth.user, remember=True, duration=timedelta(days=30))
     else:
-
         logger.info(
             f"checking for existing user with id: {info['data'][0]['id']}")
         existing_user = db.session.query(Users).filter_by(
@@ -65,6 +68,7 @@ def handle_login(blueprint, token):
             logger.info(
                 f"User {existing_user.name} already exists, logging in")
             oauth.user = existing_user
+            existing_user.last_login = datetime.now()
             db.session.add(oauth)
             db.session.commit()
             _ = login_user(existing_user, remember=True,
@@ -76,7 +80,7 @@ def handle_login(blueprint, token):
 blueprint_bot = make_twitch_blueprint(
     client_id=config.twitch_client_id,
     client_secret=config.twitch_client_secret,
-    scope=['chat:read', 'chat:edit', 'clips:edit', 'user:bot'],
+    scope=[scope.value for scope in bot_oauth_scope],
     storage=SQLAlchemyStorage(OAuth, db.session, user=current_user),
 )
 

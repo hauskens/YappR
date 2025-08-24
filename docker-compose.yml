@@ -51,7 +51,6 @@ services:
     volumes:
       - app:/var/lib/yappr/data
       - app-cache:/var/lib/yappr/cache #optional
-      - app-nltk:/root/nltk_data
     depends_on:
       cache:
         condition: service_healthy
@@ -65,6 +64,9 @@ services:
         - action: sync
           path: ./frontend/
           target: /src/frontend/
+        - action: sync
+          path: ./pkg/
+          target: /src/app/static/wasm/
         - action: rebuild
           path: ./pyproject.toml
         - action: rebuild
@@ -102,14 +104,14 @@ services:
     depends_on:
       - app
     deploy:
-      replicas: 1
+      replicas: 0
   worker-priority:
     extends: worker
     command: ["--app","app.main.celery","worker","--loglevel=info","--concurrency=1", "-Q", "priority-queue"]
     environment:
       - SERVICE_NAME=worker-priority
     deploy:
-      replicas: 1
+      replicas: 0
   beat:
     extends: worker
     command: ["--app","app.main.celery","beat","--loglevel=info" ]

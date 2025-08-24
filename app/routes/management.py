@@ -47,6 +47,7 @@ def management():
 
 @management_blueprint.route("/items")
 @login_required
+@require_permission()
 def management_items():
     logger.info("Loading management items with htmx")
     try:

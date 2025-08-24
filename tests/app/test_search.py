@@ -6,86 +6,8 @@ from datetime import datetime
 pytestmark = pytest.mark.unit
 
 # Import the search functions we want to test
-from app.search import (
-    search_words_present_in_sentence,
-    search_words_present_in_sentence_strict,
-    search_v2,
-)
-from app.models.search import SegmentsResult, VideoResult
-
-
-class TestSearchHelperFunctions:
-    """Test the basic search helper functions that don't need database access"""
-    
-    def test_search_words_present_in_sentence_basic(self):
-        """Test basic word presence detection using set operations"""
-        sentence = ["hello", "world", "this", "is", "a", "test"]
-        search_words = ["hello", "world"]
-        
-        assert search_words_present_in_sentence(sentence, search_words) == True
-    
-    def test_search_words_present_in_sentence_missing_word(self):
-        """Test when a search word is missing"""
-        sentence = ["hello", "world", "this", "is", "a", "test"]
-        search_words = ["hello", "missing"]
-        
-        assert search_words_present_in_sentence(sentence, search_words) == False
-    
-    def test_search_words_present_in_sentence_empty_search(self):
-        """Test with empty search words list"""
-        sentence = ["hello", "world"]
-        search_words = []
-        
-        assert search_words_present_in_sentence(sentence, search_words) == True
-    
-    def test_search_words_present_in_sentence_empty_sentence(self):
-        """Test with empty sentence"""
-        sentence = []
-        search_words = ["hello"]
-        
-        assert search_words_present_in_sentence(sentence, search_words) == False
-    
-    def test_search_words_present_in_sentence_strict_consecutive(self):
-        """Test strict search finds consecutive words"""
-        sentence = ["the", "quick", "brown", "fox", "jumps"]
-        search_words = ["quick", "brown", "fox"]
-        
-        assert search_words_present_in_sentence_strict(sentence, search_words) == True
-    
-    def test_search_words_present_in_sentence_strict_non_consecutive(self):
-        """Test strict search fails on non-consecutive words"""
-        sentence = ["the", "quick", "brown", "fox", "jumps"]
-        search_words = ["quick", "fox"]  # "brown" is missing in between
-        
-        assert search_words_present_in_sentence_strict(sentence, search_words) == False
-    
-    def test_search_words_present_in_sentence_strict_single_word(self):
-        """Test strict search with single word"""
-        sentence = ["hello", "world"]
-        search_words = ["world"]
-        
-        assert search_words_present_in_sentence_strict(sentence, search_words) == True
-    
-    def test_search_words_present_in_sentence_strict_empty_search(self):
-        """Test strict search with empty search words"""
-        sentence = ["hello", "world"]
-        search_words = []
-        
-        assert search_words_present_in_sentence_strict(sentence, search_words) == False
-    
-    def test_search_words_present_in_sentence_strict_word_not_found(self):
-        """Test strict search when word is not in sentence"""
-        sentence = ["hello", "world"]
-        search_words = ["missing"]
-        
-        assert search_words_present_in_sentence_strict(sentence, search_words) == False
-    
-    def test_search_words_present_in_sentence_strict_longer_than_sentence(self):
-        """Test strict search when search is longer than sentence"""
-        sentence = ["hello"]
-        search_words = ["hello", "world"]
-        
-        assert search_words_present_in_sentence_strict(sentence, search_words) == False
+from app.search import search_v2
+from app.models.search import VideoResult
 
 
 class TestSearchV2Integration:

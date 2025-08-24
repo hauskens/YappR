@@ -18,25 +18,18 @@ from nltk.stem import PorterStemmer  # type: ignore
 
 def download_nltk() -> None:
     """Download NLTK data if not already downloaded"""
-    data_dir = f"{config.cache_location}/nltk_data"
-    os.environ["NLTK_DATA"] = data_dir
-    if not os.path.exists(data_dir + "/corpora/stopwords"):
-        nltk.download("stopwords", download_dir=data_dir, quiet=True)
-    if not os.path.exists(data_dir + "/taggers/averaged_perceptron_tagger"):
-        nltk.download("averaged_perceptron_tagger", download_dir=data_dir, quiet=True)
-    if not os.path.exists(data_dir + "/tokenizers/punkt"):
-        nltk.download("punkt", download_dir=data_dir, quiet=True)
+    nltk.download("stopwords", quiet=True)
+    nltk.download("punkt_tab", quiet=True)
+    nltk.download("averaged_perceptron_tagger_eng", quiet=True)
 
-if os.getenv("NLTK_ENABLED", "true") == "true":
-    download_nltk()
 
-sw = stopwords.words("english")
-ps = PorterStemmer()
 
 
 # This function is used by both parsing and searching to ensure we are getting good search results.
 def sanitize_sentence(sentence: str) -> list[str]:
+    sw = stopwords.words("english")
     words = pos_tag(word_tokenize(sentence))
+    ps = PorterStemmer()
     result: list[str] = []
     for word in words:
         if word[0] not in sw:
@@ -50,6 +43,7 @@ def seconds_to_string(seconds: int | float) -> str:
 
 
 def loosely_sanitize_sentence(sentence: str) -> list[str]:
+    sw = stopwords.words("english")
     result: list[str] = []
     words = word_tokenize(sentence)
     for word in words:

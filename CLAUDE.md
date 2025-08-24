@@ -30,6 +30,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Run Discord/Twitch bots: `uv run bot/main.py`
 - Bots are enabled via `BOT_DISCORD_ENABLED` and `BOT_TWITCH_ENABLED` environment variables
 
+### WebAssembly Module
+- Build WebAssembly module: `wasm-pack build --target web`
+- Build for bundler: `wasm-pack build --target bundler`
+- Output directory: `pkg/` (contains generated JS bindings and WASM file)
+
 ## Architecture Overview
 
 YappR is a transcription and metadata search platform for YouTube and Twitch content built with:
@@ -88,7 +93,6 @@ Performance testing suite available in `tests/app/test_search_performance.py` wi
 
 ### Development Notes
 - Frontend uses Bootstrap with HTMX for dynamic interactions
-- WebSocket support via Flask-SocketIO for real-time updates
 - Multi-worker architecture supports distributed transcription processing
 - Docker Compose setup includes all necessary services (PostgreSQL, Redis, GPU workers)
 - Search optimization focused on pure Python performance - avoided JIT compilation (Numba) due to type conversion overhead

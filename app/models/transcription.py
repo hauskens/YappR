@@ -1,4 +1,4 @@
-from sqlalchemy import String, Integer, Boolean, Enum, DateTime, ForeignKey, Text, Computed
+from sqlalchemy import String, Integer, Boolean, Enum, DateTime, ForeignKey, Text, Computed, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from pydantic import BaseModel
 from .enums import TranscriptionSource
@@ -54,7 +54,6 @@ class Segments(Base):
     text_tsv: Mapped[TSVectorType] = mapped_column(
         TSVectorType("text", regconfig="simple"),
         Computed("to_tsvector('simple', \"text\")", persisted=True),
-        index=True,
     )
     start: Mapped[int] = mapped_column(Integer, nullable=False)
     end: Mapped[int] = mapped_column(Integer, nullable=False)
@@ -65,3 +64,8 @@ class Segments(Base):
         ForeignKey("transcriptions.id"), index=True
     )
     transcription: Mapped["Transcription"] = relationship()
+
+
+# Define GIN index for optimal full-text search performance
+# Note: transcription_id already has a btree index from the ForeignKey definition
+Index('ix_segments_text_tsv_gin', Segments.text_tsv, postgresql_using='gin')

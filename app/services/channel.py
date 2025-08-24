@@ -27,11 +27,11 @@ class ChannelService:
         ).scalars().one()
 
     @staticmethod
-    def get_by_platform_ref(platform_ref: str) -> Channels:
+    def get_by_platform_ref(platform_ref: str) -> Channels | None:
         """Get channel by platform reference."""
         return db.session.execute(
             select(Channels).filter_by(platform_ref=platform_ref)
-        ).scalars().one()
+        ).scalars().one_or_none()
 
     @staticmethod
     def get_all(show_hidden: bool = False) -> Sequence[Channels]:
@@ -56,8 +56,7 @@ class ChannelService:
         """Get all Twitch channels."""
         return db.session.execute(
             select(Channels)
-            .join(Platforms)
-            .filter(Platforms.name.ilike("twitch"))
+            .filter(Channels.platform_name.ilike("twitch"))
             .order_by(Channels.name)
         ).scalars().all()
 

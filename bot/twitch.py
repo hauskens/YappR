@@ -43,16 +43,21 @@ class TwitchBot:
         # Initialize the session
         self.session = ScopedSession()
 
+        logger.info("Twitch bot loading token")
         token_data = await self.load_token_from_db()
+        logger.info("Twitch bot token loaded")
         if not token_data:
+            logger.error("No bot OAuth token found in DB")
             raise Exception("No bot OAuth token found in DB")
 
+        logger.info("Twitch bot setting authentication")
         await self.twitch.set_user_authentication(
             token=token_data['access_token'],
             refresh_token=token_data['refresh_token'],
             scope=[AuthScope.CHAT_READ,
                    AuthScope.CHAT_EDIT, AuthScope.CLIPS_EDIT],
         )
+        logger.info("Twitch bot authentication set")
 
         # Start the background commit task
         asyncio.create_task(self.periodic_commit())
@@ -60,7 +65,7 @@ class TwitchBot:
         # Start the periodic channel check task
         asyncio.create_task(self.periodic_channel_check())
 
-        logger.info("Bot initialized")
+        logger.info("Bot tasks initialized")
 
     async def load_token_from_db(self):
         with SessionLocal() as session:

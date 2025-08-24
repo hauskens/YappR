@@ -306,11 +306,22 @@ class TranscriptionService:
         channels: Sequence[Channels],
     ) -> Sequence[Transcription]:
         """Get transcriptions for all active videos on the given channels."""
-        transcriptions: list[Transcription] = []
-        for channel in channels:
-            for video in channel.videos:
-                if video.active:
-                    transcriptions += video.transcriptions
+        from app.models.video import Video
+        
+        if not channels:
+            return []
+            
+        channel_ids = [channel.id for channel in channels]
+        
+        transcriptions = db.session.execute(
+            select(Transcription)
+            .join(Transcription.video)
+            .filter(
+                Video.channel_id.in_(channel_ids),
+                Video.active == True
+            )
+        ).scalars().all()
+        
         return transcriptions
 
     @staticmethod
@@ -318,16 +329,27 @@ class TranscriptionService:
         channels: Sequence[Channels], start_date: datetime, end_date: datetime
     ) -> Sequence[Transcription]:
         """Get transcriptions for active videos on the given channels within a date range."""
-        transcriptions: list[Transcription] = []
-        for channel in channels:
-            for video in channel.videos:
-                if video.active:
-                    logger.debug(
-                        f"Checking DATE: {start_date} < {video.uploaded} < {end_date}"
-                    )
-                    if start_date <= video.uploaded <= end_date:
-                        transcriptions += video.transcriptions
-                        logger.debug("Found match!")
+        from app.models.video import Video
+        
+        if not channels:
+            return []
+            
+        channel_ids = [channel.id for channel in channels]
+        
+        logger.debug(f"Querying transcriptions between {start_date} and {end_date}")
+        
+        transcriptions = db.session.execute(
+            select(Transcription)
+            .join(Transcription.video)
+            .filter(
+                Video.channel_id.in_(channel_ids),
+                Video.active == True,
+                Video.uploaded >= start_date,
+                Video.uploaded <= end_date
+            )
+        ).scalars().all()
+        
+        logger.debug(f"Found {len(transcriptions)} matching transcriptions")
         return transcriptions
 
     @staticmethod

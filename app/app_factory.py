@@ -1,6 +1,7 @@
 
 from flask import Flask, request, g, render_template
 from flask_login import LoginManager, current_user  # type: ignore
+from flask_wtf.csrf import CSRFError # type: ignore
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
 from uuid import uuid4
@@ -15,8 +16,8 @@ from libcloud.storage.drivers.local import LocalStorageDriver
 from .auth import discord_blueprint, twitch_blueprint, twitch_blueprint_bot
 from .redis_client import RedisTaskQueue
 from flask_cors import CORS
-from flask_socketio import SocketIO
 from app.logger import logger
+from app.utils import download_nltk
 from .routes.root import root_blueprint
 from .routes.clip_queue import clip_queue_blueprint
 from .routes.search import search_blueprint
@@ -33,9 +34,8 @@ from app.services import (
     BroadcasterService, VideoService, TranscriptionService, SegmentService,
     UserService, ContentQueueService, ContentService, PlatformServiceRegistry
 )
+import mimetypes
 
-
-socketio = SocketIO()
 
 
 def init_storage(container: str = "transcriptions"):
@@ -48,7 +48,7 @@ def init_storage(container: str = "transcriptions"):
 
 
 login_manager = LoginManager()
-login_manager.login_view = "discord.login"
+login_manager.login_view = "twitch.login"
 init_storage()
 
 container = LocalStorageDriver(
@@ -74,6 +74,7 @@ cors = CORS()
 def create_app(overrides: dict | None = None):
     logger.info("Creating app")
     init_storage()
+    download_nltk()
     app = Flask(__name__)
     app.secret_key = config.app_secret
     app.config["SQLALCHEMY_DATABASE_URI"] = config.database_uri
@@ -132,7 +133,6 @@ def create_app(overrides: dict | None = None):
     cors.init_app(app, resources={
                   r"/*": {"origins": config.app_url}}, supports_credentials=True)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # type: ignore
-    socketio.init_app(app)
 
     # Only initialize rate limiter when not in testing mode
     if not app.config.get("TESTING"):
@@ -141,6 +141,7 @@ def create_app(overrides: dict | None = None):
         limiter._storage_uri = "memory://"
 
     limiter.init_app(app)
+    mimetypes.add_type('application/wasm', '.wasm')
 
     # 404 error handler
     @app.errorhandler(404)
@@ -174,6 +175,8 @@ def create_app(overrides: dict | None = None):
             return render_template('errors/401.html'), 401
         if isinstance(e, InternalServerError):
             return render_template('errors/500.html'), 500
+        if isinstance(e, CSRFError):
+            return render_template('errors/generic.html', error_message="CSRF token expired, please refresh the page and try again"), 400
         
         # Re-raise the exception to let Flask handle it normally
         raise e

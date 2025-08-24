@@ -4,9 +4,11 @@ Twitch client factory for managing different types of Twitch API clients.
 from typing import Optional
 from twitchAPI.twitch import Twitch
 from app.models.config import config
-from app.models.auth import OAuth
+from app.models import OAuth, Users
+from app.auth import user_oauth_scope, bot_oauth_scope
 from app.models import db
 from app.logger import logger
+from app.services import UserService
 
 
 class TwitchClientFactory:
@@ -29,21 +31,21 @@ class TwitchClientFactory:
         return cls._server_client
     
     @staticmethod
-    async def get_user_client(user_id: int) -> Twitch:
+    async def get_user_client(user: Users) -> Twitch:
         """Get user-authenticated Twitch client with user's OAuth token (new instance each time)."""
-        oauth = db.session.query(OAuth).filter_by(user_id=user_id, provider='twitch').one_or_none()
+        oauth = db.session.query(OAuth).filter_by(user_id=user.id, provider='twitch').one_or_none()
         if not oauth:
-            logger.error(f"No Twitch OAuth token found for user {user_id}")
-            raise ValueError(f"No Twitch OAuth token found for user {user_id}")
+            logger.error(f"No Twitch OAuth token found for user {user.name}")
+            raise ValueError(f"No Twitch OAuth token found for user {user.name}")
         
-        logger.debug(f"Creating user Twitch client for user {user_id}")
+        logger.info(f"Creating user Twitch client for user {user.name}")
         # Create a new client instance for user authentication
         client = await Twitch(config.twitch_client_id, config.twitch_client_secret)
         
         await client.set_user_authentication(
             token=oauth.token["access_token"],
             refresh_token=oauth.token["refresh_token"],
-            scope=oauth.token.get("scope", [])
+            scope=user_oauth_scope
         )
         return client
     
@@ -62,7 +64,7 @@ class TwitchClientFactory:
             await cls._bot_client.set_user_authentication(
                 token=oauth.token["access_token"],
                 refresh_token=oauth.token["refresh_token"],
-                scope=oauth.token.get("scope", [])
+                scope=bot_oauth_scope
             )
         
         return cls._bot_client
@@ -92,7 +94,7 @@ class TwitchClientFactory:
     @staticmethod
     async def get_client_for_context(
         client_type: str = "server", 
-        user_id: Optional[int] = None
+        user_id: int | None = None
     ) -> Twitch:
         """
         Get appropriate Twitch client based on context.
@@ -109,7 +111,7 @@ class TwitchClientFactory:
         elif client_type == "user":
             if user_id is None:
                 raise ValueError("user_id is required when client_type is 'user'")
-            return await TwitchClientFactory.get_user_client(user_id)
+            return await TwitchClientFactory.get_user_client(UserService.get_by_id(user_id))
         elif client_type == "bot":
             return await TwitchClientFactory.get_bot_client()
         else:

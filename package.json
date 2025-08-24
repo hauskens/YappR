@@ -15,6 +15,7 @@
     "bootstrap-icons": "^1.13.1",
     "bootswatch": "^5.3.7",
     "chart.js": "^4.5.0",
+    "echarts": "^6.0.0",
     "github-buttons": "^2.29.1",
     "htmx.org": "^2.0.6",
     "socket.io-client": "^4.8.1",

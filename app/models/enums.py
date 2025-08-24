@@ -40,3 +40,27 @@ class TwitchAccountType(Enum):
     Partner = "partner"
     Affiliate = "affiliate"
     Regular = "regular"
+    Bot = "bot"
+
+class UserCreationType(Enum):
+    system = "system"
+    web_registration = "web_registration"
+    oauth_login = "oauth_login"
+
+class ChannelRole(Enum):
+    Owner = "Owner"
+    Mod = "Mod"
+    VIP = "VIP"
+    Subscriber = "Subscriber"
+    Follower = "Follower"
+    Basic = "Basic"
+
+class ModerationActionType(Enum):
+    ban = "ban"
+    timeout = "timeout"
+    unban = "unban"
+    warning = "warning"
+
+class ModerationScope(Enum):
+    global_ = "global"
+    channel = "channel"

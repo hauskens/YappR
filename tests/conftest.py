@@ -9,6 +9,7 @@ from flask import Flask
 from flask.testing import FlaskClient
 from sqlalchemy.orm import scoped_session
 from pydantic import ConfigDict
+import os
 
 # Create mocks for database-dependent imports
 class MockDB:
@@ -159,6 +160,11 @@ def create_mock_user_loader():
     mock_load_user._logged_in_users = _logged_in_users
     return mock_load_user
 
+@pytest.fixture(scope="session", autouse=True)
+def set_test_environment():
+    os.environ["TESTING"] = "1"
+    yield
+    os.environ.pop("TESTING", None)
 
 @pytest.fixture(scope="session")
 def pg_uri() -> Generator[str, None, None]:

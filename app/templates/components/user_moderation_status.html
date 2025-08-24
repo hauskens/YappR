@@ -1,0 +1,25 @@
+{% if user.globally_banned %}
+    {% if user.global_ban_expires_at %}
+        <span class="badge bg-danger" title="Global ban expires: {{ user.global_ban_expires_at }}">
+            Temp Ban
+        </span>
+    {% else %}
+        <span class="badge bg-danger" title="Permanently banned globally">
+            Banned
+        </span>
+    {% endif %}
+{% elif user.banned %}
+    <span class="badge bg-warning" title="Legacy ban: {{ user.banned_reason or 'No reason' }}">
+        Legacy Ban
+    </span>
+{% else %}
+    {# Check for active channel bans #}
+    {% set has_channel_ban = user.moderation_actions_received | selectattr('active', 'equalto', True) | selectattr('action_type', 'equalto', 'ban') | selectattr('scope', 'equalto', 'channel') | list | length > 0 %}
+    {% if has_channel_ban %}
+        <span class="badge bg-warning" title="Banned from one or more channels">
+            Channel Ban
+        </span>
+    {% else %}
+        <span class="badge bg-success">Active</span>
+    {% endif %}
+{% endif %}

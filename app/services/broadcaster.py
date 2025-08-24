@@ -42,6 +42,16 @@ class BroadcasterService:
             .where(Channels.platform_channel_id == external_id)
             .limit(1)
         ).scalars().one_or_none()
+    
+    @staticmethod
+    def get_by_internal_channel_id(channel_id: int) -> Broadcaster | None:
+        """Get broadcaster by internal channel ID."""
+        return db.session.execute(
+            select(Broadcaster)
+            .join(Broadcaster.channels)
+            .where(Channels.id == channel_id)
+            .limit(1)
+        ).scalars().one_or_none()
 
     @staticmethod
     def get_channels(broadcaster_id: int) -> Sequence[Channels]:

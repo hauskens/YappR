@@ -6,21 +6,19 @@ from app.models import db
 from app.models import PermissionType, ContentQueueSettings, ContentQueueSubmission, ContentQueue, ExternalUser, ExternalUserWeight
 from app.platforms.handler import PlatformRegistry
 from app.retrievers import get_content_queue
-from app.services import BroadcasterService, UserService
+from app.services import BroadcasterService, UserService, ModerationService
 from app.services.content_queue import WeightSettingsService
-from app.permissions import require_permission
-from flask_socketio import SocketIO
+from app.permissions import require_permission, check_permission, check_banned
 import random
 from sqlalchemy import select
-from app.rate_limit import limiter
 
-socketio = SocketIO()
 
 clip_queue_blueprint = Blueprint(
     'clip_queue', __name__, url_prefix='/clip_queue', template_folder='templates', static_folder='static')
 
 
 @clip_queue_blueprint.route("", strict_slashes=False)
+@check_banned()
 def clip_queue():
     messages = [
         "Hi mom :)",
@@ -134,10 +132,6 @@ def skip_clip_queue_item(item_id: int):
                         "queue_item_id": queue_item.id, "user_id": current_user.id})
             queue_item.skipped = True
         db.session.commit()
-        socketio.emit(
-            "queue_update",
-            to=f"queue-{queue_item.broadcaster_id}",
-        )
         return jsonify({"skipped": queue_item.skipped})
     except Exception as e:
         logger.error("Error updating skip status for item %s: %s",
@@ -649,12 +643,17 @@ def add_content():
     """Add new content to the queue"""
     logger.info("Loaded add_content.html")
     try:
-        if UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
+        if UserService.is_moderator(current_user) or UserService.is_admin(current_user):
             broadcasters = BroadcasterService.get_all(show_hidden=True)
         else:
+            all_broadcasters = BroadcasterService.get_all(show_hidden=False)
+            banned_channel_ids = ModerationService.get_banned_channel_ids(current_user)
+            banned_broadcaster_ids = [BroadcasterService.get_by_internal_channel_id(channel_id).id for channel_id in banned_channel_ids]
+
+            broadcasters = [broadcaster for broadcaster in all_broadcasters if broadcaster.id not in banned_broadcaster_ids]
             if UserService.is_broadcaster(current_user):
-                broadcasters = [UserService.get_broadcaster(current_user)]
-            broadcasters += BroadcasterService.get_all(show_hidden=False)
+                broadcasters.append(UserService.get_broadcaster(current_user))
+        
         if request.method == "GET":
             return render_template("add_content.html", broadcasters=broadcasters)
 
@@ -747,7 +746,7 @@ def search_content():
             if existing_content:
                 # If no broadcaster specified, search across all allowed broadcasters
                 if not broadcaster_id:
-                    if UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
+                    if check_permission(current_user, permissions=[PermissionType.Admin, PermissionType.Moderator]):
                         broadcasters = BroadcasterService.get_all(
                             show_hidden=True)
                     else:

@@ -1,5 +1,36 @@
-{% extends 'base.html' %} {% block content %}
-<h1>Banned</h1>
-<div>You have been banned for reason:</div>
-<div>{{ user.banned_reason }}</div>
+{% extends 'base.html' %} 
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 text-center">
+            <div class="card border-danger shadow-lg">
+                <div class="card-body p-5">
+                    <img src="https://cdn.7tv.app/emote/01FWC5Q3T0000EFCFJ99X9MVB4/4x.avif" 
+                         alt="Banned, image of a cat slapping the camera" 
+                         class="mb-4" 
+                         style="width: 132px; height: 128px;">
+                    
+                    <h1 class="text-danger mb-3">You have been {{ action }}!</h1>
+                    
+                    {% if reason %}
+                    <div class="alert alert-warning">
+                        <strong>Reason:</strong> {{ reason }}
+                    </div>
+                    {% endif %}
+                    
+                    {% if until %}
+                    <div class="alert alert-info">
+                        <strong>Expires:</strong> {{ until.strftime('%Y-%m-%d %H:%M:%S') }}
+                    </div>
+                    {% endif %}
+                    
+                    <div class="mt-4">
+                        <p class="text-muted">If you believe this was a mistake, please contact the moderators.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

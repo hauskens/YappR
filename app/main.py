@@ -138,7 +138,7 @@ def full_processing_task(channel_id: int):
 def parse_logs_route(channel_id: int, folder_path: str):
     with app.app_context():
         parse_logs(
-            f'/chatterino_logs/Twitch/Channels/{folder_path}', channel_id)
+            f'/chatterino_logs/Twitch/Channels/{folder_path}', channel_id, imported_by=current_user.id)
     return "Done"
 
 

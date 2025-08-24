@@ -4,10 +4,8 @@ from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models import db
 from app.models import Channels, VideoType, PermissionType, ChannelSettings, PlatformType, ChannelRole
-from app.services import BroadcasterService, ChannelService, UserService
+from app.services import BroadcasterService, ChannelService
 from app.rate_limit import limiter, rate_limit_exempt
-from app.cache import cache, make_cache_key
-
 
 channel_blueprint = Blueprint('channel', __name__, url_prefix='/channel',
                               template_folder='templates', static_folder='static')
@@ -52,15 +50,6 @@ def channel_create():
 @require_permission(permissions=PermissionType.Admin)
 def channel_link(channel_id: int):
     return "Not implemented", 501
-    # try:
-    #     link_channel_id = int(request.form["link_channel_id"])
-    # except:
-    #     link_channel_id = None
-    # logger.info("Linking channel to %s", link_channel_id,
-    #             extra={"channel_id": channel_id})
-    # _ = ChannelService.get_by_id(channel_id).link_to_channel(link_channel_id)
-    # return redirect(request.referrer)
-
 
 @channel_blueprint.route("/<int:channel_id>/look_for_linked")
 @login_required

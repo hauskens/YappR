@@ -9,7 +9,7 @@ function initializeBroadcasterEdit(): void {
   const options = platformSelect.options;
   
   for (let i = 0; i < options.length; i++) {
-    if (options[i].text.toLowerCase() === 'twitch') {
+    if (options[i]?.text.toLowerCase() === 'twitch') {
       twitchPlatformId = options[i].value;
       break;
     }
@@ -116,10 +116,143 @@ function setupHtmxEventListeners(): void {
 (window as any).toggleTwitchLookup = toggleTwitchLookup;
 (window as any).lookupTwitchId = lookupTwitchId;
 
+// Chat log upload functionality
+function initializeChatLogUpload(): void {
+  const fileInput = document.getElementById('chatlog-files') as HTMLInputElement;
+  const channelSelect = document.getElementById('channel-select') as HTMLSelectElement;
+  const uploadButton = document.getElementById('upload-chatlogs') as HTMLButtonElement;
+  const fileList = document.getElementById('file-list') as HTMLElement;
+  const selectedFilesList = document.getElementById('selected-files') as HTMLUListElement;
+
+  if (!fileInput || !channelSelect || !uploadButton) return;
+
+  // Handle file selection
+  fileInput.addEventListener('change', () => {
+    const files = fileInput.files;
+    if (files && files.length > 0) {
+      // Show selected files
+      selectedFilesList.innerHTML = '';
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!file) continue;
+        
+        const li = document.createElement('li');
+        li.className = 'list-group-item d-flex justify-content-between align-items-center';
+        li.innerHTML = `
+          <span><i class="bi bi-file-text me-2"></i>${file.name}</span>
+          <span class="badge bg-secondary">${(file.size / 1024).toFixed(1)} KB</span>
+        `;
+        selectedFilesList.appendChild(li);
+      }
+      fileList.style.display = 'block';
+    } else {
+      fileList.style.display = 'none';
+    }
+    
+    updateUploadButtonState();
+  });
+
+  // Handle channel selection change
+  channelSelect.addEventListener('change', updateUploadButtonState);
+
+  // Handle upload button click
+  uploadButton.addEventListener('click', uploadChatLogs);
+}
+
+function updateUploadButtonState(): void {
+  const fileInput = document.getElementById('chatlog-files') as HTMLInputElement;
+  const channelSelect = document.getElementById('channel-select') as HTMLSelectElement;
+  const uploadButton = document.getElementById('upload-chatlogs') as HTMLButtonElement;
+
+  if (!fileInput || !channelSelect || !uploadButton) return;
+
+  const hasFiles = fileInput.files && fileInput.files.length > 0;
+  const hasChannel = channelSelect.value !== '';
+
+  uploadButton.disabled = !(hasFiles && hasChannel);
+}
+
+async function uploadChatLogs(): Promise<void> {
+  const fileInput = document.getElementById('chatlog-files') as HTMLInputElement;
+  const channelSelect = document.getElementById('channel-select') as HTMLSelectElement;
+  const progressDiv = document.getElementById('upload-progress') as HTMLElement;
+  const progressBar = document.getElementById('upload-progress-bar') as HTMLElement;
+  const statusDiv = document.getElementById('upload-status') as HTMLElement;
+  const resultsDiv = document.getElementById('upload-results') as HTMLElement;
+  const uploadButton = document.getElementById('upload-chatlogs') as HTMLButtonElement;
+
+  if (!fileInput || !channelSelect || !fileInput.files) return;
+
+  const files = fileInput.files;
+  const channelId = channelSelect.value;
+
+  // Show progress
+  progressDiv.style.display = 'block';
+  uploadButton.disabled = true;
+  resultsDiv.innerHTML = '';
+
+  let successCount = 0;
+  let errorCount = 0;
+  const results: string[] = [];
+
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    if (!file) continue;
+    const progress = Math.round(((i + 1) / files.length) * 100);
+    
+    progressBar.style.width = `${progress}%`;
+    progressBar.textContent = `${progress}%`;
+    statusDiv.textContent = `Processing ${file?.name}... (${i + 1}/${files.length})`;
+
+    try {
+      const formData = new FormData();
+      formData.append('chatlog_file', file);
+      formData.append('channel_id', channelId);
+
+      const response = await fetch('/api/upload_chatlog', {
+        method: 'POST',
+        body: formData
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        successCount++;
+        results.push(`<div class="alert alert-success">✓ ${file.name}: ${result.message}</div>`);
+      } else {
+        errorCount++;
+        results.push(`<div class="alert alert-danger">✗ ${file.name}: ${result.error}</div>`);
+      }
+    } catch (error) {
+      errorCount++;
+      results.push(`<div class="alert alert-danger">✗ ${file.name}: Upload failed - ${error}</div>`);
+    }
+  }
+
+  // Update final status
+  statusDiv.innerHTML = `
+    <strong>Upload Complete:</strong> 
+    <span class="text-success">${successCount} successful</span>, 
+    <span class="text-danger">${errorCount} failed</span>
+  `;
+
+  // Show results
+  resultsDiv.innerHTML = results.join('');
+
+  // Reset form
+  uploadButton.disabled = false;
+  if (successCount > 0) {
+    fileInput.value = '';
+    document.getElementById('file-list')!.style.display = 'none';
+    updateUploadButtonState();
+  }
+}
+
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', () => {
   initializeBroadcasterEdit();
   setupHtmxEventListeners();
+  initializeChatLogUpload();
   
   // Fix Bootstrap dropdown placement issues
   const dropdowns = document.querySelectorAll('[data-bs-toggle="dropdown"]');

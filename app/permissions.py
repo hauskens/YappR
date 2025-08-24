@@ -118,7 +118,7 @@ def require_permission(
                         return render_template('banned.html', action="banned from this channel", reason="Banned from this channel")
 
                 has_permission = check_permission(user=current_user, permissions=permissions, check_broadcaster=check_broadcaster, check_moderator=check_moderator, check_anyone=check_anyone,
-                                                  require_logged_in=require_logged_in, broadcaster_id=broadcaster_id, channel_id=channel_id, channel_roles=channel_roles, minimum_role=minimum_role)
+                                                  broadcaster_id=broadcaster_id, channel_id=channel_id, channel_roles=channel_roles, minimum_role=minimum_role)
 
                 # Determine if access should be checked
                 requires_check = (check_broadcaster or check_moderator or
@@ -169,16 +169,15 @@ def check_permission(
         check_broadcaster: bool = False,
         check_moderator: bool = False,
         check_anyone: bool = False,
-        require_logged_in: bool = True,
         broadcaster_id: int | None = None,
         channel_id: int | None = None,
         channel_roles: ChannelRole | list[ChannelRole] | None = None,
         minimum_role: ChannelRole | None = None):
 
-    if user.is_anonymous:
+    if user.is_anonymous == True:
         return False
     # Check if user is banned
-    if user.globally_banned:
+    if user.globally_banned == True:
         return False
 
     # Get broadcaster_id and channel_id from parameters if needed

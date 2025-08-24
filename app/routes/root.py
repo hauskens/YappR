@@ -22,6 +22,8 @@ import json
 from datetime import datetime
 from app.models.config import config
 from app.routes.search import search_page
+from app.chatlogparse import parse_log
+import tempfile
 
 root_blueprint = Blueprint('root', __name__, url_prefix='/',
                            template_folder='templates', static_folder='static')
@@ -425,6 +427,139 @@ def lookup_twitch_id():
     except Exception as e:
         logger.error(f"Error looking up Twitch user: {e}")
         return jsonify({"success": False, "error": str(e)})
+
+
+@root_blueprint.route("/api/upload_chatlog", methods=["POST"])
+@login_required
+@csrf.exempt
+def upload_chatlog():
+    """API endpoint to upload and parse chatlog files"""
+    if 'chatlog_file' not in request.files:
+        return jsonify({"success": False, "error": "No file provided"})
+    
+    file = request.files['chatlog_file']
+    channel_id = request.form.get('channel_id')
+    
+    if file.filename == '':
+        return jsonify({"success": False, "error": "No file selected"})
+    
+    if not channel_id:
+        return jsonify({"success": False, "error": "No channel ID provided"})
+    
+    try:
+        channel_id = int(channel_id)
+    except ValueError:
+        return jsonify({"success": False, "error": "Invalid channel ID"})
+    
+    # Check if user has permission to upload for this channel
+    # We need to verify the user owns/moderates the broadcaster
+    from app.services import ChannelService
+    from app.models import PermissionType
+    
+    try:
+        channel = ChannelService.get_by_id(channel_id)
+        if not channel:
+            return jsonify({"success": False, "error": "Channel not found"})
+        
+        # Check permissions: admin, or broadcaster owner, or moderator
+        user_service = UserService()
+        if not (user_service.has_permission(current_user, [PermissionType.Admin]) or 
+                user_service.has_broadcaster_id(current_user, channel.broadcaster.id) or
+                user_service.is_moderator(current_user, channel.broadcaster.id)):
+            return jsonify({"success": False, "error": "Permission denied"})
+        
+        # Validate file extension and filename
+        allowed_extensions = {'.log', '.txt'}
+        file_ext = os.path.splitext(file.filename)[1].lower()
+        if file_ext not in allowed_extensions:
+            return jsonify({"success": False, "error": "Invalid file type. Only .log and .txt files are allowed"})
+        
+        # Validate filename doesn't contain path traversal attempts
+        if '..' in file.filename or '/' in file.filename or '\\' in file.filename:
+            return jsonify({"success": False, "error": "Invalid filename"})
+        
+        # Check file size (limit to 50MB)
+        MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+        file.seek(0, os.SEEK_END)
+        file_size = file.tell()
+        file.seek(0)  # Reset file pointer
+        
+        if file_size > MAX_FILE_SIZE:
+            return jsonify({"success": False, "error": "File too large. Maximum size is 50MB"})
+        
+        if file_size == 0:
+            return jsonify({"success": False, "error": "File is empty"})
+        
+        # Create secure temporary file in system temp directory
+        with tempfile.NamedTemporaryFile(mode='w+b', suffix=file_ext, delete=False, prefix='chatlog_') as temp_file:
+            file.save(temp_file.name)
+            temp_filename = temp_file.name
+        
+        try:
+            # Parse the log file
+            import_record = parse_log(
+                log_path=temp_filename,
+                channel_id=channel_id,
+                imported_by=current_user.id,
+                timezone_str=None  # Auto-detect from file
+            )
+            
+            if import_record:
+                message = f"Successfully imported chat logs. Import ID: {import_record.id}"
+            else:
+                message = "Successfully imported chat logs (legacy format)"
+            
+            logger.info(f"Chat log uploaded successfully: {file.filename}", extra={
+                "user_id": current_user.id,
+                "channel_id": channel_id,
+                "import_id": import_record.id if import_record else None,
+                "upload_filename": file.filename
+            })
+            
+            return jsonify({
+                "success": True, 
+                "message": message,
+                "import_id": import_record.id if import_record else None
+            })
+            
+        except ValueError as e:
+            # This handles duplicate detection and parsing errors
+            error_msg = str(e)
+            logger.warning(f"Chat log upload failed: {error_msg}", extra={
+                "user_id": current_user.id,
+                "channel_id": channel_id,
+                "upload_filename": file.filename
+            })
+            
+            # Provide user-friendly error messages
+            if "duplicate messages" in error_msg:
+                return jsonify({
+                    "success": False, 
+                    "error": "This chat log appears to contain messages that have already been imported. Duplicate imports are not allowed to prevent data corruption."
+                })
+            else:
+                return jsonify({"success": False, "error": f"Invalid log format: {error_msg}"})
+            
+        except Exception as e:
+            logger.error(f"Error parsing chat log: {str(e)}", extra={
+                "user_id": current_user.id,
+                "channel_id": channel_id,
+                "upload_filename": file.filename
+            }, exc_info=True)
+            return jsonify({"success": False, "error": f"Error parsing log file: {str(e)}"})
+        
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(temp_filename)
+            except:
+                pass
+    
+    except Exception as e:
+        logger.error(f"Error in chatlog upload: {str(e)}", extra={
+            "user_id": current_user.id
+        }, exc_info=True)
+        return jsonify({"success": False, "error": f"Server error: {str(e)}"})
 
 
 @root_blueprint.route("/utils/download_audio/<job_id>")

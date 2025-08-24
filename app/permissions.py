@@ -22,6 +22,7 @@ def require_api_key(func: F) -> F:
         return func(*args, **kwargs)
     return cast(F, wrapper)
 
+
 def check_banned():
     def decorator(f: Callable) -> Callable:
         @wraps(f)
@@ -68,7 +69,7 @@ def require_permission(
         @require_permission(channel_id_param='channel_id', channel_roles=[ChannelRole.Owner, ChannelRole.Mod])
         def moderate_channel(channel_id):
             return f'Moderate channel {channel_id}'
-            
+
         @app.route('/channel/<int:channel_id>/vip-area')
         @require_permission(channel_id_param='channel_id', minimum_role=ChannelRole.VIP)
         def vip_area(channel_id):
@@ -96,27 +97,33 @@ def require_permission(
                 broadcaster_id = None
                 if broadcaster_id_param in kwargs:
                     broadcaster_id = kwargs[broadcaster_id_param]
-                    channel_ids = [ channel.id for channel in BroadcasterService.get_channels(broadcaster_id=broadcaster_id)]
+                    channel_ids = [channel.id for channel in BroadcasterService.get_channels(
+                        broadcaster_id=broadcaster_id)]
                     if any(channel_id in ModerationService.get_banned_channel_ids(current_user) for channel_id in channel_ids):
-                        logger.info("User %s is banned from broadcaster %s", current_user, broadcaster_id)
+                        logger.info(
+                            "User %s is banned from broadcaster %s", current_user, broadcaster_id)
                         return render_template('banned.html', action="banned from this broadcaster", reason="Banned from this broadcaster")
 
                 channel_id = None
                 if channel_id_param in kwargs:
                     channel_id = kwargs[channel_id_param]
-                    broadcaster_id = BroadcasterService.get_by_internal_channel_id(channel_id)
-                    logger.info("Checking if channel %s is banned for user %s", channel_id, current_user)
+                    broadcaster = BroadcasterService.get_by_internal_channel_id(
+                        channel_id)
+                    broadcaster_id = broadcaster.id if broadcaster else None
+                    if broadcaster is None:
+                        raise ValueError(f"Channel {channel_id} not found")
+                    logger.info(
+                        "Checking if channel %s is banned for user %s", channel_id, current_user)
                     if channel_id in ModerationService.get_banned_channel_ids(current_user):
                         return render_template('banned.html', action="banned from this channel", reason="Banned from this channel")
 
-
-
-                has_permission = check_permission(user=current_user, permissions=permissions, check_broadcaster=check_broadcaster, check_moderator=check_moderator, check_anyone=check_anyone, require_logged_in=require_logged_in, broadcaster_id=broadcaster_id, channel_id=channel_id, channel_roles=channel_roles, minimum_role=minimum_role)
+                has_permission = check_permission(user=current_user, permissions=permissions, check_broadcaster=check_broadcaster, check_moderator=check_moderator, check_anyone=check_anyone,
+                                                  require_logged_in=require_logged_in, broadcaster_id=broadcaster_id, channel_id=channel_id, channel_roles=channel_roles, minimum_role=minimum_role)
 
                 # Determine if access should be checked
-                requires_check = (check_broadcaster or check_moderator or 
-                                permissions is not None or channel_roles is not None or 
-                                minimum_role is not None)
+                requires_check = (check_broadcaster or check_moderator or
+                                  permissions is not None or channel_roles is not None or
+                                  minimum_role is not None)
 
                 # If any permission check was required but failed, deny access
                 if requires_check and not has_permission:
@@ -132,18 +139,18 @@ def require_channel_role(
         minimum_role: ChannelRole | None = None):
     """
     Convenience decorator for channel-specific role requirements.
-    
+
     Args:
         channel_id_param: Name of the parameter containing the channel ID
         roles: Specific role(s) required
         minimum_role: Minimum role required (inclusive of higher roles)
-    
+
     Usage examples:
         @app.route('/channel/<int:channel_id>/moderate')
         @require_channel_role('channel_id', roles=[ChannelRole.Owner, ChannelRole.Mod])
         def moderate_channel(channel_id):
             return f'Moderate channel {channel_id}'
-            
+
         @app.route('/channel/<int:channel_id>/vip-area')
         @require_channel_role('channel_id', minimum_role=ChannelRole.VIP)
         def vip_area(channel_id):
@@ -154,6 +161,7 @@ def require_channel_role(
         channel_roles=roles,
         minimum_role=minimum_role
     )
+
 
 def check_permission(
         user: Users,
@@ -166,7 +174,7 @@ def check_permission(
         channel_id: int | None = None,
         channel_roles: ChannelRole | list[ChannelRole] | None = None,
         minimum_role: ChannelRole | None = None):
-    
+
     if user.is_anonymous:
         return False
     # Check if user is banned
@@ -175,18 +183,22 @@ def check_permission(
 
     # Get broadcaster_id and channel_id from parameters if needed
     if broadcaster_id is not None:
-        channel_ids = [ channel.id for channel in BroadcasterService.get_channels(broadcaster_id=broadcaster_id)]
+        channel_ids = [channel.id for channel in BroadcasterService.get_channels(
+            broadcaster_id=broadcaster_id)]
         if any(channel_id in ModerationService.get_banned_channel_ids(user) for channel_id in channel_ids):
-            logger.info("User %s is banned from broadcaster %s", user, broadcaster_id)
+            logger.info("User %s is banned from broadcaster %s",
+                        user, broadcaster_id)
             return False
 
     if channel_id is not None:
         broadcaster = BroadcasterService.get_by_internal_channel_id(channel_id)
         if broadcaster is None:
             raise ValueError(f"Channel {channel_id} not found")
-        logger.info("Checking if channel %s is banned for user %s", channel_id, user)
+        logger.info("Checking if channel %s is banned for user %s",
+                    channel_id, user)
         if any(channel_id in ModerationService.get_banned_channel_ids(user) for channel_id in broadcaster.channels):
-            logger.info("User %s is banned from channel %s", user, broadcaster_id)
+            logger.info("User %s is banned from channel %s",
+                        user, broadcaster_id)
             return False
 
     # Check permissions
@@ -212,22 +224,21 @@ def check_permission(
     # Check channel-specific permissions
     if channel_id:
         user_role = UserService.get_channel_role(current_user, channel_id)
-        
+
         # Check specific channel roles
         if channel_roles and user_role:
             if isinstance(channel_roles, ChannelRole):
                 required_roles = [channel_roles]
             else:
                 required_roles = channel_roles
-            
+
             if user_role in required_roles:
                 return True
-        
+
         # Check minimum role requirement
         if minimum_role and user_role:
             user_priority = get_role_config(user_role).priority
             min_priority = get_role_config(minimum_role).priority
-            
+
             if user_priority >= min_priority:
                 return True
-

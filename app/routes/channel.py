@@ -3,7 +3,7 @@ from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models import db
-from app.models import Channels, VideoType, PermissionType, ChannelSettings, PlatformType
+from app.models import Channels, VideoType, PermissionType, ChannelSettings, PlatformType, ChannelRole
 from app.services import BroadcasterService, ChannelService, UserService
 from app.rate_limit import limiter, rate_limit_exempt
 from app.cache import cache, make_cache_key
@@ -15,8 +15,7 @@ channel_blueprint = Blueprint('channel', __name__, url_prefix='/channel',
 
 @channel_blueprint.route("/create", methods=["POST"])
 @login_required
-# TODO: expand permission check
-@require_permission()
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
 def channel_create():
     name = request.form["name"]
     broadcaster_id = int(request.form["broadcaster_id"])
@@ -76,7 +75,7 @@ def channel_look_for_linked(channel_id: int):
 
 @channel_blueprint.route("/<int:channel_id>/delete")
 @login_required
-@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+@require_permission(permissions=[PermissionType.Admin], check_broadcaster=True)
 def channel_delete(channel_id: int):
     logger.warning("Deleting channel", extra={"channel_id": channel_id})
     ChannelService.delete_channel(channel_id)
@@ -86,6 +85,7 @@ def channel_delete(channel_id: int):
 @channel_blueprint.route("/<int:channel_id>/videos")
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@require_permission(check_broadcaster=True, check_anyone=True)
 def channel_get_videos(channel_id: int):
     logger.info("Getting videos for channel", extra={"channel_id": channel_id})
     channel = ChannelService.get_by_id(channel_id)
@@ -103,7 +103,7 @@ def channel_get_videos(channel_id: int):
 
 @channel_blueprint.route("/<int:channel_id>/fetch_details")
 @login_required
-@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator], check_broadcaster=True)
 def channel_fetch_details(channel_id: int):
     logger.info("Fetching details for channel",
                 extra={"channel_id": channel_id})
@@ -121,7 +121,7 @@ def channel_fetch_details(channel_id: int):
 
 @channel_blueprint.route("/<int:channel_id>/fetch_videos")
 @login_required
-@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator], check_broadcaster=True)
 def channel_fetch_videos(channel_id: int):
     logger.info("Fetching videos for channel",
                 extra={"channel_id": channel_id})
@@ -144,7 +144,7 @@ def channel_fetch_videos_all(channel_id: int):
 
 @channel_blueprint.route("/<int:channel_id>/settings/update", methods=["POST"])
 @login_required
-@require_permission()
+@require_permission(check_broadcaster=True, check_moderator=True, channel_roles=[ChannelRole.Owner, ChannelRole.Mod])
 def channel_settings_update(channel_id: int):
     # Check if user has permission to modify this channel
     channel = ChannelService.get_by_id(channel_id)
@@ -153,11 +153,6 @@ def channel_settings_update(channel_id: int):
             return '<div class="alert alert-danger">Channel not found</div>', 404
         return "Channel not found", 404
 
-    broadcaster_id = channel.broadcaster_id
-    if not (current_user.has_broadcaster_id(broadcaster_id) or UserService.has_permission(current_user, PermissionType.Admin)):
-        if request.headers.get('HX-Request'):
-            return '<div class="alert alert-danger">You do not have permission to modify this channel</div>', 403
-        return "You do not have permission to modify this channel", 403
 
     # Get or create channel settings
     settings = db.session.query(ChannelSettings).filter_by(

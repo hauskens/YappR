@@ -66,6 +66,7 @@ def video_delete(video_id: int):
 @video_blueprint.route("/<int:video_id>/edit")
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@require_permission()
 @cache.cached(timeout=10, make_cache_key=make_cache_key)
 def video_edit(video_id: int):
     video = VideoService.get_by_id(video_id)
@@ -209,6 +210,7 @@ def serve_audio(video_id: int):
 @video_blueprint.route("/<int:video_id>/transcription_segments")
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@require_permission()
 def video_transcription_segments(video_id: int):
     """Return transcription segments as JSON for searchable table"""
     logger.info("Getting transcription segments for video", extra={"video_id": video_id})

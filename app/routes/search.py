@@ -15,15 +15,18 @@ search_blueprint = Blueprint('search', __name__, url_prefix='/search',
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 @check_banned()
 def search_page():
-    if UserService.is_moderator(current_user) or UserService.is_admin(current_user):
-        all_broadcasters = BroadcasterService.get_all(show_hidden=True)
+    if current_user.is_anonymous:
+        broadcasters = BroadcasterService.get_all(show_hidden=False)
+
+    elif UserService.is_moderator(current_user) or UserService.is_admin(current_user):
+        broadcasters = BroadcasterService.get_all(show_hidden=True)
     else:
         all_broadcasters = BroadcasterService.get_all(show_hidden=False)
-    banned_channel_ids = ModerationService.get_banned_channel_ids(current_user)
-    banned_broadcaster_ids = [BroadcasterService.get_by_internal_channel_id(channel_id).id for channel_id in banned_channel_ids]
+        banned_channel_ids = ModerationService.get_banned_channel_ids(current_user)
+        banned_broadcaster_ids = [BroadcasterService.get_by_internal_channel_id(channel_id).id for channel_id in banned_channel_ids]
 
-    broadcasters = [broadcaster for broadcaster in all_broadcasters if broadcaster.id not in banned_broadcaster_ids]
-    if UserService.is_broadcaster(current_user):
+        broadcasters = [broadcaster for broadcaster in all_broadcasters if broadcaster.id not in banned_broadcaster_ids]
+    if not current_user.is_anonymous and UserService.is_broadcaster(current_user):
         broadcasters.append(UserService.get_broadcaster(current_user))
     logger.info(f"Loaded search.html")
     return render_template("search.html", broadcasters=broadcasters)

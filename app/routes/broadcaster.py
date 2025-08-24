@@ -49,7 +49,7 @@ def broadcasters():
 
 @broadcaster_blueprint.route("/delete/<int:broadcaster_id>", methods=["GET"])
 @login_required
-@require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", permissions=PermissionType.Admin)
+@require_permission(check_broadcaster=True, permissions=PermissionType.Admin)
 def broadcaster_delete(broadcaster_id: int):
     logger.warning("Attempting to delete broadcaster %s", broadcaster_id)
     BroadcasterService.delete(broadcaster_id)
@@ -183,19 +183,18 @@ def broadcaster_create():
             flash(f"Broadcaster '{name}' was successfully created", "success")
             logger.info("Broadcaster %s was successfully created",
                         name, extra={"broadcaster_id": new_broadcaster.id})
-            return redirect(url_for("broadcaster.broadcaster_edit", id=new_broadcaster.id))
+            return redirect(url_for("broadcaster.broadcaster_edit", broadcaster_id=new_broadcaster.id))
         except Exception as e:
             flash(f"Failed to create broadcaster", "danger")
             logger.error("Failed to create broadcaster %s: %s", name, e)
             return redirect(url_for("broadcaster.broadcaster_add"))
 
 
-@broadcaster_blueprint.route("/edit/<int:id>", methods=["GET"])
+@broadcaster_blueprint.route("/edit/<int:broadcaster_id>", methods=["GET"])
 @login_required
-@require_permission()
-@cache.cached(timeout=10, make_cache_key=make_cache_key)
-def broadcaster_edit(id: int):
-    broadcaster = BroadcasterService.get_by_id(id)
+@require_permission(check_broadcaster=True, check_anyone=True)
+def broadcaster_edit(broadcaster_id: int):
+    broadcaster = BroadcasterService.get_by_id(broadcaster_id)
     logger.info("Loaded broadcaster_edit.html", extra={
                 "broadcaster_id": broadcaster.id})
     return render_template(
@@ -236,7 +235,7 @@ def broadcaster_create_clip(broadcaster_id: int):
 
 @broadcaster_blueprint.route("/<int:broadcaster_id>/settings/update", methods=["POST"])
 @login_required
-@require_permission(permissions=[PermissionType.Admin], require_broadcaster=True, broadcaster_id_param="broadcaster_id")
+@require_permission(permissions=[PermissionType.Moderator], check_broadcaster=True)
 def broadcaster_settings_update(broadcaster_id: int):
     settings = db.session.query(BroadcasterSettings).filter_by(
         broadcaster_id=broadcaster_id).first()

@@ -17,16 +17,70 @@
           <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
         {% endif %}
         <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
-        <a class="btn btn-primary" onclick="return confirm('This will look for matches in source channel')" href="{{ url_for('channel.channel_look_for_linked', channel_id=channel.id) }}">Look for linked videos</a>
+        <!-- Enhanced Video Linking -->
+        <div class="mb-3">
+          <button type="button" class="btn btn-outline-info" data-bs-toggle="collapse" data-bs-target="#linkingOptions" aria-expanded="false" aria-controls="linkingOptions">
+            <i class="bi bi-link-45deg me-2"></i>Enhanced Video Linking
+          </button>
+          <div class="collapse mt-3" id="linkingOptions">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title">Link Videos with Title Date Parsing</h6>
+                <p class="card-text text-muted small">
+                  Uses duration matching + title date parsing to intelligently link videos between channels.
+                  {% if channel.source_channel %}
+                    Will link videos from <strong>{{ channel.source_channel.name }}</strong>.
+                  {% else %}
+                    <span class="text-warning">No source channel configured.</span>
+                  {% endif %}
+                </p>
+                
+                {% if channel.source_channel %}
+                <form action="{{ url_for('channel.channel_link_videos', channel_id=channel.id) }}" method="post">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                  
+                  <div class="row">
+                    <div class="col-md-4">
+                      <div class="mb-3">
+                        <label for="margin_sec" class="form-label">Duration Margin (seconds)</label>
+                        <input type="number" class="form-control form-control-sm" id="margin_sec" name="margin_sec" value="2" min="0" max="10">
+                        <div class="form-text">±seconds tolerance for video duration</div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="mb-3">
+                        <label for="min_duration" class="form-label">Min Duration (seconds)</label>
+                        <input type="number" class="form-control form-control-sm" id="min_duration" name="min_duration" value="300" min="60">
+                        <div class="form-text">Skip videos shorter than this</div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="mb-3">
+                        <label for="date_margin_hours" class="form-label">Date Margin (hours)</label>
+                        <input type="number" class="form-control form-control-sm" id="date_margin_hours" name="date_margin_hours" value="48" min="1" max="168">
+                        <div class="form-text">Max time difference for date matches</div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <button type="submit" class="btn btn-primary" onclick="return confirm('This will analyze all videos and create links where matches are found. Continue?')">
+                    <i class="bi bi-play-circle me-2"></i>Run Enhanced Video Linking
+                  </button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
         <form action="{{ url_for('channel.channel_link', channel_id=channel.id) }}" method="post">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
           <div class="mb-3">
             <label for="name" class="form-label">Connect to channel</label>
             <select id="link_channel_id" name="link_channel_id" class="form-select">
-              <option value="None">None</option>
+              <option value="None" {% if not channel.source_channel %}selected{% endif %}>None</option>
               {% for c in channel.broadcaster.channels %}
                 {% if c.id != channel.id %}
-                  <option value="{{ c.id }}">{{ c.name }}</option>
+                  <option value="{{ c.id }}" {% if channel.source_channel and c.id == channel.source_channel.id %}selected{% endif %}>{{ c.name }}</option>
                 {% endif %}
               {% endfor %}
             </select>

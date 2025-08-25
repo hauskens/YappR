@@ -213,31 +213,96 @@ class ChannelService:
         return sorted(channel.videos, key=lambda v: v.id, reverse=descending)
 
     @staticmethod
-    def look_for_linked_videos(channel: Channels, margin_sec: int = 2, min_duration: int = 300):
-        """Look for videos that should be linked based on duration matching."""
+    def look_for_linked_videos(channel: Channels, margin_sec: int = 2, min_duration: int = 300, date_margin_hours: int = 48):
+        """
+        Look for videos that should be linked based on duration matching and/or title date matching.
+        
+        Args:
+            channel: Target channel to link videos for
+            margin_sec: Duration matching margin in seconds
+            min_duration: Minimum video duration for linking
+            date_margin_hours: Maximum time difference for date-based matching
+        """
         if not channel.source_channel:
             logger.warning(
                 f"Channel {channel.name} has no source channel for linking")
             return
 
-        logger.info(f"Looking for potential links on channel {channel.name}")
+        # Title date parsing is always enabled
+        title_parsing_enabled = True
+        
+        logger.info(f"Looking for potential links on channel {channel.name} "
+                   f"(duration matching: always, title parsing: {title_parsing_enabled})")
+        
+        from .title_parser import extract_date_from_video_title
+        from datetime import timedelta
+        
+        # Process title dates if enabled
+        if title_parsing_enabled:
+            ChannelService._process_title_dates(channel)
+        
+        matches_found = 0
+        
         for source_video in channel.source_channel.videos:
             for target_video in channel.videos:
-                if (
-                    target_video.source_video_id is None
-                    and target_video.duration > min_duration
-                    and (
-                        (source_video.duration - margin_sec)
-                        <= target_video.duration
-                        <= (source_video.duration + margin_sec)
-                    )
-                ):
+                if target_video.source_video_id is not None:
+                    continue  # Already linked
+                
+                # Duration-based matching (existing logic)
+                duration_match = (
+                    target_video.duration > min_duration
+                    and (source_video.duration - margin_sec)
+                    <= target_video.duration
+                    <= (source_video.duration + margin_sec)
+                )
+                
+                # Date-based matching (new logic)
+                date_match = False
+                if title_parsing_enabled and target_video.estimated_upload_time and source_video.uploaded:
+                    time_diff = abs((target_video.estimated_upload_time - source_video.uploaded).total_seconds() / 3600)
+                    date_match = time_diff <= date_margin_hours
+                    
+                    if date_match:
+                        logger.debug(f"Date match found: {target_video.title[:50]}... "
+                                   f"(estimated: {target_video.estimated_upload_time}, "
+                                   f"source: {source_video.uploaded}, diff: {time_diff:.1f}h)")
+                
+                # Link if either duration or date matches (or both)
+                if duration_match or date_match:
+                    match_reason = []
+                    if duration_match:
+                        match_reason.append("duration")
+                    if date_match:
+                        match_reason.append("date")
+                    
                     logger.info(
-                        f"Found a match on video duration! Source: {source_video.id} -> target: {target_video.id}"
+                        f"Found match ({', '.join(match_reason)})! "
+                        f"Source: {source_video.id} -> Target: {target_video.id}"
                     )
                     target_video.source_video_id = source_video.id
                     db.session.flush()
+                    matches_found += 1
+        
         db.session.commit()
+        logger.info(f"Linked {matches_found} videos for channel {channel.name}")
+    
+    @staticmethod
+    def _process_title_dates(channel: Channels):
+        """Process title dates for unlinked videos in the channel."""
+        from .title_parser import extract_date_from_video_title
+        
+        updated_count = 0
+        for video in channel.videos:
+            if video.source_video_id is None and video.estimated_upload_time is None:
+                extracted_date = extract_date_from_video_title(video.title)
+                if extracted_date:
+                    video.estimated_upload_time = extracted_date
+                    db.session.flush()
+                    updated_count += 1
+        
+        if updated_count > 0:
+            logger.info(f"Updated estimated upload times for {updated_count} videos in {channel.name}")
+            db.session.commit()
 
     # TODO: implement
     # @staticmethod

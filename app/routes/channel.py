@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, request, flash
+from flask import Blueprint, render_template, redirect, request, flash, jsonify
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
@@ -49,7 +49,44 @@ def channel_create():
 @login_required
 @require_permission(permissions=PermissionType.Admin)
 def channel_link(channel_id: int):
-    return "Not implemented", 501
+    """Link channel to another channel (set source_channel_id)"""
+    channel = ChannelService.get_by_id(channel_id)
+    if not channel:
+        flash('Channel not found', 'error')
+        return redirect(request.referrer)
+
+    link_channel_id = request.form.get('link_channel_id')
+    
+    try:
+        if link_channel_id == 'None' or not link_channel_id:
+            # Unlink channel
+            ChannelService.link_to_channel(channel, None)
+        else:
+            # Link to target channel
+            target_channel_id = int(link_channel_id)
+            ChannelService.link_to_channel(channel, target_channel_id)
+
+    except ValueError as e:
+        flash(f'Error linking channel: {str(e)}', 'error')
+        logger.error(f"Error linking channel {channel_id}: {e}",
+                    extra={"channel_id": channel_id, "user_id": current_user.id})
+    except Exception as e:
+        flash(f'Unexpected error: {str(e)}', 'error')
+        logger.error(f"Unexpected error linking channel {channel_id}: {e}",
+                    extra={"channel_id": channel_id, "user_id": current_user.id})
+
+    # Check if this is a fetch request (AJAX) - fetch API typically doesn't set referrer policy the same way
+    # or we can check if it came from our modal (no referrer header in some cases)
+    is_fetch_request = (
+        request.headers.get('X-Requested-With') == 'fetch' or
+        'application/json' in request.headers.get('Accept', '') or
+        not request.referrer  # Fetch from modal might not have referrer
+    )
+    
+    if is_fetch_request:
+        return jsonify({"success": True})
+    else:
+        return redirect(request.referrer)
 
 @channel_blueprint.route("/<int:channel_id>/look_for_linked")
 @login_required
@@ -172,3 +209,45 @@ def channel_settings_update(channel_id: int):
     else:
         flash('Channel settings updated successfully')
         return redirect(request.referrer)
+
+
+@channel_blueprint.route("/<int:channel_id>/link_videos", methods=["POST"])
+@login_required
+@require_permission(check_broadcaster=True, check_moderator=True, channel_roles=[ChannelRole.Owner, ChannelRole.Mod])
+def channel_link_videos(channel_id: int):
+    """Run enhanced video linking for all videos in the channel"""
+    channel = ChannelService.get_by_id(channel_id)
+    if not channel:
+        flash('Channel not found', 'error')
+        return redirect(request.referrer)
+
+    if not channel.source_channel:
+        flash('No source channel configured for linking', 'error')
+        return redirect(request.referrer)
+
+    try:
+        # Get parameters from form (with defaults)
+        margin_sec = int(request.form.get('margin_sec', 2))
+        min_duration = int(request.form.get('min_duration', 300))
+        date_margin_hours = int(request.form.get('date_margin_hours', 48))
+
+        logger.info(f"Running video linking for channel {channel.name} with parameters: "
+                   f"margin_sec={margin_sec}, min_duration={min_duration}, date_margin_hours={date_margin_hours}",
+                   extra={"channel_id": channel_id, "user_id": current_user.id})
+
+        # Run the enhanced video linking
+        ChannelService.look_for_linked_videos(
+            channel=channel, 
+            margin_sec=margin_sec,
+            min_duration=min_duration,
+            date_margin_hours=date_margin_hours
+        )
+
+        flash(f'Video linking completed for {channel.name}. Check the logs for details.', 'success')
+
+    except Exception as e:
+        logger.error(f"Error running video linking for channel {channel_id}: {e}", 
+                    extra={"channel_id": channel_id, "user_id": current_user.id})
+        flash(f'Error running video linking: {str(e)}', 'error')
+
+    return redirect(request.referrer)

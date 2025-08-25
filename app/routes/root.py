@@ -385,7 +385,6 @@ def stats():
 
 
 @root_blueprint.route("/thumbnails/<int:video_id>")
-# @cache.memoize(timeout=120)
 @limiter.shared_limit("10000 per hour", exempt_when=rate_limit_exempt, scope="images")
 def serve_thumbnails(video_id: int):
     try:
@@ -432,6 +431,7 @@ def lookup_twitch_id():
 @root_blueprint.route("/api/upload_chatlog", methods=["POST"])
 @login_required
 @csrf.exempt
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
 def upload_chatlog():
     """API endpoint to upload and parse chatlog files"""
     if 'chatlog_file' not in request.files:

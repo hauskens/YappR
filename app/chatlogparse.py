@@ -96,22 +96,26 @@ def parse_log_start_line(line: str) -> tuple[datetime, str]:
 
 def check_for_duplicate_import(channel_id: int, first_messages: List[ChatLog], timezone_str: str) -> bool:
     """
-    Check if these messages already exist by comparing the first 10 messages
+    Check if these messages already exist by comparing exactly 10 consecutive messages
     within a 24-hour window around the timestamp range.
     Returns True if duplicates are found (regardless of import source), False otherwise.
     """
-    if not first_messages:
+    if not first_messages or len(first_messages) < 10:
+        logger.info(f"Not enough messages for duplicate detection: {len(first_messages)} (need 10)")
         return False
     
+    # Use exactly the first 10 messages for comparison
+    sample_messages = first_messages[:10]
+    
     # Get the timestamp range of our sample messages
-    start_time = first_messages[0].timestamp
-    end_time = first_messages[-1].timestamp
+    start_time = sample_messages[0].timestamp
+    end_time = sample_messages[-1].timestamp
     
     # Create 24-hour buffer around our sample timeframe
     search_start = start_time - timedelta(hours=24)
     search_end = end_time + timedelta(hours=24)
     
-    logger.info(f"Checking for duplicates in timeframe {search_start} to {search_end}")
+    logger.info(f"Checking for duplicates using 10-message sequence in timeframe {search_start} to {search_end}")
     
     # Get existing messages in the extended timeframe
     existing_messages = db.session.query(ChatLog).filter(
@@ -122,20 +126,21 @@ def check_for_duplicate_import(channel_id: int, first_messages: List[ChatLog], t
         )
     ).order_by(ChatLog.timestamp).all()
     
-    if len(existing_messages) < len(first_messages):
+    if len(existing_messages) < 10:
+        logger.info(f"Not enough existing messages for comparison: {len(existing_messages)}")
         return False
     
-    # Convert first messages to comparison tuples (username, message)
-    sample_tuples = [(msg.username, msg.message) for msg in first_messages]
+    # Convert sample messages to comparison tuples (username, message)
+    sample_tuples = [(msg.username, msg.message) for msg in sample_messages]
     
-    # Sliding window search through existing messages
-    for i in range(len(existing_messages) - len(first_messages) + 1):
+    # Sliding window search through existing messages for exactly 10 consecutive matches
+    for i in range(len(existing_messages) - 9):  # -9 because we need 10 consecutive
         window_tuples = [(existing_messages[i + j].username, existing_messages[i + j].message) 
-                        for j in range(len(first_messages))]
+                        for j in range(10)]
         
         if sample_tuples == window_tuples:
-            # Found matching sequence - determine the source
-            matching_messages = existing_messages[i:i + len(first_messages)]
+            # Found matching sequence of exactly 10 messages - determine the source
+            matching_messages = existing_messages[i:i + 10]
             import_source = "bot/live collection"
             
             # Check if any message has an import_id to identify user import
@@ -146,9 +151,10 @@ def check_for_duplicate_import(channel_id: int, first_messages: List[ChatLog], t
                         import_source = f"user import {import_record.id} by user {import_record.imported_by} at {import_record.imported_at}"
                     break
             
-            logger.warning(f"Found duplicate messages from {import_source}")
+            logger.warning(f"Found duplicate 10-message sequence from {import_source}")
             return True
     
+    logger.info("No duplicate 10-message sequences found")
     return False
 
 

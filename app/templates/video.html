@@ -65,11 +65,12 @@
         />
         </a> 
         <br><br>
-        {% if video.source_video.id is defined %}
-          <a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with with video from {{video.source_video.channel.platform_name}}</a>
-          {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) and video.source_video.transcriptions|length > 0 %}
-            <br>
-            <a class="btn btn-primary" role="button" onclick="return confirm('This will transfer transcriptions from {{video.source_video.channel.platform_name}} to {{video.channel.platform_name}}')" href="{{ url_for('video.video_archive', video_id=video.source_video_id) }}">Transfer transcriptions</a>
+        {% if video.source_video.id is not defined %}
+          {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) and video.channel.source_channel %}
+            <button type="button" class="btn btn-outline-primary" id="preview-link-btn" data-video-id="{{ video.id }}">
+              <i class="bi bi-link-45deg me-2"></i>Preview Video Linking
+            </button>
+            <div class="form-text mt-1">Find and preview potential links to videos from {{ video.channel.source_channel.name }}</div>
           {% endif %}
         {% endif %}
         <p>Uploaded: {{ video.uploaded }}</p>
@@ -93,7 +94,12 @@
 
           <!-- Search and filter controls -->
           <div class="mb-3" id="chat-logs-container">
-            <button onclick="renderChatLogs({{ video.id }})" class="btn btn-primary">Load Chat Logs</button>
+            {% if video.source_video_id %}
+              <button onclick="renderChatLogs({{ video.source_video_id }})" class="btn btn-primary">Load Chat Logs</button>
+              <div class="form-text mt-1">Loading chat logs from linked source video: {{ video.source_video.title[:50] }}...</div>
+            {% else %}
+              <button onclick="renderChatLogs({{ video.id }})" class="btn btn-primary">Load Chat Logs</button>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -196,6 +202,31 @@
       </div>
     </div>
 
+    </div>
+
+    <!-- Video Link Preview Modal -->
+    <div class="modal fade" id="linkPreviewModal" tabindex="-1" aria-labelledby="linkPreviewModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="linkPreviewModalLabel">Preview Video Linking</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div id="link-preview-content">
+              <div class="text-center py-3">
+                <div class="spinner-border" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Finding potential video matches...</p>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
     </div>
 {% endif %}
 {% endblock %}

@@ -59,3 +59,4 @@ class Video(Base):
     transcriptions: Mapped[list["Transcription"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
     )
+    estimated_upload_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None)

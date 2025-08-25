@@ -17,6 +17,7 @@ class VideoPage {
   async init() {
     await this.initWasm();
     this.setupGlobalFunctions();
+    this.setupVideoLinking();
     await this.renderInitialComponents();
   }
 
@@ -111,6 +112,206 @@ class VideoPage {
     if (this.wasmReady) {
       convert_timestamps();
     }
+  }
+
+  private setupVideoLinking() {
+    const previewButton = document.getElementById('preview-link-btn');
+    if (previewButton) {
+      previewButton.addEventListener('click', () => this.showLinkPreview());
+    }
+  }
+
+  private async showLinkPreview() {
+    const modal = document.getElementById('linkPreviewModal') as any;
+    const modalInstance = new (window as any).bootstrap.Modal(modal);
+    const contentDiv = document.getElementById('link-preview-content');
+    
+    if (!contentDiv) return;
+
+    // Show loading state
+    contentDiv.innerHTML = `
+      <div class="text-center py-3">
+        <div class="spinner-border" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-2">Finding potential video matches...</p>
+      </div>
+    `;
+    
+    modalInstance.show();
+
+    try {
+      const response = await fetch(`/video/${this.videoId}/link_preview`);
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch video links');
+      }
+
+      this.renderLinkPreview(data, contentDiv);
+    } catch (error) {
+      console.error('Error fetching link preview:', error);
+      contentDiv.innerHTML = `
+        <div class="alert alert-danger">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          Error: ${error instanceof Error ? error.message : 'Failed to load video links'}
+        </div>
+      `;
+    }
+  }
+
+  private renderLinkPreview(data: any, contentDiv: HTMLElement) {
+    const { video, potential_matches } = data;
+    
+    let html = `
+      <div class="mb-4">
+        <h6>Current Video</h6>
+        <div class="card">
+          <div class="card-body">
+            <h6 class="card-title">${this.escapeHtml(video.title)}</h6>
+            ${video.estimated_date ? 
+              `<p class="text-muted mb-1"><i class="bi bi-calendar me-1"></i>Extracted Date: ${new Date(video.estimated_date).toLocaleDateString()}</p>` 
+              : ''}
+            <p class="text-muted mb-0">
+              <i class="bi bi-gear me-1"></i>Title Parsing: ${video.title_parsing_enabled ? 'Enabled' : 'Disabled'}
+            </p>
+          </div>
+        </div>
+      </div>
+    `;
+
+    if (potential_matches.length === 0) {
+      html += `
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          No potential matches found. This could be because:
+          <ul class="mb-0 mt-2">
+            <li>No videos match the duration criteria (±2 seconds)</li>
+            <li>Title date parsing is disabled and no date matches found</li>
+            <li>The source channel has no videos in the date range</li>
+          </ul>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="mb-3">
+          <h6>Potential Matches <span class="badge bg-secondary">${potential_matches.length}</span></h6>
+          <p class="text-muted small">Click "Link Video" to confirm the connection</p>
+        </div>
+      `;
+
+      potential_matches.forEach((match: any, index: number) => {
+        const { video: sourceVideo, match_reasons, duration_diff, time_diff_hours } = match;
+        const badgeClass = match_reasons.length > 1 ? 'bg-success' : 'bg-primary';
+        
+        html += `
+          <div class="card mb-3">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                  <h6 class="card-title mb-1">${this.escapeHtml(sourceVideo.title)}</h6>
+                  <div class="d-flex flex-wrap gap-1 mb-2">
+                    ${match_reasons.map((reason: string) => 
+                      `<span class="badge ${badgeClass}">${this.capitalizeFirst(reason)} Match</span>`
+                    ).join('')}
+                  </div>
+                  <div class="row text-muted small">
+                    <div class="col-sm-6">
+                      <i class="bi bi-calendar me-1"></i>${new Date(sourceVideo.uploaded).toLocaleDateString()}
+                    </div>
+                    <div class="col-sm-6">
+                      <i class="bi bi-clock me-1"></i>${this.formatDuration(sourceVideo.duration)}
+                    </div>
+                  </div>
+                  <div class="row text-muted small mt-1">
+                    <div class="col-sm-6">
+                      <i class="bi bi-activity me-1"></i>Duration Diff: ${duration_diff.toFixed(1)}s
+                    </div>
+                    ${time_diff_hours !== null ? 
+                      `<div class="col-sm-6">
+                        <i class="bi bi-clock-history me-1"></i>Time Diff: ${time_diff_hours.toFixed(1)}h
+                      </div>` : ''}
+                  </div>
+                </div>
+                <div class="ms-3">
+                  <a href="${sourceVideo.url}" target="_blank" class="btn btn-outline-secondary btn-sm me-2">
+                    <i class="bi bi-box-arrow-up-right"></i>
+                  </a>
+                  <button class="btn btn-primary btn-sm" onclick="videoPage.confirmVideoLink(${sourceVideo.id}, '${this.escapeHtml(sourceVideo.title)}')">
+                    Link Video
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    contentDiv.innerHTML = html;
+  }
+
+  public async confirmVideoLink(sourceVideoId: number, sourceTitle: string) {
+    if (!confirm(`Link this video to "${sourceTitle}"?\n\nThis action will connect the videos and may transfer transcriptions.`)) {
+      return;
+    }
+
+    try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add CSRF token if available
+      if ((window as any).csrfToken) {
+        headers['X-CSRFToken'] = (window as any).csrfToken;
+      }
+
+      const response = await fetch(`/video/${this.videoId}/link_confirm`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ source_video_id: sourceVideoId })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to link video');
+      }
+
+      // Close modal and reload page to show the link
+      const modal = document.getElementById('linkPreviewModal') as any;
+      const modalInstance = (window as any).bootstrap.Modal.getInstance(modal);
+      modalInstance.hide();
+
+      // Show success message and reload
+      alert(data.message);
+      window.location.reload();
+
+    } catch (error) {
+      console.error('Error linking video:', error);
+      alert(`Error: ${error instanceof Error ? error.message : 'Failed to link video'}`);
+    }
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
+  private capitalizeFirst(str: string): string {
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  private formatDuration(seconds: number): string {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = Math.floor(seconds % 60);
+    
+    if (hours > 0) {
+      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    }
+    return `${minutes}:${secs.toString().padStart(2, '0')}`;
   }
 }
 

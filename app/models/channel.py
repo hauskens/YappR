@@ -38,9 +38,9 @@ class Channels(Base):
         String(), unique=True, nullable=False
     )
     source_channel_id: Mapped[int | None] = mapped_column(
-        ForeignKey("channels.id"), index=True, nullable=True
+        ForeignKey("channels.id"), nullable=True
     )
-    source_channel: Mapped["Channels"] = relationship()
+    source_channel: Mapped["Channels | None"] = relationship(foreign_keys=[source_channel_id], remote_side=[id])
     main_video_type: Mapped[VideoType] = mapped_column(
         Enum(VideoType), default=VideoType.Unknown
     )

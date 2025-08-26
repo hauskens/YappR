@@ -669,9 +669,9 @@ function validateParameter(event: Event): void {
   
   switch (name) {
     case 'margin_sec':
-      if (value < 0 || value > 10) {
+      if (value < 0 || value > 20) {
         isValid = false;
-        message = 'Duration margin should be between 0-10 seconds';
+        message = 'Duration margin should be between 0-20 seconds';
       } else if (value > 5) {
         message = 'High values may create false matches';
         input.classList.add('is-warning');

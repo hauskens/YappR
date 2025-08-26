@@ -9,25 +9,17 @@
       </a>
       <div class="collapse" id="collapseManageChannel">
         <hr>
-        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_transcribe_audio', channel_id=channel.id) }}';">Process all audio</button>
-        {% if channel.platform_name.lower() == "youtube" %}
-          <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_transcriptions', channel_id=channel.id) }}';">Fetch all transcriptions</button>
-        {% endif %}
-        {% if channel.platform_name.lower() == "twitch" %}
-          <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_fetch_audio', channel_id=channel.id) }}';">Fetch all audio</button>
-        {% endif %}
-        <button type="button" class="btn btn-primary" onclick="location.href = '{{ url_for('channel_parse_transcriptions', channel_id=channel.id) }}';">Process all transcriptions</button>
         <!-- Enhanced Video Linking -->
         <div class="mb-3">
-          <button type="button" class="btn btn-outline-info" data-bs-toggle="collapse" data-bs-target="#linkingOptions" aria-expanded="false" aria-controls="linkingOptions">
-            <i class="bi bi-link-45deg me-2"></i>Enhanced Video Linking
+          <button type="button" class="btn btn-primary" data-bs-toggle="collapse" data-bs-target="#linkingOptions" aria-expanded="false" aria-controls="linkingOptions">
+            <i class="bi bi-link-45deg me-2"></i>Bulk Video Linking
           </button>
           <div class="collapse mt-3" id="linkingOptions">
             <div class="card">
               <div class="card-body">
-                <h6 class="card-title">Link Videos with Title Date Parsing</h6>
+                <h6 class="card-title">Link Videos based on title parsing and duration matching</h6>
                 <p class="card-text text-muted small">
-                  Uses duration matching + title date parsing to intelligently link videos between channels.
+                  Uses duration matching + title date parsing to link videos between channels.
                   {% if channel.source_channel %}
                     Will link videos from <strong>{{ channel.source_channel.name }}</strong>.
                   {% else %}
@@ -36,35 +28,35 @@
                 </p>
                 
                 {% if channel.source_channel %}
-                <form action="{{ url_for('channel.channel_link_videos', channel_id=channel.id) }}" method="post">
+                <form action="{{ url_for('channel.channel_bulk_auto_link', channel_id=channel.id) }}" method="post" class="mt-3">
                   <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
                   
                   <div class="row">
                     <div class="col-md-4">
                       <div class="mb-3">
-                        <label for="margin_sec" class="form-label">Duration Margin (seconds)</label>
-                        <input type="number" class="form-control form-control-sm" id="margin_sec" name="margin_sec" value="2" min="0" max="10">
+                        <label for="bulk_margin_sec" class="form-label">Duration Margin (seconds)</label>
+                        <input type="number" class="form-control form-control-sm" id="bulk_margin_sec" name="margin_sec" value="10" min="0" max="10">
                         <div class="form-text">±seconds tolerance for video duration</div>
                       </div>
                     </div>
                     <div class="col-md-4">
                       <div class="mb-3">
-                        <label for="min_duration" class="form-label">Min Duration (seconds)</label>
-                        <input type="number" class="form-control form-control-sm" id="min_duration" name="min_duration" value="300" min="60">
+                        <label for="bulk_min_duration" class="form-label">Min Duration (seconds)</label>
+                        <input type="number" class="form-control form-control-sm" id="bulk_min_duration" name="min_duration" value="300" min="60">
                         <div class="form-text">Skip videos shorter than this</div>
                       </div>
                     </div>
                     <div class="col-md-4">
                       <div class="mb-3">
-                        <label for="date_margin_hours" class="form-label">Date Margin (hours)</label>
-                        <input type="number" class="form-control form-control-sm" id="date_margin_hours" name="date_margin_hours" value="48" min="1" max="168">
+                        <label for="bulk_date_margin_hours" class="form-label">Date Margin (hours)</label>
+                        <input type="number" class="form-control form-control-sm" id="bulk_date_margin_hours" name="date_margin_hours" value="48" min="1" max="168">
                         <div class="form-text">Max time difference for date matches</div>
                       </div>
                     </div>
                   </div>
                   
-                  <button type="submit" class="btn btn-primary" onclick="return confirm('This will analyze all videos and create links where matches are found. Continue?')">
-                    <i class="bi bi-play-circle me-2"></i>Run Enhanced Video Linking
+                  <button type="submit" class="btn btn-success" onclick="return confirm('This will automatically link all videos where BOTH Duration AND Date matches are found. No manual confirmation required. Continue?')">
+                    <i class="bi bi-lightning-fill me-2"></i>Bulk Auto-Link (Duration + Date Matches Only)
                   </button>
                 </form>
                 {% endif %}
@@ -72,21 +64,6 @@
             </div>
           </div>
         </div>
-        <form action="{{ url_for('channel.channel_link', channel_id=channel.id) }}" method="post">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-          <div class="mb-3">
-            <label for="name" class="form-label">Connect to channel</label>
-            <select id="link_channel_id" name="link_channel_id" class="form-select">
-              <option value="None" {% if not channel.source_channel %}selected{% endif %}>None</option>
-              {% for c in channel.broadcaster.channels %}
-                {% if c.id != channel.id %}
-                  <option value="{{ c.id }}" {% if channel.source_channel and c.id == channel.source_channel.id %}selected{% endif %}>{{ c.name }}</option>
-                {% endif %}
-              {% endfor %}
-            </select>
-          </div>
-         <button type="submit" class="btn btn-primary">Update Channel link</button>
-        </form>
       </div>
     {% endif %}
     <hr>
@@ -106,6 +83,7 @@
           <th scope="col">Duration</th>
           <th scope="col">Transcriptions</th>
           <th scope="col">Status</th>
+          <th scope="col">Linked Status</th>
           <th scope="col">Published</th>
           <th scope="col">Actions</th>
         </tr>
@@ -120,7 +98,7 @@
           <td>{{ video.title }}</td>
           <td>{{ video_service.get_duration_str(video) }}</td>
           <td> 
-            {% if video.transcriptions|length == 0 and video.active == true %}
+            {% if video.transcriptions|length == 0 and video.active == true and not video.source_video %}
               {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, channel.broadcaster_id) or user_service.is_moderator(current_user, channel.broadcaster_id)) %}
                   <a class="btn btn-primary" onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
               {% endif %}
@@ -129,6 +107,23 @@
                 {{ 'Processed' if t.processed else 'Not processed' }}
             {% endfor %}</td>
           <td>{% if video.audio.filename is defined %}Has audio attached{%elif video.source_video.id is defined%}<a href="{{ url_for('video.video_edit', video_id=video.source_video_id) }}">Linked with {{video.source_video.channel.platform_name}}</a>{% endif %}</td>
+          <td>
+            {% if video.source_video %}
+              <span class="badge bg-success">
+                <i class="bi bi-link-45deg me-1"></i>Linked
+              </span>
+              <br>
+              <small class="text-muted">
+                <a href="{{ url_for('video.video_edit', video_id=video.source_video.id) }}" class="text-decoration-none">
+                  {{ video.source_video.title[:30] }}{% if video.source_video.title|length > 30 %}...{% endif %}
+                </a>
+              </small>
+            {% else %}
+              <span class="badge bg-secondary">
+                <i class="bi bi-x-circle me-1"></i>Not Linked
+              </span>
+            {% endif %}
+          </td>
           <td>{{ video.uploaded }}</td>
           <td>
             <div class="container mb-2">

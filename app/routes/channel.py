@@ -250,3 +250,48 @@ def channel_link_videos(channel_id: int):
         flash(f'Error running video linking: {str(e)}', 'error')
 
     return redirect(request.referrer)
+
+
+@channel_blueprint.route("/<int:channel_id>/bulk_auto_link", methods=["POST"])
+@login_required
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+def channel_bulk_auto_link(channel_id: int):
+    """Bulk auto-link videos where both Duration and Date matches are found"""
+    channel = ChannelService.get_by_id(channel_id)
+    if not channel:
+        flash('Channel not found', 'error')
+        return redirect(request.referrer)
+
+    if not channel.source_channel:
+        flash('No source channel configured for linking', 'error')
+        return redirect(request.referrer)
+
+    try:
+        # Get parameters from form (with defaults)
+        margin_sec = int(request.form.get('margin_sec', 2))
+        min_duration = int(request.form.get('min_duration', 300))
+        date_margin_hours = int(request.form.get('date_margin_hours', 48))
+
+        logger.info(f"Running bulk auto-link for channel {channel.name} with parameters: "
+                   f"margin_sec={margin_sec}, min_duration={min_duration}, date_margin_hours={date_margin_hours}",
+                   extra={"channel_id": channel_id, "user_id": current_user.id})
+
+        # Run the bulk auto-link with strict criteria (both duration and date must match)
+        linked_count = ChannelService.bulk_auto_link_videos(
+            channel=channel, 
+            margin_sec=margin_sec,
+            min_duration=min_duration,
+            date_margin_hours=date_margin_hours
+        )
+
+        if linked_count > 0:
+            flash(f'Successfully auto-linked {linked_count} videos for {channel.name}.', 'success')
+        else:
+            flash(f'No videos found that meet both Duration AND Date criteria for auto-linking.', 'info')
+
+    except Exception as e:
+        logger.error(f"Error running bulk auto-link for channel {channel_id}: {e}", 
+                    extra={"channel_id": channel_id, "user_id": current_user.id})
+        flash(f'Error running bulk auto-link: {str(e)}', 'error')
+
+    return redirect(request.referrer)

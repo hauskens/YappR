@@ -306,6 +306,70 @@ class ChannelService:
             db.session.commit()
 
     @staticmethod
+    def bulk_auto_link_videos(channel: Channels, margin_sec: int = 10, min_duration: int = 300, date_margin_hours: int = 48) -> int:
+        """
+        Bulk auto-link videos where BOTH Duration AND Date matches are found.
+        This is more restrictive than look_for_linked_videos() which requires only one match.
+        
+        Args:
+            channel: Target channel to link videos for
+            margin_sec: Duration matching margin in seconds
+            min_duration: Minimum video duration for linking
+            date_margin_hours: Maximum time difference for date-based matching
+            
+        Returns:
+            Number of videos that were successfully auto-linked
+        """
+        if not channel.source_channel:
+            logger.warning(f"Channel {channel.name} has no source channel for linking")
+            return 0
+
+        logger.info(f"Running bulk auto-link for channel {channel.name} (requires BOTH duration AND date match)")
+        
+        from .title_parser import extract_date_from_video_title
+        
+        # Process title dates if needed
+        ChannelService._process_title_dates(channel)
+        
+        linked_count = 0
+        
+        for source_video in channel.source_channel.videos:
+            for target_video in channel.videos:
+                if target_video.is_linked_to_source():
+                    continue  # Already linked
+                
+                # Duration-based matching (same as existing logic)
+                duration_match = (
+                    target_video.duration > min_duration
+                    and (source_video.duration - margin_sec)
+                    <= target_video.duration
+                    <= (source_video.duration + margin_sec)
+                )
+                
+                # Date-based matching (same as existing logic)
+                date_match = False
+                if target_video.estimated_upload_time and source_video.uploaded:
+                    time_diff = abs((target_video.estimated_upload_time - source_video.uploaded).total_seconds() / 3600)
+                    date_match = time_diff <= date_margin_hours
+                
+                # Auto-link only if BOTH conditions are met
+                if duration_match and date_match:
+                    logger.info(
+                        f"Auto-linking (duration + date match)! "
+                        f"Source: {source_video.id} -> Target: {target_video.id} "
+                        f"(duration diff: {abs(target_video.duration - source_video.duration):.1f}s, "
+                        f"time diff: {time_diff:.1f}h)"
+                    )
+                    from .video import VideoService
+                    VideoService.add_timestamp_mapping(target_video, source_video)
+                    db.session.flush()
+                    linked_count += 1
+        
+        db.session.commit()
+        logger.info(f"Auto-linked {linked_count} videos for channel {channel.name}")
+        return linked_count
+
+    @staticmethod
     def fetch_all_videos(channel: Channels):
         """Fetch all videos from platform."""
         from .platform import PlatformServiceRegistry

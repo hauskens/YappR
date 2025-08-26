@@ -1,6 +1,4 @@
 from dataclasses import dataclass
-from app.services import SegmentService
-
 from .transcription import Segments
 from .video import Video
 
@@ -24,13 +22,27 @@ class SegmentsResult:
         return full_sentence
 
     def start_time(self) -> int:
-        return min(self.segments, key=lambda x: x.start).start
+        min_segment = min(self.segments, key=lambda x: x.start)
+        # Use translated timestamp if available
+        if hasattr(min_segment, '_translated_start') and min_segment._is_translated:
+            return min_segment._translated_start
+        return min_segment.start
 
     def end_time(self) -> int:
-        return max(self.segments, key=lambda x: x.end).end
+        max_segment = max(self.segments, key=lambda x: x.end)
+        # Use translated timestamp if available
+        if hasattr(max_segment, '_translated_end') and max_segment._is_translated:
+            return max_segment._translated_end
+        return max_segment.end
 
     def get_url(self) -> str:
-        return SegmentService.get_url_timestamped(min(self.segments, key=lambda x: x.start))
+        min_segment = min(self.segments, key=lambda x: x.start)
+        # Use translated timestamp if available
+        if hasattr(min_segment, '_translated_start') and min_segment._is_translated:
+            from app.services.video import VideoService
+            return VideoService.get_url_with_timestamp(self.video, min_segment._translated_start - 5)
+        from app.services.transcription import SegmentService
+        return SegmentService.get_url_timestamped(min_segment)
 
 
 @dataclass

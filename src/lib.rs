@@ -11,6 +11,7 @@ mod platforms;
 mod broadcaster_add;
 mod chat_tag_manager;
 mod chat_timeline_chart;
+mod chatlog_search;
 mod generic_table;
 mod transcription_table;
 
@@ -581,4 +582,9 @@ pub fn update_broadcaster_name() {
 #[wasm_bindgen]
 pub fn check_broadcaster_form_validity() {
     broadcaster_add::broadcaster_check_validity();
+}
+
+#[wasm_bindgen]
+pub fn render_chatlog_search(channels_json: &str, element_id: &str) -> Result<(), String> {
+    chatlog_search::render_chatlog_search(channels_json, element_id)
 }

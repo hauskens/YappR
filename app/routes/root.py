@@ -24,6 +24,8 @@ from app.models.config import config
 from app.routes.search import search_page
 from app.chatlogparse import parse_log
 import tempfile
+from app.models import ChatLog, Channels, db
+from sqlalchemy import and_, or_, func
 
 root_blueprint = Blueprint('root', __name__, url_prefix='/',
                            template_folder='templates', static_folder='static')
@@ -81,8 +83,114 @@ def users():
 @login_required
 @require_permission([PermissionType.Admin, PermissionType.Moderator])
 def utils():
+    from app.services import ChannelService
     logger.info("Loaded utils.html", extra={"user_id": current_user.id})
-    return render_template("utils.html")
+    channels = ChannelService.get_all(show_hidden=False)
+    # Convert to dictionaries for JSON serialization
+    channels_data = [{"id": channel.id, "name": channel.name} for channel in channels]
+    return render_template("utils.html", channels=channels_data)
+
+
+@root_blueprint.route("/utils/chatlog_search", methods=["POST"])
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def chatlog_search():
+    from app.models import ChatLog, Channels
+    from sqlalchemy import and_, or_, func
+    from datetime import datetime
+    
+    try:
+        # Get JSON data from request
+        data = request.get_json()
+        if not data:
+            return {"error": "No data provided"}, 400
+        
+        query = (data.get("query") or "").strip()
+        if not query:
+            return {"error": "Search query is required"}, 400
+        
+        channel_id = data.get("channel_id")
+        username = (data.get("username") or "").strip()
+        date_from = data.get("date_from")
+        date_to = data.get("date_to")
+        limit = min(data.get("limit", 100), 1000)  # Cap at 1000 results
+        
+        # Build the query
+        search_query = db.session.query(ChatLog, Channels.name.label('channel_name')).join(Channels)
+        
+        # Text search in message content
+        search_terms = query.split()
+        for term in search_terms:
+            search_query = search_query.filter(
+                or_(
+                    ChatLog.message.ilike(f"%{term}%"),
+                    ChatLog.username.ilike(f"%{term}%")
+                )
+            )
+        
+        # Channel filter
+        if channel_id:
+            search_query = search_query.filter(ChatLog.channel_id == channel_id)
+        
+        # Username filter
+        if username:
+            search_query = search_query.filter(ChatLog.username.ilike(f"%{username}%"))
+        
+        # Date filters
+        if date_from:
+            try:
+                date_from_dt = datetime.fromisoformat(date_from)
+                search_query = search_query.filter(ChatLog.timestamp >= date_from_dt)
+            except ValueError:
+                return {"error": "Invalid date_from format"}, 400
+        
+        if date_to:
+            try:
+                date_to_dt = datetime.fromisoformat(date_to + "T23:59:59")
+                search_query = search_query.filter(ChatLog.timestamp <= date_to_dt)
+            except ValueError:
+                return {"error": "Invalid date_to format"}, 400
+        
+        # Get total count
+        total_count = search_query.count()
+        
+        # Order by timestamp (newest first) and limit
+        results = search_query.order_by(ChatLog.timestamp.desc()).limit(limit).all()
+        
+        # Format results
+        formatted_results = []
+        for chatlog, channel_name in results:
+            formatted_results.append({
+                "id": chatlog.id,
+                "username": chatlog.username,
+                "message": chatlog.message,
+                "timestamp": chatlog.timestamp.isoformat(),
+                "channel_id": chatlog.channel_id,
+                "channel_name": channel_name
+            })
+        
+        # Determine channel name for filters response
+        channel_name_filter = None
+        if channel_id:
+            channel = db.session.query(Channels).filter_by(id=channel_id).first()
+            if channel:
+                channel_name_filter = channel.name
+        
+        return {
+            "results": formatted_results,
+            "total": total_count,
+            "query": query,
+            "filters": {
+                "channel": channel_name_filter,
+                "username": username if username else None,
+                "date_from": date_from,
+                "date_to": date_to
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error in chatlog search: {e}", extra={"user_id": current_user.id})
+        return {"error": "Internal server error"}, 500
 
 
 @root_blueprint.route("/utils/transcription_jobs")

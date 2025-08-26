@@ -91,11 +91,41 @@
                 <h5 class="card-title">
                   {{v.video.title}}
                 </h5>
-                <a href="{{ url_for('video.video_edit', video_id=v.video.id) }}">
-                  <img
-                    id="{{v.video.channel.platform_name}}"
-                    src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{platform_service_registry.get_service_by_name(v.video.channel.platform_name).primary_color}}&logo={{v.video.channel.platform_name}}&logoColor=white"
-                    alt="{{v.video.channel.platform_name}}"/></a> - {{video_service.get_date_str(v.video)}}
+                
+                <!-- Video Management Links -->
+                <div class="mb-2">
+                  <!-- Primary video (current result) -->
+                  <a href="{{ url_for('video.video_edit', video_id=v.video.id) }}" class="me-2">
+                    <img
+                      id="{{v.video.channel.platform_name}}"
+                      src="https://img.shields.io/badge/manage-007bff?style=for-the-badge&labelColor={{platform_service_registry.get_service_by_name(v.video.channel.platform_name).primary_color}}&logo={{v.video.channel.platform_name}}&logoColor=white"
+                      alt="{{v.video.channel.platform_name}}"/>
+                  </a>
+                  
+                  <!-- Show source video if this is a target video -->
+                  {% if v.video.source_video %}
+                    <a href="{{ url_for('video.video_edit', video_id=v.video.source_video.id) }}" class="me-2" title="Source video: {{ v.video.source_video.title[:50] }}...">
+                      <img
+                        id="{{v.video.source_video.channel.platform_name}}-source"
+                        src="https://img.shields.io/badge/source-6c757d?style=for-the-badge&labelColor={{platform_service_registry.get_service_by_name(v.video.source_video.channel.platform_name).primary_color}}&logo={{v.video.source_video.channel.platform_name}}&logoColor=white"
+                        alt="{{v.video.source_video.channel.platform_name}} source"/>
+                    </a>
+                  {% endif %}
+                  
+                  <!-- Show target videos if this is a source video -->
+                  {% for mapping in v.video.source_mappings %}
+                    {% if mapping.active %}
+                      <a href="{{ url_for('video.video_edit', video_id=mapping.target_video.id) }}" class="me-2" title="Linked video: {{ mapping.target_video.title[:50] }}...">
+                        <img
+                          id="{{mapping.target_video.channel.platform_name}}-target-{{loop.index}}"
+                          src="https://img.shields.io/badge/linked-28a745?style=for-the-badge&labelColor={{platform_service_registry.get_service_by_name(mapping.target_video.channel.platform_name).primary_color}}&logo={{mapping.target_video.channel.platform_name}}&logoColor=white"
+                          alt="{{mapping.target_video.channel.platform_name}} linked"/>
+                      </a>
+                    {% endif %}
+                  {% endfor %}
+                  
+                  <span class="text-muted">- {{video_service.get_date_str(v.video)}}</span>
+                </div>
                 <div style="max-height: 400px; overflow-y: auto">
                   <div class="list-group list-group-flush">
                   {% for segment in v.segment_results %}

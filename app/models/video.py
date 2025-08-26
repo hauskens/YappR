@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from .channel import Channels
     from .transcription import Transcription
+    from .timestamp_mapping import TimestampMapping
 
 
 class VideoDetails(BaseModel):
@@ -22,7 +23,6 @@ class VideoDetails(BaseModel):
     uploaded: datetime
     active: bool = True
     thumbnail_url: HttpUrl
-    source_video_id: int | None = None
 
 
 class VideoCreate(VideoDetails):
@@ -38,14 +38,6 @@ class Video(Base):
     channel_id: Mapped[int] = mapped_column(
         ForeignKey("channels.id"), index=True)
     channel: Mapped["Channels"] = relationship()
-    source_video_id: Mapped[int | None] = mapped_column(
-        ForeignKey("video.id"), index=True, nullable=True
-    )
-    source_video: Mapped["Video"] = relationship(
-        back_populates="video_refs", remote_side="Video.id"
-    )
-    video_refs: Mapped[list["Video"]] = relationship(
-        back_populates="source_video")
     last_updated: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now())
     uploaded: Mapped[datetime] = mapped_column(
@@ -59,4 +51,31 @@ class Video(Base):
     transcriptions: Mapped[list["Transcription"]] = relationship(
         back_populates="video", cascade="all, delete-orphan"
     )
+    source_mappings: Mapped[list["TimestampMapping"]] = relationship(
+        foreign_keys="[TimestampMapping.source_video_id]",
+        back_populates="source_video",
+        cascade="all, delete-orphan"
+    )
+    target_mappings: Mapped[list["TimestampMapping"]] = relationship(
+        foreign_keys="[TimestampMapping.target_video_id]",
+        back_populates="target_video",
+        cascade="all, delete-orphan"
+    )
     estimated_upload_time: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, default=None)
+    
+    def is_linked_to_source(self) -> bool:
+        """Check if this video is linked to any source video."""
+        from app.services.video import VideoService
+        return VideoService.is_linked_to_source(self)
+    
+    @property
+    def source_video(self) -> "Video | None":
+        """Property for backward compatibility with old source_video relationship."""
+        from app.services.video import VideoService
+        return VideoService.get_source_video(self)
+    
+    @property 
+    def source_video_id(self) -> int | None:
+        """Property for backward compatibility with old source_video_id field."""
+        from app.services.video import VideoService
+        return VideoService.get_source_video_id(self)

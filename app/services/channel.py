@@ -245,7 +245,7 @@ class ChannelService:
         
         for source_video in channel.source_channel.videos:
             for target_video in channel.videos:
-                if target_video.source_video_id is not None:
+                if target_video.is_linked_to_source():
                     continue  # Already linked
                 
                 # Duration-based matching (existing logic)
@@ -279,7 +279,8 @@ class ChannelService:
                         f"Found match ({', '.join(match_reason)})! "
                         f"Source: {source_video.id} -> Target: {target_video.id}"
                     )
-                    target_video.source_video_id = source_video.id
+                    from .video import VideoService
+                    VideoService.add_timestamp_mapping(target_video, source_video)
                     db.session.flush()
                     matches_found += 1
         
@@ -293,7 +294,7 @@ class ChannelService:
         
         updated_count = 0
         for video in channel.videos:
-            if video.source_video_id is None and video.estimated_upload_time is None:
+            if not video.is_linked_to_source() and video.estimated_upload_time is None:
                 extracted_date = extract_date_from_video_title(video.title)
                 if extracted_date:
                     video.estimated_upload_time = extracted_date
@@ -304,40 +305,52 @@ class ChannelService:
             logger.info(f"Updated estimated upload times for {updated_count} videos in {channel.name}")
             db.session.commit()
 
-    # TODO: implement
-    # @staticmethod
-    # def fetch_videos_all(channel: Channels):
-    #     """Fetch all videos from platform (YouTube only)."""
-    #     if channel.platform.name.lower() == "youtube" and channel.platform_channel_id is not None:
-    #         from .video import VideoService
-    #         logger.info(
-    #             f"Fetching all videos for YouTube channel {channel.name}")
-    #         all_videos = get_all_videos_on_channel(channel.platform_channel_id)
-    #         video_id_set = set()
-    #         for search_result in all_videos:
-    #             video_ref = search_result.id.videoId
-    #             logger.debug("Checking if video is already in database", extra={
-    #                          "video_ref": video_ref})
-    #             existing_video = VideoService.get_by_platform_ref(video_ref)
-    #             if existing_video is None:
-    #                 video_id_set.add(video_ref)
-    #         if len(video_id_set) > 0:
-    #             videos = get_videos(list(video_id_set))
-    #             for video in videos:
-    #                 thumbnail_url = get_youtube_thumbnail_url(video)
-    #                 video_create = VideoCreate(
-    #                     title=video.snippet.title,
-    #                     video_type=VideoType(channel.main_video_type),
-    #                     duration=video.contentDetails.duration.total_seconds(),
-    #                     channel_id=channel.id,
-    #                     platform_ref=video_ref,
-    #                     uploaded=video.snippet.publishedAt,
-    #                     active=True,
-    #                     thumbnail_url=thumbnail_url
-    #                 )
-    #                 VideoService.create(video_create)
-    #         else:
-    #             logger.info("No new videos found")
+    @staticmethod
+    def fetch_all_videos(channel: Channels):
+        """Fetch all videos from platform."""
+        from .platform import PlatformServiceRegistry
+        from .video import VideoService
+        
+        platform_service = PlatformServiceRegistry.get_service_for_channel(channel)
+        if platform_service is None:
+            logger.error(f"Platform {channel.platform_name} not found")
+            return None
+
+        # Use fetch_latest_videos with a very large limit to get all videos
+        videos = asyncio.run(platform_service.fetch_latest_videos(channel, limit=999999))
+        if videos is None:
+            logger.error(f"Failed to fetch all videos for channel {channel.name}")
+            return None
+
+        logger.info(f"Fetched {len(videos)} videos for channel {channel.name}")
+        
+        successful_count = 0
+        failed_count = 0
+        
+        for video in videos:
+            try:
+                existing_video = VideoService.get_by_platform_ref(video.platform_ref)
+                if existing_video is None:
+                    VideoService.create(video)
+                    logger.info(f"Created video: {video.title}")
+                else:
+                    # Update existing video details
+                    existing_video.title = video.title
+                    existing_video.video_type = video.video_type
+                    existing_video.duration = video.duration
+                    existing_video.uploaded = video.uploaded
+                    existing_video.active = video.active
+                    logger.debug(f"Updated video: {video.title}")
+                successful_count += 1
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"Failed to process video '{video.title}': {e}")
+                # Continue processing other videos
+                continue
+
+        db.session.commit()
+        logger.info(f"Successfully processed {successful_count} videos for channel {channel.name}. Failed: {failed_count}")
+        
 
     @staticmethod
     def fetch_latest_videos(channel: Channels, force: bool = False):
@@ -356,24 +369,36 @@ class ChannelService:
                 f"Failed to fetch latest videos for channel {channel.name}")
             return None
 
+        successful_count = 0
+        failed_count = 0
+        
         for video in videos:
-            existing_video = VideoService.get_by_platform_ref(
-                video.platform_ref)
-            if existing_video is None:
-                VideoService.create(video)
-            else:
-                if force:
-                    thumbnail = save_generic_thumbnail(video.thumbnail_url)
-                    existing_video.thumbnail = open(
-                        thumbnail, "rb")  # type: ignore[assignment]
-                existing_video.title = video.title
-                existing_video.video_type = video.video_type
-                existing_video.duration = video.duration
-                existing_video.uploaded = video.uploaded
-                existing_video.active = video.active
-                existing_video.source_video_id = video.source_video_id
+            try:
+                existing_video = VideoService.get_by_platform_ref(
+                    video.platform_ref)
+                if existing_video is None:
+                    VideoService.create(video)
+                    logger.info(f"Created video: {video.title}")
+                else:
+                    if force:
+                        thumbnail = save_generic_thumbnail(video.thumbnail_url)
+                        existing_video.thumbnail = open(
+                            thumbnail, "rb")  # type: ignore[assignment]
+                    existing_video.title = video.title
+                    existing_video.video_type = video.video_type
+                    existing_video.duration = video.duration
+                    existing_video.uploaded = video.uploaded
+                    existing_video.active = video.active
+                    logger.debug(f"Updated video: {video.title}")
+                successful_count += 1
+            except Exception as e:
+                failed_count += 1
+                logger.error(f"Failed to process video '{video.title}': {e}")
+                # Continue processing other videos
+                continue
 
         db.session.commit()
+        logger.info(f"Successfully processed {successful_count} videos for channel {channel.name}. Failed: {failed_count}")
 
     @staticmethod
     def create(channel_create: ChannelCreate) -> Channels:

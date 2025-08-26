@@ -10,6 +10,7 @@ from .user import *
 from .video import *
 from .chatlog import *
 from .content_queue import *
+from .timestamp_mapping import *
 
 from .base import Base
 

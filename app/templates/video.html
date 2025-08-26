@@ -65,7 +65,47 @@
         />
         </a> 
         <br><br>
-        {% if video.source_video.id is not defined %}
+        <!-- Video Linking Information -->
+        {% if video.source_video %}
+          <div class="card mb-3">
+            <div class="card-header">
+              <h6 class="mb-0">
+                <button class="btn btn-link text-decoration-none w-100 text-start p-0" type="button" data-bs-toggle="collapse" data-bs-target="#videoLinkingCollapse" aria-expanded="false" aria-controls="videoLinkingCollapse">
+                  <i class="bi bi-link-45deg me-2"></i>Linked to Source Video
+                  <i class="bi bi-chevron-down float-end"></i>
+                </button>
+              </h6>
+            </div>
+            <div id="videoLinkingCollapse" class="collapse">
+              <div class="card-body">
+                <div class="row">
+                  <div class="col-sm-8">
+                    <h6 class="card-title">{{ video.source_video.title }}</h6>
+                    <p class="text-muted mb-2">
+                      <i class="bi bi-calendar me-1"></i>Uploaded: {{ video.source_video.uploaded.strftime('%Y-%m-%d %H:%M') }}
+                      <br>
+                      <i class="bi bi-clock me-1"></i>Duration: {{ video_service.get_duration_str(video.source_video) }}
+                      <br>
+                      <i class="bi bi-broadcast me-1"></i>Channel: {{ video.source_video.channel.name }}
+                    </p>
+                    <small class="text-muted">
+                      This video's transcriptions and timestamps are mapped to the source video above.
+                    </small>
+                  </div>
+                  <div class="col-sm-4 text-end">
+                    <a href="{{ video_service.get_url(video.source_video) }}" target="_blank" class="btn btn-outline-primary btn-sm mb-2">
+                      <i class="bi bi-box-arrow-up-right me-1"></i>View Source
+                    </a>
+                    <br>
+                    <a href="{{ url_for('video.video_edit', video_id=video.source_video.id) }}" class="btn btn-outline-secondary btn-sm">
+                      <i class="bi bi-pencil me-1"></i>Edit Source
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        {% else %}
           {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) and video.channel.source_channel %}
             <button type="button" class="btn btn-outline-primary" id="preview-link-btn" data-video-id="{{ video.id }}">
               <i class="bi bi-link-45deg me-2"></i>Preview Video Linking

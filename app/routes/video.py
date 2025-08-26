@@ -256,8 +256,23 @@ def video_link_preview(video_id: int):
     if not video:
         return jsonify({"error": "Video not found"}), 404
     
-    if video.source_video_id:
-        return jsonify({"error": "Video is already linked"}), 400
+    # Get existing mappings for this video
+    existing_mappings = []
+    for mapping in video.target_mappings:
+        if mapping.active:
+            existing_mappings.append({
+                "id": mapping.id,
+                "source_video": {
+                    "id": mapping.source_video.id,
+                    "title": mapping.source_video.title,
+                    "url": VideoService.get_url(mapping.source_video)
+                },
+                "source_start": mapping.source_start_time,
+                "source_end": mapping.source_end_time,
+                "target_start": mapping.target_start_time,
+                "target_end": mapping.target_end_time,
+                "time_offset": mapping.time_offset
+            })
     
     # Find the source channel for this video's channel
     channel = video.channel
@@ -331,10 +346,12 @@ def video_link_preview(video_id: int):
         "video": {
             "id": video.id,
             "title": video.title,
+            "duration": video.duration,
             "estimated_date": estimated_date.isoformat() if estimated_date else None,
             "title_parsing_enabled": title_parsing_enabled
         },
-        "potential_matches": potential_matches[:10]  # Limit to top 10 matches
+        "potential_matches": potential_matches[:10],  # Limit to top 10 matches
+        "existing_mappings": existing_mappings
     })
 
 
@@ -347,7 +364,7 @@ def video_link_confirm(video_id: int):
     if not video:
         return jsonify({"error": "Video not found"}), 404
     
-    if video.source_video_id:
+    if video.is_linked_to_source():
         return jsonify({"error": "Video is already linked"}), 400
     
     data = request.get_json()
@@ -364,8 +381,8 @@ def video_link_confirm(video_id: int):
     if source_video.channel_id != video.channel.source_channel_id:
         return jsonify({"error": "Source video must be from the configured source channel"}), 400
     
-    # Create the link
-    video.source_video_id = source_video_id
+    # Create the timestamp mapping (default full video mapping)
+    VideoService.add_timestamp_mapping(video, source_video)
     
     # Set estimated upload time if it was parsed from title
     if not video.estimated_upload_time:
@@ -388,3 +405,21 @@ def video_link_confirm(video_id: int):
             "url": VideoService.get_url(source_video)
         }
     })
+
+@video_blueprint.route("/mapping/<int:mapping_id>/remove", methods=["DELETE"])
+@login_required
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+def remove_timestamp_mapping(mapping_id: int):
+    """Remove a timestamp mapping"""
+    success = VideoService.remove_timestamp_mapping(mapping_id)
+    
+    if success:
+        logger.info(f"Removed timestamp mapping {mapping_id}", 
+                    extra={"mapping_id": mapping_id, "user_id": current_user.id})
+        return jsonify({
+            "success": True,
+            "message": "Timestamp mapping removed successfully"
+        })
+    else:
+        return jsonify({"error": "Mapping not found or could not be removed"}), 404
+

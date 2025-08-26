@@ -1,0 +1,478 @@
+use yew::prelude::*;
+use web_sys::{Event, HtmlInputElement, HtmlSelectElement, RequestInit};
+use yew::html::TargetCast;
+use serde::{Deserialize, Serialize};
+use chrono::{DateTime, Local};
+use wasm_bindgen::JsValue;
+
+#[derive(Deserialize, Clone, PartialEq)]
+pub struct ChatLogSearchResult {
+    pub id: i32,
+    pub username: String,
+    pub message: String,
+    pub timestamp: String,
+    pub channel_id: i32,
+    pub channel_name: String,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct ChatLogSearchResponse {
+    pub results: Vec<ChatLogSearchResult>,
+    pub total: usize,
+    pub query: String,
+    pub filters: SearchFilters,
+}
+
+#[derive(Deserialize, Clone)]
+pub struct SearchFilters {
+    pub channel: Option<String>,
+    pub username: Option<String>,
+    pub date_from: Option<String>,
+    pub date_to: Option<String>,
+}
+
+#[derive(Serialize)]
+struct SearchRequest {
+    query: String,
+    channel_id: Option<i32>,
+    username: Option<String>,
+    date_from: Option<String>,
+    date_to: Option<String>,
+    limit: usize,
+}
+
+#[derive(Clone, PartialEq)]
+pub struct SearchFormData {
+    pub query: String,
+    pub channel_id: Option<i32>,
+    pub username: String,
+    pub date_from: String,
+    pub date_to: String,
+    pub limit: usize,
+}
+
+impl Default for SearchFormData {
+    fn default() -> Self {
+        Self {
+            query: String::new(),
+            channel_id: None,
+            username: String::new(),
+            date_from: String::new(),
+            date_to: String::new(),
+            limit: 100,
+        }
+    }
+}
+
+#[derive(Properties, PartialEq)]
+pub struct ChatLogSearchProps {
+    pub channels: Vec<Channel>,
+}
+
+#[derive(Deserialize, Clone, PartialEq)]
+pub struct Channel {
+    pub id: i32,
+    pub name: String,
+}
+
+#[function_component(ChatLogSearch)]
+pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
+    let search_form = use_state(SearchFormData::default);
+    let search_results = use_state(|| None::<ChatLogSearchResponse>);
+    let loading = use_state(|| false);
+    let error_message = use_state(|| None::<String>);
+
+    let on_form_submit = {
+        let search_form = search_form.clone();
+        let search_results = search_results.clone();
+        let loading = loading.clone();
+        let error_message = error_message.clone();
+        
+        Callback::from(move |e: SubmitEvent| {
+            e.prevent_default();
+            
+            let form_data = (*search_form).clone();
+            let search_results = search_results.clone();
+            let loading = loading.clone();
+            let error_message = error_message.clone();
+            
+            if form_data.query.trim().is_empty() {
+                error_message.set(Some("Please enter a search query".to_string()));
+                return;
+            }
+            
+            loading.set(true);
+            error_message.set(None);
+            
+            wasm_bindgen_futures::spawn_local(async move {
+                let request_data = SearchRequest {
+                    query: form_data.query.clone(),
+                    channel_id: form_data.channel_id,
+                    username: if form_data.username.is_empty() { None } else { Some(form_data.username.clone()) },
+                    date_from: if form_data.date_from.is_empty() { None } else { Some(form_data.date_from.clone()) },
+                    date_to: if form_data.date_to.is_empty() { None } else { Some(form_data.date_to.clone()) },
+                    limit: form_data.limit,
+                };
+                
+                // Get CSRF token from window.csrfToken
+                let csrf_token = web_sys::window()
+                    .and_then(|w| js_sys::Reflect::get(&w, &"csrfToken".into()).ok())
+                    .and_then(|token| token.as_string());
+                
+                // Prepare headers
+                let headers = web_sys::Headers::new().unwrap();
+                headers.set("Content-Type", "application/json").unwrap();
+                if let Some(token) = csrf_token {
+                    headers.set("X-CSRFToken", &token).unwrap();
+                }
+                
+                // Create request with custom headers
+                let mut opts = RequestInit::new();
+                opts.set_method("POST");
+                opts.set_headers(&headers);
+                opts.set_body(&JsValue::from_str(&serde_json::to_string(&request_data).unwrap()));
+                
+                let request = web_sys::Request::new_with_str_and_init("/utils/chatlog_search", &opts).unwrap();
+                
+                match gloo_net::http::Request::from(request).send().await
+                {
+                    Ok(response) => {
+                        if response.ok() {
+                            match response.json::<ChatLogSearchResponse>().await {
+                                Ok(data) => {
+                                    search_results.set(Some(data));
+                                }
+                                Err(_) => {
+                                    error_message.set(Some("Failed to parse search results".to_string()));
+                                }
+                            }
+                        } else {
+                            error_message.set(Some(format!("Search failed: {}", response.status())));
+                        }
+                    }
+                    Err(_) => {
+                        error_message.set(Some("Network error during search".to_string()));
+                    }
+                }
+                loading.set(false);
+            });
+        })
+    };
+
+    let on_query_input = {
+        let search_form = search_form.clone();
+        Callback::from(move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            let mut form_data = (*search_form).clone();
+            form_data.query = input.value();
+            search_form.set(form_data);
+        })
+    };
+
+    let on_channel_change = {
+        let search_form = search_form.clone();
+        Callback::from(move |e: Event| {
+            let select: HtmlSelectElement = e.target_unchecked_into();
+            let mut form_data = (*search_form).clone();
+            form_data.channel_id = if select.value().is_empty() {
+                None
+            } else {
+                select.value().parse().ok()
+            };
+            search_form.set(form_data);
+        })
+    };
+
+    let on_username_input = {
+        let search_form = search_form.clone();
+        Callback::from(move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            let mut form_data = (*search_form).clone();
+            form_data.username = input.value();
+            search_form.set(form_data);
+        })
+    };
+
+    let on_date_from_input = {
+        let search_form = search_form.clone();
+        Callback::from(move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            let mut form_data = (*search_form).clone();
+            form_data.date_from = input.value();
+            search_form.set(form_data);
+        })
+    };
+
+    let on_date_to_input = {
+        let search_form = search_form.clone();
+        Callback::from(move |e: InputEvent| {
+            let input: HtmlInputElement = e.target_unchecked_into();
+            let mut form_data = (*search_form).clone();
+            form_data.date_to = input.value();
+            search_form.set(form_data);
+        })
+    };
+
+    let on_limit_change = {
+        let search_form = search_form.clone();
+        Callback::from(move |e: Event| {
+            let select: HtmlSelectElement = e.target_unchecked_into();
+            let mut form_data = (*search_form).clone();
+            if let Ok(limit) = select.value().parse::<usize>() {
+                form_data.limit = limit;
+                search_form.set(form_data);
+            }
+        })
+    };
+
+    let render_search_results = |results: &ChatLogSearchResponse| -> Html {
+        if results.results.is_empty() {
+            return html! {
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    {"No chat messages found matching your search criteria."}
+                </div>
+            };
+        }
+
+        let active_filters = {
+            let mut filters = Vec::new();
+            if let Some(channel) = &results.filters.channel {
+                filters.push(format!("Channel: {}", channel));
+            }
+            if let Some(username) = &results.filters.username {
+                filters.push(format!("Username: {}", username));
+            }
+            if results.filters.date_from.is_some() || results.filters.date_to.is_some() {
+                let date_range = match (&results.filters.date_from, &results.filters.date_to) {
+                    (Some(from), Some(to)) => format!("{} to {}", from, to),
+                    (Some(from), None) => format!("from {}", from),
+                    (None, Some(to)) => format!("to {}", to),
+                    _ => String::new(),
+                };
+                if !date_range.is_empty() {
+                    filters.push(format!("Date: {}", date_range));
+                }
+            }
+            filters
+        };
+
+        html! {
+            <div>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0">{"Search Results"}</h6>
+                    <span class="badge bg-success">{format!("{} of {} results", results.results.len(), results.total)}</span>
+                </div>
+                
+                if !active_filters.is_empty() {
+                    <div class="alert alert-light small mb-3">
+                        <strong>{"Active filters: "}</strong>
+                        {active_filters.join(", ")}
+                    </div>
+                }
+                
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th style="width: 120px;">{"Time"}</th>
+                                <th style="width: 150px;">{"Channel"}</th>
+                                <th style="width: 100px;">{"Username"}</th>
+                                <th>{"Message"}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {for results.results.iter().map(|result| {
+                                let highlighted_message = highlight_search_terms(&result.message, &results.query);
+                                let timestamp = format_timestamp(&result.timestamp);
+                                
+                                html! {
+                                    <tr key={result.id}>
+                                        <td class="text-muted small">{timestamp}</td>
+                                        <td>
+                                            <span class="badge bg-secondary">{&result.channel_name}</span>
+                                        </td>
+                                        <td class="fw-bold">{&result.username}</td>
+                                        <td>{Html::from_html_unchecked(highlighted_message.into())}</td>
+                                    </tr>
+                                }
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+                
+                if results.results.len() < results.total {
+                    <div class="alert alert-info mt-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        {format!("Showing first {} of {} results. Try refining your search or increasing the result limit.", results.results.len(), results.total)}
+                    </div>
+                }
+            </div>
+        }
+    };
+
+    html! {
+        <div class="chatlog-search">
+            <form onsubmit={on_form_submit} class="mb-4">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="search-query" class="form-label">{"Search Query"}</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="search-query" 
+                            placeholder="Enter search terms..."
+                            value={search_form.query.clone()}
+                            oninput={on_query_input}
+                            required=true
+                        />
+                        <div class="form-text">{"Search for specific words or phrases in chat messages"}</div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="channel-filter" class="form-label">{"Channel (Optional)"}</label>
+                        <select class="form-select" id="channel-filter" onchange={on_channel_change}>
+                            <option value="">{"All Channels"}</option>
+                            {for props.channels.iter().map(|channel| {
+                                html! {
+                                    <option key={channel.id} value={channel.id.to_string()}>
+                                        {&channel.name}
+                                    </option>
+                                }
+                            })}
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="username-filter" class="form-label">{"Username (Optional)"}</label>
+                        <input 
+                            type="text" 
+                            class="form-control" 
+                            id="username-filter" 
+                            placeholder="Filter by username..."
+                            value={search_form.username.clone()}
+                            oninput={on_username_input}
+                        />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <label for="date-from" class="form-label">{"From Date (Optional)"}</label>
+                        <input 
+                            type="date" 
+                            class="form-control" 
+                            id="date-from" 
+                            value={search_form.date_from.clone()}
+                            oninput={on_date_from_input}
+                        />
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="date-to" class="form-label">{"To Date (Optional)"}</label>
+                        <input 
+                            type="date" 
+                            class="form-control" 
+                            id="date-to" 
+                            value={search_form.date_to.clone()}
+                            oninput={on_date_to_input}
+                        />
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label for="limit" class="form-label">{"Max Results"}</label>
+                        <select class="form-select" id="limit" onchange={on_limit_change}>
+                            <option value="50" selected={search_form.limit == 50}>{"50"}</option>
+                            <option value="100" selected={search_form.limit == 100}>{"100"}</option>
+                            <option value="250" selected={search_form.limit == 250}>{"250"}</option>
+                            <option value="500" selected={search_form.limit == 500}>{"500"}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 mb-3 d-flex align-items-end">
+                        <button 
+                            type="submit" 
+                            class="btn btn-success w-100"
+                            disabled={*loading}
+                        >
+                            if *loading {
+                                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            }
+                            <i class="bi bi-search me-2"></i>
+                            {"Search"}
+                        </button>
+                    </div>
+                </div>
+            </form>
+            
+            <div id="search-results">
+                if let Some(error) = (*error_message).as_ref() {
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        {format!("Error: {}", error)}
+                    </div>
+                } else if *loading {
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-success" role="status">
+                            <span class="visually-hidden">{"Searching..."}</span>
+                        </div>
+                        <p class="mt-2">{"Searching chat logs..."}</p>
+                    </div>
+                } else if let Some(results) = (*search_results).as_ref() {
+                    {render_search_results(results)}
+                } else {
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-chat-dots fs-1 mb-2"></i>
+                        <p>{"Enter a search query above to find chat messages"}</p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+}
+
+fn highlight_search_terms(message: &str, query: &str) -> String {
+    if query.trim().is_empty() {
+        return html_escape(message);
+    }
+    
+    let escaped_message = html_escape(message);
+    let terms: Vec<&str> = query.split_whitespace().filter(|t| !t.is_empty()).collect();
+    
+    let mut result = escaped_message;
+    for term in terms {
+        let regex = regex::Regex::new(&format!("(?i){}", regex::escape(term))).unwrap();
+        result = regex.replace_all(&result, |caps: &regex::Captures| {
+            format!("<mark class=\"bg-warning\">{}</mark>", &caps[0])
+        }).to_string();
+    }
+    
+    result
+}
+
+fn html_escape(text: &str) -> String {
+    text.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#x27;")
+}
+
+fn format_timestamp(timestamp: &str) -> String {
+    // Try to parse the timestamp and format it nicely
+    if let Ok(dt) = DateTime::parse_from_rfc3339(timestamp) {
+        let local_dt: DateTime<Local> = dt.into();
+        local_dt.format("%Y-%m-%d %H:%M:%S").to_string()
+    } else {
+        timestamp.to_string()
+    }
+}
+
+pub fn render_chatlog_search(channels_json: &str, element_id: &str) -> Result<(), String> {
+    let channels: Vec<Channel> = serde_json::from_str(channels_json)
+        .map_err(|e| format!("Failed to parse channels JSON: {}", e))?;
+    
+    let document = web_sys::window().unwrap().document().unwrap();
+    let element = document.get_element_by_id(element_id)
+        .ok_or(format!("Element with id '{}' not found", element_id))?;
+    
+    yew::Renderer::<ChatLogSearch>::with_root_and_props(
+        element, 
+        ChatLogSearchProps { channels }
+    ).render();
+    Ok(())
+}

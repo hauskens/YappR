@@ -112,8 +112,6 @@ def require_permission(
                     broadcaster_id = broadcaster.id if broadcaster else None
                     if broadcaster is None:
                         raise ValueError(f"Channel {channel_id} not found")
-                    logger.info(
-                        "Checking if channel %s is banned for user %s", channel_id, current_user)
                     if channel_id in ModerationService.get_banned_channel_ids(current_user):
                         return render_template('banned.html', action="banned from this channel", reason="Banned from this channel")
 

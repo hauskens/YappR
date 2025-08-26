@@ -6,7 +6,7 @@ from collections.abc import Sequence
 
 from sqlalchemy import select, func
 from app.models import db
-from app.models import Video, VideoCreate, Transcription, TranscriptionSource, VideoType, PlatformType
+from app.models import Video, VideoCreate, Transcription, TranscriptionSource, VideoType, PlatformType, TimestampMapping
 from app.logger import logger
 from app.models.config import config
 from app.tasks import get_yt_audio, get_twitch_audio
@@ -136,18 +136,6 @@ class VideoService:
             return False
 
     @staticmethod
-    def archive_video(video: Video):
-        """Archive a video by transferring transcriptions to linked VOD videos."""
-        for linked_video in video.video_refs:
-            if linked_video.video_type == VideoType.VOD:
-                for transcription in video.transcriptions:
-                    transcription.video_id = linked_video.id
-                    logger.info(
-                        f"Transcription id: {transcription.id} on video id {video.id} is transferred to {linked_video.id}"
-                    )
-                db.session.commit()
-
-    @staticmethod
     def fetch_details(video: Video, force: bool = True):
         """Fetch and update video details from platform APIs."""
         from .platform import PlatformServiceRegistry
@@ -270,7 +258,6 @@ class VideoService:
             platform_ref=video.platform_ref,
             uploaded=video.uploaded,
             active=video.active,
-            source_video_id=video.source_video_id,
             thumbnail=open(thumbnail, "rb")
         )
         db.session.add(added_video)
@@ -297,6 +284,118 @@ class VideoService:
     def deactivate(video_id: int) -> Video:
         """Deactivate a video."""
         return VideoService.update(video_id, active=False)
+
+    @staticmethod
+    def get_source_video(target_video: Video) -> Video | None:
+        """Get the primary source video for a target video."""
+        if target_video.target_mappings:
+            # Return the source video from the first mapping
+            return target_video.target_mappings[0].source_video
+        return None
+
+    @staticmethod
+    def get_source_video_id(target_video: Video) -> int | None:
+        """Get the ID of the primary source video for compatibility."""
+        source_video = VideoService.get_source_video(target_video)
+        return source_video.id if source_video else None
+
+    @staticmethod
+    def is_linked_to_source(target_video: Video) -> bool:
+        """Check if a video is linked to any source video."""
+        return len(target_video.target_mappings) > 0
+
+    @staticmethod
+    def add_timestamp_mapping(target_video: Video, source_video: Video, 
+                            source_start: float = 0.0, source_end: float | None = None,
+                            target_start: float = 0.0, target_end: float | None = None,
+                            time_offset: float = 0.0) -> TimestampMapping:
+        """Add a timestamp mapping between a target video and a source video."""
+        mapping = TimestampMapping(
+            source_video_id=source_video.id,
+            target_video_id=target_video.id,
+            source_start_time=source_start,
+            source_end_time=source_end or source_video.duration,
+            target_start_time=target_start,
+            target_end_time=target_end or target_video.duration,
+            time_offset=time_offset
+        )
+        
+        db.session.add(mapping)
+        target_video.target_mappings.append(mapping)
+        return mapping
+
+    @staticmethod
+    def get_timestamp_mappings(video: Video, as_source: bool = False) -> list[TimestampMapping]:
+        """Get all timestamp mappings for a video.
+        
+        Args:
+            video: The video to get mappings for
+            as_source: If True, get mappings where this video is the source. 
+                      If False, get mappings where this video is the target.
+        """
+        if as_source:
+            return list(video.source_mappings)
+        else:
+            return list(video.target_mappings)
+
+    @staticmethod
+    def translate_timestamp(video: Video, timestamp: float, to_source: bool = True) -> float | None:
+        """Translate a timestamp between source and target videos.
+        
+        Args:
+            video: The video containing the timestamp
+            timestamp: The timestamp to translate
+            to_source: If True, translate from target to source. If False, translate from source to target.
+            
+        Returns:
+            Translated timestamp or None if not mappable
+        """
+        if to_source:
+            # Video is target, translate to source
+            for mapping in video.target_mappings:
+                if mapping.active:
+                    result = mapping.translate_target_to_source(timestamp)
+                    if result is not None:
+                        return result
+        else:
+            # Video is source, translate to target
+            for mapping in video.source_mappings:
+                if mapping.active:
+                    result = mapping.translate_source_to_target(timestamp)
+                    if result is not None:
+                        return result
+        
+        return None
+
+    @staticmethod
+    def remove_timestamp_mapping(mapping_id: int) -> bool:
+        """Remove a timestamp mapping by ID."""
+        mapping = db.session.get(TimestampMapping, mapping_id)
+        if mapping:
+            db.session.delete(mapping)
+            db.session.commit()
+            return True
+        return False
+
+    @staticmethod
+    def update_timestamp_mapping_offset(mapping_id: int, new_offset: float) -> bool:
+        """Update the time offset for a timestamp mapping."""
+        mapping = db.session.get(TimestampMapping, mapping_id)
+        if mapping:
+            mapping.adjust_time_offset(new_offset)
+            db.session.commit()
+            return True
+        return False
+
+    @staticmethod
+    def add_cut_to_mapping(mapping_id: int, start_time: float, duration: float) -> bool:
+        """Add a cut/edit to a timestamp mapping."""
+        mapping = db.session.get(TimestampMapping, mapping_id)
+        if mapping:
+            mapping.add_cut(start_time, duration)
+            db.session.commit()
+            return True
+        return False
 
 
 # For template accessibility, create simple function interfaces

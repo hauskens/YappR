@@ -77,7 +77,6 @@ def get_videos_on_channel(
                 channelId=channel_id,
                 order="date",
                 maxResults=max_results,
-                eventType="completed",
             )
             .execute()
         )
@@ -91,7 +90,6 @@ def get_videos_on_channel(
                 order="date",
                 pageToken=next_page_token,
                 maxResults=max_results,
-                eventType="completed",
             )
             .execute()
         )

@@ -226,7 +226,6 @@ class TwitchBot:
                     username=msg.user.name,
                     message=msg.text,
                     external_user_account_id=msg.user.id,
-                    imported=False,
                 )
                 # Add to session and buffer
                 self.session.add(chat_log)

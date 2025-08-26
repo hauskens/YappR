@@ -73,24 +73,29 @@ class YouTubePlatformService(PlatformService):
                 search_results, key=lambda result: result.snippet.publishedAt, reverse=True)
             video_ids = [
                 result.id.videoId for result in sorted_results[:limit]]
-            videos = get_videos(video_ids)
-
+            
+            # Process videos in batches of 100 (YouTube API limit)
             result: list[VideoCreate] = []
-            for video in videos:
-                thumbnail_url = get_youtube_thumbnail_url(video.id)
+            batch_size = 100
+            for i in range(0, len(video_ids), batch_size):
+                batch_ids = video_ids[i:i + batch_size]
+                videos = get_videos(batch_ids)
+                
+                for video in videos:
+                    thumbnail_url = get_youtube_thumbnail_url(video.id)
 
-                content = VideoCreate(
-                    title=video.snippet.title,
-                    video_type=VideoType.VOD,
-                    duration=int(
-                        video.contentDetails.duration.total_seconds()),
-                    thumbnail_url=thumbnail_url,
-                    channel_id=channel.id,
-                    platform_ref=video.id,
-                    uploaded=video.snippet.publishedAt,
-                    active=True
-                )
-                result.append(content)
+                    content = VideoCreate(
+                        title=video.snippet.title,
+                        video_type=VideoType.VOD,
+                        duration=int(
+                            video.contentDetails.duration.total_seconds()),
+                        thumbnail_url=thumbnail_url,
+                        channel_id=channel.id,
+                        platform_ref=video.id,
+                        uploaded=video.snippet.publishedAt,
+                        active=True
+                    )
+                    result.append(content)
 
             return result
         except Exception as e:
@@ -164,22 +169,42 @@ class TwitchPlatformService(PlatformService):
 
             logger.info(
                 f"Fetching latest Twitch videos for channel {channel.platform_channel_id}")
-            videos = await get_latest_broadcasts(channel.platform_channel_id, limit=limit, api_client=twitch_client)
-
+            
+            # Process videos in batches of 100 (Twitch API limit)
             result: list[VideoCreate] = []
-            for video in videos:
-                thumbnail_url = get_twitch_thumbnail_url(video)
-                content = VideoCreate(
-                    title=video.title,
-                    video_type=VideoType.VOD,
-                    duration=parse_time(video.duration),
-                    thumbnail_url=thumbnail_url,
-                    channel_id=channel.id,
-                    platform_ref=video.id,
-                    uploaded=video.created_at,
-                    active=True
+            batch_size = 100
+            remaining_limit = limit
+            
+            while remaining_limit > 0:
+                current_batch_size = min(batch_size, remaining_limit)
+                videos = await get_latest_broadcasts(
+                    channel.platform_channel_id, 
+                    limit=current_batch_size, 
+                    api_client=twitch_client
                 )
-                result.append(content)
+                
+                if not videos:
+                    break
+                    
+                for video in videos:
+                    thumbnail_url = get_twitch_thumbnail_url(video)
+                    content = VideoCreate(
+                        title=video.title,
+                        video_type=VideoType.VOD,
+                        duration=parse_time(video.duration),
+                        thumbnail_url=thumbnail_url,
+                        channel_id=channel.id,
+                        platform_ref=video.id,
+                        uploaded=video.created_at,
+                        active=True
+                    )
+                    result.append(content)
+                
+                remaining_limit -= len(videos)
+                
+                # If we got fewer videos than requested, we've reached the end
+                if len(videos) < current_batch_size:
+                    break
 
             return result
 

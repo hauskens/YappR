@@ -104,7 +104,37 @@ def full_processing_task(channel_id: int):
     logger.info("Channel was active more than 30 minutes ago, processing", extra={
                 "channel_id": channel_id})
     
-    # Get last 5 existing videos from channel, ordered by upload date
+    # Get latest video upload date to check if we need to fetch new videos
+    existing_videos = ChannelService.get_videos_by_channel(channel_id)
+    latest_video_date = existing_videos[0].uploaded if existing_videos else datetime(1970, 1, 1)
+    
+    # Only fetch new videos if channel was active after the latest video we have
+    # This prevents unnecessary API calls when no new content is expected
+    should_fetch_new_videos = (
+        channel.last_active is None or 
+        channel.last_active > latest_video_date
+    )
+    
+    if should_fetch_new_videos:
+        logger.info("Channel may have new videos, fetching from platform", extra={
+            "channel_id": channel_id, 
+            "last_active": channel.last_active, 
+            "latest_video": latest_video_date
+        })
+        try:
+            ChannelService.fetch_latest_videos(channel)
+        except Exception as e:
+            logger.error("Failed to fetch latest videos", extra={
+                "channel_id": channel_id, "error": str(e)
+            })
+    else:
+        logger.info("No new videos expected, skipping API fetch", extra={
+            "channel_id": channel_id,
+            "last_active": channel.last_active,
+            "latest_video": latest_video_date
+        })
+    
+    # Get recent videos (refresh the list after potential fetch)
     recent_videos = ChannelService.get_videos_by_channel(channel_id)[:5]
     
     unprocessed_count = 0

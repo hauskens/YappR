@@ -1,6 +1,8 @@
 import os
 import logging
 from dotenv import load_dotenv
+from tzlocal import get_localzone
+from datetime import datetime, timezone
 
 
 class Config:
@@ -73,9 +75,39 @@ class Config:
         self.service_name: str = os.environ.get("SERVICE_NAME", "app")
         # example: http://localhost:4040/loki/api/v1/push
         self.loki_url: str | None = os.environ.get("LOKI_URL")
-        self.timezone: str = os.environ.get("TIMEZONE", "Europe/Oslo")
+        self.timezone: str = os.environ.get("TIMEZONE", str(get_localzone()))
         self.version: str = os.environ.get("VERSION", "0.0.0")
         self.default_cache_time: int = int(os.environ.get("DEFAULT_CACHE_TIME", 300))
+        
+    @property
+    def server_timezone_info(self) -> dict:
+        """Get detailed server timezone information for debugging"""
+        try:
+            from zoneinfo import ZoneInfo
+            
+            detected_tz = get_localzone()
+            configured_tz = ZoneInfo(self.timezone)
+            
+            now_local = datetime.now()
+            now_utc = datetime.now(timezone.utc)
+            now_configured = now_utc.astimezone(configured_tz)
+            
+            return {
+                'detected_timezone': str(detected_tz),
+                'configured_timezone': self.timezone,
+                'server_local_time': now_local.isoformat(),
+                'server_utc_time': now_utc.isoformat(), 
+                'configured_tz_time': now_configured.isoformat(),
+                'configured_offset_hours': now_configured.utcoffset().total_seconds() / 3600 if now_configured.utcoffset() else 0,
+                'is_dst': now_configured.dst() is not None and now_configured.dst().total_seconds() > 0,
+                'timezone_match': str(detected_tz) == self.timezone
+            }
+        except Exception as e:
+            return {
+                'error': str(e),
+                'configured_timezone': self.timezone,
+                'fallback_used': True
+            }
 
 
 _ = load_dotenv()

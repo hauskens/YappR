@@ -24,7 +24,7 @@ from app.models.config import config
 from app.routes.search import search_page
 from app.chatlogparse import parse_log
 import tempfile
-from app.models import ChatLog, Channels, db
+from app.models import ChatLog, Channels, ChatLogImport, db
 from sqlalchemy import and_, or_, func
 
 root_blueprint = Blueprint('root', __name__, url_prefix='/',
@@ -721,3 +721,247 @@ def serve_audio(job_id):
         # Log the error to aid debugging
         logger.error(f"Failed to serve audio for job {job_id}: {e}")
         abort(500, description="Internal Server Error")
+
+
+@root_blueprint.route("/utils/chatlog_imports")
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def list_chatlog_imports():
+    """List all chatlog imports with their details"""
+    try:
+        from app.models.user import Users
+        imports = db.session.query(ChatLogImport).join(Channels).join(Users, ChatLogImport.imported_by == Users.id).order_by(ChatLogImport.imported_at.desc()).all()
+        
+        if not imports:
+            return "<p>No chatlog imports found.</p>"
+        
+        html = """
+        <div class="table-responsive">
+            <table class="table table-striped table-hover">
+                <thead>
+                    <tr>
+                        <th>Import ID</th>
+                        <th>Channel</th>
+                        <th>Imported By</th>
+                        <th>Import Date</th>
+                        <th>Timezone</th>
+                        <th>Messages</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+        """
+        
+        for import_record in imports:
+            message_count = len(import_record.chatlogs)
+            import_date = import_record.imported_at.strftime("%Y-%m-%d %H:%M:%S")
+            
+            html += f"""
+            <tr>
+                <td>{import_record.id}</td>
+                <td>{import_record.channel.name}</td>
+                <td>{import_record.imported_by_user.name}</td>
+                <td>{import_date}</td>
+                <td>
+                    <span class="badge bg-secondary">{import_record.timezone}</span>
+                </td>
+                <td>{message_count:,}</td>
+                <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                        <button class="btn btn-warning btn-sm" 
+                            onclick="window.showTimezoneModal({import_record.id}, '{import_record.timezone}')"
+                            title="Adjust timezone">
+                            <i class="bi bi-clock"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" 
+                            hx-delete="/utils/chatlog_imports/{import_record.id}" 
+                            hx-confirm="Are you sure you want to delete this import and all its {message_count:,} messages?" 
+                            hx-target="#chatlog-imports-container"
+                            hx-on::after-request="window.loadChatlogImports()"
+                            title="Delete import">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            """
+        
+        html += """
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Timezone Adjustment Modal -->
+        <div class="modal fade" id="timezoneModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Adjust Timezone</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="timezoneForm">
+                            <input type="hidden" id="import-id" name="import_id" />
+                            <div class="mb-3">
+                                <label for="current-timezone" class="form-label">Current Timezone</label>
+                                <input type="text" class="form-control" id="current-timezone" readonly />
+                            </div>
+                            <div class="mb-3">
+                                <label for="new-timezone" class="form-label">New Timezone</label>
+                                <select class="form-control" id="new-timezone" name="new_timezone" required>
+                                    <option value="">Select timezone...</option>
+                                    <option value="UTC">UTC</option>
+                                    <option value="US/Eastern">US/Eastern</option>
+                                    <option value="US/Central">US/Central</option>
+                                    <option value="US/Mountain">US/Mountain</option>
+                                    <option value="US/Pacific">US/Pacific</option>
+                                    <option value="Europe/London">Europe/London</option>
+                                    <option value="Europe/Berlin">Europe/Berlin</option>
+                                    <option value="Europe/Paris">Europe/Paris</option>
+                                    <option value="Asia/Tokyo">Asia/Tokyo</option>
+                                    <option value="Asia/Shanghai">Asia/Shanghai</option>
+                                    <option value="Australia/Sydney">Australia/Sydney</option>
+                                </select>
+                                <div class="form-text">This will convert all timestamps in the import from the current timezone to the new timezone.</div>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-warning" onclick="window.adjustTimezone()">Adjust Timezone</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        """
+        
+        return html
+        
+    except Exception as e:
+        logger.error(f"Error listing chatlog imports: {e}", extra={"user_id": current_user.id})
+        return "<div class='alert alert-danger'>Error loading chatlog imports</div>"
+
+
+@root_blueprint.route("/utils/chatlog_imports/<int:import_id>", methods=["DELETE"])
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def delete_chatlog_import(import_id):
+    """Delete a chatlog import and all its messages"""
+    try:
+        import_record = db.session.query(ChatLogImport).filter_by(id=import_id).first()
+        if not import_record:
+            return jsonify({"error": "Import not found"}), 404
+        
+        # Delete all associated chat logs first
+        db.session.query(ChatLog).filter_by(import_id=import_id).delete()
+        
+        # Delete the import record
+        db.session.delete(import_record)
+        db.session.commit()
+        
+        logger.info(f"Deleted chatlog import {import_id}", extra={"user_id": current_user.id})
+        
+        # Return the updated list
+        return list_chatlog_imports()
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error deleting chatlog import {import_id}: {e}", extra={"user_id": current_user.id})
+        return jsonify({"error": "Failed to delete import"}), 500
+
+
+@root_blueprint.route("/utils/chatlog_imports/<int:import_id>/adjust_timezone", methods=["POST"])
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def adjust_chatlog_timezone(import_id):
+    """Adjust timezone for all messages in a chatlog import"""
+    try:
+        data = request.get_json()
+        if not data or 'new_timezone' not in data:
+            return jsonify({"error": "New timezone is required"}), 400
+        
+        new_timezone = data['new_timezone']
+        
+        import_record = db.session.query(ChatLogImport).filter_by(id=import_id).first()
+        if not import_record:
+            return jsonify({"error": "Import not found"}), 404
+        
+        # Import timezone libraries
+        from datetime import timezone
+        from zoneinfo import ZoneInfo
+        
+        try:
+            old_tz = ZoneInfo(import_record.timezone)
+            new_tz = ZoneInfo(new_timezone)
+        except Exception as e:
+            return jsonify({"error": f"Invalid timezone: {e}"}), 400
+        
+        # Store old timezone before updating
+        old_timezone = import_record.timezone
+        
+        # Get all chat logs for this import
+        chat_logs = db.session.query(ChatLog).filter_by(import_id=import_id).all()
+        
+        updated_count = 0
+        for chat_log in chat_logs:
+            # Convert timestamp from old timezone to new timezone
+            # Assume the stored timestamp is naive and in the old timezone
+            if chat_log.timestamp.tzinfo is None:
+                # Make it timezone-aware in the old timezone
+                old_time = chat_log.timestamp.replace(tzinfo=old_tz)
+            else:
+                old_time = chat_log.timestamp.astimezone(old_tz)
+            
+            # Convert to new timezone and make naive again for storage
+            new_time = old_time.astimezone(new_tz).replace(tzinfo=None)
+            chat_log.timestamp = new_time
+            updated_count += 1
+        
+        # Update the import record's timezone
+        import_record.timezone = new_timezone
+        
+        db.session.commit()
+        
+        logger.info(f"Adjusted timezone for import {import_id} from {old_timezone} to {new_timezone}, updated {updated_count} messages", 
+                   extra={"user_id": current_user.id})
+        
+        return jsonify({
+            "success": True, 
+            "message": f"Successfully updated {updated_count:,} messages to {new_timezone} timezone"
+        })
+        
+    except Exception as e:
+        db.session.rollback()
+        logger.error(f"Error adjusting timezone for import {import_id}: {e}", extra={"user_id": current_user.id})
+        return jsonify({"error": f"Failed to adjust timezone: {str(e)}"}), 500
+
+
+@root_blueprint.route("/utils/timezone_info")
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def timezone_info():
+    """Display server timezone information for debugging"""
+    tz_info = config.server_timezone_info
+    
+    html = f"""
+    <div class="alert alert-info">
+        <h5><i class="bi bi-info-circle me-2"></i>Server Timezone Information</h5>
+        <table class="table table-sm table-borderless">
+    """
+    
+    for key, value in tz_info.items():
+        html += f"<tr><td><strong>{key.replace('_', ' ').title()}:</strong></td><td>{value}</td></tr>"
+    
+    html += """
+        </table>
+        <div class="mt-3">
+            <small class="text-muted">
+                This information helps debug timezone issues with ChatLog imports. 
+                The server should automatically detect the local timezone, but you can override it with the TIMEZONE environment variable.
+            </small>
+        </div>
+    </div>
+    """
+    
+    return html

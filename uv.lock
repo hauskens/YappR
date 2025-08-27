@@ -3169,6 +3169,18 @@ wheels = [
 ]
 
 [[package]]
+name = "tzlocal"
+version = "5.3.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "tzdata", marker = "sys_platform == 'win32'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/8b/2e/c14812d3d4d9cd1773c6be938f89e5735a1f11a9f184ac3639b93cef35d5/tzlocal-5.3.1.tar.gz", hash = "sha256:cceffc7edecefea1f595541dbd6e990cb1ea3d19bf01b2809f362a03dd7921fd", size = 30761, upload_time = "2025-03-05T21:17:41.549Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/c2/14/e2a54fabd4f08cd7af1c07030603c3356b74da07f7cc056e600436edfa17/tzlocal-5.3.1-py3-none-any.whl", hash = "sha256:eb1a66c3ef5847adf7a834f1be0800581b683b5608e74f86ecbcef8ab91bb85d", size = 18026, upload_time = "2025-03-05T21:17:39.857Z" },
+]
+
+[[package]]
 name = "uritemplate"
 version = "4.2.0"
 source = { registry = "https://pypi.org/simple" }
@@ -3357,6 +3369,7 @@ dependencies = [
     { name = "twitchapi" },
     { name = "types-flask-cors" },
     { name = "types-requests" },
+    { name = "tzlocal" },
     { name = "webvtt-py" },
     { name = "youtube-transcript-api" },
     { name = "yt-dlp" },
@@ -3414,6 +3427,7 @@ requires-dist = [
     { name = "twitchapi", specifier = ">=4.4.0" },
     { name = "types-flask-cors", specifier = ">=6.0.0.20250520" },
     { name = "types-requests", specifier = ">=2.32.0.20250602" },
+    { name = "tzlocal", specifier = ">=5.2" },
     { name = "webvtt-py", specifier = ">=0.5.1" },
     { name = "youtube-transcript-api", specifier = ">=1.1.0" },
     { name = "yt-dlp", specifier = ">=2025.3.27" },

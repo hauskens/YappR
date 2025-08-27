@@ -86,44 +86,91 @@ def video_chatlogs(video_id: int):
     start_time = video.uploaded
     end_time = video.uploaded + timedelta(seconds=video.duration)
 
+    def get_all_chat_logs(search_term=None):
+        """Get chat logs from current video and linked source videos"""
+        all_logs = []
+        
+        # Get chatlogs from current video
+        base_query = db.session.query(ChatLog).filter(
+            ChatLog.channel_id == video.channel_id,
+            ChatLog.timestamp >= start_time,
+            ChatLog.timestamp <= end_time
+        )
+        
+        if search_term:
+            base_query = base_query.filter(ChatLog.message.contains(search_term))
+            
+        current_logs = base_query.all()
+        all_logs.extend(current_logs)
+        
+        # Get chatlogs from linked source videos
+        for mapping in video.target_mappings:
+            if not mapping.active:
+                continue
+                
+            source_video = mapping.source_video
+            source_start = source_video.uploaded + timedelta(seconds=mapping.source_start_time)
+            source_end = source_video.uploaded + timedelta(seconds=mapping.source_end_time)
+            
+            source_query = db.session.query(ChatLog).filter(
+                ChatLog.channel_id == source_video.channel_id,
+                ChatLog.timestamp >= source_start,
+                ChatLog.timestamp <= source_end
+            )
+            
+            if search_term:
+                source_query = source_query.filter(ChatLog.message.contains(search_term))
+                
+            source_logs = source_query.all()
+            all_logs.extend(source_logs)
+        
+        return sorted(all_logs, key=lambda x: x.timestamp)
+
     if request.method == "POST":
         search = request.form.get("chatSearchInput")
         user_filter = request.form.get("userFilter")
         logger.info("chat search: %s, user filter: %s", search,
                     user_filter, extra={"video_id": video_id})
 
-        if search:
-            chat_logs = db.session.query(ChatLog).filter(
-                ChatLog.channel_id == video.channel_id,
-                ChatLog.timestamp >= start_time,
-                ChatLog.timestamp <= end_time,
-                ChatLog.message.contains(search)
-            ).order_by(ChatLog.timestamp).all()
-        else:
-            chat_logs = db.session.query(ChatLog).filter(
-                ChatLog.channel_id == video.channel_id,
-                ChatLog.timestamp >= start_time,
-                ChatLog.timestamp <= end_time
-            ).order_by(ChatLog.timestamp).all()
+        chat_logs = get_all_chat_logs(search)
         return render_template(
             "video_chatlogs.html",
             chat_logs=chat_logs,
             video=video
         )
     else:
-        chat_logs = db.session.query(ChatLog).filter(
-            ChatLog.channel_id == video.channel_id,
-            ChatLog.timestamp >= start_time,
-            ChatLog.timestamp <= end_time
-        ).order_by(ChatLog.timestamp).all()
+        chat_logs = get_all_chat_logs()
         
-        formatted_logs = [{
-            "id": log.id,
-            "username": log.username,
-            "message": log.message,
-            "timestamp": log.timestamp.isoformat(),
-            "offset_seconds": (log.timestamp - start_time).total_seconds()
-        } for log in chat_logs]
+        formatted_logs = []
+        for log in chat_logs:
+            # Calculate offset based on which video this log belongs to
+            if log.channel_id == video.channel_id:
+                # Log from current video
+                offset_seconds = (log.timestamp - start_time).total_seconds()
+            else:
+                # Log from source video - find the mapping and translate timestamp
+                offset_seconds = None
+                for mapping in video.target_mappings:
+                    if mapping.active and log.channel_id == mapping.source_video.channel_id:
+                        source_start = mapping.source_video.uploaded + timedelta(seconds=mapping.source_start_time)
+                        source_offset = (log.timestamp - source_start).total_seconds()
+                        # Translate source timestamp to target timestamp
+                        target_timestamp = mapping.translate_source_to_target(source_offset)
+                        if target_timestamp is not None:
+                            offset_seconds = target_timestamp
+                            break
+                
+                # Fallback if translation fails
+                if offset_seconds is None:
+                    offset_seconds = (log.timestamp - start_time).total_seconds()
+            
+            formatted_logs.append({
+                "id": log.id,
+                "username": log.username,
+                "message": log.message,
+                "timestamp": log.timestamp.isoformat(),
+                "offset_seconds": offset_seconds
+            })
         
         response = jsonify({
             "video_platform_ref": video.platform_ref,

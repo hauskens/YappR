@@ -9,7 +9,7 @@ from app.logger import logger
 from app.models.config import config
 from sqlalchemy import and_, func
 
-CEST = ZoneInfo(config.timezone)
+SERVER_TZ = ZoneInfo(config.timezone)
 
 MESSAGE_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\]\s+(.+): (.+)$")
 
@@ -19,11 +19,60 @@ START_LINE_REGEX = re.compile(
 TIMESTAMP_ONLY_REGEX = re.compile(r"^\[(\d{2}:\d{2}:\d{2})\] (.+)$")
 
 
+def convert_log_timezone_to_server(log_datetime: datetime, log_timezone_str: str) -> datetime:
+    """
+    Convert a datetime from the log's timezone to the server's timezone.
+    
+    Args:
+        log_datetime: Naive datetime from the log
+        log_timezone_str: Timezone string from the log (e.g., "Eastern Daylight Time", "UTC")
+    
+    Returns:
+        Naive datetime converted to server timezone for database storage
+    """
+    try:
+        # Map common timezone names to proper IANA timezone identifiers
+        timezone_mapping = {
+            'Eastern Daylight Time': 'US/Eastern',
+            'Eastern Standard Time': 'US/Eastern', 
+            'Central Daylight Time': 'US/Central',
+            'Central Standard Time': 'US/Central',
+            'Mountain Daylight Time': 'US/Mountain', 
+            'Mountain Standard Time': 'US/Mountain',
+            'Pacific Daylight Time': 'US/Pacific',
+            'Pacific Standard Time': 'US/Pacific',
+            'UTC': 'UTC',
+            'GMT': 'UTC'
+        }
+        
+        # Get proper IANA timezone name
+        iana_timezone = timezone_mapping.get(log_timezone_str, log_timezone_str)
+        
+        try:
+            log_tz = ZoneInfo(iana_timezone)
+        except Exception:
+            log_tz = ZoneInfo('UTC')
+        
+        # Convert the naive datetime to timezone-aware in the log's timezone
+        log_aware = log_datetime.replace(tzinfo=log_tz)
+        
+        # Convert to server timezone
+        server_aware = log_aware.astimezone(SERVER_TZ)
+        
+        # Return as naive datetime for database storage
+        return server_aware.replace(tzinfo=None)
+        
+    except Exception as e:
+        # Fallback: return original datetime
+        return log_datetime
+
+
 class ChatLogParser:
-    def __init__(self, base_date: datetime, channel_id: int):
+    def __init__(self, base_date: datetime, channel_id: int, log_timezone: str = "UTC"):
         self.base_date = base_date
         self.last_timestamp = base_date
         self.channel_id = channel_id
+        self.log_timezone = log_timezone
 
     def extract_username(self, full_username_str: str) -> str:
         # username is the last "word" before colon, split by spaces
@@ -73,8 +122,11 @@ class ChatLogParser:
             combined += timedelta(days=1)
             self.base_date += timedelta(days=1)
 
+        # Convert from log timezone to server timezone
+        combined_server_tz = convert_log_timezone_to_server(combined, self.log_timezone)
+        
         self.last_timestamp = combined
-        return combined
+        return combined_server_tz
 
 
 def parse_log_start_line(line: str) -> tuple[datetime, str]:
@@ -198,7 +250,7 @@ def parse_log(log_path: str, channel_id: int, imported_by: int | None = None, ti
     base_date, detected_timezone = parse_log_start_line(lines[0])
     # Use provided timezone or fall back to detected timezone
     final_timezone = timezone_str or detected_timezone
-    parser = ChatLogParser(base_date, channel_id)
+    parser = ChatLogParser(base_date, channel_id, final_timezone)
 
     # First pass: parse first 10 chat messages for duplicate detection
     first_chat_messages: list[ChatLog] = []

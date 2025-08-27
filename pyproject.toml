@@ -42,6 +42,7 @@ dependencies = [
     "twitchapi>=4.4.0",
     "types-flask-cors>=6.0.0.20250520",
     "types-requests>=2.32.0.20250602",
+    "tzlocal>=5.2",
     "webvtt-py>=0.5.1",
     "youtube-transcript-api>=1.1.0",
     "yt-dlp>=2025.3.27",

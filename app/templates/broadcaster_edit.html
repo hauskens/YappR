@@ -55,7 +55,7 @@
             <th scope="col">Display Name</th>
             <th scope="col">Platform</th>
             <th scope="col">ID</th>
-            <th scope="col">Channel Type</th>
+            <th scope="col">Last Active</th>
             <th scope="col">Source Channel</th>
             <th scope="col">Actions</th>
           </tr>
@@ -68,7 +68,7 @@
             <td>{{ channel.name }}</td>
             <td>{{ channel.platform_name }}</td>
             <td>{{ channel.platform_ref }}</td>
-            <td>{{ channel.main_video_type.name }}</td>
+            <td>{{ channel.last_active if channel.last_active else '-' }}</td>
             <td>{{ channel.source_channel.name if channel.source_channel else '-' }}</td>
             <td>
               <div class="dropdown">
@@ -176,7 +176,7 @@
                            hx-target="#settings-feedback"
                            hx-indicator="#settings-spinner"
                            hx-trigger="change">
-                    <div class="form-text">The ID of the Discord channel where clips should be picked up by YappR discord bot. <a href="https://discord.com/oauth2/authorize?client_id=1359399600733290586">Add the bot to your</a> to your server, then go in one of your discord channels and type <code>/verify</code> to verify your server.</div>
+                    <div class="form-text">Discord channel ID to listen for clip queue submissions. <a href="https://discord.com/oauth2/authorize?client_id=1359399600733290586">Add the bot</a> to your server, then type <code>/verify</code> in your channel to get the ID. Once this ID is saved here, <code>/verify</code> will activate the bot.</div>
                   </div>
                   
                   {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}

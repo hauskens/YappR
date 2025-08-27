@@ -2,7 +2,7 @@ use yew::prelude::*;
 use web_sys::{Event, HtmlInputElement, HtmlSelectElement, RequestInit};
 use yew::html::TargetCast;
 use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Local, TimeZone};
 use wasm_bindgen::JsValue;
 
 #[derive(Deserialize, Clone, PartialEq)]
@@ -286,11 +286,11 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                     <table class="table table-striped table-hover">
                         <thead class="table-dark">
                             <tr>
-                                <th style="width: 120px;">{"Time"}</th>
-                                <th style="width: 150px;">{"Channel"}</th>
-                                <th style="width: 100px;">{"Username"}</th>
-                                <th>{"Message"}</th>
-                                <th style="width: 120px;">{"VOD Link"}</th>
+                                <th style="width: 140px; min-width: 140px;">{"Time"}</th>
+                                <th style="width: 120px; min-width: 120px;">{"Channel"}</th>
+                                <th style="width: 120px; min-width: 120px;">{"Username"}</th>
+                                <th style="width: auto; max-width: 300px;">{"Message"}</th>
+                                <th style="width: 140px; min-width: 140px;">{"VOD Link"}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -300,18 +300,18 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                 
                                 html! {
                                     <tr key={result.id}>
-                                        <td class="text-muted small">{timestamp}</td>
+                                        <td class="text-muted small text-nowrap">{timestamp}</td>
                                         <td>
-                                            <span class="badge bg-secondary">{&result.channel_name}</span>
+                                            <span class="badge bg-secondary text-truncate d-inline-block" style="max-width: 100px;">{&result.channel_name}</span>
                                         </td>
-                                        <td class="fw-bold">{&result.username}</td>
-                                        <td>{Html::from_html_unchecked(highlighted_message.into())}</td>
-                                        <td>
+                                        <td class="fw-bold text-truncate" style="max-width: 120px;" title={result.username.clone()}>{&result.username}</td>
+                                        <td style="word-wrap: break-word; word-break: break-word; max-width: 300px;">{Html::from_html_unchecked(highlighted_message.into())}</td>
+                                        <td class="text-nowrap">
                                             {
                                                 if let Some(vod) = &result.vod {
                                                     html! {
                                                         <a href={vod.video_url.clone()} 
-                                                           class="btn btn-sm btn-outline-primary" 
+                                                           class="btn btn-sm btn-outline-primary text-nowrap" 
                                                            target="_blank"
                                                            title={format!("Watch at {} in: {}", vod.timestamp_formatted, vod.video_title)}>
                                                             <i class="bi bi-play-circle me-1"></i>
@@ -357,12 +357,12 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                             oninput={on_query_input}
                             required=true
                         />
-                        <div class="form-text">{"Search for specific words or phrases in chat messages"}</div>
+                        <div class="form-text">{"Search for specific words or phrases in chat messages. Use quotes (\"exact phrase\") for strict matching."}</div>
                     </div>
                     <div class="col-md-3 mb-3">
                         <label for="channel-filter" class="form-label">{"Channel (Optional)"}</label>
                         <select class="form-select" id="channel-filter" onchange={on_channel_change}>
-                            <option value="">{"All Channels"}</option>
+                            <option value="" selected=true>{"All Channels"}</option>
                             {for props.channels.iter().map(|channel| {
                                 html! {
                                     <option key={channel.id} value={channel.id.to_string()}>
@@ -462,17 +462,34 @@ fn highlight_search_terms(message: &str, query: &str) -> String {
     }
     
     let escaped_message = html_escape(message);
-    let terms: Vec<&str> = query.split_whitespace().filter(|t| !t.is_empty()).collect();
+    let trimmed_query = query.trim();
     
-    let mut result = escaped_message;
-    for term in terms {
-        let regex = regex::Regex::new(&format!("(?i){}", regex::escape(term))).unwrap();
-        result = regex.replace_all(&result, |caps: &regex::Captures| {
-            format!("<mark class=\"bg-warning\">{}</mark>", &caps[0])
-        }).to_string();
+    // Check if query is enclosed in quotes for strict mode
+    if (trimmed_query.starts_with('"') && trimmed_query.ends_with('"') && trimmed_query.len() > 1) ||
+       (trimmed_query.starts_with('\'') && trimmed_query.ends_with('\'') && trimmed_query.len() > 1) {
+        // Strict mode: search for exact phrase (case insensitive)
+        let phrase = &trimmed_query[1..trimmed_query.len()-1]; // Remove quotes
+        if !phrase.is_empty() {
+            let regex = regex::Regex::new(&format!("(?i){}", regex::escape(phrase))).unwrap();
+            return regex.replace_all(&escaped_message, |caps: &regex::Captures| {
+                format!("<mark class=\"bg-warning\">{}</mark>", &caps[0])
+            }).to_string();
+        }
+        return escaped_message;
+    } else {
+        // Normal mode: search for individual terms (case insensitive)
+        let terms: Vec<&str> = query.split_whitespace().filter(|t| !t.is_empty()).collect();
+        
+        let mut result = escaped_message;
+        for term in terms {
+            let regex = regex::Regex::new(&format!("(?i){}", regex::escape(term))).unwrap();
+            result = regex.replace_all(&result, |caps: &regex::Captures| {
+                format!("<mark class=\"bg-warning\">{}</mark>", &caps[0])
+            }).to_string();
+        }
+        
+        result
     }
-    
-    result
 }
 
 fn html_escape(text: &str) -> String {
@@ -487,9 +504,26 @@ fn format_timestamp(timestamp: &str) -> String {
     // Try to parse the timestamp and format it nicely
     if let Ok(dt) = DateTime::parse_from_rfc3339(timestamp) {
         let local_dt: DateTime<Local> = dt.into();
-        local_dt.format("%Y-%m-%d %H:%M:%S").to_string()
+        local_dt.format("%m-%d %H:%M:%S").to_string()
     } else {
-        timestamp.to_string()
+        // If RFC3339 parsing fails, try parsing without timezone info
+        if let Ok(naive_dt) = chrono::NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%dT%H:%M:%S%.f") {
+            let local_dt = Local.from_local_datetime(&naive_dt).single().unwrap_or_else(|| Local::now());
+            local_dt.format("%m-%d %H:%M:%S").to_string()
+        } else {
+            // Last resort: just truncate the microseconds and show date/time
+            if timestamp.len() >= 19 {
+                let truncated = &timestamp[0..16]; // "2025-08-26T16:29"
+                if let Ok(naive_dt) = chrono::NaiveDateTime::parse_from_str(&format!("{}:00", truncated), "%Y-%m-%dT%H:%M:%S") {
+                    let local_dt = Local.from_local_datetime(&naive_dt).single().unwrap_or_else(|| Local::now());
+                    local_dt.format("%m-%d %H:%M:%S").to_string()
+                } else {
+                    timestamp.to_string()
+                }
+            } else {
+                timestamp.to_string()
+            }
+        }
     }
 }
 

@@ -90,6 +90,12 @@ def utils():
     channels_data = [{"id": channel.id, "name": channel.name} for channel in channels]
     return render_template("utils.html", channels=channels_data)
 
+@root_blueprint.route("/utils/recover_files")
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def recover_files():
+    from app.services.file_recovery import FileRecoveryService
+    return FileRecoveryService.recover_files()
 
 @root_blueprint.route("/utils/chatlog_search", methods=["POST"])
 @login_required
@@ -115,18 +121,28 @@ def chatlog_search():
         date_to = data.get("date_to")
         limit = min(data.get("limit", 100), 1000)  # Cap at 1000 results
         
+        logger.info(f"User is searching chatlog for user: '%s', query '%s'", username, query, extra={"user_id": current_user.id})
         # Build the query
         search_query = db.session.query(ChatLog, Channels.name.label('channel_name')).join(Channels)
         
-        # Text search in message content
-        search_terms = query.split()
-        for term in search_terms:
-            search_query = search_query.filter(
-                or_(
-                    ChatLog.message.ilike(f"%{term}%"),
-                    ChatLog.username.ilike(f"%{term}%")
+        # Text search in message content only
+        # Check if query is enclosed in quotes for strict mode
+        trimmed_query = query.strip()
+        if ((trimmed_query.startswith('"') and trimmed_query.endswith('"') and len(trimmed_query) > 1) or
+            (trimmed_query.startswith("'") and trimmed_query.endswith("'") and len(trimmed_query) > 1)):
+            # Strict mode: search for exact phrase (case insensitive)
+            phrase = trimmed_query[1:-1]  # Remove quotes
+            if phrase:
+                search_query = search_query.filter(
+                    ChatLog.message.ilike(f"%{phrase}%")
                 )
-            )
+        else:
+            # Normal mode: search for individual terms (case insensitive)
+            search_terms = query.split()
+            for term in search_terms:
+                search_query = search_query.filter(
+                    ChatLog.message.ilike(f"%{term}%")
+                )
         
         # Channel filter
         if channel_id:

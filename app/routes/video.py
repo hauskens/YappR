@@ -327,7 +327,7 @@ def video_link_preview(video_id: int):
         return jsonify({"error": "No source channel configured for linking"}), 400
     
     # Get potential matches using the enhanced linking logic
-    from app.services.title_parser import extract_date_from_video_title
+    from app.utils import extract_date_from_video_title
     
     potential_matches = []
     margin_sec = 2
@@ -433,7 +433,7 @@ def video_link_confirm(video_id: int):
     
     # Set estimated upload time if it was parsed from title
     if not video.estimated_upload_time:
-        from app.services.title_parser import extract_date_from_video_title
+        from app.utils import extract_date_from_video_title
         estimated_date = extract_date_from_video_title(video.title)
         if estimated_date:
             video.estimated_upload_time = estimated_date

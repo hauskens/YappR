@@ -163,14 +163,22 @@ class DiscordBot(commands.Bot):
 
         # Process URL messages in the listening channel
         if in_listening_channel and re.search(url_pattern, message.content):
+            logger.debug(f"Looking for broadcaster setting with channel ID: {message.channel.id} (type: {type(message.channel.id)})")
             query = select(BroadcasterSettings).where(
                 BroadcasterSettings.linked_discord_channel_id == message.channel.id
             )
             broadcaster_setting = self.session.execute(
                 query).scalars().one_or_none()
             if broadcaster_setting is None:
+                # Query all broadcaster settings to see what channel IDs exist
+                all_settings = self.session.execute(
+                    select(BroadcasterSettings).where(
+                        BroadcasterSettings.linked_discord_channel_id.isnot(None)
+                    )
+                ).scalars().all()
                 logger.error(
-                    f"No broadcaster setting found for channel {message.channel.id}")
+                    f"No broadcaster setting found for channel {message.channel.id}. "
+                    f"Available channel IDs: {[s.linked_discord_channel_id for s in all_settings]}")
                 return
 
             # Check for URLs in the message

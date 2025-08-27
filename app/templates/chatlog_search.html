@@ -1,4 +1,6 @@
-{% extends 'base.html' %} {% block content %}
+{% extends 'base.html' %}
+
+{% block content %}
 <div class="container mt-5">
   <div class="row justify-content-center">
     <div class="col-md-8">
@@ -24,44 +26,30 @@
   <div class="row justify-content-center mt-4">
     <div class="col-md-8">
       <div class="card shadow border mb-4">
-        <div class="card-header bg-info text-white">
-          <h5 class="mb-0"><i class="bi bi-lightbulb-fill me-2"></i>Chatlog Search Tips</h5>
+        <div class="card-header bg-warning text-dark">
+          <h5 class="mb-0"><i class="bi bi-exclamation-triangle-fill me-2"></i>Warning</h5>
         </div>
         <div class="card-body p-0">
           <div class="list-group list-group-flush">
             <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">💬</span>
+              <span class="fs-4 me-3 mt-1">🔒</span>
               <div>
-                <h6 class="mb-1">Chat Message Search</h6>
-                <p class="mb-1">Search through chat messages from live streams and VODs.</p>
+                <h6 class="mb-1 fw-bold">This search function is not publicly available</h6>
+                <p class="mb-1">Due to Twitch developer TOS, chatlogs cannot be distributed publicly. Therefore, only mods and admins can access this.</p>
               </div>
             </div>
             <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">👤</span>
+              <span class="fs-4 me-3 mt-1">📝</span>
               <div>
-                <h6 class="mb-1">Username Search</h6>
-                <p class="mb-1">Find messages from specific users by including their username in your search.</p>
+                <h6 class="mb-1 fw-bold">Searches you do here are logged</h6>
+                <p class="mb-1">The searches you do here in chatlogs are logged to discourage abuse</p>
               </div>
             </div>
             <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">🔍</span>
+              <span class="fs-4 me-3 mt-1">🔐</span>
               <div>
-                <h6 class="mb-1">Keyword Search</h6>
-                <p class="mb-1">Search for specific words or phrases that appeared in chat messages.</p>
-              </div>
-            </div>
-            <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">📅</span>
-              <div>
-                <h6 class="mb-1">Date Filtering</h6>
-                <p class="mb-1">Filter results by date range to find messages from specific time periods.</p>
-              </div>
-            </div>
-            <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">⚡</span>
-              <div>
-                <h6 class="mb-1">Real-time Results</h6>
-                <p class="mb-1">Search results include timestamps and links to the exact moment in VODs.</p>
+                <h6 class="mb-1 fw-bold">Respect the users privacy</h6>
+                <p class="mb-1">Although the chat messages are sent in public, the users still have right to privacy, and you should respect that. Don't be a creep</p>
               </div>
             </div>
           </div>
@@ -86,7 +74,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<meta name="version" content="{{ version }}">
 <script type="module">
 import init, { render_chatlog_search } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
 

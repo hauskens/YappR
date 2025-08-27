@@ -234,9 +234,6 @@ class ChannelService:
         logger.info(f"Looking for potential links on channel {channel.name} "
                    f"(duration matching: always, title parsing: {title_parsing_enabled})")
         
-        from .title_parser import extract_date_from_video_title
-        from datetime import timedelta
-        
         # Process title dates if enabled
         if title_parsing_enabled:
             ChannelService._process_title_dates(channel)
@@ -290,7 +287,7 @@ class ChannelService:
     @staticmethod
     def _process_title_dates(channel: Channels):
         """Process title dates for unlinked videos in the channel."""
-        from .title_parser import extract_date_from_video_title
+        from app.utils import extract_date_from_video_title
         
         updated_count = 0
         for video in channel.videos:
@@ -325,8 +322,6 @@ class ChannelService:
             return 0
 
         logger.info(f"Running bulk auto-link for channel {channel.name} (requires BOTH duration AND date match)")
-        
-        from .title_parser import extract_date_from_video_title
         
         # Process title dates if needed
         ChannelService._process_title_dates(channel)

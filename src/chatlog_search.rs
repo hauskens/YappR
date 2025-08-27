@@ -13,6 +13,17 @@ pub struct ChatLogSearchResult {
     pub timestamp: String,
     pub channel_id: i32,
     pub channel_name: String,
+    pub vod: Option<VodInfo>,
+}
+
+#[derive(Deserialize, Clone, PartialEq)]
+pub struct VodInfo {
+    pub video_id: i32,
+    pub video_title: String,
+    pub platform_ref: String,
+    pub timestamp_seconds: i32,
+    pub timestamp_formatted: String,
+    pub video_url: String,
 }
 
 #[derive(Deserialize, Clone)]
@@ -279,6 +290,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                 <th style="width: 150px;">{"Channel"}</th>
                                 <th style="width: 100px;">{"Username"}</th>
                                 <th>{"Message"}</th>
+                                <th style="width: 120px;">{"VOD Link"}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -294,6 +306,25 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                         </td>
                                         <td class="fw-bold">{&result.username}</td>
                                         <td>{Html::from_html_unchecked(highlighted_message.into())}</td>
+                                        <td>
+                                            {
+                                                if let Some(vod) = &result.vod {
+                                                    html! {
+                                                        <a href={vod.video_url.clone()} 
+                                                           class="btn btn-sm btn-outline-primary" 
+                                                           target="_blank"
+                                                           title={format!("Watch at {} in: {}", vod.timestamp_formatted, vod.video_title)}>
+                                                            <i class="bi bi-play-circle me-1"></i>
+                                                            {&vod.timestamp_formatted}
+                                                        </a>
+                                                    }
+                                                } else {
+                                                    html! {
+                                                        <span class="text-muted small">{"No VOD"}</span>
+                                                    }
+                                                }
+                                            }
+                                        </td>
                                     </tr>
                                 }
                             })}

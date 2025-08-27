@@ -95,9 +95,9 @@ def utils():
 @login_required
 @require_permission([PermissionType.Admin, PermissionType.Moderator])
 def chatlog_search():
-    from app.models import ChatLog, Channels
+    from app.models import ChatLog, Channels, Video
     from sqlalchemy import and_, or_, func
-    from datetime import datetime
+    from datetime import datetime, timedelta
     
     try:
         # Get JSON data from request
@@ -157,17 +157,26 @@ def chatlog_search():
         # Order by timestamp (newest first) and limit
         results = search_query.order_by(ChatLog.timestamp.desc()).limit(limit).all()
         
-        # Format results
+        # Format results with VOD links
         formatted_results = []
         for chatlog, channel_name in results:
-            formatted_results.append({
+            # Find matching VOD for this chatlog timestamp
+            vod_info = find_matching_vod(chatlog.channel_id, chatlog.timestamp)
+            
+            result = {
                 "id": chatlog.id,
                 "username": chatlog.username,
                 "message": chatlog.message,
                 "timestamp": chatlog.timestamp.isoformat(),
                 "channel_id": chatlog.channel_id,
                 "channel_name": channel_name
-            })
+            }
+            
+            # Add VOD information if available
+            if vod_info:
+                result["vod"] = vod_info
+            
+            formatted_results.append(result)
         
         # Determine channel name for filters response
         channel_name_filter = None
@@ -191,6 +200,53 @@ def chatlog_search():
     except Exception as e:
         logger.error(f"Error in chatlog search: {e}", extra={"user_id": current_user.id})
         return {"error": "Internal server error"}, 500
+
+
+def find_matching_vod(channel_id: int, chatlog_timestamp: datetime):
+    """Find a VOD that matches the chatlog timestamp with some tolerance."""
+    from app.models import Video
+    from app.services.video import VideoService
+    from datetime import timedelta
+    
+    # Look for videos within a reasonable time window (e.g., 6 hours before and after)
+    time_window = timedelta(hours=6)
+    start_time = chatlog_timestamp - time_window
+    end_time = chatlog_timestamp + time_window
+    
+    # Find videos from the same channel within the time window
+    matching_video = db.session.query(Video).filter(
+        and_(
+            Video.channel_id == channel_id,
+            Video.uploaded >= start_time,
+            Video.uploaded <= end_time,
+            Video.active == True
+        )
+    ).order_by(func.abs(func.extract('epoch', Video.uploaded - chatlog_timestamp))).first()
+    
+    if matching_video:
+        # Calculate the timestamp offset within the VOD
+        time_diff = chatlog_timestamp - matching_video.uploaded
+        vod_timestamp_seconds = max(0, int(time_diff.total_seconds()))
+        
+        # Use VideoService to get the proper URL with timestamp
+        video_url = VideoService.get_url_with_timestamp(matching_video, vod_timestamp_seconds)
+        
+        # Format timestamp as HH:MM:SS
+        hours = int(vod_timestamp_seconds) // 3600
+        minutes = (int(vod_timestamp_seconds) % 3600) // 60
+        seconds = int(vod_timestamp_seconds) % 60
+        timestamp_formatted = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+        
+        return {
+            "video_id": matching_video.id,
+            "video_title": matching_video.title,
+            "platform_ref": matching_video.platform_ref,
+            "timestamp_seconds": int(vod_timestamp_seconds),
+            "timestamp_formatted": timestamp_formatted,
+            "video_url": video_url
+        }
+    
+    return None
 
 
 @root_blueprint.route("/utils/transcription_jobs")

@@ -1,0 +1,123 @@
+{% extends 'base.html' %} {% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card shadow">
+        <div class="card-header bg-success text-white">
+          <h5 class="card-title mb-0">
+            <i class="bi bi-chat-dots me-2"></i>Chat Log Search
+          </h5>
+        </div>
+        <div class="card-body">
+          <div id="chatlog-search-container">
+            <div class="text-center py-4">
+              <div class="spinner-border text-success" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2">Loading search interface...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+      <div class="card shadow border mb-4">
+        <div class="card-header bg-info text-white">
+          <h5 class="mb-0"><i class="bi bi-lightbulb-fill me-2"></i>Chatlog Search Tips</h5>
+        </div>
+        <div class="card-body p-0">
+          <div class="list-group list-group-flush">
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">💬</span>
+              <div>
+                <h6 class="mb-1">Chat Message Search</h6>
+                <p class="mb-1">Search through chat messages from live streams and VODs.</p>
+              </div>
+            </div>
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">👤</span>
+              <div>
+                <h6 class="mb-1">Username Search</h6>
+                <p class="mb-1">Find messages from specific users by including their username in your search.</p>
+              </div>
+            </div>
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">🔍</span>
+              <div>
+                <h6 class="mb-1">Keyword Search</h6>
+                <p class="mb-1">Search for specific words or phrases that appeared in chat messages.</p>
+              </div>
+            </div>
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">📅</span>
+              <div>
+                <h6 class="mb-1">Date Filtering</h6>
+                <p class="mb-1">Filter results by date range to find messages from specific time periods.</p>
+              </div>
+            </div>
+            <div class="list-group-item d-flex align-items-start">
+              <span class="fs-4 me-3 mt-1">⚡</span>
+              <div>
+                <h6 class="mb-1">Real-time Results</h6>
+                <p class="mb-1">Search results include timestamps and links to the exact moment in VODs.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="row justify-content-center mt-2">
+    <div class="col-md-8">
+      {% with messages = get_flashed_messages() %}
+        {% if messages %}
+          <div class="alert alert-danger" role="alert">
+            {% for message in messages %}
+              {{ message }}
+            {% endfor %}
+          </div>
+        {% endif %}
+      {% endwith %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<meta name="version" content="{{ version }}">
+<script type="module">
+import init, { render_chatlog_search } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
+
+async function initChatlogSearch() {
+  try {
+    // Get WASM URL
+    const version = document.querySelector('meta[name="version"]')?.getAttribute('content') || '';
+    const wasmUrl = `{{ url_for('static', filename='wasm/yappr_wasm_bg.wasm') }}${version ? `?v=${version}` : ''}`;
+    
+    await init(wasmUrl);
+    
+    // Prepare channels data
+    const channelsData = {{ channels | tojson }};
+    
+    // Render the chatlog search component
+    render_chatlog_search(JSON.stringify(channelsData), 'chatlog-search-container');
+    
+  } catch (error) {
+    console.error('Failed to initialize chatlog search:', error);
+    const container = document.getElementById('chatlog-search-container');
+    if (container) {
+      container.innerHTML = `
+        <div class="alert alert-danger">
+          <i class="bi bi-exclamation-triangle me-2"></i>
+          Failed to load search interface. Please refresh the page.
+        </div>
+      `;
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', initChatlogSearch);
+</script>
+{% endblock %}

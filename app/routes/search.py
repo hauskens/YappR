@@ -6,6 +6,8 @@ from app.utils import get_valid_date
 from app.permissions import check_banned
 from app.services import UserService, ModerationService, BroadcasterService 
 from flask_login import current_user # type: ignore
+from app.models.channel import Channels
+from app.models import db
 
 search_blueprint = Blueprint('search', __name__, url_prefix='/search',
                              template_folder='templates', static_folder='static')
@@ -61,3 +63,30 @@ def search_word():
         video_result=video_result,
         transcription_stats=transcription_stats,
     )
+
+
+@search_blueprint.route("/chatlog", strict_slashes=False)
+@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@check_banned()
+def chatlog_search_page():
+    # Only allow moderators and admins to access chatlog search
+    if current_user.is_anonymous or not (UserService.is_moderator(current_user) or UserService.is_admin(current_user)):
+        return render_template("403.html"), 403
+    
+    # Get all channels for chatlog search
+    channels_query = db.session.execute(db.select(Channels)).scalars().all()
+    
+    # Convert channels to JSON serializable format
+    channels = [
+        {
+            "id": channel.id,
+            "name": channel.name,
+            "platform_name": channel.platform_name,
+            "platform_ref": channel.platform_ref,
+            "broadcaster_id": channel.broadcaster_id
+        }
+        for channel in channels_query
+    ]
+    
+    logger.info(f"Loaded chatlog_search.html")
+    return render_template("chatlog_search.html", channels=channels)

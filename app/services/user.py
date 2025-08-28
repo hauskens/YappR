@@ -7,12 +7,13 @@ import asyncio
 
 from sqlalchemy import select, or_, and_
 from app.models import db
-from app.models import Users, ExternalUser, Permissions, Channels, ChannelModerator, Broadcaster
+from app.models import Users, Permissions, Channels, ChannelModerator, Broadcaster
 from app.models.user import UserChannelRole, ModerationAction
 from app.models.enums import PermissionType, AccountSource, TwitchAccountType, PlatformType, ChannelRole, ModerationScope, ModerationActionType
 from app.models.user import string_to_role, role_to_string
 from app.models.config import config
 from app.logger import logger
+from app.services.channel import ChannelService
 
 
 class UserService:
@@ -177,19 +178,46 @@ class UserService:
 
     @staticmethod
     def create(name: str, external_account_id: str | None, account_type: AccountSource,
-               avatar_url: str | None = None, broadcaster_id: int | None = None) -> Users:
+               avatar_url: str | None = None) -> Users:
         """Create a new user."""
         user = Users(
             name=name,
             external_account_id=external_account_id,
             account_type=account_type,
-            avatar_url=avatar_url,
-            broadcaster_id=broadcaster_id
+            avatar_url=avatar_url
         )
         db.session.add(user)
         db.session.commit()
         logger.info(f"Created user: {name}")
         return user
+
+    @staticmethod
+    def get_or_create(name: str, external_account_id: str | None, account_type: AccountSource,
+                     avatar_url: str | None = None) -> Users:
+        """Get user by external_account_id or create if not exists."""
+        user = None
+        
+        # Try to find existing user by external_account_id
+        if external_account_id:
+            user = db.session.query(Users).filter_by(external_account_id=external_account_id).one_or_none()
+        
+        if user:
+            # Update user fields if they have changed
+            updated = False
+            if user.name != name:
+                user.name = name
+                updated = True
+            if avatar_url and user.avatar_url != avatar_url:
+                user.avatar_url = avatar_url
+                updated = True
+                
+            if updated:
+                db.session.commit()
+                logger.info(f"Updated user fields for: {name}")
+            return user
+        
+        # Create new user if not found
+        return UserService.create(name, external_account_id, account_type, avatar_url)
 
     @staticmethod
     def update(user_id: int, **kwargs) -> Users:
@@ -210,6 +238,10 @@ class UserService:
     @staticmethod
     def get_channel_role(user: Users, channel_id: int) -> ChannelRole | None:
         """Get user's role in a specific channel."""
+        channel = ChannelService.get_by_id(channel_id)
+        if user.broadcaster_id == channel.broadcaster_id:
+            return ChannelRole.Owner
+        
         role_record = db.session.execute(
             select(UserChannelRole)
             .where(
@@ -358,56 +390,6 @@ class UserService:
         return db.session.execute(query).scalars().all()
 
 
-class ExternalUserService:
-    """Service class for external user-related operations."""
-
-    @staticmethod
-    def get_by_id(external_user_id: int) -> ExternalUser:
-        """Get external user by ID."""
-        return db.session.query(ExternalUser).filter_by(id=external_user_id).one()
-
-    @staticmethod
-    def get_by_external_id(external_account_id: int, account_type: AccountSource) -> ExternalUser | None:
-        """Get external user by external account ID and type."""
-        return db.session.query(ExternalUser).filter_by(
-            external_account_id=external_account_id,
-            account_type=account_type
-        ).one_or_none()
-
-    @staticmethod
-    def create(username: str, external_account_id: int | None, account_type: AccountSource,
-               disabled: bool = False) -> ExternalUser:
-        """Create a new external user."""
-        external_user = ExternalUser(
-            username=username,
-            external_account_id=external_account_id,
-            account_type=account_type,
-            disabled=disabled,
-        )
-        db.session.add(external_user)
-        db.session.commit()
-        logger.info(f"Created external user: {username}")
-        return external_user
-
-    @staticmethod
-    def update(external_user_id: int, **kwargs) -> ExternalUser:
-        """Update external user fields."""
-        external_user = ExternalUserService.get_by_id(external_user_id)
-        for key, value in kwargs.items():
-            if hasattr(external_user, key):
-                setattr(external_user, key, value)
-        db.session.commit()
-        return external_user
-
-    @staticmethod
-    def disable_user(external_user_id: int) -> ExternalUser:
-        """Disable an external user."""
-        return ExternalUserService.update(external_user_id, disabled=True)
-
-    @staticmethod
-    def enable_user(external_user_id: int) -> ExternalUser:
-        """Enable an external user."""
-        return ExternalUserService.update(external_user_id, disabled=False)
 
 
 # For template accessibility, create simple function interfaces

@@ -19,10 +19,8 @@ class UserBase(BaseModel):
     name: str = Field(..., max_length=500)
     external_account_id: str = Field(..., max_length=500)
     account_type: AccountSource
-    first_login: datetime
-    last_login: datetime
+    last_login: datetime | None = Field(..., max_length=500)
     avatar_url: HttpUrl | None = Field(..., max_length=500)
-    broadcaster_id: int | None
     banned: bool = Field(default=False)
     banned_reason: str | None
 
@@ -34,15 +32,15 @@ class Users(Base, UserMixin):
         String(500), unique=True, nullable=False
     )
     account_type: Mapped[str] = mapped_column(Enum(AccountSource))
-    first_login: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now())
-    last_login: Mapped[datetime] = mapped_column(
-        DateTime, default=datetime.now())
+    last_login: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    broadcaster_id: Mapped[int | None] = mapped_column(
-        ForeignKey("broadcaster.id"))
     banned: Mapped[bool] = mapped_column(Boolean, default=False)
     banned_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    
+    # Fields migrated from ExternalUser
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
+    ignore_weight_penalty: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
     
     # New moderation fields
     globally_banned: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
@@ -77,32 +75,39 @@ class Users(Base, UserMixin):
         foreign_keys="ModerationAction.issued_by",
         back_populates="issued_by_user"
     )
+    
+    # Relationships migrated from ExternalUser
+    submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="user")
+    weights: Mapped[list["UserWeight"]] = relationship(back_populates="user")
+    
+    @property
+    def broadcaster_id(self) -> int | None:
+        """Get broadcaster_id by checking if this user owns any channels."""
+        from sqlalchemy import select
+        from .channel import Channels
+        from .broadcaster import Broadcaster
+        from . import db
+        
+        # Check if user's external_account_id matches any channel's platform_channel_id
+        result = db.session.execute(
+            select(Broadcaster.id)
+            .join(Broadcaster.channels)
+            .where(Channels.platform_channel_id == self.external_account_id)
+            .limit(1)
+        ).scalar_one_or_none()
+        
+        return result
 
 
-class ExternalUser(Base):
-    __tablename__ = "external_users"
+
+
+class UserWeight(Base):
+    __tablename__ = "user_weights"
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(600), nullable=False)
-    external_account_id: Mapped[int | None] = mapped_column(
-        BigInteger, unique=True, nullable=True
-    )
-    account_type: Mapped[AccountSource] = mapped_column(Enum(AccountSource))
-    disabled: Mapped[bool] = mapped_column(Boolean, default=False)
-    ignore_weight_penalty: Mapped[bool] = mapped_column(Boolean, default=False)
-    submissions: Mapped[list["ContentQueueSubmission"]
-                        ] = relationship(back_populates="user")
-    weights: Mapped[list["ExternalUserWeight"]] = relationship(
-        back_populates="external_user")
-
-
-class ExternalUserWeight(Base):
-    __tablename__ = "external_user_weights"
-    id: Mapped[int] = mapped_column(
-        Integer, primary_key=True, autoincrement=True)
-    external_user_id: Mapped[int] = mapped_column(
-        ForeignKey("external_users.id"))
-    external_user: Mapped["ExternalUser"] = relationship(
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id"))
+    user: Mapped["Users"] = relationship(
         back_populates="weights")
     weight: Mapped[float] = mapped_column(Float, nullable=False)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))

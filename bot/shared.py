@@ -8,7 +8,7 @@ from app.logger import logger
 import re
 from app.models.content_queue_settings import ContentQueueSettings
 from app.models.content_queue import Content, ContentQueue, ContentQueueSubmission, ContentQueueSubmissionSource
-from app.models.user import ExternalUser, ExternalUserWeight
+from app.models.user import Users, UserWeight
 from app.models.enums import AccountSource
 from sqlalchemy import select
 from app.twitch_api import Twitch
@@ -272,102 +272,102 @@ async def _get_or_create_content(url: str, broadcaster_id: int, session, platfor
         return existing_content.id
 
 
-def _get_or_create_external_user(external_user_id: str, username: str, submission_source_type: ContentQueueSubmissionSource, broadcaster_id: int, session) -> ExternalUser:
+def _get_or_create_user(external_user_id: str, username: str, submission_source_type: ContentQueueSubmissionSource, broadcaster_id: int, session) -> Users:
     """Get existing external user or create new one."""
     account_source: AccountSource = AccountSource.Twitch if submission_source_type == ContentQueueSubmissionSource.Twitch else AccountSource.Discord
 
-    # Find existing external user
-    external_user = session.execute(
-        select(ExternalUser).filter(
-            ExternalUser.external_account_id == int(external_user_id),
+    # Find existing user
+    user = session.execute(
+        select(Users).filter(
+            Users.external_account_id == external_user_id,
         )
     ).scalars().one_or_none()
 
-    if external_user is None:
+    if user is None:
         try:
-            # Create new external user
-            external_user = ExternalUser(
-                username=username,
-                external_account_id=int(external_user_id),
+            # Create new user
+            user = Users(
+                name=username,
+                external_account_id=external_user_id,
                 account_type=account_source,
                 disabled=False
             )
-            session.add(external_user)
+            session.add(user)
             session.flush()  # Flush to get the user ID
-            logger.debug("Created external user: %s", external_user,
+            logger.debug("Created user: %s", user,
                          extra={"broadcaster_id": broadcaster_id})
         except Exception as e:
             session.rollback()
             # Check if this was a race condition and the user now exists
-            external_user = session.execute(
-                select(ExternalUser).filter(
-                    ExternalUser.external_account_id == int(external_user_id),
-                    ExternalUser.account_type == account_source,
+            user = session.execute(
+                select(Users).filter(
+                    Users.external_account_id == external_user_id,
+                    Users.account_type == account_source,
                 )
             ).scalars().one_or_none()
 
-            if external_user is not None:
-                logger.info("Race condition detected - external user was created by another process",
-                            extra={"broadcaster_id": broadcaster_id, "external_user_id": external_user.id})
+            if user is not None:
+                logger.info("Race condition detected - user was created by another process",
+                            extra={"broadcaster_id": broadcaster_id, "user_id": user.id})
             else:
                 # Different error, re-raise
-                logger.error("Failed to create external user: %s",
+                logger.error("Failed to create user: %s",
                              e, extra={"broadcaster_id": broadcaster_id})
                 raise
 
-    return external_user
+    return user
 
 
-def _get_or_create_external_user_weight(external_user: ExternalUser, broadcaster_id: int, session) -> ExternalUserWeight:
-    """Get existing external user weight or create new one."""
-    external_user_weight = session.execute(
-        select(ExternalUserWeight).filter(
-            ExternalUserWeight.external_user_id == external_user.id,
-            ExternalUserWeight.broadcaster_id == broadcaster_id,
+def _get_or_create_user_weight(user: Users, broadcaster_id: int, session) -> UserWeight:
+    """Get existing user weight or create new one."""
+    user_weight = session.execute(
+        select(UserWeight).filter(
+            UserWeight.user_id == user.id,
+            UserWeight.broadcaster_id == broadcaster_id,
         )
     ).scalars().one_or_none()
 
-    if external_user_weight is None:
+    if user_weight is None:
         try:
-            # Create new external user weight
-            external_user_weight = ExternalUserWeight(
-                external_user_id=external_user.id,
+            # Create new user weight
+            user_weight = UserWeight(
+                user_id=user.id,
                 broadcaster_id=broadcaster_id,
                 weight=1.0,
             )
-            session.add(external_user_weight)
+            session.add(user_weight)
             session.flush()  # Flush to get the weight ID
-            logger.debug("Created external user weight: %s", external_user_weight, extra={
+            logger.debug("Created user weight: %s", user_weight, extra={
                          "broadcaster_id": broadcaster_id})
         except Exception as e:
             session.rollback()
             # Check if this was a race condition and the weight now exists
-            external_user_weight = session.execute(
-                select(ExternalUserWeight).filter(
-                    ExternalUserWeight.external_user_id == external_user.id,
-                    ExternalUserWeight.broadcaster_id == broadcaster_id,
+            user_weight = session.execute(
+                select(UserWeight).filter(
+                    UserWeight.user_id == user.id,
+                    UserWeight.broadcaster_id == broadcaster_id,
                 )
             ).scalars().one_or_none()
 
-            if external_user_weight is not None:
-                logger.info("Race condition detected - external user weight was created by another process",
-                            extra={"broadcaster_id": broadcaster_id, "external_user_weight_id": external_user_weight.id})
+            if user_weight is not None:
+                logger.info("Race condition detected - user weight was created by another process",
+                            extra={"broadcaster_id": broadcaster_id, "user_weight_id": user_weight.id})
             else:
                 # Different error, re-raise
-                logger.error("Failed to create external user weight: %s", e, extra={
+                logger.error("Failed to create user weight: %s", e, extra={
                              "broadcaster_id": broadcaster_id})
                 raise
 
-    return external_user_weight
+    return user_weight
 
 
-def _create_or_update_submission(queue_item_id: int, content_id: int, external_user: ExternalUser, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, submission_weight: float, external_user_weight: ExternalUserWeight, user_comment: str | None, session) -> ContentQueueSubmission:
+def _create_or_update_submission(queue_item_id: int, content_id: int, user: Users, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, submission_weight: float, user_weight: UserWeight, user_comment: str | None, session) -> ContentQueueSubmission:
     """Create new submission or update existing one."""
     # Check if submission already exists
     existing_submission = session.execute(
         select(ContentQueueSubmission).filter(
             ContentQueueSubmission.content_queue_id == queue_item_id,
-            ContentQueueSubmission.user_id == external_user.id,
+            ContentQueueSubmission.user_id == user.id,
             ContentQueueSubmission.submission_source_type == submission_source_type,
             ContentQueueSubmission.submission_source_id == submission_source_id,
         )
@@ -378,11 +378,11 @@ def _create_or_update_submission(queue_item_id: int, content_id: int, external_u
         submission = ContentQueueSubmission(
             content_queue_id=queue_item_id,
             content_id=content_id,
-            user_id=external_user.id,
+            user_id=user.id,
             submitted_at=datetime.now(),
             submission_source_type=submission_source_type,
             submission_source_id=submission_source_id,
-            weight=submission_weight * external_user_weight.weight,
+            weight=submission_weight * user_weight.weight,
             user_comment=user_comment
         )
         session.add(submission)
@@ -434,15 +434,15 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
         # Get or create content
         content_id = await _get_or_create_content(url, broadcaster_id, session, platform_handler, twitch_client)
 
-        # Get or create external user and weight
-        external_user = _get_or_create_external_user(
+        # Get or create user and weight
+        user = _get_or_create_user(
             external_user_id, username, submission_source_type, broadcaster_id, session)
-        external_user_weight = _get_or_create_external_user_weight(
-            external_user, broadcaster_id, session)
+        user_weight = _get_or_create_user_weight(
+            user, broadcaster_id, session)
 
-        if external_user_weight.banned:
-            logger.info("External user %s is banned, not adding to content queue",
-                        external_user.username, extra={"broadcaster_id": broadcaster_id})
+        if user_weight.banned:
+            logger.info("User %s is banned, not adding to content queue",
+                        user.name, extra={"broadcaster_id": broadcaster_id})
             return None
 
         try:
@@ -451,8 +451,8 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
                 broadcaster_id, content_id, session, platform_handler)
 
             # Create or update submission
-            submission = _create_or_update_submission(queue_item_id, content_id, external_user, submission_source_type,
-                                                      submission_source_id, submission_weight, external_user_weight, user_comment, session)
+            submission = _create_or_update_submission(queue_item_id, content_id, user, submission_source_type,
+                                                      submission_source_id, submission_weight, user_weight, user_comment, session)
 
             # Commit all changes
             session.commit()

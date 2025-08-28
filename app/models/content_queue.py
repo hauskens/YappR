@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .broadcaster import Broadcaster
-    from .user import ExternalUser
+    from .user import Users
 
 
 class ContentQueueSubmission(Base):
@@ -21,8 +21,8 @@ class ContentQueueSubmission(Base):
         back_populates="submissions")
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
-    user_id: Mapped[int] = mapped_column(ForeignKey("external_users.id"))
-    user: Mapped["ExternalUser"] = relationship()  # type: ignore[name-defined]
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user: Mapped["Users"] = relationship()
     submitted_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     submission_source_type: Mapped[ContentQueueSubmissionSource] = mapped_column(
         Enum(ContentQueueSubmissionSource), nullable=False)
@@ -64,7 +64,6 @@ class ContentQueue(Base):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True)
     broadcaster_id: Mapped[int] = mapped_column(ForeignKey("broadcaster.id"))
-    # type: ignore[name-defined]
     broadcaster: Mapped["Broadcaster"] = relationship()
     content_id: Mapped[int] = mapped_column(ForeignKey("content.id"))
     content: Mapped["Content"] = relationship()
@@ -90,74 +89,3 @@ class ContentQueue(Base):
             return 0.0
         return sum(submission.weight for submission in self.submissions)
 
-    # def get_video_timestamp_url(self) -> str:
-    #     if self.content_timestamp is None:
-    #         raise ValueError("No timestamp on content")
-    #     return PlatformRegistry.get_url_with_timestamp(self.content.url, self.content_timestamp)
-
-    # def get_video_playable_url(self) -> str:
-    #     if self.content_timestamp is None:
-    #         return self.content.url
-    #     return self.get_video_timestamp_url()
-
-    # def get_vod_timestamp_url(self, time_shift: float = 60) -> str | None:
-    #     """Find the broadcaster's video that was live when this clip was marked as watched
-    #     and return a URL with the timestamp.
-
-    #     The function finds the closest previous watched item with the same broadcaster_id
-    #     and uses that time for the timestamp URL. If the time difference between this item
-    #     and the previous one is longer than 90 seconds + video duration, it uses that instead.
-
-    #     Args:
-    #         time_shift: Default time shift in seconds (used as fallback if no previous item found)
-
-    #     Returns:
-    #         URL string with timestamp or None if no matching video found
-    #     """
-    #     if not self.watched or not self.watched_at:
-    #         return None
-
-    #     # Find the closest previous watched item with the same broadcaster_id
-    #     previous_item = db.session.query(ContentQueue).filter(
-    #         ContentQueue.broadcaster_id == self.broadcaster_id,
-    #         ContentQueue.watched == True,
-    #         ContentQueue.watched_at < self.watched_at
-    #     ).order_by(ContentQueue.watched_at.desc()).first()
-    #     # Calculate the time difference to use for the offset
-    #     if previous_item and previous_item.watched_at:
-    #         # Calculate time difference in seconds between current and previous item
-    #         content_duration = self.content.duration or 0
-
-    #         # Subtract content duration from the time difference
-    #         time_diff = (self.watched_at -
-    #                      previous_item.watched_at).total_seconds()
-
-    #         # Ensure time_diff is at least 0
-    #         time_diff = max(0, time_diff)
-
-    #         # Use the minimum of the actual time difference and 90 seconds
-    #         time_shift = min(time_diff, 90 + content_duration)
-
-    #     # Find videos from this broadcaster's channels that were live when the clip was watched
-    #     for channel in self.broadcaster.channels:
-    #         # Look for videos that might include this timestamp
-    #         # We need to find videos that were live when the clip was watched
-    #         # SQLite doesn't have great datetime functions, so we'll fetch candidates and filter in Python
-    #         candidate_videos = db.session.query(Video).filter(
-    #             Video.channel_id == channel.id,
-    #             Video.video_type == VideoType.VOD  # Ensure it's a VOD
-    #         ).all()
-
-    #         for video in candidate_videos:
-    #             # Check if video was live when clip was watched
-    #             video_end_time = video.uploaded + \
-    #                 timedelta(seconds=video.duration)
-    #             if video.uploaded <= self.watched_at <= video_end_time:
-    #                 # Calculate seconds from start of video to when clip was watched
-    #                 seconds_offset = (
-    #                     self.watched_at - video.uploaded - timedelta(seconds=time_shift)).total_seconds()
-
-    #                 # Generate URL with timestamp
-    #                 return video.get_url_with_timestamp(seconds_offset)
-
-    #     return None

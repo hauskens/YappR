@@ -49,10 +49,10 @@
                     data-bs-toggle="tooltip" 
                     title="{{ submission.user_comment or '' }}"
                     style="cursor: pointer;"
-                    hx-get="{{ url_for('users.external_user', external_user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
+                    hx-get="{{ url_for('users.user_detail', user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
                     hx-target="#userModalContent"
                     hx-trigger="click">
-                {{ submission.user.username }}{{ '*' if submission.user_comment }}
+                {{ submission.user.name }}{{ '*' if submission.user_comment }}
               </span>
             {% endfor %}
             {% if item.submissions|length > 3 %}

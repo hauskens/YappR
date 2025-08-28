@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, redirect, jsonify, flash
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models import db
-from app.models import ExternalUser, ExternalUserWeight, ContentQueueSubmission, PermissionType, Users, Channels
+from app.models import Users, UserWeight, ContentQueueSubmission, PermissionType, Channels, Broadcaster
 from app.models.user import get_role_config, get_highest_role
 from app.models.enums import ChannelRole, ModerationActionType, ModerationScope
 from app.logger import logger
@@ -139,7 +139,7 @@ def revoke_role(user_id: int, channel_id: int):
 
 @users_blueprint.route("/<int:user_id>/ban", methods=["POST"])
 @login_required
-@require_permission(permissions=PermissionType.Admin)
+@require_permission()
 def ban_user(user_id: int):
     """Ban a user globally or from a specific channel."""
     scope_str = request.form.get('scope', 'global')
@@ -166,7 +166,13 @@ def ban_user(user_id: int):
         )
     except Exception as e:
         logger.error(f"Error banning user: {e}")
-        return f"<div class='text-danger'>Error: {str(e)}</div>", 400
+        # Return error message as part of the user status component with error styling
+        user = db.session.get(Users, user_id)
+        return render_template(
+            "components/user_moderation_status.html", 
+            user=user,
+            error_message=str(e)
+        ), 200
 
 
 @users_blueprint.route("/<int:user_id>/unban", methods=["POST"])
@@ -224,11 +230,15 @@ def ban_modal(user_id: int):
     """Get ban modal content."""
     user = db.session.get(Users, user_id)
     channels = db.session.query(Channels).all()
+    channel_only = request.args.get('channel_only', 'false').lower() == 'true'
+    broadcaster_id = request.args.get('broadcaster_id', type=int)
     
     return render_template(
         "components/ban_modal.html",
         user=user,
-        channels=channels
+        channels=channels,
+        channel_only=channel_only,
+        broadcaster_id=broadcaster_id
     )
 
 
@@ -262,16 +272,72 @@ def unban_modal(user_id: int):
     )
 
 
-@users_blueprint.route("/external_user/<int:external_user_id>/broadcaster/<int:broadcaster_id>")
+
+@users_blueprint.route("/<int:user_id>/timeout", methods=["POST"])
 @login_required
 @require_permission()
-def external_user(external_user_id: int, broadcaster_id: int):
+def timeout_user(user_id: int):
+    """Timeout a user from a specific channel."""
+    channel_id = request.form.get('channel_id', type=int)
+    duration_seconds = request.form.get('duration_seconds', type=int)
+    reason = request.form.get('reason', 'No reason provided')
+    if not channel_id or not duration_seconds:
+        raise ValueError("Channel ID and duration seconds are required")
     try:
-        external_user = db.session.query(
-            ExternalUser).filter_by(id=external_user_id).one()
+        ModerationService.timeout_user(
+            target_user_id=user_id,
+            channel_id=channel_id,
+            duration_seconds=duration_seconds,
+            reason=reason,
+            issued_by_user_id=current_user.id
+        )
+        
+        return render_template(
+            "components/user_moderation_status.html",
+            user=db.session.get(Users, user_id)
+        )
+    except Exception as e:
+        logger.error(f"Error timing out user: {e}")
+        # Return error message as part of the user status component with error styling
+        user = db.session.get(Users, user_id)
+        return render_template(
+            "components/user_moderation_status.html", 
+            user=user,
+            error_message=str(e)
+        ), 200
 
-        user_weight = db.session.query(ExternalUserWeight).filter_by(
-            external_user_id=external_user_id,
+
+@users_blueprint.route("/<int:user_id>/submissions")
+@login_required
+@require_permission()
+def user_submissions(user_id: int):
+    """Get paginated user submissions."""
+    broadcaster_id = request.args.get('broadcaster_id', type=int)
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
+    
+    submissions = db.session.query(ContentQueueSubmission).filter_by(
+        user_id=user_id
+    ).order_by(ContentQueueSubmission.submitted_at.desc()).all()
+    
+    return render_template(
+        "components/user_submissions.html",
+        submissions=submissions,
+        user_id=user_id,
+        broadcaster_id=broadcaster_id
+    )
+
+
+@users_blueprint.route("/user/<int:user_id>/broadcaster/<int:broadcaster_id>")
+@login_required
+@require_permission()
+def user_detail(user_id: int, broadcaster_id: int):
+    try:
+        user = db.session.query(
+            Users).filter_by(id=user_id).one()
+
+        user_weight = db.session.query(UserWeight).filter_by(
+            user_id=user_id,
             broadcaster_id=broadcaster_id
         ).one_or_none()
 
@@ -281,19 +347,26 @@ def external_user(external_user_id: int, broadcaster_id: int):
             weights = []
 
         submissions = db.session.query(ContentQueueSubmission).filter_by(
-            user_id=external_user_id
+            user_id=user_id
         ).order_by(ContentQueueSubmission.submitted_at.desc()).all()
 
+        # Get the primary channel for the broadcaster
+        primary_channel = db.session.query(Channels).filter_by(
+            broadcaster_id=broadcaster_id
+        ).first()
+        primary_channel_id = primary_channel.id if primary_channel else None
+
         return render_template(
-            "external_user.html",
-            external_user=external_user,
+            "user_detail.html",
+            user=user,
             broadcaster_id=broadcaster_id,
+            channel_id=primary_channel_id,
             weights=weights,
             submissions=submissions
         )
     except Exception as e:
-        logger.error("Error loading external user %s: %s",
-                     external_user_id, e, extra={"user_id": current_user.id})
+        logger.error("Error loading user %s: %s",
+                     user_id, e, extra={"user_id": current_user.id})
         return "<div class='alert alert-danger'>Error loading user details</div>", 500
 
 
@@ -306,19 +379,20 @@ def grant_permission(user_id: int, permission_name: str):
     )
 
     user = UserService.get_by_id(user_id)
-    _ = user.add_permissions(PermissionType[permission_name])
+    if user:
+        UserService.add_permissions(user, PermissionType[permission_name])
     users = UserService.get_all()
     return render_template(
         "users.html", users=users, permission_types=PermissionType
     )
 
 
-@users_blueprint.route("/<int:user_id>/edit", methods=["GET", "POST"])
+@users_blueprint.route("/<int:user_id>/edit", methods=["GET"])
 @login_required
 @require_permission(permissions=PermissionType.Admin)
 def user_edit(user_id: int):
     user = UserService.get_by_id(user_id)
-    if request.method == "GET":
+    if user:
         logger.info("Loaded users.html")
         broadcasters = BroadcasterService.get_all()
         return render_template(
@@ -327,20 +401,4 @@ def user_edit(user_id: int):
             broadcasters=broadcasters,
             permission_types=PermissionType,
         )
-    elif request.method == "POST":
-        try:
-            broadcaster_id = int(request.form["broadcaster_id"])
-            user.broadcaster_id = broadcaster_id
-            db.session.commit()
-            logger.info(
-                f"Changing broadcaster_id to: %s", broadcaster_id
-            )
-            return redirect(request.referrer)
-        except:
-            user.broadcaster_id = None
-            db.session.commit()
-            logger.info("Changing broadcaster_id to: None")
-            return redirect(request.referrer)
-
-    else:
-        return "You do not have permission to modify this user", 403
+    return "User not found", 404

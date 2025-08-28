@@ -3,7 +3,7 @@ from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime, timedelta, timezone
 from app.models import db
-from app.models import PermissionType, ContentQueueSettings, ContentQueueSubmission, ContentQueue, ExternalUser, ExternalUserWeight
+from app.models import PermissionType, ContentQueueSettings, ContentQueueSubmission, ContentQueue, Users, UserWeight
 from app.platforms.handler import PlatformRegistry
 from app.retrievers import get_content_queue
 from app.services import BroadcasterService, UserService, ModerationService
@@ -232,7 +232,7 @@ def get_queue_items():
                     search_query.lower() in item.content.title.lower() or
                     search_query.lower() in item.content.channel_name.lower() or
                     any(submission.user_comment and search_query.lower() in submission.user_comment.lower() for submission in item.submissions) or
-                    any(search_query.lower() in submission.user.username.lower()
+                    any(search_query.lower() in submission.user.name.lower()
                         for submission in item.submissions)
                 ]
 
@@ -393,36 +393,36 @@ def penalty_external_user(broadcaster_id: int, external_user_id: int):
     force_ban = request.args.get('ban', 'false').lower() == 'true'
 
     try:
-        external_user_weight = db.session.query(ExternalUserWeight).filter_by(
-            external_user_id=external_user_id, broadcaster_id=broadcaster_id).one_or_none()
-        if external_user_weight is None:
-            external_user_weight = ExternalUserWeight(
-                external_user_id=external_user_id,
+        user_weight = db.session.query(UserWeight).filter_by(
+            user_id=external_user_id, broadcaster_id=broadcaster_id).one_or_none()
+        if user_weight is None:
+            user_weight = UserWeight(
+                user_id=external_user_id,
                 broadcaster_id=broadcaster_id,
                 weight=1,
                 banned=False,
                 banned_at=None,
                 unban_at=None,
             )
-            db.session.add(external_user_weight)
+            db.session.add(user_weight)
 
         if force_ban:
             logger.info(f"Force banning user {external_user_id}", extra={
                         "user_id": current_user.id})
-            external_user_weight.weight = 0
-            external_user_weight.banned = True
-            external_user_weight.banned_at = datetime.now()
-            external_user_weight.unban_at = datetime.now(
+            user_weight.weight = 0
+            user_weight.banned = True
+            user_weight.banned_at = datetime.now()
+            user_weight.unban_at = datetime.now(
             ) + timedelta(days=standard_ban_duration)
         else:
             # Apply standard penalty
-            external_user_weight.weight = round(
-                external_user_weight.weight - standard_penalty, 2)
-            if external_user_weight.weight <= 0:
-                external_user_weight.weight = 0
-                external_user_weight.banned = True
-                external_user_weight.banned_at = datetime.now()
-                external_user_weight.unban_at = datetime.now(
+            user_weight.weight = round(
+                user_weight.weight - standard_penalty, 2)
+            if user_weight.weight <= 0:
+                user_weight.weight = 0
+                user_weight.banned = True
+                user_weight.banned_at = datetime.now()
+                user_weight.unban_at = datetime.now(
                 ) + timedelta(days=standard_ban_duration)
 
         db.session.commit()
@@ -444,32 +444,32 @@ def reset_external_user_penalties(broadcaster_id: int, external_user_id: int):
     logger.info("Resetting external user penalties", extra={
                 "broadcaster_id": broadcaster_id, "external_user_id": external_user_id})
     try:
-        # Get the external user
-        external_user = db.session.query(
-            ExternalUser).filter_by(id=external_user_id).one()
+        # Get the user
+        user = db.session.query(
+            Users).filter_by(id=external_user_id).one()
 
         # Get or create user weight
-        external_user_weight = db.session.query(ExternalUserWeight).filter_by(
-            external_user_id=external_user_id,
+        user_weight = db.session.query(UserWeight).filter_by(
+            user_id=external_user_id,
             broadcaster_id=broadcaster_id
         ).one_or_none()
 
-        if external_user_weight is None:
+        if user_weight is None:
             # If no weight exists, create a default one with standard values
-            external_user_weight = ExternalUserWeight(
-                external_user_id=external_user_id,
+            user_weight = UserWeight(
+                user_id=external_user_id,
                 broadcaster_id=broadcaster_id,
                 weight=1.0,
                 banned=False,
                 banned_at=None,
                 unban_at=None
             )
-            db.session.add(external_user_weight)
+            db.session.add(user_weight)
         else:
             # Reset weight to 1.0 and unban
-            external_user_weight.weight = 1.0
-            external_user_weight.banned = False
-            external_user_weight.unban_at = None
+            user_weight.weight = 1.0
+            user_weight.banned = False
+            user_weight.unban_at = None
 
         db.session.commit()
 
@@ -488,10 +488,10 @@ def reset_external_user_penalties(broadcaster_id: int, external_user_id: int):
 
         # In case of error, try to get data for the template
         try:
-            external_user = db.session.query(
-                ExternalUser).filter_by(id=external_user_id).one()
-            user_weight = db.session.query(ExternalUserWeight).filter_by(
-                external_user_id=external_user_id,
+            user = db.session.query(
+                Users).filter_by(id=external_user_id).one()
+            user_weight = db.session.query(UserWeight).filter_by(
+                user_id=external_user_id,
                 broadcaster_id=broadcaster_id
             ).one_or_none()
             weights = [user_weight] if user_weight else []
@@ -867,9 +867,8 @@ def text_search_content_internal(query, broadcaster_id):
     )
 
     # Search in submitter usernames
-    from app.models.user import ExternalUser
     search_conditions.append(
-        ExternalUser.username.ilike(f"%{query}%")
+        Users.name.ilike(f"%{query}%")
     )
 
     # Execute search query with joins
@@ -877,7 +876,7 @@ def text_search_content_internal(query, broadcaster_id):
         select(ContentQueue)
         .join(Content, ContentQueue.content_id == Content.id)
         .join(ContentQueueSubmission, ContentQueue.id == ContentQueueSubmission.content_queue_id)
-        .join(ExternalUser, ContentQueueSubmission.user_id == ExternalUser.id)
+        .join(Users, ContentQueueSubmission.user_id == Users.id)
         .filter(
             and_(
                 ContentQueue.broadcaster_id.in_(broadcaster_ids),

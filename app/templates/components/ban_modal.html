@@ -8,23 +8,27 @@
     <div class="modal-body">
       <form hx-post="{{ url_for('users.ban_user', user_id=user.id) }}" 
             hx-target="#user-status-{{ user.id }}"
-            hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('userModal')).hide()">
+            hx-on::after-request="bootstrap.Modal.getInstance(document.getElementById('actionModal')).hide()">
         
         <div class="mb-3">
           <label class="form-label">Scope</label>
           <select name="scope" class="form-select" id="ban-scope" 
                   onchange="toggleChannelSelect(this)">
+            {% if not channel_only %}
             <option value="global">Global Ban</option>
-            <option value="channel">Channel Ban</option>
+            {% endif %}
+            <option value="channel" {% if channel_only %}selected{% endif %}>Channel Ban</option>
           </select>
         </div>
         
-        <div class="mb-3" id="channel-select" style="display: none;">
+        <div class="mb-3" id="channel-select" style="{% if channel_only %}display: block;{% else %}display: none;{% endif %}">
           <label class="form-label">Channel</label>
-          <select name="channel_id" class="form-select">
+          <select name="channel_id" class="form-select" {% if channel_only %}required{% endif %}>
             <option value="">Select a channel</option>
             {% for channel in channels %}
-            <option value="{{ channel.id }}">{{ channel.name }}</option>
+            <option value="{{ channel.id }}" {% if broadcaster_id and channel.broadcaster_id == broadcaster_id %}selected{% endif %}>
+              {{ channel.name }}
+            </option>
             {% endfor %}
           </select>
         </div>

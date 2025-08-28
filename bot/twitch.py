@@ -2,7 +2,7 @@ from twitchAPI.twitch import Twitch, AuthScope
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import select
 from app.models.auth import OAuth
-from app.models.enums import ContentQueueSubmissionSource
+from app.models.enums import ContentQueueSubmissionSource, AccountSource, ModerationActionType
 from app.models.channel import Channels, ChannelSettings
 from app.models.chatlog import ChatLog
 from app.models.config import config
@@ -11,7 +11,7 @@ import signal
 import time
 from datetime import datetime
 from twitchAPI.type import AuthScope, ChatEvent
-from twitchAPI.chat import Chat, EventData, ChatMessage
+from twitchAPI.chat import Chat, EventData, ChatMessage, ChatUser
 from .shared import ChannelSettingsDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event, task_manager, start_task_manager, url_pattern, get_platform, add_to_content_queue
 from app.platforms.handler import ContentDict
 
@@ -125,8 +125,6 @@ class TwitchBot:
                     broadcaster_id=channel.broadcaster_id,
                 )
 
-            logger.debug("Stored %d enabled channels in memory with settings", len(
-                self.enabled_channels))
             return [channel.platform_ref for channel in channels]
         finally:
             session.close()
@@ -175,7 +173,7 @@ class TwitchBot:
 
                 # Check for URLs in the message
                 urls = url_pattern.findall(msg.text)
-
+            
                 # Only process URLs if content queue is enabled for this channel
                 if urls:
                     for url in urls:
@@ -241,6 +239,111 @@ class TwitchBot:
         except Exception as e:
             logger.error("Error processing chat message: %s - %s", e, msg)
             self.session.rollback()
+
+    async def on_notice(self, notice_event):
+        """Handle notice events, including timeout and ban notifications."""
+        try:
+            # Get the raw IRC message to parse timeout/ban information
+            if not hasattr(notice_event, 'parsed') or not notice_event.parsed:
+                return
+                
+            parsed = notice_event.parsed
+            room_id = notice_event.room.room_id if notice_event.room else None
+            
+            if not room_id or room_id not in self.enabled_channels:
+                return
+                
+            channel_id = self.enabled_channels[room_id]
+            
+            # Parse IRC tags for moderation events
+            tags = parsed.get('tags', {})
+            msg_id = tags.get('msg-id', '')
+            
+            # Handle timeout events
+            if msg_id == 'timeout':
+                await self._handle_timeout_notice(tags, channel_id)
+            # Handle ban events  
+            elif msg_id == 'ban':
+                await self._handle_ban_notice(tags, channel_id)
+            # Log other notice types for debugging
+            else:
+                logger.debug(f"Received notice with msg-id: {msg_id} in channel {channel_id}")
+                
+        except Exception as e:
+            logger.error("Error processing notice event: %s", e)
+    
+    async def _handle_timeout_notice(self, tags, channel_id):
+        """Handle timeout notice from IRC tags."""
+        try:
+            target_user = tags.get('target-user-id')
+            target_username = tags.get('target-username', 'unknown')
+            duration = tags.get('ban-duration', '0')
+            reason = tags.get('ban-reason', 'Timeout')
+            
+            if not target_user:
+                logger.warning("Timeout notice missing target user ID")
+                return
+                
+            # Get or create user
+            from app.services.user import UserService
+            user = UserService.get_or_create(
+                name=target_username,
+                external_account_id=target_user,
+                account_type=AccountSource.Twitch
+            )
+            
+            # Record timeout event
+            from app.services.moderation import ModerationService
+            ModerationService.record_external_moderation_event(
+                target_user_id=user.id,
+                action_type=ModerationActionType.timeout,
+                channel_id=channel_id,
+                reason=reason,
+                duration_seconds=int(duration) if duration.isdigit() else None
+            )
+            
+            logger.info(f"Recorded timeout for user {target_username} ({duration}s) in channel {channel_id}")
+            
+        except Exception as e:
+            logger.error("Error processing timeout notice: %s", e)
+    
+    async def _handle_ban_notice(self, tags, channel_id):
+        """Handle ban notice from IRC tags."""
+        try:
+            target_user = tags.get('target-user-id')
+            target_username = tags.get('target-username', 'unknown')
+            reason = tags.get('ban-reason', 'Ban')
+            
+            if not target_user:
+                logger.warning("Ban notice missing target user ID")
+                return
+                
+            # Get or create user
+            from app.services.user import UserService
+            user = UserService.get_or_create(
+                name=target_username,
+                external_account_id=target_user,
+                account_type=AccountSource.Twitch
+            )
+            
+            # Record ban event
+            from app.services.moderation import ModerationService
+            ModerationService.record_external_moderation_event(
+                target_user_id=user.id,
+                action_type=ModerationActionType.ban,
+                channel_id=channel_id,
+                reason=reason
+            )
+            
+            logger.info(f"Recorded ban for user {target_username} in channel {channel_id}")
+            
+        except Exception as e:
+            logger.error("Error processing ban notice: %s", e)
+
+    async def on_message_delete(self, delete_event: EventData):
+        """Handle message delete events (placeholder for future implementation)."""
+        # TODO: Implement message delete handling
+        pass
 
     async def periodic_commit(self):
         """Periodically commit messages to the database"""
@@ -366,6 +469,8 @@ async def main():
     chat = await Chat(bot.twitch)
     chat.register_event(ChatEvent.READY, bot.on_ready)
     chat.register_event(ChatEvent.MESSAGE, bot.on_message)
+    chat.register_event(ChatEvent.NOTICE, bot.on_notice)
+    chat.register_event(ChatEvent.MESSAGE_DELETE, bot.on_message_delete)
     chat.start()
 
     # Store chat reference in the bot for periodic channel check

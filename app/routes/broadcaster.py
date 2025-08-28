@@ -13,7 +13,7 @@ from app.models import (
     ContentQueueSubmission,
     ContentQueueSubmissionSource,
     Content,
-    ExternalUser,
+    Users,
 )
 from app.models.enums import PlatformType
 from app.services import BroadcasterService, UserService, ModerationService
@@ -147,13 +147,13 @@ def broadcaster_create():
             intro_clip = db.session.query(Content).filter_by(
                 url="https://www.youtube.com/watch?v=dQw4w9WgXcQ").one_or_none()
             if intro_clip:
-                external_user = db.session.execute(
-                    select(ExternalUser).filter(
-                        ExternalUser.username == "hauskens",
-                        ExternalUser.account_type == AccountSource.Twitch,
+                user = db.session.execute(
+                    select(Users).filter(
+                        Users.name == "hauskens",
+                        Users.account_type == AccountSource.Twitch,
                     )
                 ).scalars().one_or_none()
-                if external_user:
+                if user:
 
                     # Add to content queue
                     queue_item = ContentQueue(
@@ -169,10 +169,10 @@ def broadcaster_create():
                     submission = ContentQueueSubmission(
                         content_queue_id=queue_item.id,
                         content_id=intro_clip.id,
-                        user_id=external_user.id,
+                        user_id=user.id,
                         submitted_at=datetime.now(),
                         submission_source_type=ContentQueueSubmissionSource.Twitch,
-                        submission_source_id=external_user.id,
+                        submission_source_id=user.id,
                         weight=69,
                         user_comment="lmao gottem"
                     )

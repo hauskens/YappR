@@ -1,0 +1,27 @@
+{% if submissions %}
+<div class="list-group" style="max-height: 400px; overflow-y: auto;">
+  {% for submission in submissions %}
+  <div class="list-group-item list-group-item-action">
+    <div class="d-flex w-100 justify-content-between">
+      <h6 class="mb-1 text-truncate" title="{{ submission.content.title }}">
+        {{ submission.content.title|truncate(40) }}
+      </h6>
+      <small>{{ submission.submitted_at.strftime('%Y-%m-%d %H:%M') }}</small>
+    </div>
+    {% if submission.user_comment %}
+    <p class="mb-1 small fst-italic">"{{ submission.user_comment }}"</p>
+    {% endif %}
+    <div class="d-flex justify-content-between align-items-center">
+      <small class="text-muted">Weight: {{ submission.weight }}</small>
+      {% if submission.content.url %}
+      <a href="{{ submission.content.url }}" target="_blank" class="btn btn-sm btn-outline-primary">
+        <i class="bi bi-link-45deg"></i>
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-muted">No submissions found</p>
+{% endif %}

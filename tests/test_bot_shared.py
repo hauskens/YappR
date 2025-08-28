@@ -19,7 +19,7 @@ with patch('sqlalchemy.create_engine'):
 
 from app.models.content_queue_settings import ContentQueueSettings
 from app.models.content_queue import ContentQueueSubmissionSource, ContentQueue
-from app.models.user import ExternalUser, ExternalUserWeight
+from app.models.user import Users, UserWeight
 
 
 class TestSanitizeUrl:
@@ -222,7 +222,7 @@ class TestAddToContentQueue:
         # Check that external user was created
         user_add_call = mock_session.add.call_args_list[1]
         user = user_add_call[0][0]
-        assert isinstance(user, ExternalUser)
+        assert isinstance(user, Users)
         assert user.username == username
         assert user.external_account_id == int(external_user_id)
         
@@ -247,10 +247,10 @@ class TestAddToContentQueue:
         existing_content.id = 42
         existing_content.stripped_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
         
-        existing_user = MagicMock(spec=ExternalUser)
+        existing_user = MagicMock(spec=Users)
         existing_user.id = 24
         
-        existing_weight = MagicMock(spec=ExternalUserWeight)
+        existing_weight = MagicMock(spec=UserWeight)
         existing_weight.id = 12
         existing_weight.banned = False
         
@@ -332,10 +332,10 @@ class TestAddToContentQueue:
         existing_content = MagicMock(spec=Content)
         existing_content.id = 42
         
-        existing_user = MagicMock(spec=ExternalUser)
+        existing_user = MagicMock(spec=Users)
         existing_user.id = 24
         
-        existing_weight = MagicMock(spec=ExternalUserWeight)
+        existing_weight = MagicMock(spec=UserWeight)
         existing_weight.id = 12
         existing_weight.banned = False
         

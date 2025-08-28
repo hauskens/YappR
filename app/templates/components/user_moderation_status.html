@@ -1,4 +1,12 @@
-{% if user.globally_banned %}
+{% if error_message %}
+    <span class="badge bg-danger" title="{{ error_message }}">
+        <i class="bi bi-exclamation-triangle"></i> Error
+    </span>
+    <div class="alert alert-danger alert-dismissible fade show mt-2 mb-0 p-2" role="alert" style="font-size: 0.875rem;">
+        <i class="bi bi-exclamation-triangle-fill"></i> {{ error_message }}
+        <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+{% elif user.globally_banned %}
     {% if user.global_ban_expires_at %}
         <span class="badge bg-danger" title="Global ban expires: {{ user.global_ban_expires_at }}">
             Temp Ban

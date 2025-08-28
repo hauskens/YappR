@@ -6,10 +6,11 @@ from typing import Sequence
 
 from sqlalchemy import select, or_, and_
 from app.models import db
-from app.models import Users, Channels
-from app.models.user import ModerationAction, UserChannelRole
-from app.models.enums import ModerationActionType, ModerationScope, ChannelRole
+from app.models import Users, ContentQueue, ContentQueueSubmission
+from app.models.user import ModerationAction
+from app.models.enums import ModerationActionType, ModerationScope, ChannelRole, PermissionType
 from app.logger import logger
+from app.services.user import UserService
 
 
 class ModerationService:
@@ -26,6 +27,9 @@ class ModerationService:
         
         if not moderator or not target_user:
             raise ValueError("Invalid user IDs provided")
+
+        if channel_id and not UserService.has_permission(moderator, PermissionType.Admin):
+            raise PermissionError("Insufficient permissions to ban this user from a specific channel, cannot ban admins")
         
         if not ModerationService.check_moderation_permissions(moderator, target_user, channel_id):
             raise PermissionError("Insufficient permissions to ban this user")
@@ -68,6 +72,10 @@ class ModerationService:
         if not moderator or not target_user:
             raise ValueError("Invalid user IDs provided")
         
+        if UserService.has_permission(target_user, PermissionType.Admin):
+            raise PermissionError("Insufficient permissions to timeout this user, cannot timeout admins")
+            
+
         if not ModerationService.check_moderation_permissions(moderator, target_user, channel_id):
             raise PermissionError("Insufficient permissions to timeout this user")
         
@@ -325,6 +333,142 @@ class ModerationService:
             select(ModerationAction.channel_id)
             .where(ModerationAction.target_user_id == user.id, ModerationAction.active == True, ModerationAction.scope == ModerationScope.channel.value, ModerationAction.action_type == ModerationActionType.ban.value)
         ).scalars().all() if channel_id is not None]
+
+    @staticmethod
+    def record_external_moderation_event(target_user_id: int, action_type: ModerationActionType,
+                                        channel_id: int, reason: str, duration_seconds: int | None = None,
+                                        issued_by_user_id: int | None = None) -> ModerationAction:
+        """Record a moderation event from external source (like Twitch chat events)."""
+        expires_at = None
+        if duration_seconds:
+            expires_at = datetime.now() + timedelta(seconds=duration_seconds)
+        
+        action = ModerationAction(
+            target_user_id=target_user_id,
+            action_type=action_type.value,
+            scope=ModerationScope.channel.value,
+            channel_id=channel_id,
+            reason=reason,
+            duration_seconds=duration_seconds,
+            expires_at=expires_at,
+            issued_by=issued_by_user_id
+        )
+        
+        db.session.add(action)
+        
+        # Clean up content queue entries for this user
+        ModerationService.cleanup_user_content_queue_entries(
+            target_user_id, channel_id, action_type, duration_seconds
+        )
+        
+        db.session.commit()
+        logger.info(f"Recorded external {action_type.value} for user {target_user_id} in channel {channel_id}: {reason}")
+        return action
+
+    @staticmethod
+    def cleanup_user_content_queue_entries(target_user_id: int, channel_id: int, 
+                                         action_type: ModerationActionType, 
+                                         duration_seconds: int | None = None) -> int:
+        """Clean up content queue entries for moderated users."""
+        from app.models.channel import Channels
+        from app.services.broadcaster import BroadcasterService
+        
+        # Get the broadcaster for this channel
+        channel = db.session.get(Channels, channel_id)
+        if not channel:
+            logger.warning(f"Channel {channel_id} not found for content queue cleanup")
+            return 0
+        
+        broadcaster = BroadcasterService.get_by_internal_channel_id(channel_id)
+        if not broadcaster:
+            logger.warning(f"Broadcaster not found for channel {channel_id}")
+            return 0
+        
+        count = 0
+        
+        if action_type == ModerationActionType.ban:
+            # For bans, remove all unwatched/unskipped entries
+            entries_to_delete = db.session.execute(
+                select(ContentQueue)
+                .join(ContentQueueSubmission, ContentQueue.id == ContentQueueSubmission.content_queue_id)
+                .where(
+                    ContentQueueSubmission.user_id == target_user_id,
+                    ContentQueue.broadcaster_id == broadcaster.id,
+                    ContentQueue.watched == False,
+                    ContentQueue.skipped == False
+                )
+            ).scalars().all()
+            
+            for entry in entries_to_delete:
+                db.session.delete(entry)
+                count += 1
+            
+            logger.info(f"Cleaned up {count} content queue entries for banned user {target_user_id}")
+            
+        elif action_type == ModerationActionType.timeout and duration_seconds:
+            # For timeouts, remove entries from the past X hours
+            cutoff_time = datetime.now() - timedelta(seconds=duration_seconds)
+            
+            entries_to_delete = db.session.execute(
+                select(ContentQueue)
+                .join(ContentQueueSubmission, ContentQueue.id == ContentQueueSubmission.content_queue_id)
+                .where(
+                    ContentQueueSubmission.user_id == target_user_id,
+                    ContentQueue.broadcaster_id == broadcaster.id,
+                    ContentQueue.watched == False,
+                    ContentQueue.skipped == False,
+                    ContentQueueSubmission.submitted_at >= cutoff_time
+                )
+            ).scalars().all()
+            
+            for entry in entries_to_delete:
+                db.session.delete(entry)
+                count += 1
+            
+            logger.info(f"Cleaned up {count} content queue entries for timed out user {target_user_id} (past {duration_seconds}s)")
+        
+        return count
+
+    @staticmethod
+    def can_submit_content(user_id: int, channel_id: int) -> bool:
+        """Check if user can submit content to a channel (not banned or timed out)."""
+        from app.services.user import UserService
+        from app.services.broadcaster import BroadcasterService
+        
+        user = db.session.get(Users, user_id)
+        if not user:
+            return False
+        
+        # Check global ban
+        if UserService.is_globally_banned(user):
+            return False
+        
+        # Get broadcaster for channel
+        broadcaster = BroadcasterService.get_by_internal_channel_id(channel_id)
+        if not broadcaster:
+            return True  # If broadcaster not found, allow submission
+        
+        # Check channel-specific ban
+        if UserService.is_banned_from_channel(user, channel_id):
+            return False
+        
+        # Check for active timeout
+        active_timeout = db.session.execute(
+            select(ModerationAction)
+            .where(
+                ModerationAction.target_user_id == user_id,
+                ModerationAction.action_type == ModerationActionType.timeout.value,
+                ModerationAction.scope == ModerationScope.channel.value,
+                ModerationAction.channel_id == channel_id,
+                ModerationAction.active == True,
+                or_(
+                    ModerationAction.expires_at.is_(None),
+                    ModerationAction.expires_at > datetime.now()
+                )
+            )
+        ).scalar_one_or_none()
+        
+        return active_timeout is None
 
 # For template accessibility, create simple function interfaces
 def ban_user_globally(target_user_id: int, reason: str, issued_by_user_id: int, 

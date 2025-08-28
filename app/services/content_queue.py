@@ -154,9 +154,19 @@ class ContentQueueService:
             # Calculate time difference in seconds between current and previous item
             content_duration = content_queue.content.duration or 0
 
+            # Ensure both timestamps are timezone-aware for comparison
+            current_watched_at = content_queue.watched_at
+            previous_watched_at = previous_item.watched_at
+            
+            # If either timestamp is naive, make them both timezone-naive for comparison
+            if current_watched_at.tzinfo is None or previous_watched_at.tzinfo is None:
+                if current_watched_at.tzinfo is not None:
+                    current_watched_at = current_watched_at.replace(tzinfo=None)
+                if previous_watched_at.tzinfo is not None:
+                    previous_watched_at = previous_watched_at.replace(tzinfo=None)
+
             # Subtract content duration from the time difference
-            time_diff = (content_queue.watched_at -
-                         previous_item.watched_at).total_seconds()
+            time_diff = (current_watched_at - previous_watched_at).total_seconds()
 
             # Ensure time_diff is at least 0
             time_diff = max(0, time_diff)
@@ -179,10 +189,23 @@ class ContentQueueService:
                 # Check if video was live when clip was watched
                 video_end_time = video.uploaded + \
                     timedelta(seconds=video.duration)
-                if video.uploaded <= content_queue.watched_at <= video_end_time:
+                
+                # Ensure timezone consistency for video timestamp comparison
+                watched_at_for_comparison = content_queue.watched_at
+                video_uploaded_for_comparison = video.uploaded
+                
+                # Make both timezone-naive if either is naive
+                if watched_at_for_comparison.tzinfo is None or video_uploaded_for_comparison.tzinfo is None:
+                    if watched_at_for_comparison.tzinfo is not None:
+                        watched_at_for_comparison = watched_at_for_comparison.replace(tzinfo=None)
+                    if video_uploaded_for_comparison.tzinfo is not None:
+                        video_uploaded_for_comparison = video_uploaded_for_comparison.replace(tzinfo=None)
+                        video_end_time = video_uploaded_for_comparison + timedelta(seconds=video.duration)
+                
+                if video_uploaded_for_comparison <= watched_at_for_comparison <= video_end_time:
                     # Calculate seconds from start of video to when clip was watched
                     seconds_offset = (
-                        content_queue.watched_at - video.uploaded -
+                        watched_at_for_comparison - video_uploaded_for_comparison -
                         timedelta(seconds=time_shift)
                     ).total_seconds()
 

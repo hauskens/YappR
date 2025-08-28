@@ -284,17 +284,17 @@ function markCurrentWatched(): void {
   }
   
   const queueItems = activeQueue.querySelectorAll('.queue-item:not(.watched-item)');
-  let nextIndex = -1;
   
+  // Always get the first unwatched item (excluding the currently active one)
+  let nextItem = null;
   for (let i = 0; i < queueItems.length; i++) {
-    if (queueItems[i] === activeItem) {
-      nextIndex = i + 1;
+    if (queueItems[i] !== activeItem) {
+      nextItem = queueItems[i];
       break;
     }
   }
   
-  if (nextIndex >= 0 && nextIndex < queueItems.length) {
-    const nextItem = queueItems[nextIndex];
+  if (nextItem) {
     const nextItemId = nextItem.getAttribute('data-id');
     
     if (nextItemId) {

@@ -61,6 +61,13 @@
     max-width: 100%;
     box-sizing: border-box;
   }
+
+  /* Show context, skip, and reset buttons on hover */
+  .queue-item:hover .context-btn,
+  .queue-item:hover .skip-btn,
+  .queue-item:hover .reset-btn {
+    opacity: 1 !important;
+  }
 </style>
 
 {% for item in queue_items %}
@@ -237,6 +244,7 @@
             }} VOD</a>{% else %}{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}{% endif %} </span>
         {% endif %}
       </div>
+      
       {% if item.watched and content_queue_service.get_vod_timestamp_url(item.id) %}
       <a href="{{ content_queue_service.get_vod_timestamp_url(item.id) }}" target="_blank" class="btn btn-sm btn-outline-info"
         title="Go to VOD timestamp">
@@ -245,46 +253,83 @@
       {% endif %}
     </div>
 
-    <div class="dropdown" style="position: absolute; top: 0px; right: 0px; z-index: 100;"
-      onclick="event.stopPropagation();">
-      <button class="btn btn-lg p-1" type="button" data-bs-toggle="dropdown" aria-expanded="false"
-        onclick="event.stopPropagation();">
-        <i class="bi bi-three-dots-vertical fs-5"></i>
-      </button>
-      <ul class="dropdown-menu">
-        <li>
-          <!-- Mark as Watched/Unwatched item with htmx -->
-          <a class="dropdown-item mark-action" href="javascript:void(0)"
-             hx-post="/clip_queue/mark_watched/{{ item.id }}"
-             hx-swap="none"
-                   data-bs-dismiss="dropdown"
-                   hx-on::after-request="
-                     if (document.querySelector('.queue-item.active[data-id=\'{{ item.id }}\']') && '{{ item.watched }}' === 'False') {
-                       markWatchedAndNext();
-                     } else {
-                       htmx.trigger(document.body, 'queue_update');
-                       htmx.trigger(document.body, 'history_update');
-               }"
-          >
-              Mark as {{ 'Unwatched' if item.watched else 'Watched' }}
-          </a>
-        </li>
-        <li>
-          <!-- Skip item with htmx -->
-          <a class="dropdown-item skip-action" href="javascript:void(0)"
-             hx-post="/clip_queue/item/{{ item.id }}/skip"
-             hx-swap="none"
-                   data-bs-dismiss="dropdown"
-                   hx-on::after-request="
-                       htmx.trigger(document.body, 'queue_update');
-                       htmx.trigger(document.body, 'history_update');
-               "
-          >
-              Skip
-          </a>
-        </li>
-      </ul>
-    </div>
+    <!-- Context button - only visible on hover -->
+    <button class="btn btn-sm btn-outline-secondary context-btn" type="button"
+            style="position: absolute; top: 5px; right: 40px; z-index: 100; opacity: 0; transition: opacity 0.2s; padding: 0.25rem 0.4rem;"
+            data-bs-toggle="popover"
+            data-bs-placement="left"
+            data-bs-trigger="click"
+            data-bs-html="true"
+            data-bs-title="<i class='bi bi-info-circle'></i> Clip Details"
+            data-bs-content="
+              <div class='small'>
+                <strong>Submitted by:</strong><br/>
+                {% if item.submissions %}
+                  {% for submission in item.submissions %}
+                    <div class='mb-1'>
+                      <span class='badge {{ 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge' }} opacity-75'>
+                        {{ submission.submission_source_type.name }}
+                      </span>
+                      {{ submission.user.name }}
+                      <br/>
+                      <span class='text-muted'>{{ submission.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                      {% if submission.user_comment %}
+                        <br/><em>{{ submission.user_comment }}</em>
+                      {% endif %}
+                    </div>
+                  {% endfor %}
+                {% else %}
+                  <span class='text-muted'>No submission details available</span>
+                {% endif %}
+                
+                {% if item.watched %}
+                  <hr class='my-2'/>
+                  <strong>Watched:</strong><br/>
+                  <div class='mb-1'>
+                    <span class='text-muted'>{{ item.watched_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
+                    {% if content_queue_service.get_vod_timestamp_url(item.id) %}
+                      <br/><a href='{{ content_queue_service.get_vod_timestamp_url(item.id) }}' target='_blank' class='text-decoration-none'>
+                        <i class='bi bi-clock-history'></i> VOD timestamp
+                      </a>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </div>
+            "
+            title="Show clip details"
+            onclick="event.stopPropagation();">
+      <i class="bi bi-question-circle"></i>
+    </button>
+
+    {% if show_history %}
+    <!-- Reset status button - only visible on hover in history tab -->
+    <button class="btn btn-sm btn-outline-warning reset-btn" type="button"
+            style="position: absolute; top: 5px; right: 5px; z-index: 100; opacity: 0; transition: opacity 0.2s; padding: 0.25rem 0.4rem;"
+            title="Reset status (mark as unwatched)"
+            hx-post="/clip_queue/mark_watched/{{ item.id }}"
+            hx-swap="none"
+            hx-on::after-request="
+              htmx.trigger(document.body, 'queue_update');
+              htmx.trigger(document.body, 'history_update');
+            "
+            onclick="event.stopPropagation();">
+      <i class="bi bi-arrow-counterclockwise"></i>
+    </button>
+    {% else %}
+    <!-- Skip button (trash icon) - only visible on hover in main queue -->
+    <button class="btn btn-sm btn-outline-danger skip-btn" type="button"
+            style="position: absolute; top: 5px; right: 5px; z-index: 100; opacity: 0; transition: opacity 0.2s; padding: 0.25rem 0.4rem;"
+            title="Skip this clip"
+            hx-post="/clip_queue/item/{{ item.id }}/skip"
+            hx-swap="none"
+            hx-on::after-request="
+              htmx.trigger(document.body, 'queue_update');
+              htmx.trigger(document.body, 'history_update');
+            "
+            onclick="event.stopPropagation();">
+      <i class="bi bi-trash"></i>
+    </button>
+    {% endif %}
   </div>
   {% endfor %}
 

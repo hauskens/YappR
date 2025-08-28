@@ -149,6 +149,9 @@ function handlePlatformSettings(): void {
             
             // Update weight settings
             updateWeightSettingsForm(response);
+            
+            // Initialize toggle visibility after settings are loaded
+            setTimeout(() => initializeToggleVisibility(), 100);
           }
         } catch (e) {
           console.error('Error parsing platform settings:', e);
@@ -173,6 +176,8 @@ function updateWeightSettingsForm(data: any): void {
       const checkbox = document.getElementById(fieldMapping.frontend) as HTMLInputElement;
       if (checkbox) {
         checkbox.checked = data[fieldMapping.backend];
+        // Update visibility after setting the checkbox state
+        toggleSettingVisibility(fieldMapping.frontend);
       }
     }
   });
@@ -354,6 +359,7 @@ function initPlayer(): void {
 (window as any).initPlayer = initPlayer;
 (window as any).markItemAsWatched = markItemAsWatched;
 (window as any).initializeClipDetailsInteractions = initializeClipDetailsInteractions;
+(window as any).toggleSettingVisibility = toggleSettingVisibility;
 
 // Resize functionality
 function initializeResize(): void {
@@ -439,7 +445,7 @@ function initializeResize(): void {
     if (e.touches.length === 0) return;
     
     isResizing = true;
-    startX = e.touches[0].clientX;
+    startX = e.touches[0]?.clientX || 0;
     startWidth = currentQueueWidth;
     
     document.addEventListener('touchmove', handleTouchMove, { passive: false });
@@ -455,7 +461,7 @@ function initializeResize(): void {
     // Make sure we have at least one touch point
     if (e.touches.length === 0) return;
     
-    const deltaX = startX - e.touches[0].clientX;
+    const deltaX = startX - (e.touches[0]?.clientX || 0);
     const newWidth = startWidth + deltaX;
     
     // Apply constraints
@@ -505,6 +511,38 @@ function initializeResize(): void {
   window.addEventListener('resize', handleWindowResize);
 }
 
+// Toggle visibility of setting bars based on toggle states
+function toggleSettingVisibility(toggleId: string): void {
+  const toggle = document.getElementById(toggleId) as HTMLInputElement;
+  const settingsDiv = document.getElementById(toggleId + '-settings') as HTMLElement;
+  
+  if (toggle && settingsDiv) {
+    if (toggle.checked) {
+      settingsDiv.style.display = 'block';
+    } else {
+      settingsDiv.style.display = 'none';
+    }
+  }
+}
+
+// Initialize toggle visibility states
+function initializeToggleVisibility(): void {
+  const toggles = ['prefer-shorter', 'keep-fresh', 'ignore-popularity', 'viewer-priority'];
+  
+  toggles.forEach(function(toggleId) {
+    const toggle = document.getElementById(toggleId) as HTMLInputElement;
+    if (toggle) {
+      // Set initial visibility
+      toggleSettingVisibility(toggleId);
+      
+      // Add event listener for changes
+      toggle.addEventListener('change', () => {
+        toggleSettingVisibility(toggleId);
+      });
+    }
+  });
+}
+
 // Weight settings functionality
 function initializeWeightSettings(): void {
   function attachRangeUpdaters(): void {
@@ -529,11 +567,13 @@ function initializeWeightSettings(): void {
   
   // Initial attachment
   attachRangeUpdaters();
+  initializeToggleVisibility();
   
   // Re-attach after HTMX swaps (for reset functionality)
   document.body.addEventListener('htmx:afterSwap', (event: any) => {
     if (event.detail.target && event.detail.target.matches('#weight-settings-collapse .card-body')) {
       attachRangeUpdaters();
+      initializeToggleVisibility();
     }
   });
 }
@@ -547,63 +587,46 @@ function togglePreviewInPlayer(): void {
   const playerArea = document.getElementById('player-area');
   const previewButtonText = document.getElementById('preview-button-text');
   if (!playerArea) return;
-  
+
   if (!isPreviewVisible) {
-    // Show preview
-    // Store original content if we haven't already
-    if (!originalPlayerContent) {
-      originalPlayerContent = playerArea.innerHTML;
-    }
+    // Store original content
+    originalPlayerContent = playerArea.innerHTML;
     
-    // Get form data
-    const form = document.getElementById('platform-settings-form') as HTMLFormElement;
-    if (!form) return;
-    
-    const formData = new FormData(form);
-    
-    // Create split layout
+    // Show preview alongside original content
     playerArea.innerHTML = `
-      <div class="d-flex h-100 preview-split-container">
-        <div class="preview-left-panel">
+      <div class="d-flex h-100">
+        <div class="flex-fill me-3" style="flex: 1;">
           ${originalPlayerContent}
         </div>
-        <div class="preview-right-panel">
-          <div class="preview-header">
-            <h6 class="mb-2">
-              <i class="bi bi-eye"></i> Queue Preview
-              <button type="button" class="btn btn-sm btn-outline-secondary float-end" onclick="togglePreviewInPlayer()">
-                <i class="bi bi-x-lg"></i>
-              </button>
-            </h6>
-            <p class="small text-muted mb-3">How your weight settings affect ordering</p>
+        <div class="preview-container border rounded p-3" style="flex: 1;">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">Queue Preview</h6>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="togglePreviewInPlayer()">
+              <i class="bi bi-x-lg"></i>
+            </button>
           </div>
-          <div id="preview-content-area" class="preview-content-area">
-            <!-- Preview content will load here -->
+          <div id="preview-content">
+            <div class="text-center">
+              <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="mt-2">Loading preview...</p>
+            </div>
           </div>
         </div>
       </div>
     `;
     
-    // Load preview content into the right panel
-    if (window.htmx) {
-      window.htmx.ajax('POST', '/clip_queue/weight_settings_preview', {
-        target: '#preview-content-area',
-        swap: 'innerHTML',
-        values: formData
-      });
-    }
-    
-    // Update button text
-    if (previewButtonText) {
-      previewButtonText.textContent = 'Hide Preview';
-    }
-    
     isPreviewVisible = true;
+    updateButtonText();
+    
+    // Load preview content
+    updatePreviewIfVisible();
   } else {
-    // Hide preview
-    // Restore original player area content
-    if (originalPlayerContent && playerArea) {
+    // Restore original content
+    if (originalPlayerContent) {
       playerArea.innerHTML = originalPlayerContent;
+      originalPlayerContent = null;
     }
     
     // Show initial message
@@ -612,12 +635,15 @@ function togglePreviewInPlayer(): void {
       newInitialMessage.style.display = 'flex';
     }
     
-    // Update button text
-    if (previewButtonText) {
-      previewButtonText.textContent = 'Show Preview';
-    }
-    
     isPreviewVisible = false;
+    updateButtonText();
+  }
+}
+
+function updateButtonText(): void {
+  const previewButtonText = document.getElementById('preview-button-text');
+  if (previewButtonText) {
+    previewButtonText.textContent = isPreviewVisible ? 'Hide Preview' : 'Show Preview';
   }
 }
 
@@ -625,7 +651,7 @@ function togglePreviewInPlayer(): void {
 function updatePreviewIfVisible(): void {
   if (!isPreviewVisible) return;
   
-  const previewContentArea = document.getElementById('preview-content-area');
+  const previewContentArea = document.getElementById('preview-content');
   if (!previewContentArea) return;
   
   // Get form data
@@ -637,7 +663,7 @@ function updatePreviewIfVisible(): void {
   // Update preview content without showing loading state
   if (window.htmx) {
     window.htmx.ajax('POST', '/clip_queue/weight_settings_preview', {
-      target: '#preview-content-area',
+      target: '#preview-content',
       swap: 'innerHTML',
       values: formData,
       indicator: false // Disable automatic indicators
@@ -709,6 +735,26 @@ function initializePopovers(): void {
   });
 }
 
+// Initialize priority settings collapse behavior
+function initializePrioritySettingsCollapse(): void {
+  const collapseElement = document.getElementById('weight-settings-collapse');
+  if (collapseElement) {
+    collapseElement.addEventListener('shown.bs.collapse', () => {
+      // Auto-open preview when priority settings are expanded
+      if (!isPreviewVisible) {
+        togglePreviewInPlayer();
+      }
+    });
+    
+    collapseElement.addEventListener('hidden.bs.collapse', () => {
+      // Auto-close preview when priority settings are collapsed
+      if (isPreviewVisible) {
+        togglePreviewInPlayer();
+      }
+    });
+  }
+}
+
 // Initialize everything on page load
 document.addEventListener('DOMContentLoaded', () => {
   initializePreferences();
@@ -720,4 +766,5 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeWeightSettingsPreviewUpdates();
   initializeWeightSettings();
   initializePopovers();
+  initializePrioritySettingsCollapse();
 });

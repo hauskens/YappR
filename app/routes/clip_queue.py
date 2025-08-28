@@ -983,21 +983,96 @@ def weight_settings_preview():
         # Create preview weight settings
         try:
             preview_settings = WeightSettings(**weight_data)
+            logger.debug(f"Preview weight settings: {weight_data}")
         except Exception as e:
             logger.error(f"Error creating preview settings: {e}")
             preview_settings = WeightSettings()  # use defaults
         
-        # Generate fake queue items for preview
-        fake_items = generate_fake_queue_items(preview_settings)
+        # Check if user has enough real queue items (5+)
+        real_queue_items = get_content_queue(broadcaster.id, include_watched=False, include_skipped=False)
+        
+        if len(real_queue_items) >= 5:
+            # Use real queue items and apply weight settings to show ordering
+            preview_items, item_scores = apply_weight_settings_to_items(real_queue_items, preview_settings)
+            use_real_data = True
+        else:
+            # Generate fake queue items for preview
+            preview_items = generate_fake_queue_items(preview_settings)
+            item_scores = {}
+            use_real_data = False
         
         return render_template(
             "weight_settings_preview.html",
-            preview_items=fake_items,
-            weight_settings=preview_settings
+            preview_items=preview_items,
+            weight_settings=preview_settings,
+            use_real_data=use_real_data,
+            item_scores=item_scores if use_real_data else {}
         )
     except Exception as e:
         logger.error(f"Error generating weight settings preview: {e}")
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+def apply_weight_settings_to_items(queue_items, weight_settings):
+    """Apply weight settings to real queue items and return sorted list"""
+    from app.services.content_queue import WeightSettingsService
+    from datetime import datetime, timezone
+    
+    # Calculate priority scores for each item using the preview weight settings
+    scored_items = []
+    for item in queue_items:
+        try:
+            # Calculate age in minutes
+            if item.submissions:
+                earliest_submission = min(item.submissions, key=lambda s: s.submitted_at)
+                submitted_at = earliest_submission.submitted_at
+                
+                # Handle timezone-aware vs timezone-naive datetime comparison
+                if submitted_at.tzinfo is None:
+                    # If submitted_at is naive, assume it's UTC and make it aware
+                    submitted_at = submitted_at.replace(tzinfo=timezone.utc)
+                
+                age_minutes = int((datetime.now(timezone.utc) - submitted_at).total_seconds() / 60)
+            else:
+                age_minutes = 0
+            
+            # Get submission count (popularity) - use total weight instead of just count
+            if item.submissions:
+                base_popularity = sum(sub.weight for sub in item.submissions)
+            else:
+                base_popularity = 1.0
+            
+            # Get duration
+            duration_seconds = item.content.duration if item.content.duration else 0
+            
+            # Check if submitter is trusted (check first submission's user)
+            is_trusted = False
+            if item.submissions and len(item.submissions) > 0:
+                # Check if any submitter is trusted
+                is_trusted = any(hasattr(sub.user, 'is_trusted') and sub.user.is_trusted for sub in item.submissions)
+            
+            logger.debug(f"Item {item.id}: popularity={base_popularity}, age={age_minutes}, duration={duration_seconds}, trusted={is_trusted}")
+            
+            # Calculate score using the same logic as the main queue
+            score, _ = WeightSettingsService.calculate_score(
+                weight_settings, base_popularity, age_minutes, duration_seconds, is_trusted
+            )
+            logger.debug(f"Calculated score for item {item.id}: {score}")
+            scored_items.append((item, score))
+        except Exception as e:
+            # If scoring fails, give it a default score
+            logger.error(f"Error calculating score for item {item.id}: {e}")
+            scored_items.append((item, 0.0))
+    
+    # Sort by score (highest first) and return items with scores
+    scored_items.sort(key=lambda x: x[1], reverse=True)
+    
+    # Return top 10 items for preview and their scores
+    top_items = scored_items[:10]
+    items = [item for item, score in top_items]
+    scores = {item.id: score for item, score in top_items}
+    
+    return items, scores
 
 
 def generate_fake_queue_items(weight_settings):

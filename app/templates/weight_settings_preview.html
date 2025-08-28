@@ -3,7 +3,11 @@
     <i class="bi bi-eye"></i> Preview: How your settings affect queue ordering
   </h6>
   <div class="small text-muted mb-2">
-    This preview shows 15 fake clips sorted by your current weight settings. Higher scores appear first in the queue.
+    {% if use_real_data %}
+    This preview shows your actual queue items sorted by your current weight settings. Higher scores appear first in the queue.
+    {% else %}
+    This preview shows fake clips sorted by your current weight settings (you need 5+ items in your queue to see real data). Higher scores appear first in the queue.
+    {% endif %}
   </div>
   
   <div class="preview-container preview-container-full" style="overflow-y: auto; max-height: 70vh;">
@@ -11,26 +15,71 @@
     <div class="card mb-2 preview-item container-fluid">
       <div class="card-body" style="height: auto; min-height: 100px; padding: 1rem;">
         <div class="d-flex justify-content-between align-items-start">
+          {% if use_real_data and item.content.thumbnail_url %}
+          <div class="me-3 flex-shrink-0">
+            <img src="{{ item.content.thumbnail_url }}" 
+                 alt="Thumbnail" 
+                 class="rounded" 
+                 style="width: 80px; height: 60px; object-fit: cover;">
+          </div>
+          {% endif %}
           <div class="flex-grow-1">
             <div class="fw-bold text-truncate" style="max-width: 300px;">
-              {{ item.title }}
+              {% if use_real_data %}
+                {{ item.content.title or 'Untitled' }}
+              {% else %}
+                {{ item.title }}
+              {% endif %}
             </div>
             <div class="d-flex flex-wrap gap-1 mt-1">
-              <span class="badge bg-secondary">{{ item.duration_formatted }}</span>
-              <span class="badge bg-primary">{{ item.channel }}</span>
-              <span class="badge bg-{{ 'success' if item.platform == 'YouTube' else 'info' }}">{{ item.platform }}</span>
-              {% if item.popularity > 1 %}
-              <span class="badge bg-warning text-dark">{{ item.popularity }} submissions</span>
-              {% endif %}
-              {% if item.is_trusted %}
-              <span class="badge bg-danger">VIP/MOD</span>
+              {% if use_real_data %}
+                <span class="badge bg-secondary">
+                  {% if item.content.duration %}
+                    {{ (item.content.duration // 60)|int }}:{{ '%02d'|format(item.content.duration % 60) }}
+                  {% else %}
+                    Unknown
+                  {% endif %}
+                </span>
+                <span class="badge bg-primary">{{ item.content.channel_name or 'Unknown Channel' }}</span>
+                <span class="badge bg-{{ 'success' if item.content.get_platform() == 'youtube' else 'info' }}">
+                  {{ item.content.get_platform().title() if item.content.get_platform() else 'Unknown' }}
+                </span>
+                {% if item.submissions and item.submissions|length > 1 %}
+                <span class="badge bg-warning text-dark">{{ item.submissions|length }} submissions</span>
+                {% endif %}
+                {% if item.submissions and item.submissions[0].user.is_trusted %}
+                <span class="badge bg-danger">VIP/MOD</span>
+                {% endif %}
+              {% else %}
+                <span class="badge bg-secondary">{{ item.duration_formatted }}</span>
+                <span class="badge bg-primary">{{ item.channel }}</span>
+                <span class="badge bg-{{ 'success' if item.platform == 'YouTube' else 'info' }}">{{ item.platform }}</span>
+                {% if item.popularity > 1 %}
+                <span class="badge bg-warning text-dark">{{ item.popularity }} submissions</span>
+                {% endif %}
+                {% if item.is_trusted %}
+                <span class="badge bg-danger">VIP/MOD</span>
+                {% endif %}
               {% endif %}
             </div>
             <div class="text-muted small mt-1">
-              Submitted {{ item.age_formatted }} ago
+              {% if use_real_data %}
+                {% if item.submissions and item.submissions[0].submitted_at %}
+                  Submitted {{ item.submissions[0].submitted_at.strftime('%Y-%m-%d %H:%M') }}
+                {% else %}
+                  Submitted at unknown time
+                {% endif %}
+              {% else %}
+                Submitted {{ item.age_formatted }} ago
+              {% endif %}
             </div>
           </div>
           <div class="text-end ms-2">
+            {% if use_real_data %}
+            <span class="badge bg-info text-dark fs-6">
+              <i class="bi bi-speedometer2"></i> {{ "%.2f"|format(item_scores[item.id]) if item.id in item_scores else "0.00" }}
+            </span>
+            {% else %}
             <span class="badge bg-info text-dark fs-6" 
                   data-bs-toggle="popover"
                   data-bs-placement="left"
@@ -41,6 +90,7 @@
                   style="cursor: pointer;">
               <i class="bi bi-speedometer2"></i> {{ "%.2f"|format(item.final_score) }}
             </span>
+            {% endif %}
           </div>
         </div>
       </div>

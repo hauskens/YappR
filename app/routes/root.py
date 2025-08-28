@@ -112,11 +112,12 @@ def chatlog_search():
             return {"error": "No data provided"}, 400
         
         query = (data.get("query") or "").strip()
-        if not query:
-            return {"error": "Search query is required"}, 400
+        username = (data.get("username") or "").strip()
+        
+        if not query and not username:
+            return {"error": "Either search query or username is required"}, 400
         
         channel_id = data.get("channel_id")
-        username = (data.get("username") or "").strip()
         date_from = data.get("date_from")
         date_to = data.get("date_to")
         limit = min(data.get("limit", 100), 1000)  # Cap at 1000 results
@@ -125,24 +126,25 @@ def chatlog_search():
         # Build the query
         search_query = db.session.query(ChatLog, Channels.name.label('channel_name')).join(Channels)
         
-        # Text search in message content only
-        # Check if query is enclosed in quotes for strict mode
-        trimmed_query = query.strip()
-        if ((trimmed_query.startswith('"') and trimmed_query.endswith('"') and len(trimmed_query) > 1) or
-            (trimmed_query.startswith("'") and trimmed_query.endswith("'") and len(trimmed_query) > 1)):
-            # Strict mode: search for exact phrase (case insensitive)
-            phrase = trimmed_query[1:-1]  # Remove quotes
-            if phrase:
-                search_query = search_query.filter(
-                    ChatLog.message.ilike(f"%{phrase}%")
-                )
-        else:
-            # Normal mode: search for individual terms (case insensitive)
-            search_terms = query.split()
-            for term in search_terms:
-                search_query = search_query.filter(
-                    ChatLog.message.ilike(f"%{term}%")
-                )
+        # Text search in message content only (if query provided)
+        if query:
+            # Check if query is enclosed in quotes for strict mode
+            trimmed_query = query.strip()
+            if ((trimmed_query.startswith('"') and trimmed_query.endswith('"') and len(trimmed_query) > 1) or
+                (trimmed_query.startswith("'") and trimmed_query.endswith("'") and len(trimmed_query) > 1)):
+                # Strict mode: search for exact phrase (case insensitive)
+                phrase = trimmed_query[1:-1]  # Remove quotes
+                if phrase:
+                    search_query = search_query.filter(
+                        ChatLog.message.ilike(f"%{phrase}%")
+                    )
+            else:
+                # Normal mode: search for individual terms (case insensitive)
+                search_terms = query.split()
+                for term in search_terms:
+                    search_query = search_query.filter(
+                        ChatLog.message.ilike(f"%{term}%")
+                    )
         
         # Channel filter
         if channel_id:

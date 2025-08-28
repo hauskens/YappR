@@ -107,8 +107,8 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
             let loading = loading.clone();
             let error_message = error_message.clone();
             
-            if form_data.query.trim().is_empty() {
-                error_message.set(Some("Please enter a search query".to_string()));
+            if form_data.query.trim().is_empty() && form_data.username.trim().is_empty() {
+                error_message.set(Some("Please enter either a search query or username".to_string()));
                 return;
             }
             
@@ -355,9 +355,8 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                             placeholder="Enter search terms..."
                             value={search_form.query.clone()}
                             oninput={on_query_input}
-                            required=true
                         />
-                        <div class="form-text">{"Search for specific words or phrases in chat messages. Use quotes (\"exact phrase\") for strict matching."}</div>
+                        <div class="form-text">{"Search for specific words or phrases in chat messages. Use quotes (\"exact phrase\") for strict matching. Leave empty to search by username only."}</div>
                     </div>
                     <div class="col-md-3 mb-3">
                         <label for="channel-filter" class="form-label">{"Channel (Optional)"}</label>
@@ -373,7 +372,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                         </select>
                     </div>
                     <div class="col-md-3 mb-3">
-                        <label for="username-filter" class="form-label">{"Username (Optional)"}</label>
+                        <label for="username-filter" class="form-label">{"Username"}</label>
                         <input 
                             type="text" 
                             class="form-control" 
@@ -382,11 +381,12 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                             value={search_form.username.clone()}
                             oninput={on_username_input}
                         />
+                        <div class="form-text small">{"Can be used alone to find all messages from a user"}</div>
                     </div>
                 </div>
                 <div class="row">
                     <div class="col-md-3 mb-3">
-                        <label for="date-from" class="form-label">{"From Date (Optional)"}</label>
+                        <label for="date-from" class="form-label">{"From Date"}</label>
                         <input 
                             type="date" 
                             class="form-control" 
@@ -396,7 +396,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                         />
                     </div>
                     <div class="col-md-3 mb-3">
-                        <label for="date-to" class="form-label">{"To Date (Optional)"}</label>
+                        <label for="date-to" class="form-label">{"To Date"}</label>
                         <input 
                             type="date" 
                             class="form-control" 
@@ -448,7 +448,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                 } else {
                     <div class="text-center text-muted py-4">
                         <i class="bi bi-chat-dots fs-1 mb-2"></i>
-                        <p>{"Enter a search query above to find chat messages"}</p>
+                        <p>{"Enter a search query and/or username above to find chat messages"}</p>
                     </div>
                 }
             </div>

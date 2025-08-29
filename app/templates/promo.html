@@ -94,6 +94,7 @@
           </div>
         </div>
       </div>
+      {% if current_user.is_anonymous %}
       <div class="card shadow border mt-4 shadow">
         <div class="card-header bg-primary text-white">
           <h5 class="mb-0"><i class="bi bi-info-circle-fill me-2"></i>Login to YappR</h5>
@@ -123,8 +124,6 @@
           </div>
         </div>
       </div>
-          
-        {% if current_user.is_anonymous %}
         {% else %}
           <div class="alert alert-primary" role="alert">
             <h5 class="alert-heading">You are almost there!</h5>

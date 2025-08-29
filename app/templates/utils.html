@@ -78,9 +78,83 @@
       </div>
     </div>
   </div>
+
+  <!-- ChatLog Import Management -->
+  <div class="row mt-4">
+    <div class="col-md-10 offset-md-1">
+      <div class="card shadow">
+        <div class="card-header bg-warning text-dark">
+          <h5 class="card-title mb-0">
+            <i class="bi bi-file-earmark-text me-2"></i>ChatLog Import Management
+          </h5>
+        </div>
+        <div class="card-body">
+          <p class="card-text">
+            View and manage imported chatlog files. You can delete entire import records along with all associated chat messages.
+          </p>
+          <p class="text-danger small">
+            <i class="bi bi-exclamation-triangle me-1"></i>
+            Warning: Deleting an import will permanently remove all chat messages and events from that import.
+          </p>
+          
+          <div id="imports-list" class="mt-3" hx-get="/utils/chatlog_imports" hx-trigger="load" hx-indicator="#imports-loading">
+            <div class="d-flex justify-content-center">
+              <div class="spinner-border text-primary" id="imports-loading" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
+<script>
+// Functions for ChatLog Import Management
+window.showTimezoneModal = function(importId, currentTimezone) {
+    document.getElementById('import-id').value = importId;
+    document.getElementById('current-timezone').value = currentTimezone;
+    document.getElementById('new-timezone').value = '';
+    new bootstrap.Modal(document.getElementById('timezoneModal')).show();
+};
 
+window.adjustTimezone = function() {
+    const importId = document.getElementById('import-id').value;
+    const newTimezone = document.getElementById('new-timezone').value;
+    
+    if (!newTimezone) {
+        alert('Please select a new timezone');
+        return;
+    }
+    
+    fetch(`/utils/chatlog_imports/${importId}/adjust_timezone`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token() }}'
+        },
+        body: JSON.stringify({
+            new_timezone: newTimezone
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(data.message);
+            bootstrap.Modal.getInstance(document.getElementById('timezoneModal')).hide();
+            // Reload the imports list
+            htmx.trigger('#imports-list', 'load');
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while adjusting the timezone');
+    });
+};
+</script>
 {% endblock %}

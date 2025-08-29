@@ -819,7 +819,6 @@ def list_chatlog_imports():
                         <th>Imported By</th>
                         <th>Import Date</th>
                         <th>Timezone</th>
-                        <th>Messages</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -827,7 +826,6 @@ def list_chatlog_imports():
         """
         
         for import_record in imports:
-            message_count = len(import_record.chatlogs)
             import_date = import_record.imported_at.strftime("%Y-%m-%d %H:%M:%S")
             
             html += f"""
@@ -839,7 +837,6 @@ def list_chatlog_imports():
                 <td>
                     <span class="badge bg-secondary">{import_record.timezone}</span>
                 </td>
-                <td>{message_count:,}</td>
                 <td>
                     <div class="btn-group btn-group-sm" role="group">
                         <button class="btn btn-warning btn-sm" 
@@ -849,9 +846,8 @@ def list_chatlog_imports():
                         </button>
                         <button class="btn btn-danger btn-sm" 
                             hx-delete="/utils/chatlog_imports/{import_record.id}" 
-                            hx-confirm="Are you sure you want to delete this import and all its {message_count:,} messages?" 
-                            hx-target="#chatlog-imports-container"
-                            hx-on::after-request="window.loadChatlogImports()"
+                            hx-confirm="Are you sure you want to delete this import?" 
+                            hx-target="#imports-list"
                             title="Delete import">
                             <i class="bi bi-trash"></i>
                         </button>

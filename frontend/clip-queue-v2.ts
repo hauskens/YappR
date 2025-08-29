@@ -28,10 +28,10 @@ function handleHtmxAfterSwap(): void {
         currentClipId = iframe.getAttribute('data-clip-id');
       }
       
-      // Show Next button when clip is playing
+      // Show rating buttons when clip is playing
       if (currentClipId) {
-        const markWatchedBtn = document.getElementById('mark-watched-btn');
-        if (markWatchedBtn) markWatchedBtn.style.display = 'block';
+        const ratingButtons = document.getElementById('rating-buttons');
+        if (ratingButtons) ratingButtons.style.display = 'flex';
       }
     }
     
@@ -237,8 +237,8 @@ function initializeTabSwitching(): void {
   }
 }
 
-// Mark item as watched functionality
-function markItemAsWatched(itemId: string, callback?: () => void): void {
+// Mark item as watched functionality with optional rating
+function markItemAsWatched(itemId: string, rating: number = 0.0, callback?: () => void): void {
   const xhr = new XMLHttpRequest();
   xhr.open('POST', `/clip_queue/mark_watched/${itemId}`);
   xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
@@ -256,11 +256,25 @@ function markItemAsWatched(itemId: string, callback?: () => void): void {
       }
     }
   };
-  xhr.send();
+  
+  // Include rating in form data
+  const formData = new URLSearchParams();
+  formData.append('rating', rating.toString());
+  xhr.send(formData.toString());
 }
 
-// Mark current watched and advance to next clip
+// Mark current watched with rating and advance to next clip
+function markCurrentWatchedWithRating(rating: number): void {
+  markCurrentWatchedInternal(rating);
+}
+
+// Mark current watched (neutral rating) and advance to next clip
 function markCurrentWatched(): void {
+  markCurrentWatchedInternal(0.0);
+}
+
+// Internal function to mark current watched with specified rating
+function markCurrentWatchedInternal(rating: number): void {
   let itemId = currentClipId;
   
   if (!itemId) {
@@ -278,13 +292,13 @@ function markCurrentWatched(): void {
     : document.getElementById('history-items');
     
   if (!activeQueue) {
-    markItemAsWatched(itemId);
+    markItemAsWatched(itemId, rating);
     return;
   }
   
   const activeItem = document.querySelector('.queue-item.active');
   if (!activeItem) {
-    markItemAsWatched(itemId);
+    markItemAsWatched(itemId, rating);
     return;
   }
   
@@ -303,7 +317,7 @@ function markCurrentWatched(): void {
     const nextItemId = nextItem.getAttribute('data-id');
     
     if (nextItemId) {
-      markItemAsWatched(itemId, () => {
+      markItemAsWatched(itemId, rating, () => {
         currentClipId = nextItemId;
         localStorage.setItem('activeQueueItemId', nextItemId);
         
@@ -313,10 +327,10 @@ function markCurrentWatched(): void {
         }
       });
     } else {
-      markItemAsWatched(itemId);
+      markItemAsWatched(itemId, rating);
     }
   } else {
-    markItemAsWatched(itemId, () => {
+    markItemAsWatched(itemId, rating, () => {
       // Show completion message
       const playerMessage = document.getElementById('player-message');
       const playerContainer = document.getElementById('player-container');
@@ -326,8 +340,8 @@ function markCurrentWatched(): void {
         playerMessage.style.display = 'block';
       }
       
-      const markWatchedBtn = document.getElementById('mark-watched-btn');
-      if (markWatchedBtn) markWatchedBtn.style.display = 'none';
+      const ratingButtons = document.getElementById('rating-buttons');
+      if (ratingButtons) ratingButtons.style.display = 'none';
     });
   }
 }
@@ -356,6 +370,7 @@ function initPlayer(): void {
 
 // Make functions globally available for onclick handlers
 (window as any).markCurrentWatched = markCurrentWatched;
+(window as any).markCurrentWatchedWithRating = markCurrentWatchedWithRating;
 (window as any).initPlayer = initPlayer;
 (window as any).markItemAsWatched = markItemAsWatched;
 (window as any).initializeClipDetailsInteractions = initializeClipDetailsInteractions;

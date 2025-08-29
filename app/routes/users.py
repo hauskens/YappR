@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, jsonify, flash
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
-from app.models import db
+from app.models import db, ContentQueue
 from app.models import Users, UserWeight, ContentQueueSubmission, PermissionType, Channels, Broadcaster
 from app.models.user import get_role_config, get_highest_role
 from app.models.enums import ChannelRole, ModerationActionType, ModerationScope
@@ -349,6 +349,24 @@ def user_detail(user_id: int, broadcaster_id: int):
             user_id=user_id
         ).order_by(ContentQueueSubmission.submitted_at.desc()).all()
 
+        # Get clip statistics - count of watched clips and average score
+        from sqlalchemy import func
+        clip_stats = db.session.query(
+            func.count(ContentQueue.id).label('watched_clips_count'),
+            func.avg(ContentQueue.score).label('average_score')
+        ).select_from(ContentQueueSubmission).join(
+            ContentQueue, ContentQueueSubmission.content_queue_id == ContentQueue.id
+        ).filter(
+            ContentQueueSubmission.user_id == user_id,
+            ContentQueue.watched == True  # Only count watched clips
+        ).one()
+
+        watched_clips_count = clip_stats.watched_clips_count or 0
+        average_score = round(float(clip_stats.average_score or 0), 2)
+        
+        # Count total clips submitted (including unwatched)
+        total_clips_submitted = len(submissions)
+
         # Get the primary channel for the broadcaster
         primary_channel = db.session.query(Channels).filter_by(
             broadcaster_id=broadcaster_id
@@ -362,6 +380,9 @@ def user_detail(user_id: int, broadcaster_id: int):
             channel_id=primary_channel_id,
             weights=weights,
             submissions=submissions,
+            watched_clips_count=watched_clips_count,
+            average_score=average_score,
+            total_clips_submitted=total_clips_submitted,
             get_role_config=get_role_config
         )
     except Exception as e:

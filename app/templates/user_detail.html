@@ -45,8 +45,18 @@
                 <h6>User Statistics</h6>
                 <ul class="list-group list-group-flush">
                   <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Submissions
-                    <span class="badge bg-primary rounded-pill">{{ submissions|length }}</span>
+                    Total Clips Submitted
+                    <span class="badge bg-primary rounded-pill">{{ total_clips_submitted }}</span>
+                  </li>
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Watched Clips
+                    <span class="badge bg-success rounded-pill">{{ watched_clips_count }}</span>
+                  </li>
+                  <li class="list-group-item d-flex justify-content-between align-items-center">
+                    Average Rating
+                    <span class="badge {% if average_score > 0.1 %}bg-success{% elif average_score < -0.1 %}bg-danger{% else %}bg-secondary{% endif %} rounded-pill">
+                      {% if average_score > 0 %}+{% endif %}{{ average_score }}
+                    </span>
                   </li>
                   
                   {% if user_weight %}

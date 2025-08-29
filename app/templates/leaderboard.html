@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12">
+      <h2><i class="bi bi-trophy"></i> Leaderboard</h2>
+      <p class="text-muted">Statistics based on watched clips with ratings</p>
+    </div>
+  </div>
+
+  <!-- Tab Navigation -->
+  <ul class="nav nav-tabs mb-4" id="leaderboardTabs" role="tablist">
+    <li class="nav-item" role="presentation">
+      <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab" aria-controls="users" aria-selected="true">
+        <i class="bi bi-people"></i> Top Contributors
+      </button>
+    </li>
+    <li class="nav-item" role="presentation">
+      <button class="nav-link" id="broadcasters-tab" data-bs-toggle="tab" data-bs-target="#broadcasters" type="button" role="tab" aria-controls="broadcasters" aria-selected="false">
+        <i class="bi bi-broadcast"></i> Top Broadcasters
+      </button>
+    </li>
+  </ul>
+
+  <!-- Tab Content -->
+  <div class="tab-content" id="leaderboardTabsContent">
+    <!-- Users Tab -->
+    <div class="tab-pane fade show active" id="users" role="tabpanel" aria-labelledby="users-tab">
+      <div class="row">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="card-title mb-0">
+                <i class="bi bi-person-plus"></i> Top Clip Contributors
+              </h5>
+              <small class="text-muted">Users ranked by number of watched clips and average rating</small>
+            </div>
+            <div class="card-body">
+              {% if user_stats %}
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>User</th>
+                      <th class="text-center">
+                        <i class="bi bi-collection-play" data-bs-toggle="tooltip" title="Total watched clips submitted"></i>
+                        Clips
+                      </th>
+                      <th class="text-center">
+                        <i class="bi bi-star-fill" data-bs-toggle="tooltip" title="Average rating (good/bad votes)"></i>
+                        Avg Rating
+                      </th>
+                      <th class="text-center">
+                        <i class="bi bi-graph-up" data-bs-toggle="tooltip" title="Total rating points accumulated"></i>
+                        Total Points
+                      </th>
+                      <!-- <th class="text-center">
+                        <i class="bi bi-broadcast" data-bs-toggle="tooltip" title="Number of different broadcasters contributed to"></i>
+                        Broadcasters
+                      </th> -->
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for user in user_stats %}
+                    <tr>
+                      <td>
+                        {% if loop.index <= 3 %}
+                          <span class="badge bg-{% if loop.index == 1 %}warning text-dark{% elif loop.index == 2 %}secondary{% else %}warning{% endif %}">
+                            {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% else %}🥉{% endif %}
+                            {{ loop.index }}
+                          </span>
+                        {% else %}
+                          <span class="badge bg-primary text-light">{{ loop.index }}</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <div class="d-flex align-items-center">
+                          <div>
+                            <div class="fw-bold">{{ user.name }}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge bg-primary">{{ user.total_clips }}</span>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge {% if user.average_rating > 0.1 %}bg-success{% elif user.average_rating < -0.1 %}bg-danger{% else %}bg-secondary{% endif %}">
+                          {% if user.average_rating > 0 %}+{% endif %}{{ user.average_rating }}
+                        </span>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge {% if user.total_rating_points > 0 %}bg-primary{% elif user.total_rating_points < 0 %}bg-danger{% else %}bg-secondary{% endif %}">
+                          {% if user.total_rating_points > 0 %}+{% endif %}{{ user.total_rating_points }}
+                        </span>
+                      </td>
+                      <!-- <td class="text-center">
+                        <span class="badge bg-info">{{ user.broadcasters_contributed_to }}</span>
+                      </td> -->
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <div class="text-center py-5">
+                <i class="bi bi-inbox" style="font-size: 3rem; color: #6c757d;"></i>
+                <h5 class="mt-3 text-muted">No data available</h5>
+                <p class="text-muted">No clips have been watched and rated yet.</p>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Broadcasters Tab -->
+    <div class="tab-pane fade" id="broadcasters" role="tabpanel" aria-labelledby="broadcasters-tab">
+      <div class="row">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-header">
+              <h5 class="card-title mb-0">
+                <i class="bi bi-broadcast"></i> Top Broadcasters
+              </h5>
+              <small class="text-muted">Broadcasters ranked by clips watched and rating activity</small>
+            </div>
+            <div class="card-body">
+              {% if broadcaster_stats %}
+              <div class="table-responsive">
+                <table class="table table-hover">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Broadcaster</th>
+                      <th class="text-center">
+                        <i class="bi bi-eye-fill" data-bs-toggle="tooltip" title="Total clips watched"></i>
+                        Watched
+                      </th>
+                      <th class="text-center">
+                        <i class="bi bi-star-fill" data-bs-toggle="tooltip" title="Average rating given to clips"></i>
+                        Avg Rating
+                      </th>
+                      <th class="text-center">
+                        <i class="bi bi-people" data-bs-toggle="tooltip" title="Number of unique contributors"></i>
+                        Contributors
+                      </th>
+                      <th class="text-center">
+                        <i class="bi bi-hand-thumbs-up text-success" data-bs-toggle="tooltip" title="Percentage of positive ratings given"></i>
+                        Positive %
+                      </th>
+                      <th class="text-center">
+                        <i class="bi bi-hand-thumbs-down text-danger" data-bs-toggle="tooltip" title="Percentage of negative ratings given"></i>
+                        Negative %
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for broadcaster in broadcaster_stats %}
+                    <tr>
+                      <td>
+                        {% if loop.index <= 3 %}
+                          <span class="badge bg-{% if loop.index == 1 %}warning text-dark{% elif loop.index == 2 %}secondary{% else %}warning{% endif %}">
+                            {% if loop.index == 1 %}🥇{% elif loop.index == 2 %}🥈{% else %}🥉{% endif %}
+                            {{ loop.index }}
+                          </span>
+                        {% else %}
+                          <span class="badge bg-light text-dark">{{ loop.index }}</span>
+                        {% endif %}
+                      </td>
+                      <td>
+                        <div class="d-flex align-items-center">
+                          <div>
+                            <div class="fw-bold">{{ broadcaster.name }}</div>
+                            <small class="text-muted">Channel: {{ broadcaster.external_channel_id }}</small>
+                          </div>
+                        </div>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge bg-primary">{{ broadcaster.total_clips_watched }}</span>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge {% if broadcaster.average_rating_given > 0.1 %}bg-success{% elif broadcaster.average_rating_given < -0.1 %}bg-danger{% else %}bg-secondary{% endif %}">
+                          {% if broadcaster.average_rating_given > 0 %}+{% endif %}{{ broadcaster.average_rating_given }}
+                        </span>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge bg-info">{{ broadcaster.unique_contributors }}</span>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge bg-success">{{ broadcaster.positive_rate }}%</span>
+                      </td>
+                      <td class="text-center">
+                        <span class="badge bg-danger">{{ broadcaster.negative_rate }}%</span>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              {% else %}
+              <div class="text-center py-5">
+                <i class="bi bi-broadcast" style="font-size: 3rem; color: #6c757d;"></i>
+                <h5 class="mt-3 text-muted">No data available</h5>
+                <p class="text-muted">No clips have been watched yet.</p>
+              </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Statistics Summary -->
+  <div class="row mt-4">
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h6 class="card-title"><i class="bi bi-graph-up"></i> Platform Statistics</h6>
+          <div class="row text-center">
+            <div class="col">
+              <div class="h4 text-primary">{{ user_stats|length }}</div>
+              <small class="text-muted">Active Contributors</small>
+            </div>
+            <div class="col">
+              <div class="h4 text-success">{{ broadcaster_stats|length }}</div>
+              <small class="text-muted">Active Broadcasters</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-6">
+      <div class="card">
+        <div class="card-body">
+          <h6 class="card-title"><i class="bi bi-info-circle"></i> About Ratings</h6>
+          <p class="small mb-0">
+            Ratings are given when clips are marked as watched:
+            <span class="badge bg-success">Good (+1.0)</span>
+            <span class="badge bg-secondary">Neutral (0.0)</span>
+            <span class="badge bg-danger">Bad (-1.0)</span>
+          </p>
+          <p class="small mb-0 mt-2 text-muted">
+            Statistics include all watched clips. Rating statistics only include clips that have been rated.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Initialize Bootstrap tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+  return new bootstrap.Tooltip(tooltipTriggerEl)
+})
+</script>
+{% endblock %}

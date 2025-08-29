@@ -95,6 +95,7 @@
               </div>
               
               <a class="nav-link" href="{{ url_for('broadcaster.broadcasters') }}">Broadcasters</a>
+              <a class="nav-link" href="{{ url_for('leaderboard.leaderboard') }}">Leaderboard</a>
               {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"]) %}
                 <a class="nav-link" href="{{ url_for('root.users') }}">Users</a>
               {% endif %}
@@ -124,6 +125,7 @@
                 </ul>
               </div>
               
+              <a class="nav-link" href="{{ url_for('leaderboard.leaderboard') }}">Leaderboard</a>
               <a class="nav-link" href="{{ url_for('root.stats') }}">Stats</a>
             </div>
           </div>

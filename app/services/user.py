@@ -7,7 +7,7 @@ import asyncio
 
 from sqlalchemy import select, or_, and_
 from app.models import db
-from app.models import Users, Permissions, Channels, ChannelModerator, Broadcaster
+from app.models import Users, Permissions, Channels, ChannelModerator, Broadcaster, ChatLog
 from app.models.user import UserChannelRole, ModerationAction
 from app.models.enums import PermissionType, AccountSource, TwitchAccountType, PlatformType, ChannelRole, ModerationScope, ModerationActionType
 from app.models.user import string_to_role, role_to_string
@@ -233,6 +233,145 @@ class UserService:
     def update_last_login(user_id: int) -> Users:
         """Update user's last login timestamp."""
         return UserService.update(user_id, last_login=datetime.now())
+
+    @staticmethod
+    def match_chatlog_users(batch_size: int = 1000, progress_callback=None) -> dict:
+        """
+        Match ChatLogs without external_user_account_id to Users with Twitch accounts.
+        
+        This function is designed to be generic and can be used as a Celery task.
+        
+        Args:
+            batch_size: Number of ChatLog records to process per batch
+            progress_callback: Optional callback function for progress updates
+                             Should accept (current, total, message) parameters
+        
+        Returns:
+            Dictionary with matching results and statistics
+        """
+        from sqlalchemy import text, update, func
+        
+        results = {
+            'status': 'success',
+            'total_unmatched': 0,
+            'total_processed': 0,
+            'total_matched': 0,
+            'total_updated': 0,
+            'errors': [],
+            'started_at': datetime.now().isoformat(),
+            'completed_at': None
+        }
+        
+        try:
+            # Step 1: Count total unmatched chatlogs for progress tracking
+            total_unmatched = db.session.query(func.count(ChatLog.id)).filter(
+                ChatLog.external_user_account_id.is_(None)
+            ).scalar()
+            
+            results['total_unmatched'] = total_unmatched
+            logger.info(f"Starting ChatLog matching process - {total_unmatched:,} unmatched records found")
+            
+            if total_unmatched == 0:
+                results['completed_at'] = datetime.now().isoformat()
+                if progress_callback:
+                    progress_callback(0, 0, "No unmatched ChatLogs found")
+                return results
+            
+            # Step 2: Load all Twitch users into memory for fast lookups
+            logger.info("Loading Twitch users into memory")
+            twitch_users = db.session.query(Users.name, Users.external_account_id).filter(
+                Users.account_type == AccountSource.Twitch
+            ).all()
+            
+            # Create username -> external_account_id mapping for O(1) lookups
+            username_to_external_id = {user.name.lower(): user.external_account_id for user in twitch_users}
+            logger.info(f"Loaded {len(username_to_external_id):,} Twitch users for matching")
+            
+            if not username_to_external_id:
+                results['status'] = 'warning'
+                results['errors'].append("No Twitch users found in database")
+                results['completed_at'] = datetime.now().isoformat()
+                return results
+            
+            # Step 3: Process ChatLogs in batches
+            processed = 0
+            matched_count = 0
+            offset = 0
+            
+            while processed < total_unmatched:
+                # Get batch of unmatched chatlogs
+                chatlog_batch = db.session.query(
+                    ChatLog.id, ChatLog.username
+                ).filter(
+                    ChatLog.external_user_account_id.is_(None)
+                ).offset(offset).limit(batch_size).all()
+                
+                if not chatlog_batch:
+                    break
+                
+                # Find matches in this batch
+                batch_updates = []
+                batch_matched = 0
+                
+                for chatlog_id, username in chatlog_batch:
+                    # Case-insensitive username matching
+                    normalized_username = username.lower()
+                    if normalized_username in username_to_external_id:
+                        external_id = username_to_external_id[normalized_username]
+                        batch_updates.append({
+                            'chatlog_id': chatlog_id, 
+                            'external_user_account_id': int(external_id)
+                        })
+                        batch_matched += 1
+                
+                # Bulk update the matches found in this batch
+                if batch_updates:
+                    try:
+                        # Use bulk update for efficiency
+                        for update_data in batch_updates:
+                            db.session.execute(
+                                update(ChatLog)
+                                .where(ChatLog.id == update_data['chatlog_id'])
+                                .values(external_user_account_id=update_data['external_user_account_id'])
+                            )
+                        db.session.commit()
+                        results['total_updated'] += len(batch_updates)
+                        
+                    except Exception as e:
+                        db.session.rollback()
+                        error_msg = f"Error updating batch at offset {offset}: {str(e)}"
+                        results['errors'].append(error_msg)
+                        logger.error(error_msg)
+                
+                # Update progress
+                processed += len(chatlog_batch)
+                matched_count += batch_matched
+                results['total_processed'] = processed
+                results['total_matched'] = matched_count
+                
+                # Call progress callback if provided
+                if progress_callback:
+                    progress_msg = f"Processed {processed:,}/{total_unmatched:,} records, matched {matched_count:,}"
+                    progress_callback(processed, total_unmatched, progress_msg)
+                
+                # Log progress periodically
+                if processed % (batch_size * 10) == 0 or processed >= total_unmatched:
+                    logger.info(f"Progress: {processed:,}/{total_unmatched:,} processed, {matched_count:,} matched, {results['total_updated']:,} updated")
+                
+                offset += batch_size
+            
+            results['completed_at'] = datetime.now().isoformat()
+            logger.info(f"ChatLog matching completed - {results['total_matched']:,} matches found, {results['total_updated']:,} records updated")
+            
+        except Exception as e:
+            db.session.rollback()
+            results['status'] = 'error'
+            error_msg = f"Fatal error during matching process: {str(e)}"
+            results['errors'].append(error_msg)
+            results['completed_at'] = datetime.now().isoformat()
+            logger.error(error_msg, exc_info=True)
+        
+        return results
 
     # Role Management Methods
     @staticmethod

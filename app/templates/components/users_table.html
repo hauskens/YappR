@@ -46,14 +46,16 @@
                 </td>
                 <td>
                     <div class="btn-group" role="group">
+                        {% if (user.permissions and user.permissions | length > 0) or (user.channel_roles and user.channel_roles | selectattr('active', 'equalto', True) | list | length > 0) %}
                         <button class="btn btn-sm btn-outline-primary" 
-                                hx-get="{{ url_for('users.role_modal', user_id=user.id) }}"
+                                hx-get="{{ url_for('users.view_roles_modal', user_id=user.id) }}"
                                 hx-target="#userModalContent"
                                 hx-trigger="click"
                                 hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()"
-                                title="Manage Roles">
+                                title="View Roles">
                             <i class="bi bi-person-badge"></i>
                         </button>
+                        {% endif %}
                         
                         <button class="btn btn-sm btn-outline-warning" 
                                 hx-get="{{ url_for('users.ban_modal', user_id=user.id) }}"

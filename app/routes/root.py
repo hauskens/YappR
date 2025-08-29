@@ -10,6 +10,7 @@ from app.retrievers import (
     get_stats_videos_with_low_transcription,
 )
 from app.services import BroadcasterService, VideoService, TranscriptionService, UserService
+from app.models.user import get_role_config
 from app.cache import cache
 from io import BytesIO
 from app.rate_limit import limiter, rate_limit_exempt
@@ -75,7 +76,7 @@ def users():
     users = UserService.get_all()
     logger.info("Loaded users.html", extra={"user_id": current_user.id})
     return render_template(
-        "users.html", users=users, permission_types=PermissionType
+        "users.html", users=users, permission_types=PermissionType, get_role_config=get_role_config
     )
 
 
@@ -1009,6 +1010,100 @@ def adjust_chatlog_timezone(import_id):
         db.session.rollback()
         logger.error(f"Error adjusting timezone for import {import_id}: {e}", extra={"user_id": current_user.id})
         return jsonify({"error": f"Failed to adjust timezone: {str(e)}"}), 500
+
+
+@root_blueprint.route("/utils/match_chatlog_users", methods=["POST"])
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def match_chatlog_users():
+    """Match ChatLog entries to Users by username"""
+    try:
+        logger.info("Starting ChatLog user matching process", extra={"user_id": current_user.id})
+        
+        # Call the generic service function
+        results = UserService.match_chatlog_users(
+            batch_size=1000,  # Process 1000 records per batch
+            progress_callback=None  # No callback for synchronous web request
+        )
+        
+        # Format results as HTML for HTMX response
+        if results['status'] == 'success':
+            if results['total_unmatched'] == 0:
+                html = """
+                <div class="alert alert-info">
+                    <h5><i class="bi bi-info-circle me-2"></i>No Unmatched Records</h5>
+                    <p>All ChatLog entries already have user associations.</p>
+                </div>
+                """
+            else:
+                html = f"""
+                <div class="alert alert-success">
+                    <h5><i class="bi bi-check-circle me-2"></i>Matching Completed Successfully</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>Processing Summary:</strong>
+                            <ul class="list-unstyled mt-2">
+                                <li>📊 Total unmatched records: <strong>{results['total_unmatched']:,}</strong></li>
+                                <li>✅ Records processed: <strong>{results['total_processed']:,}</strong></li>
+                                <li>🎯 Matches found: <strong>{results['total_matched']:,}</strong></li>
+                                <li>💾 Records updated: <strong>{results['total_updated']:,}</strong></li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Performance:</strong>
+                            <ul class="list-unstyled mt-2">
+                                <li>🕐 Started: {results['started_at'][:19].replace('T', ' ')}</li>
+                                <li>🏁 Completed: {results['completed_at'][:19].replace('T', ' ')}</li>
+                                <li>📈 Match rate: <strong>{(results['total_matched']/results['total_processed']*100):.1f}%</strong></li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                """
+        elif results['status'] == 'warning':
+            html = f"""
+            <div class="alert alert-warning">
+                <h5><i class="bi bi-exclamation-triangle me-2"></i>Process Completed with Warnings</h5>
+                <p>The matching process completed but encountered some issues:</p>
+                <ul>
+            """
+            for error in results['errors']:
+                html += f"<li>{error}</li>"
+            html += """
+                </ul>
+            </div>
+            """
+        else:  # error status
+            html = f"""
+            <div class="alert alert-danger">
+                <h5><i class="bi bi-exclamation-circle me-2"></i>Matching Process Failed</h5>
+                <p>The matching process encountered errors:</p>
+                <ul>
+            """
+            for error in results['errors']:
+                html += f"<li>{error}</li>"
+            html += f"""
+                </ul>
+                <small class="text-muted">
+                    Started: {results['started_at'][:19].replace('T', ' ')}<br>
+                    Failed: {results.get('completed_at', 'N/A')[:19].replace('T', ' ') if results.get('completed_at') else 'N/A'}
+                </small>
+            </div>
+            """
+        
+        logger.info(f"ChatLog matching completed - Status: {results['status']}, Updated: {results.get('total_updated', 0)}", 
+                   extra={"user_id": current_user.id})
+        
+        return html
+        
+    except Exception as e:
+        logger.error(f"Error in ChatLog user matching: {str(e)}", extra={"user_id": current_user.id}, exc_info=True)
+        return f"""
+        <div class="alert alert-danger">
+            <h5><i class="bi bi-exclamation-circle me-2"></i>Server Error</h5>
+            <p>An unexpected error occurred during the matching process: <code>{str(e)}</code></p>
+        </div>
+        """
 
 
 @root_blueprint.route("/utils/timezone_info")

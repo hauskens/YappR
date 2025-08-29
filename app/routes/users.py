@@ -242,19 +242,18 @@ def ban_modal(user_id: int):
     )
 
 
-@users_blueprint.route("/<int:user_id>/role-modal")
+
+
+@users_blueprint.route("/<int:user_id>/view-roles")
 @login_required
 @require_permission(permissions=PermissionType.Admin)
-def role_modal(user_id: int):
-    """Get role modal content."""
+def view_roles_modal(user_id: int):
+    """Get read-only view of user roles per channel."""
     user = db.session.get(Users, user_id)
-    channels = db.session.query(Channels).all()
     
     return render_template(
-        "components/role_modal.html",
+        "components/view_roles_modal.html",
         user=user,
-        channels=channels,
-        channel_roles=ChannelRole,
         get_role_config=get_role_config
     )
 
@@ -362,7 +361,8 @@ def user_detail(user_id: int, broadcaster_id: int):
             broadcaster_id=broadcaster_id,
             channel_id=primary_channel_id,
             weights=weights,
-            submissions=submissions
+            submissions=submissions,
+            get_role_config=get_role_config
         )
     except Exception as e:
         logger.error("Error loading user %s: %s",
@@ -400,5 +400,6 @@ def user_edit(user_id: int):
             user=user,
             broadcasters=broadcasters,
             permission_types=PermissionType,
+            get_role_config=get_role_config,
         )
     return "User not found", 404

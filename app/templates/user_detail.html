@@ -73,6 +73,62 @@
                   {% endif %}
                 </ul>
               </div>
+
+              <!-- Global Permissions -->
+              {% if user.permissions and user.permissions | length > 0 %}
+              <div class="mb-3">
+                <h6>Global Permissions</h6>
+                <div class="d-flex flex-wrap gap-2">
+                  {% for permission in user.permissions %}
+                    {% if permission.permission_type.name == 'Admin' %}
+                      <span class="badge bg-danger">{{ permission.permission_type.value.title() }}</span>
+                    {% elif permission.permission_type.name == 'Moderator' %}
+                      <span class="badge bg-warning">{{ permission.permission_type.value.title() }}</span>
+                    {% elif permission.permission_type.name == 'Reader' %}
+                      <span class="badge bg-info">{{ permission.permission_type.value.title() }}</span>
+                    {% else %}
+                      <span class="badge bg-secondary">{{ permission.permission_type.value.title() }}</span>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+              {% endif %}
+
+              <!-- Channel Roles -->
+              {% if user.channel_roles and user.channel_roles | selectattr('active', 'equalto', True) | list | length > 0 %}
+              <div class="mb-3">
+                <h6>Channel Roles</h6>
+                <div class="table-responsive">
+                  <table class="table table-sm">
+                    <thead>
+                      <tr>
+                        <th>Channel</th>
+                        <th>Role</th>
+                        <th>Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for channel_role in user.channel_roles | selectattr('active', 'equalto', True) %}
+                        {% set config = get_role_config(channel_role.role) %}
+                        <tr>
+                          <td>
+                            <strong>{{ channel_role.channel.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge" style="background-color: {{ config.background_color }}; color: {{ config.text_color }};">
+                              {{ channel_role.role.value }}
+                            </span>
+                          </td>
+                          <td>
+                            <small class="text-muted">{{ config.description }}</small>
+                          </td>
+                        </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              {% endif %}
               
               <!-- Recent Submissions with Scrollbar -->
               <div class="mb-3">

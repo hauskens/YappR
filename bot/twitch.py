@@ -2,7 +2,7 @@ from twitchAPI.twitch import Twitch, AuthScope
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import select
 from app.models.auth import OAuth
-from app.models.enums import ContentQueueSubmissionSource, AccountSource, ModerationActionType
+from app.models.enums import ContentQueueSubmissionSource, AccountSource, ModerationActionType, ChannelRole
 from app.models.channel import Channels, ChannelSettings
 from app.models.chatlog import ChatLog
 from app.models.config import config
@@ -169,6 +169,9 @@ class TwitchBot:
 
             channel_id = self.enabled_channels[room_id]
 
+            # Update user role based on badges
+            await self._update_user_role_from_badges(msg, channel_id)
+
             if self.channel_settings and self.channel_settings[channel_id]['content_queue_enabled']:
 
                 # Check for URLs in the message
@@ -229,12 +232,12 @@ class TwitchBot:
                 self.session.add(chat_log)
                 self.message_buffer.append(chat_log)
 
-            # Flush to the database but don't commit yet
-            self.session.flush()
+                # Flush to the database but don't commit yet
+                self.session.flush()
 
-            # Check if we should commit based on buffer size
-            if len(self.message_buffer) >= self.max_buffer_size:
-                await self.commit_messages()
+                # Check if we should commit based on buffer size
+                if len(self.message_buffer) >= self.max_buffer_size:
+                    await self.commit_messages()
 
         except Exception as e:
             logger.error("Error processing chat message: %s - %s", e, msg)
@@ -283,19 +286,11 @@ class TwitchBot:
             if not target_user:
                 logger.warning("Timeout notice missing target user ID")
                 return
-                
-            # Get or create user
-            from app.services.user import UserService
-            user = UserService.get_or_create(
-                name=target_username,
-                external_account_id=target_user,
-                account_type=AccountSource.Twitch
-            )
             
-            # Record timeout event
-            from app.services.moderation import ModerationService
-            ModerationService.record_external_moderation_event(
-                target_user_id=user.id,
+            # Handle moderation events in a separate session to avoid conflicts
+            await self._record_moderation_event(
+                target_user_id=target_user,
+                target_username=target_username,
                 action_type=ModerationActionType.timeout,
                 channel_id=channel_id,
                 reason=reason,
@@ -317,19 +312,11 @@ class TwitchBot:
             if not target_user:
                 logger.warning("Ban notice missing target user ID")
                 return
-                
-            # Get or create user
-            from app.services.user import UserService
-            user = UserService.get_or_create(
-                name=target_username,
-                external_account_id=target_user,
-                account_type=AccountSource.Twitch
-            )
             
-            # Record ban event
-            from app.services.moderation import ModerationService
-            ModerationService.record_external_moderation_event(
-                target_user_id=user.id,
+            # Handle moderation events in a separate session to avoid conflicts
+            await self._record_moderation_event(
+                target_user_id=target_user,
+                target_username=target_username,
                 action_type=ModerationActionType.ban,
                 channel_id=channel_id,
                 reason=reason
@@ -339,6 +326,156 @@ class TwitchBot:
             
         except Exception as e:
             logger.error("Error processing ban notice: %s", e)
+
+    async def _record_moderation_event(self, target_user_id: str, target_username: str, action_type: ModerationActionType, channel_id: int, reason: str, duration_seconds: int | None = None):
+        """Record a moderation event using a separate database session."""
+        from app.models.user import Users, ModerationAction
+        from app.models.enums import ModerationScope
+        from datetime import datetime, timedelta
+        
+        # Use a completely separate session for moderation events
+        with SessionLocal() as mod_session:
+            try:
+                # Get or create user
+                user = mod_session.execute(
+                    select(Users).filter_by(external_account_id=target_user_id)
+                ).scalars().one_or_none()
+                
+                if not user:
+                    # Create new user
+                    user = Users(
+                        name=target_username,
+                        external_account_id=target_user_id,
+                        account_type=AccountSource.Twitch,
+                        disabled=False
+                    )
+                    mod_session.add(user)
+                    mod_session.flush()  # Get the user ID
+                else:
+                    # Update username if it changed
+                    if user.name != target_username:
+                        user.name = target_username
+                
+                # Calculate expiration time for timeouts
+                expires_at = None
+                if duration_seconds:
+                    expires_at = datetime.now() + timedelta(seconds=duration_seconds)
+                
+                # Create moderation action
+                action = ModerationAction(
+                    target_user_id=user.id,
+                    action_type=action_type.value,
+                    scope=ModerationScope.channel.value,
+                    channel_id=channel_id,
+                    reason=reason,
+                    duration_seconds=duration_seconds,
+                    expires_at=expires_at,
+                    issued_at=datetime.now(),
+                    active=True
+                )
+                
+                mod_session.add(action)
+                mod_session.commit()
+                
+            except Exception as e:
+                mod_session.rollback()
+                logger.error("Error recording moderation event: %s", e)
+                raise
+
+    async def _update_user_role_from_badges(self, msg: ChatMessage, channel_id: int):
+        """Update user role based on Twitch badges from chat message."""
+        from app.models.user import Users, UserChannelRole
+        
+        try:
+            # Get badges from ChatUser.badges
+            badges = msg.user.badges if hasattr(msg.user, 'badges') and msg.user.badges else {}
+            
+            # Map Twitch badges to our ChannelRole enum
+            role = self._map_badges_to_role(badges, channel_id)
+            
+            if role:
+                # Use separate session to avoid conflicts
+                with SessionLocal() as role_session:
+                    try:
+                        # Get or create user
+                        user = role_session.execute(
+                            select(Users).filter_by(external_account_id=msg.user.id)
+                        ).scalars().one_or_none()
+                        
+                        if not user:
+                            # Create new user
+                            user = Users(
+                                name=msg.user.name,
+                                external_account_id=msg.user.id,
+                                account_type=AccountSource.Twitch,
+                                disabled=False
+                            )
+                            role_session.add(user)
+                            role_session.flush()
+                        else:
+                            # Update username if it changed
+                            if user.name != msg.user.name:
+                                user.name = msg.user.name
+                        
+                        # Check existing role
+                        existing_role = role_session.execute(
+                            select(UserChannelRole).filter_by(
+                                user_id=user.id,
+                                channel_id=channel_id,
+                                active=True
+                            )
+                        ).scalars().one_or_none()
+                        
+                        if existing_role:
+                            # Update role if it changed
+                            if existing_role.role != role.value:
+                                existing_role.role = role.value
+                                logger.debug(f"Updated role for user {msg.user.name} to {role.value} in channel {channel_id}")
+                        else:
+                            # Create new role
+                            new_role = UserChannelRole(
+                                user_id=user.id,
+                                channel_id=channel_id,
+                                role=role.value,
+                                granted_at=datetime.now(),
+                                active=True
+                            )
+                            role_session.add(new_role)
+                            logger.debug(f"Granted role {role.value} to user {msg.user.name} in channel {channel_id}")
+                        
+                        role_session.commit()
+                        
+                    except Exception as e:
+                        role_session.rollback()
+                        logger.error("Error updating user role: %s", e)
+                        
+        except Exception as e:
+            logger.error("Error processing badges for role update: %s", e)
+
+    def _map_badges_to_role(self, badges: dict, channel_id: int) -> ChannelRole | None:
+        """Map Twitch badges to ChannelRole enum."""
+        
+        # Check for broadcaster badge (channel owner)
+        if 'broadcaster' in badges:
+            return ChannelRole.Owner
+        
+        # Check for moderator badge
+        if 'moderator' in badges:
+            return ChannelRole.Mod
+        
+        # Check for VIP badge
+        if 'vip' in badges:
+            return ChannelRole.VIP
+        
+        # Check for subscriber badge
+        if 'subscriber' in badges:
+            return ChannelRole.Subscriber
+        
+        # For now, we can't detect followers from badges alone
+        # Follower status would require API calls
+        
+        # Default to Basic role if no special badges
+        return ChannelRole.Basic
 
     async def on_message_delete(self, delete_event: EventData):
         """Handle message delete events (placeholder for future implementation)."""

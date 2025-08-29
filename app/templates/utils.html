@@ -39,6 +39,45 @@
       </div>
     </div>
   </div>
+
+  <!-- ChatLog User Matching -->
+  <div class="row mt-4">
+    <div class="col-md-8 offset-md-2">
+      <div class="card shadow">
+        <div class="card-header bg-info text-white">
+          <h5 class="card-title mb-0">
+            <i class="bi bi-person-lines-fill me-2"></i>ChatLog User Matching
+          </h5>
+        </div>
+        <div class="card-body">
+          <p class="card-text">
+            Match ChatLog entries without user associations to existing Twitch users by username.
+            This process will scan all unmatched ChatLogs and link them to corresponding User accounts.
+          </p>
+          <p class="text-muted small">
+            <i class="bi bi-info-circle me-1"></i>
+            This operation processes millions of records in batches and may take several minutes to complete.
+            Progress will be shown below once started.
+          </p>
+          
+          <button 
+            class="btn btn-info" 
+            id="match-users-btn"
+            hx-post="/utils/match_chatlog_users" 
+            hx-target="#match-status" 
+            hx-indicator="#match-loading"
+            hx-on::before-request="document.getElementById('match-users-btn').disabled = true"
+            hx-on::after-request="document.getElementById('match-users-btn').disabled = false"
+          >
+            <span class="spinner-border spinner-border-sm d-none" id="match-loading" role="status" aria-hidden="true"></span>
+            Start User Matching Process
+          </button>
+          
+          <div id="match-status" class="mt-3"></div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endblock %}
 

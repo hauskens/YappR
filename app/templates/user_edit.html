@@ -30,20 +30,51 @@
       <button type="submit" class="btn btn-primary">Update User</button>
     </form>
     <hr />
-    <p>Users current permissions:</p>
-    {% for perm in user.permissions %}
-      <a>{{ perm.permission_type.name }}</a>
-    {% endfor %}
+    <p>Current roles in channels:</p>
+    {% if user.channel_roles %}
+      {% set channels_with_roles = {} %}
+      {% for channel_role in user.channel_roles %}
+        {% if channel_role.active %}
+          {% set channel_name = channel_role.channel.name %}
+          {% if channel_name not in channels_with_roles %}
+            {% set _ = channels_with_roles.update({channel_name: []}) %}
+          {% endif %}
+          {% set _ = channels_with_roles[channel_name].append(channel_role) %}
+        {% endif %}
+      {% endfor %}
+      
+      {% if channels_with_roles %}
+        {% for channel_name, roles in channels_with_roles.items() %}
+          <div class="mb-2">
+            <strong>{{ channel_name }}:</strong>
+            {% for role in roles %}
+              {% set config = get_role_config(role.role) %}
+              <span class="badge ms-1" 
+                    style="background-color: {{ config.background_color }}; color: {{ config.text_color }};"
+                    title="{{ config.description }}">
+                {{ role.role }}
+              </span>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      {% else %}
+        <p class="text-muted">No active channel roles</p>
+      {% endif %}
+    {% else %}
+      <p class="text-muted">No channel roles assigned</p>
+    {% endif %}
+    
     <hr />
-    <p>Grant permissions:</p>
-    {% for ptype in permission_types%}
-      <a
-        class="btn btn-primary"
-        role="button"
-        href="{{ url_for('users.grant_permission', user_id=user.id, permission_name=ptype.name) }}"
-        >{{ptype.name}}</a
-      >
-    {% endfor %} 
+    <p>Global permissions:</p>
+    {% if user.permissions %}
+      {% for perm in user.permissions %}
+        <span class="badge bg-dark me-1" title="Global permission">
+          {{ perm.permission_type.name }}
+        </span>
+      {% endfor %}
+    {% else %}
+      <p class="text-muted">No global permissions</p>
+    {% endif %} 
   {% endif %}
 </div>
 {% endblock %}

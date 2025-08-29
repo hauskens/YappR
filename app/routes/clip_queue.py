@@ -3,7 +3,8 @@ from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime, timedelta, timezone
 from app.models import db
-from app.models import PermissionType, ContentQueueSettings, ContentQueueSubmission, ContentQueue, Users, UserWeight
+from app.models import PermissionType, ContentQueueSettings, ContentQueueSubmission, ContentQueue, Users, UserWeight, UserChannelRole
+from app.models.enums import ChannelRole
 from app.platforms.handler import PlatformRegistry
 from app.retrievers import get_content_queue
 from app.services import BroadcasterService, UserService, ModerationService
@@ -11,6 +12,32 @@ from app.services.content_queue import WeightSettingsService
 from app.permissions import require_permission, check_permission, check_banned
 import random
 from sqlalchemy import select
+
+
+def is_user_trusted(user_id: int, broadcaster_id: int) -> bool:
+    """Check if a user has VIP, MOD, or Owner role for a specific broadcaster."""
+    try:
+        # Get user object
+        user = db.session.query(Users).filter_by(id=user_id).first()
+        if not user:
+            return False
+            
+        # Get broadcaster's channels
+        broadcaster = BroadcasterService.get_by_id(broadcaster_id)
+        if not broadcaster or not broadcaster.channels:
+            return False
+        
+        # Check if user has VIP, MOD, or Owner role in any of the broadcaster's channels
+        trusted_roles = [ChannelRole.VIP, ChannelRole.Mod, ChannelRole.Owner]
+        for channel in broadcaster.channels:
+            user_role = UserService.get_channel_role(user, channel.id)
+            if user_role and user_role in trusted_roles:
+                return True
+        
+        return False
+    except Exception as e:
+        logger.error(f"Error checking if user {user_id} is trusted for broadcaster {broadcaster_id}: {e}")
+        return False
 
 
 clip_queue_blueprint = Blueprint(
@@ -262,13 +289,22 @@ def get_queue_items():
                         logger.error(f"Error calculating age_minutes: {e}")
                         # Use a default value if calculation fails
                         age_minutes = 0
+                    # Check if any submitter is trusted (VIP/MOD/Owner)
+                    is_trusted = False
+                    if item.submissions:
+                        # Check if any submitter has VIP/MOD/Owner role for this broadcaster
+                        is_trusted = any(
+                            is_user_trusted(submission.user_id, broadcaster.id) 
+                            for submission in item.submissions
+                        )
+                    
                     # Calculate score using weight settings
                     final_score, _ = WeightSettingsService.calculate_score(
                         weight_settings=weight_settings,
                         base_popularity=len(item.submissions),
                         age_minutes=age_minutes,
                         duration_seconds=item.content.duration or 0,  # Handle None values
-                        is_trusted=False
+                        is_trusted=is_trusted
                     )
                     item.score = final_score
                 queue_items.sort(key=lambda item: item.score, reverse=True)
@@ -321,7 +357,8 @@ def get_queue_items():
                     next_page=next_page,
                     search_query=search_query,
                     weight_settings_service=WeightSettingsService,
-                    timezone=timezone
+                    timezone=timezone,
+                    is_user_trusted=is_user_trusted
                 )
             except Exception as e:
                 logger.error(f"Error rendering template: {str(e)}")
@@ -1006,7 +1043,9 @@ def weight_settings_preview():
             preview_items=preview_items,
             weight_settings=preview_settings,
             use_real_data=use_real_data,
-            item_scores=item_scores if use_real_data else {}
+            item_scores=item_scores if use_real_data else {},
+            broadcaster=broadcaster,
+            is_user_trusted=is_user_trusted
         )
     except Exception as e:
         logger.error(f"Error generating weight settings preview: {e}")
@@ -1045,11 +1084,16 @@ def apply_weight_settings_to_items(queue_items, weight_settings):
             # Get duration
             duration_seconds = item.content.duration if item.content.duration else 0
             
-            # Check if submitter is trusted (check first submission's user)
+            # Check if submitter is trusted (VIP/MOD/Owner)
             is_trusted = False
             if item.submissions and len(item.submissions) > 0:
-                # Check if any submitter is trusted
-                is_trusted = any(hasattr(sub.user, 'is_trusted') and sub.user.is_trusted for sub in item.submissions)
+                # Get broadcaster_id from the item
+                broadcaster_id = item.broadcaster_id
+                # Check if any submitter has VIP/MOD/Owner role for this broadcaster
+                is_trusted = any(
+                    is_user_trusted(sub.user_id, broadcaster_id) 
+                    for sub in item.submissions
+                )
             
             logger.debug(f"Item {item.id}: popularity={base_popularity}, age={age_minutes}, duration={duration_seconds}, trusted={is_trusted}")
             

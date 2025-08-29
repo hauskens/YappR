@@ -47,8 +47,15 @@
                 {% if item.submissions and item.submissions|length > 1 %}
                 <span class="badge bg-warning text-dark">{{ item.submissions|length }} submissions</span>
                 {% endif %}
-                {% if item.submissions and item.submissions[0].user.is_trusted %}
-                <span class="badge bg-danger">VIP/MOD</span>
+                {% if item.submissions %}
+                  {% for submission in item.submissions %}
+                    {% if loop.first %}
+                      {% set user_trusted = is_user_trusted(submission.user_id, broadcaster.id) %}
+                      {% if user_trusted %}
+                        <span class="badge bg-danger">VIP/MOD</span>
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
                 {% endif %}
               {% else %}
                 <span class="badge bg-secondary">{{ item.duration_formatted }}</span>

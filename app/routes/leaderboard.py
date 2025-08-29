@@ -3,6 +3,7 @@ from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime, timedelta
 from app.models import db, Users, ContentQueue, ContentQueueSubmission, Broadcaster
+from app.models.enums import AccountSource
 from app.services import UserService
 from app.permissions import check_banned
 from sqlalchemy import select, func, and_, desc, case
@@ -55,7 +56,10 @@ def get_user_leaderboard_data():
             .select_from(Users)
             .join(ContentQueueSubmission, Users.id == ContentQueueSubmission.user_id)
             .join(ContentQueue, ContentQueueSubmission.content_queue_id == ContentQueue.id)
-            .where(ContentQueue.watched == True)  # Only count watched clips
+            .where(and_(
+                ContentQueue.watched == True,  # Only count watched clips
+                Users.account_type == AccountSource.Twitch  # Only Twitch users
+            ))
             .group_by(Users.id, Users.name, Users.external_account_id)
             .having(func.count(ContentQueueSubmission.id) >= 1)  # At least 1 watched clip
             .order_by(desc(func.count(ContentQueueSubmission.id) * (func.coalesce(func.avg(ContentQueue.score), 0) + 1) * 100), desc('total_clips'), desc('average_rating'))

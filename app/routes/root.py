@@ -552,13 +552,13 @@ def delete_transcription_job(job_id):
     return list_transcription_jobs()
 
 
-@root_blueprint.route("/stats")
-@cache.cached(timeout=600)
+@root_blueprint.route("/about")
+# @cache.cached(timeout=600)
 @limiter.limit("100 per day, 5 per minute", exempt_when=rate_limit_exempt)
-def stats():
-    logger.info("Loaded stats.html")
+def about():
+    logger.info("Loaded about.html")
     return render_template(
-        "stats.html",
+        "about.html",
         video_count=VideoService.get_count(),
         video_duration=get_total_good_transcribed_video_duration(),
         transcriptions_count=TranscriptionService.get_count(),

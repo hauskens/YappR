@@ -4,8 +4,7 @@
 <div class="container-fluid">
   <div class="row">
     <div class="col-12">
-      <h2><i class="bi bi-trophy"></i> Leaderboard</h2>
-      <p class="text-muted">Statistics based on watched clips with ratings</p>
+      <h2>Leaderboard</h2>
     </div>
   </div>
 
@@ -13,7 +12,7 @@
   <ul class="nav nav-tabs mb-4" id="leaderboardTabs" role="tablist">
     <li class="nav-item" role="presentation">
       <button class="nav-link active" id="users-tab" data-bs-toggle="tab" data-bs-target="#users" type="button" role="tab" aria-controls="users" aria-selected="true">
-        <i class="bi bi-people"></i> Top Contributors
+        <i class="bi bi-people"></i> Top Clip Contributors
       </button>
     </li>
     <li class="nav-item" role="presentation">
@@ -34,7 +33,7 @@
               <h5 class="card-title mb-0">
                 <i class="bi bi-person-plus"></i> Top Clip Contributors
               </h5>
-              <small class="text-muted">Users ranked by number of watched clips and average rating</small>
+              <small class="text-muted">Ranked by number of watched clips by Streamer and average rating given</small>
             </div>
             <div class="card-body">
               {% if user_stats %}
@@ -92,7 +91,7 @@
                       </td>
                       <td class="text-center">
                         <span class="badge {% if user.total_rating_points > 0 %}bg-primary{% elif user.total_rating_points < 0 %}bg-danger{% else %}bg-secondary{% endif %}">
-                          {% if user.total_rating_points > 0 %}+{% endif %}{{ user.total_rating_points }}
+                          {% if user.total_rating_points < 0 %}-{% endif %}{{ user.total_rating_points }}
                         </span>
                       </td>
                       <!-- <td class="text-center">
@@ -174,7 +173,6 @@
                         <div class="d-flex align-items-center">
                           <div>
                             <div class="fw-bold">{{ broadcaster.name }}</div>
-                            <small class="text-muted">Channel: {{ broadcaster.external_channel_id }}</small>
                           </div>
                         </div>
                       </td>
@@ -187,7 +185,7 @@
                         </span>
                       </td>
                       <td class="text-center">
-                        <span class="badge bg-info">{{ broadcaster.unique_contributors }}</span>
+                        <span class="badge bg-primary">{{ broadcaster.unique_contributors }}</span>
                       </td>
                       <td class="text-center">
                         <span class="badge bg-success">{{ broadcaster.positive_rate }}%</span>

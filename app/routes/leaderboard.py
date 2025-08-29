@@ -1,13 +1,11 @@
 from flask import Blueprint, render_template, jsonify
 from app.logger import logger
-from flask_login import current_user, login_required  # type: ignore
-from datetime import datetime, timedelta
+from datetime import datetime
 from app.models import db, Users, ContentQueue, ContentQueueSubmission, Broadcaster
 from app.models.enums import AccountSource
 from app.services import UserService
-from app.permissions import check_banned
 from sqlalchemy import select, func, and_, desc, case
-from sqlalchemy.orm import joinedload
+from app.cache import cache
 
 
 leaderboard_blueprint = Blueprint(
@@ -15,13 +13,11 @@ leaderboard_blueprint = Blueprint(
 
 
 @leaderboard_blueprint.route("", strict_slashes=False)
-@login_required
-@check_banned()
+@cache.cached(timeout=60)
 def leaderboard():
     """Main leaderboard page with user and broadcaster statistics"""
     try:
-        logger.info("Loading leaderboard", extra={
-                    "user_id": current_user.id if not current_user.is_anonymous else None})
+        logger.info("Loading leaderboard")
         
         # Get user leaderboard data
         user_stats = get_user_leaderboard_data()
@@ -145,8 +141,6 @@ def get_broadcaster_leaderboard_data():
 
 
 @leaderboard_blueprint.route("/api/users")
-@login_required
-@check_banned()
 def api_user_stats():
     """API endpoint for user statistics"""
     try:
@@ -158,8 +152,6 @@ def api_user_stats():
 
 
 @leaderboard_blueprint.route("/api/broadcasters")
-@login_required
-@check_banned()
 def api_broadcaster_stats():
     """API endpoint for broadcaster statistics"""
     try:

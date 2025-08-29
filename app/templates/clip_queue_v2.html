@@ -153,7 +153,6 @@
                               <div class="col-12 d-flex justify-content-between">
                                 <button type="button" class="btn btn-sm btn-outline-info" 
                                         id="toggle-preview-button"
-                                        hx-swap-oob="true"
                                         onclick="togglePreviewInPlayer()">
                                   <i class="bi bi-eye"></i> <span id="preview-button-text">Show Preview</span>
                                 </button>
@@ -161,7 +160,8 @@
                                         hx-get="/clip_queue/default_weight_settings" 
                                         hx-target="#weight-settings-collapse .card-body"
                                         hx-swap="innerHTML"
-                                        hx-confirm="Reset all priority settings to default values?">
+                                        hx-confirm="Reset all priority settings to default values?"
+                                        hx-on::after-request="if(document.getElementById('preview-active')) updatePreview();">
                                   <i class="bi bi-arrow-clockwise"></i> Reset to Defaults
                                 </button>
                               </div>
@@ -169,7 +169,8 @@
                             <!-- Boolean Preferences -->
                             <div class="row mb-3">
                                 <div class="form-check form-switch mb-2">
-                                  <input class="form-check-input weight-setting toggle-control" type="checkbox" id="prefer-shorter" name="prefer_shorter">
+                                  <input class="form-check-input weight-setting toggle-control" type="checkbox" id="prefer-shorter" name="prefer_shorter" 
+                                         hx-on:change="if(document.getElementById('preview-active')) updatePreview();">
                                   <label class="form-check-label" for="prefer-shorter">
                                     Prefer Shorter Content
                                     <small class="text-muted d-block">Boost clips under X seconds in duration</small>
@@ -229,9 +230,9 @@
                                   <div class="mb-3">
                                     <label for="ignore-popularity-intensity" class="form-label">
                                       Popularity Reduction Intensity
-                                      <span class="badge bg-secondary" id="ignore-popularity-intensity-value">0.5</span>
+                                      <span class="badge bg-secondary" id="ignore-popularity-intensity-value">1</span>
                                     </label>
-                                    <input type="range" class="form-range weight-setting" min="0" max="1" step="0.1" id="ignore-popularity-intensity" name="ignore_popularity_intensity" value="0.5" style="width: 50%;">
+                                    <input type="range" class="form-range weight-setting" min="0" max="1" step="0.1" id="ignore-popularity-intensity" name="ignore_popularity_intensity" value="1" style="width: 50%;">
                                   </div>
                                 </div>
                                 
@@ -245,7 +246,8 @@
                                 <div id="viewer-priority-settings" class="ms-4 mb-3" style="display: none;">
                                   <div class="mb-3">
                                     <label for="viewer-priority-intensity" class="form-label">
-                                      Viewer Priority Intensity (not fully implemented)
+                                      Viewer Priority Intensity
+                                      <small class="text-muted d-block">Higher priority for VIP/MOD submissions</small>
                                       <span class="badge bg-secondary" id="viewer-priority-intensity-value">0.5</span>
                                     </label>
                                     <input type="range" class="form-range weight-setting" min="0" max="1" step="0.1" id="viewer-priority-intensity" name="viewer_priority_intensity" value="0.5" style="width: 50%;">

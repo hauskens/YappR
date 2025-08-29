@@ -19,69 +19,112 @@
         {% endif %}
       </div>
 
-      <div class="card shadow border mt-4">
-        <div class="card-header bg-primary text-white">
-          <h5 class="mb-0"><i class="bi bi-info-circle-fill me-2"></i>About YappR</h5>
+      <div class="card mb-5 shadow">
+        <div class="card-header">
+          <h3 class="card-title mb-0">Why use this clip queue?</h3>
         </div>
         <div class="card-body">
-          <p>🛠️ <strong>YappR</strong> is a <strong>free</strong> and <a href="https://github.com/hauskens/YappR" target="_blank">open source</a> project, licensed under the <strong>GNU GPL v2.0</strong>.</p>
-          
-          <h5 class="mt-4"><i class="bi bi-list-check me-2"></i>Key Features of YappR's Clip Queue:</h5>
-          <div class="list-group list-group-flush mb-4">
-            <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">🤖</span>
-              <div>
-                <h6 class="mb-1">Integrated Bots</h6>
-                <p class="mb-1">Twitch and Discord bots that can listen for clip links</p>
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <div class="d-flex align-items-start">
+                <div class="me-3">
+                  <span class="badge bg-primary rounded-pill fs-5">🌙</span>
+                </div>
+                <div>
+                  <h5>Clip Queue is open 24/7</h5>
+                  <p class="text-muted mb-0">Viewers can submit clips anytime, even when you are offline</p>
+                </div>
               </div>
             </div>
-            <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">🙌</span>
-              <div>
-                <h6 class="mb-1">Community-Powered</h6>
-                <p class="mb-1">Great for hands-off highlight curation powered by your community</p>
+            <div class="col-md-6 mb-3">
+              <div class="d-flex align-items-start">
+                <div class="me-3">
+                  <span class="badge bg-primary rounded-pill fs-5">🔄</span>
+                </div>
+                <div>
+                  <h5>Clips are de-duplicated</h5>
+                  <p class="text-muted mb-0">Clips are de-duplicated and you can control which sources are allowed</p>
+                </div>
               </div>
             </div>
-            <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">🌙</span>
-              <div>
-                <h6 class="mb-1">24/7 Submissions</h6>
-                <p class="mb-1">Users can share clips even when you're offline</p>
+            <div class="col-md-6">
+              <div class="d-flex align-items-start">
+                <div class="me-3">
+                  <span class="badge bg-primary rounded-pill fs-5">🛡️</span>
+                </div>
+                <div>
+                  <h5>Automated moderation</h5>
+                  <p class="text-muted mb-0">Listens for moderation events in your channel and automatically removes clips from banned/timed out users</p>
+                </div>
               </div>
             </div>
-            <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">🛡️</span>
-              <div>
-                <h6 class="mb-1">Moderator Integration</h6>
-                <p class="mb-1">Twitch moderators have automatic permissions to manage your queue</p>
+            <div class="col-md-6">
+              <div class="d-flex align-items-start">
+                <div class="me-3">
+                  <span class="badge bg-primary rounded-pill fs-5">⚖️</span>
+                </div>
+                <div>
+                  <h5>Priority</h5>
+                  <p class="text-muted mb-0">You control how the queue is sorted and what you want to prioritize</p>
+                </div>
               </div>
             </div>
-            <div class="list-group-item d-flex align-items-start">
-              <span class="fs-4 me-3 mt-1">📊</span>
-              <div>
-                <h6 class="mb-1">Voting System</h6>
-                <p class="mb-1">Community-driven voting — reactions weigh in more popular clips</p>
+            <div class="col-md-6">
+              <div class="d-flex align-items-start">
+                <div class="me-3">
+                  <span class="badge bg-primary rounded-pill fs-5">💬</span>
+                </div>
+                <div>
+                  <h5>Discord</h5>
+                  <p class="text-muted mb-0">A Discord bot can be invited to your server to listen for clips on a channel you specify</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="d-flex align-items-start">
+                <div class="me-3">
+                  <span class="badge bg-primary rounded-pill fs-5">✂️</span>
+                </div>
+                <div>
+                  <h5>Your editor will thank you</h5>
+                  <p class="text-muted mb-0">When you react to clips, the timestamp is saved with a link to your VOD, making it trivial to find the moment later</p>
+                </div>
               </div>
             </div>
           </div>
-          
-        {% if current_user.is_anonymous %}
-          <div class="card border mb-4">
-            <div class="card-body">
-              <h6 class="card-title"><i class="bi bi-shield-lock me-2"></i>Privacy & Security</h6>
-              <p class="mb-1">🔒 Twitch and Discord are used for authentication, <strong>no passwords</strong> are ever exchanged with YappR.</p>
-              <p class="mb-0">👀 The only info we access is your <strong>profile ID, username, and avatar</strong>—nothing more.</p>
-            </div>
-          </div>
-          
-          <h5 class="mt-4 text-center">🚀 Ready to dive in?</h5>
-          <p class="text-center">Just click one of the login buttons below. Once you're in, you're all set to go!</p>
-
-          <div class="d-flex justify-content-center gap-4 mt-4">
-            <a href="{{ url_for('twitch.login') }}" class="btn btn-lg btn-outline-primary">
-              <i class="bi bi-twitch me-2"></i>Login with Twitch
+        </div>
+      </div>
+      <div class="card shadow border mt-4 shadow">
+        <div class="card-header bg-primary text-white">
+          <h5 class="mb-0"><i class="bi bi-info-circle-fill me-2"></i>Login to YappR</h5>
+        </div>
+        <div class="card-body">
+          <p>Log in to get access to clip queue and more features!</p>
+          <p>You can read more about YappR <a href="{{ url_for('root.about') }}">here</a></p>
+          <div class="text-center mt-4">
+            (prefered)
+            <br>
+            <a href="{{ url_for('twitch.login') }}">
+              <img
+                id="twitch"
+                src="https://img.shields.io/badge/Twitch-Login-9146ff?style=for-the-badge&labelColor=black&logo=Twitch"
+                alt="Login with Twitch"
+              />
             </a>
           </div>
+          <div class="text-center mt-4">
+            <a href="{{ url_for('discord.login') }}">
+              <img
+                id="discord"
+                src="https://img.shields.io/badge/Discord-Login-7289da?style=for-the-badge&labelColor=black&logo=Discord"
+                alt="Login with Discord"
+              />
+            </a>
+          </div>
+        </div>
+      </div>
+          
+        {% if current_user.is_anonymous %}
         {% else %}
           <div class="alert alert-primary" role="alert">
             <h5 class="alert-heading">You are almost there!</h5>

@@ -41,6 +41,8 @@ def convert_log_timezone_to_server(log_datetime: datetime, log_timezone_str: str
             'Mountain Standard Time': 'US/Mountain',
             'Pacific Daylight Time': 'US/Pacific',
             'Pacific Standard Time': 'US/Pacific',
+            'CEST': 'Europe/Berlin',  # Central European Summer Time
+            'CET': 'Europe/Berlin',   # Central European Time
             'UTC': 'UTC',
             'GMT': 'UTC'
         }

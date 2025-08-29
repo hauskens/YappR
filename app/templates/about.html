@@ -1,0 +1,238 @@
+{% extends 'base.html' %} 
+
+{% block content %}
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <div class="text-center mb-5">
+        <h1 class="display-4 mb-3">About YappR</h1>
+        <p class="lead text-muted">A multi-purpose tool for streamers, editors and viewers, made by <a href="https://discordapp.com/users/hausken">@hausken</a></p>
+      </div>
+
+      <div class="card mb-5">
+        <div class="card-header">
+          <h3 class="card-title mb-0">✨ Features</h3>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-6 mb-3">
+              <div class="d-flex align-items-start">
+                <div class="me-3">
+                  <span class="badge bg-primary rounded-pill">🔍</span>
+                </div>
+                <div>
+                  <h5>Search for moments in VODs</h5>
+                  <p class="text-muted mb-0">Search for specific moments in streams and get timestamped links to VODs.</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6 mb-3">
+              <div class="d-flex align-items-start">
+                <div class="me-3">
+                  <span class="badge bg-secondary rounded-pill">📋</span>
+                </div>
+                <div>
+                  <h5>Clip Queue</h5>
+                  <p class="text-muted mb-0">Allow viewers to submit clips directly in chat or discord</p>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="d-flex align-items-start">
+                <div class="me-3">
+                  <span class="badge bg-success rounded-pill">🛠️</span>
+                </div>
+                <div>
+                  <h5>Utilities</h5>
+                  <p class="text-muted mb-0">Helpful tools for streamers, editors and moderators.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="accordion mb-5" id="setupAccordion">
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#free">
+              💝 Why is this free?
+            </button>
+          </h2>
+          <div id="free" class="accordion-collapse collapse show" data-bs-parent="#setupAccordion">
+            <div class="accordion-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <h6 class="fw-bold">Costs</h6>
+                  <p>There is obviously costs to running projects like this, but this is my hobby and i enjoy hosting this myself on my humble server here in Norway</p>
+                  <h6 class="fw-bold">Future</h6>
+                  <p>This will remain free for as long as i find it enjoyable to work on and able to cover the costs, since the project is <a href="https://github.com/hausken/yappr" class="alert-link">open source</a>, anyone can run a similar project if they wanted to</p>
+                  <h6 class="fw-bold">How can i support you?</h6>
+                  <p class="mb-0">I only take payments in the form of exposure, otherwise i encourage you to support your local streamers and creators</p>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      <div class="accordion mb-5" id="setupAccordion">
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#clipQueueSetup">
+              ⚙️ How do I set up Clip Queue?
+            </button>
+          </h2>
+          <div id="clipQueueSetup" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
+            <div class="accordion-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <h6 class="fw-bold">For Streamers/Moderators</h6>
+                  <ol class="list-group list-group-numbered list-group-flush">
+                    <li class="list-group-item border-0 px-0">Mods can set this up on behalf of their broadcaster</li>
+                    <li class="list-group-item border-0 px-0">Log in using your Twitch account</li>
+                    <li class="list-group-item border-0 px-0">Create a new broadcaster under <a href="/broadcaster/create">Broadcaster > Create Broadcaster</a></li>
+                    <li class="list-group-item border-0 px-0">Go to broadcaster settings and enable content queue</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#transcriptionInfo">
+              📝 About Transcriptions
+            </button>
+          </h2>
+          <div id="transcriptionInfo" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
+            <div class="accordion-body">
+              <div class="row">
+                <div class="col">
+                  <h6 class="fw-bold">How it works</h6>
+                  <p class="mb-0">Audio from each stream is downloaded and transcribed locally using <a href="https://github.com/m-bain/whisperX" class="alert-link">WhisperX</a>, ensuring high-quality transcriptions for better search results.</p>
+                </div>
+              </div>
+              <div class="row mt-2">
+                <div class="col">
+                  <h6 class="fw-bold">When?</h6>
+                  <p class="mb-0">Transcriptions are generated when a broadcaster is added to the system, after a stream the audio will be downloaded and transcribed.</p>
+                </div>
+              </div>
+              <div class="row mt-2">
+                <div class="col">
+                  <h6 class="fw-bold">What if I said something i want to remove?</h6>
+                  <p class="mb-0">YappR bases its information on what is available on Twitch, simply remove the VOD from twitch and it will be removed from YappR as well(some delay may apply).</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#devInfo">
+              🔧 Behind the scenes
+            </button>
+          </h2>
+          <div id="devInfo" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
+            <div class="accordion-body">
+              <div class="row">
+                <div class="col">
+                  <h6 class="fw-bold">Can i see the code?</h6>
+                  <p class="mb-0">YappR is free and open source, you can find the source code on <a href="https://github.com/hausken/yappr" class="alert-link">GitHub</a></p>
+                </div>
+              </div>
+              <div class="row mt-2">
+                <div class="col">
+                  <h6 class="fw-bold">Why did you make this?</h6>
+                  <p class="mb-0">This is a hobby project that i have used to learn more about Python, web development and exploring new technologies.</p>
+                </div>
+              </div>
+              <div class="row mt-2">
+                <div class="col">
+                  <h6 class="fw-bold">Have you used AI?</h6>
+                  <p class="mb-0">Yes, this codebase is a mix of hand written code and code generated by AI using <a href="https://claude.ai" class="alert-link">Claude code</a>. There is no automatic code generation, everything is reviewed and tested before being added to the codebase.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="accordion-item">
+          <h2 class="accordion-header">
+            <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#systemStats">
+              📊 System Statistics
+            </button>
+          </h2>
+          <div id="systemStats" class="accordion-collapse collapse" data-bs-parent="#setupAccordion">
+            <div class="accordion-body">
+              <div class="row mb-4">
+                <div class="col-md-4">
+                  <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body">
+                      <h5 class="card-title mb-4 text-center">
+                        Transcription Quality
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-question-circle text-secondary" viewBox="0 0 16 16" data-bs-toggle="tooltip" data-bs-placement="top" title="Transcriptions generated by YappR is considered to be High Quality, while transcriptions downloaded from YouTube are considered to be Low Quality">
+                          <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/>
+                          <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286m1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94"/>
+                        </svg>
+                      </h5>
+                      <div class="d-flex justify-content-center align-items-center" style="height: 200px;">
+                        <canvas id="transcriptionQualityChart" 
+                                data-hq-count="{{ transcriptions_hq_count }}"
+                                data-lq-count="{{ transcriptions_lq_count }}"
+                                data-total-count="{{ video_count }}"
+                                style="width: 200px; height: 200px;"></canvas>
+                      </div>
+                      <div class="mt-2">
+                        <ul class="list-unstyled text-center">
+                          <li class="mb-2">
+                            <span class="badge rounded-pill me-1" style="background-color: #8b5cf6;">&nbsp;</span>
+                            <span style="color: #8b5cf6; font-weight: 500;">High Quality: {{ '{:,}'.format(transcriptions_hq_count) }} ({{ '{:.1f}'.format((transcriptions_hq_count / video_count) * 100) }}%)</span>
+                          </li>
+                          <li class="mb-2">
+                            <span class="badge rounded-pill me-1" style="background-color: #f59e0b;">&nbsp;</span>
+                            <span style="color: #f59e0b; font-weight: 500;">Low Quality: {{ '{:,}'.format(transcriptions_lq_count) }} ({{ '{:.1f}'.format((transcriptions_lq_count / video_count) * 100) }}%)</span>
+                          </li>
+                          <li>
+                            <span class="badge rounded-pill me-1" style="background-color: #d1d5db;">&nbsp;</span>
+                            <span style="color: #6b7280; font-weight: 500;">Missing Transcription: {{ '{:,}'.format(video_count - (transcriptions_hq_count + transcriptions_lq_count)) }} ({{ '{:.1f}'.format(((video_count - (transcriptions_hq_count + transcriptions_lq_count)) / video_count) * 100) }}%)</span>
+                          </li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-3">
+                  <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body text-center text-nowrap">
+                      <div class="display-4 text-primary mb-2">{{ video_count }}</div>
+                      <h5 class="card-title">Videos Tracked</h5>
+                    </div>
+                  </div>
+                  <div class="card border-0 shadow-sm mb-3">
+                    <div class="card-body text-center text-nowrap">
+                      <div class="display-4 text-secondary mb-2">{{ '{:,.0f}'.format(video_duration / 3600) }} hrs</div>
+                      <h5 class="card-title">Combined duration of transcribed videos</h5>
+                    </div>
+                  </div>
+                  <div class="card border-0 shadow-sm">
+                    <div class="card-body text-center text-nowrap">
+                      <div class="display-4 text-secondary mb-2">{% if video_count | int > 0 %}{{ "{:,.1f}".format(((video_duration | float / video_count | int) / 60) | int) }}{% else %}0 mins 0 secs{% endif %} mins</div>
+                      <h5 class="card-title">Average video duration</h5>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/stats.js', v=version) }}"></script>
+{% endblock %}

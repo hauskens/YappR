@@ -106,7 +106,7 @@
               {% elif current_user.is_anonymous == False and user_service.is_broadcaster(current_user) %}
                 <a class="nav-link" href="{{ url_for('management.management') }}">Management</a>
               {% endif %}
-              <a class="nav-link" href="{{ url_for('root.stats') }}">Stats</a>
+              <a class="nav-link" href="{{ url_for('root.about') }}">About</a>
             </div>
           </div>
         {% else %}
@@ -126,7 +126,7 @@
               </div>
               
               <a class="nav-link" href="{{ url_for('leaderboard.leaderboard') }}">Leaderboard</a>
-              <a class="nav-link" href="{{ url_for('root.stats') }}">Stats</a>
+              <a class="nav-link" href="{{ url_for('root.about') }}">About</a>
             </div>
           </div>
         {% endif %}

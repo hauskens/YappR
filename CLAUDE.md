@@ -48,12 +48,25 @@ YappR is a transcription and metadata search platform for YouTube and Twitch con
 ### Key Directories
 - `app/models/`: Database models, configuration, and core data structures
 - `app/routes/`: HTTP route handlers organized by feature
-- `app/services/`: Business logic and external API integrations
+- `app/services/`: Business logic services for core application functionality
 - `app/tasks/`: Celery background tasks
-- `app/templates/`: Jinja2 HTML templates
+- `app/templates/`: Jinja2 HTML templates with Bootstrap styling
 - `app/static/`: Frontend assets (CSS, JS, images)
 - `bot/`: Discord and Twitch bot implementations
 - `tests/`: Test suite using pytest
+
+### Service Architecture (`app/services/`)
+The application uses a service-oriented architecture with specialized services handling different domains:
+
+- **broadcaster.py**: Manages broadcaster profiles, transcription statistics, and channel relationships
+- **channel.py**: Handles channel operations, video fetching, linking, and management 
+- **content_queue.py**: Manages the clip submission and review queue system with weight-based scoring
+- **file_recovery.py**: Provides file recovery functionality for audio and metadata restoration
+- **moderation.py**: Comprehensive moderation system with bans, timeouts, and permissions
+- **platform.py**: Abstract platform services for YouTube and Twitch API integrations
+- **transcription.py**: Handles transcription processing, parsing (VTT/JSON), and format conversion
+- **user.py**: User management, permissions, role-based access control, and authentication
+- **video.py**: Video operations, URL generation, timestamp linking, and platform-specific handling
 
 ### Authentication & Authorization
 - Discord OAuth2 authentication via Flask-Dance
@@ -91,8 +104,23 @@ The search functionality (`app/search.py`) has been optimized for high performan
 
 Performance testing suite available in `tests/app/test_search_performance.py` with benchmarks for different dataset sizes.
 
+### Frontend Design & Styling
+The application features a modern, responsive design using:
+
+- **Bootstrap 5**: Component-based CSS framework for consistent styling
+- **HTMX**: Dynamic interactions without complex JavaScript
+- **Card-based layouts**: Clean, organized information presentation
+- **Accordion components**: Collapsible sections for content organization
+- **Badge system**: Visual indicators for status, roles, and categories
+- **Responsive grid**: Mobile-friendly layout with Bootstrap's grid system
+- **Custom color scheme**: Platform-specific theming (Twitch purple, YouTube red)
+- **Typography**: Clean, readable text with proper hierarchy
+- **Interactive elements**: Hover effects, tooltips, and smooth transitions
+
+Template structure follows standard Bootstrap patterns with semantic HTML and accessibility considerations.
+
 ### Development Notes
-- Frontend uses Bootstrap with HTMX for dynamic interactions
-- Multi-worker architecture supports distributed transcription processing
+- Multi-worker architecture supports distributed transcription processing  
 - Docker Compose setup includes all necessary services (PostgreSQL, Redis, GPU workers)
 - Search optimization focused on pure Python performance - avoided JIT compilation (Numba) due to type conversion overhead
+- Service layer provides clean separation between business logic and web routes

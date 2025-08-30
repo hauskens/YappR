@@ -36,6 +36,12 @@ features = [
   "HtmlSelectElement",
   "HtmlButtonElement",
   "HtmlAnchorElement",
+  "HtmlFormElement",
+  "HtmlOptionElement",
+  "HtmlOptionsCollection",
+  "FormData",
+  "File",
+  "DomTokenList",
   "CanvasRenderingContext2d",
   "NodeList",
   "Window",
@@ -45,6 +51,7 @@ features = [
   "MouseEvent",
   "EventTarget",
   "Event",
+  "InputEvent",
   "PointerEvent",
   "DomRect",
   "Location",
@@ -53,6 +60,10 @@ features = [
   "Url",
   "FileList",
   "CustomEvent",
+  "Request",
+  "RequestInit",
+  "Headers",
+  "Response",
 ]
 
 [profile.release]

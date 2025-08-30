@@ -226,6 +226,7 @@
                       <div class="form-check">
                         <input type="checkbox" class="form-check-input" 
                                id="chat_collection_enabled{{ channel.id }}" 
+                               name="chat_collection_enabled"
                                {% if channel.settings and (channel.settings.chat_collection_enabled or channel.settings.content_queue_enabled) %}checked{% endif %}
                                hx-post="{{ url_for('channel.channel_settings_update', channel_id=channel.id) }}"
                                hx-target="#settings-feedback"
@@ -240,6 +241,7 @@
                       <div class="form-check">
                         <input type="checkbox" class="form-check-input" 
                                id="content_queue_enabled{{ channel.id }}" 
+                               name="content_queue_enabled"
                                {% if channel.settings and channel.settings.content_queue_enabled %}checked{% endif %}
                                hx-post="{{ url_for('channel.channel_settings_update', channel_id=channel.id) }}"
                                hx-target="#settings-feedback"

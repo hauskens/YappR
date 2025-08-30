@@ -3,7 +3,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import select
 from app.models.auth import OAuth
 from app.models.enums import ContentQueueSubmissionSource, AccountSource, ModerationActionType, ChannelRole
-from app.models.channel import Channels, ChannelSettings
+from app.models import Channels, ChannelSettings, Users, UserChannelRole
 from app.models.chatlog import ChatLog
 from app.models.config import config
 import asyncio
@@ -13,7 +13,7 @@ from datetime import datetime
 from twitchAPI.type import AuthScope, ChatEvent
 from twitchAPI.chat import Chat, EventData, ChatMessage, ChatUser
 from .shared import ChannelSettingsDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event, task_manager, start_task_manager, url_pattern, get_platform, add_to_content_queue
-from app.platforms.handler import ContentDict
+from functools import cache
 
 
 class TwitchBot:
@@ -246,14 +246,20 @@ class TwitchBot:
     async def on_notice(self, notice_event):
         """Handle notice events, including timeout and ban notifications."""
         try:
+            logger.debug("Received notice event: %s", notice_event, extra={"event_type": "notice"})
+            
             # Get the raw IRC message to parse timeout/ban information
             if not hasattr(notice_event, 'parsed') or not notice_event.parsed:
+                logger.debug("Notice event has no parsed data")
                 return
                 
             parsed = notice_event.parsed
             room_id = notice_event.room.room_id if notice_event.room else None
             
+            logger.debug("Notice event parsed data: %s", parsed, extra={"room_id": room_id})
+            
             if not room_id or room_id not in self.enabled_channels:
+                logger.debug("Notice event from untracked room: %s", room_id)
                 return
                 
             channel_id = self.enabled_channels[room_id]
@@ -261,6 +267,8 @@ class TwitchBot:
             # Parse IRC tags for moderation events
             tags = parsed.get('tags', {})
             msg_id = tags.get('msg-id', '')
+            
+            logger.info("Processing notice event with msg-id: %s", msg_id, extra={"channel_id": channel_id, "tags": tags})
             
             # Handle timeout events
             if msg_id == 'timeout':
@@ -270,7 +278,7 @@ class TwitchBot:
                 await self._handle_ban_notice(tags, channel_id)
             # Log other notice types for debugging
             else:
-                logger.debug(f"Received notice with msg-id: {msg_id} in channel {channel_id}")
+                logger.debug("Received notice with msg-id: %s in channel %s", msg_id, channel_id)
                 
         except Exception as e:
             logger.error("Error processing notice event: %s", e)
@@ -394,63 +402,67 @@ class TwitchBot:
             role = self._map_badges_to_role(badges, channel_id)
             
             if role:
-                # Use separate session to avoid conflicts
-                with SessionLocal() as role_session:
-                    try:
-                        # Get or create user
-                        user = role_session.execute(
-                            select(Users).filter_by(external_account_id=msg.user.id)
-                        ).scalars().one_or_none()
-                        
-                        if not user:
-                            # Create new user
-                            user = Users(
-                                name=msg.user.name,
-                                external_account_id=msg.user.id,
-                                account_type=AccountSource.Twitch,
-                                disabled=False
-                            )
-                            role_session.add(user)
-                            role_session.flush()
-                        else:
-                            # Update username if it changed
-                            if user.name != msg.user.name:
-                                user.name = msg.user.name
-                        
-                        # Check existing role
-                        existing_role = role_session.execute(
-                            select(UserChannelRole).filter_by(
-                                user_id=user.id,
-                                channel_id=channel_id,
-                                active=True
-                            )
-                        ).scalars().one_or_none()
-                        
-                        if existing_role:
-                            # Update role if it changed
-                            if existing_role.role != role.value:
-                                existing_role.role = role.value
-                                logger.debug(f"Updated role for user {msg.user.name} to {role.value} in channel {channel_id}")
-                        else:
-                            # Create new role
-                            new_role = UserChannelRole(
-                                user_id=user.id,
-                                channel_id=channel_id,
-                                role=role.value,
-                                granted_at=datetime.now(),
-                                active=True
-                            )
-                            role_session.add(new_role)
-                            logger.debug(f"Granted role {role.value} to user {msg.user.name} in channel {channel_id}")
-                        
-                        role_session.commit()
-                        
-                    except Exception as e:
-                        role_session.rollback()
-                        logger.error("Error updating user role: %s", e)
+                self._update_user_role(msg.user, channel_id, role)
+                
                         
         except Exception as e:
             logger.error("Error processing badges for role update: %s", e)
+
+    @cache
+    def _update_user_role(self, chat_user: ChatUser, channel_id: int, role: ChannelRole):
+        with SessionLocal() as role_session:
+            try:
+                # Get or create user
+                user = role_session.execute(
+                    select(Users).filter_by(external_account_id=chat_user.id)
+                ).scalars().one_or_none()
+                
+                if not user:
+                    # Create new user
+                    user = Users(
+                        name=chat_user.name,
+                        external_account_id=chat_user.id,
+                        account_type=AccountSource.Twitch,
+                        disabled=False
+                    )
+                    role_session.add(user)
+                    role_session.flush()
+                else:
+                    # Update username if it changed
+                    if user.name != chat_user.name:
+                        user.name = chat_user.name
+                
+                # Check existing role
+                existing_role = role_session.execute(
+                    select(UserChannelRole).filter_by(
+                        user_id=user.id,
+                        channel_id=channel_id,
+                        active=True
+                    )
+                ).scalars().one_or_none()
+                
+                if existing_role:
+                    # Update role if it changed
+                    if existing_role.role != role.value:
+                        existing_role.role = role.value
+                        logger.debug(f"Updated role for user {chat_user.name} to {role.value} in channel {channel_id}")
+                else:
+                    # Create new role
+                    new_role = UserChannelRole(
+                        user_id=user.id,
+                        channel_id=channel_id,
+                        role=role.value,
+                        granted_at=datetime.now(),
+                        active=True
+                    )
+                    role_session.add(new_role)
+                    logger.debug(f"Granted role {role.value} to user {chat_user.name} in channel {channel_id}")
+                
+                role_session.commit()
+            
+            except Exception as e:
+                role_session.rollback()
+                logger.error("Error updating user role: %s", e)
 
     def _map_badges_to_role(self, badges: dict, channel_id: int) -> ChannelRole | None:
         """Map Twitch badges to ChannelRole enum."""
@@ -479,8 +491,7 @@ class TwitchBot:
 
     async def on_message_delete(self, delete_event: EventData):
         """Handle message delete events (placeholder for future implementation)."""
-        # TODO: Implement message delete handling
-        pass
+        logger.info("Message deleted: %s", delete_event)
 
     async def periodic_commit(self):
         """Periodically commit messages to the database"""

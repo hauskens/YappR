@@ -34,7 +34,7 @@ def list_users():
             )
         )
     
-    users_paginated = query.paginate(
+    users_paginated = query.order_by(Users.id).paginate(
         page=page, per_page=per_page, error_out=False
     )
     
@@ -70,7 +70,7 @@ def search_users():
             )
         )
     
-    users_paginated = query.paginate(
+    users_paginated = query.order_by(Users.id).paginate(
         page=page, per_page=per_page, error_out=False
     )
     

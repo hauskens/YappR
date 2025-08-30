@@ -244,3 +244,64 @@
     flex: 1 1 auto;
   }
 }
+
+.rating-ghost {
+  background: transparent;
+  border: 2px solid rgba(107, 70, 193, 0.3);
+  border-radius: 12px;
+  padding: 10px 20px;
+  cursor: pointer;
+  transition: all 0.4s ease;
+  font-size: 15px;
+  font-weight: 500;
+  align-items: center;
+  gap: 6px;
+  position: relative;
+  overflow: hidden;
+}
+
+.rating-ghost::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(107, 70, 193, 0.1), transparent);
+  transition: left 0.5s ease;
+}
+
+.rating-ghost:hover::before {
+  left: 100%;
+}
+
+.rating-ghost:hover {
+  transform: translateY(-2px);
+  border-color: rgba(107, 70, 193, 0.5);
+  box-shadow: 0 4px 12px rgba(107, 70, 193, 0.2);
+}
+
+.rating-ghost:active {
+  transform: translateY(0) scale(0.96);
+  transition: all 0.1s;
+}
+
+.rating-ghost.good {
+  color: #a78bfa;
+  border-color: rgba(167, 139, 250, 0.3);
+}
+
+.rating-ghost.good:hover {
+  border-color: rgba(167, 139, 250, 0.5);
+  box-shadow: 0 4px 12px rgba(167, 139, 250, 0.2);
+}
+
+.rating-ghost.bad {
+  color: #d4a574;
+  border-color: rgba(212, 165, 116, 0.3);
+}
+
+.rating-ghost.bad:hover {
+  border-color: rgba(212, 165, 116, 0.5);
+  box-shadow: 0 4px 12px rgba(212, 165, 116, 0.2);
+}

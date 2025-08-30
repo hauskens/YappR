@@ -219,6 +219,28 @@ function initializeTabSwitching(): void {
     upcomingTab.addEventListener('click', () => {
       upcomingSearch.style.display = 'flex';
       historySearch.style.display = 'none';
+      
+      // Reset current active item when switching to up next tab
+      currentClipId = null;
+      localStorage.removeItem('activeQueueItemId');
+      
+      // Remove active styling from all queue items
+      document.querySelectorAll('.queue-item').forEach(item => {
+        item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+      });
+      
+      // Hide player and rating buttons
+      const playerContainer = document.getElementById('player-container');
+      const playerMessage = document.getElementById('player-message');
+      const ratingButtons = document.getElementsByClassName('rating-buttons');
+      
+      if (playerContainer) playerContainer.style.display = 'none';
+      if (playerMessage) playerMessage.style.display = 'block';
+      
+      for (let i = 0; i < ratingButtons.length; i++) {
+        const button = ratingButtons[i] as HTMLElement;
+        if (button) button.style.display = 'none';
+      }
     });
   }
   
@@ -226,6 +248,19 @@ function initializeTabSwitching(): void {
     historyTab.addEventListener('click', () => {
       upcomingSearch.style.display = 'none';
       historySearch.style.display = 'flex';
+      
+      // Hide player and rating buttons when switching to history
+      const playerContainer = document.getElementById('player-container');
+      const playerMessage = document.getElementById('player-message');
+      const ratingButtons = document.getElementsByClassName('rating-buttons');
+      
+      if (playerContainer) playerContainer.style.display = 'none';
+      if (playerMessage) playerMessage.style.display = 'block';
+      
+      for (let i = 0; i < ratingButtons.length; i++) {
+        const button = ratingButtons[i] as HTMLElement;
+        if (button) button.style.display = 'none';
+      }
     });
   }
   
@@ -233,6 +268,59 @@ function initializeTabSwitching(): void {
     optionsTab.addEventListener('click', () => {
       upcomingSearch.style.display = 'none';
       historySearch.style.display = 'none';
+      
+      // Reset current active item when switching to options tab
+      currentClipId = null;
+      localStorage.removeItem('activeQueueItemId');
+      
+      // Remove active styling from all queue items
+      document.querySelectorAll('.queue-item').forEach(item => {
+        item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+      });
+      
+      // Hide player and rating buttons
+      const playerContainer = document.getElementById('player-container');
+      const playerMessage = document.getElementById('player-message');
+      const ratingButtons = document.getElementsByClassName('rating-buttons');
+      
+      if (playerContainer) playerContainer.style.display = 'none';
+      if (playerMessage) playerMessage.style.display = 'block';
+      
+      for (let i = 0; i < ratingButtons.length; i++) {
+        const button = ratingButtons[i] as HTMLElement;
+        if (button) button.style.display = 'none';
+      }
+    });
+  }
+  
+  // Add support for future help tab
+  const helpTab = document.getElementById('help-tab');
+  if (helpTab && upcomingSearch && historySearch) {
+    helpTab.addEventListener('click', () => {
+      upcomingSearch.style.display = 'none';
+      historySearch.style.display = 'none';
+      
+      // Reset current active item when switching to help tab
+      currentClipId = null;
+      localStorage.removeItem('activeQueueItemId');
+      
+      // Remove active styling from all queue items
+      document.querySelectorAll('.queue-item').forEach(item => {
+        item.classList.remove('active', 'bg-primary-subtle', 'border-start', 'border-2', 'border-primary-subtle');
+      });
+      
+      // Hide player and rating buttons
+      const playerContainer = document.getElementById('player-container');
+      const playerMessage = document.getElementById('player-message');
+      const ratingButtons = document.getElementsByClassName('rating-buttons');
+      
+      if (playerContainer) playerContainer.style.display = 'none';
+      if (playerMessage) playerMessage.style.display = 'block';
+      
+      for (let i = 0; i < ratingButtons.length; i++) {
+        const button = ratingButtons[i] as HTMLElement;
+        if (button) button.style.display = 'none';
+      }
     });
   }
 }
@@ -280,7 +368,7 @@ function markCurrentWatchedInternal(rating: number): void {
   if (!itemId) {
     const activeItem = document.querySelector('.queue-item.active');
     if (!activeItem) return;
-    itemId = activeItem.getAttribute('data-item-id');
+    itemId = activeItem.getAttribute('data-id');
   }
   
   if (!itemId) return;
@@ -350,6 +438,14 @@ function markCurrentWatchedInternal(rating: number): void {
 function initPlayer(): void {
   const playerContainer = document.getElementById('player-container') as HTMLElement;
   const playerMessage = document.getElementById('player-message') as HTMLElement;
+  const ratingButtons = document.getElementsByClassName('rating-buttons') as HTMLCollectionOf<HTMLElement>;
+
+  for (let i = 0; i < ratingButtons.length; i++) {
+    const button = ratingButtons[i] as HTMLElement;
+    if (button) {
+      button.style.display = 'block';
+    }
+  }
   
   if (playerContainer && playerContainer.dataset && playerContainer.dataset.clipId) {
     currentClipId = playerContainer.dataset.clipId;
@@ -365,7 +461,6 @@ function initPlayer(): void {
       playerMessage.style.display = 'block';
     }
   }
-  console.log('Player initialized');
 }
 
 // Make functions globally available for onclick handlers

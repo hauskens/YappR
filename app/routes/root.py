@@ -70,14 +70,6 @@ def logout():
     return render_template("unauthorized.html")
 
 
-@root_blueprint.route("/users")
-@require_permission(permissions=PermissionType.Admin)
-def users():
-    users = UserService.get_all()
-    logger.info("Loaded users.html", extra={"user_id": current_user.id})
-    return render_template(
-        "users.html", users=users, permission_types=PermissionType, get_role_config=get_role_config
-    )
 
 
 @root_blueprint.route("/utils")

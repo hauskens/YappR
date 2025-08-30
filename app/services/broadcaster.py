@@ -114,13 +114,6 @@ class BroadcasterService:
         try:
             broadcaster = BroadcasterService.get_by_id(broadcaster_id)
 
-            # Update users who have this broadcaster_id before deletion
-            users_to_update = db.session.query(Users).filter_by(
-                broadcaster_id=broadcaster_id
-            ).all()
-            for user in users_to_update:
-                user.broadcaster_id = None
-
             # Delete associated channels using the proper channel service
             from .channel import ChannelService
             channels_to_delete = list(broadcaster.channels)  # Create a copy to avoid iteration issues

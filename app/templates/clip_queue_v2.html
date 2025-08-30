@@ -26,20 +26,22 @@
             </div>
             <div id="rating-buttons" class="d-flex gap-2 flex-shrink-0 me-2 align-self-center" style="display:none">
               <button 
-                class="btn btn-success"
-                id="mark-good-btn"
-                data-bs-toggle="tooltip"
-                title="Mark as good clip and move to next"
-                onclick="markCurrentWatchedWithRating(1.0)">
-                <i class="bi bi-hand-thumbs-up-fill"></i> Good
-              </button>
-              <button 
-                class="btn btn-danger"
+                class="btn btn-danger rating-ghost bad rating-buttons"
                 id="mark-bad-btn"
                 data-bs-toggle="tooltip"
+                style="display: none;"
                 title="Mark as bad clip and move to next"
                 onclick="markCurrentWatchedWithRating(-1.0)">
                 <i class="bi bi-hand-thumbs-down-fill"></i> Bad
+              </button>
+              <button 
+                class="btn btn-success rating-ghost good rating-buttons"
+                id="mark-good-btn"
+                data-bs-toggle="tooltip"
+                style="display: none;"
+                title="Mark as good clip and move to next"
+                onclick="markCurrentWatchedWithRating(1.0)">
+                <i class="bi bi-hand-thumbs-up-fill"></i> Good
               </button>
             </div>
           </div>
@@ -71,6 +73,11 @@
                      hx-trigger="click"
                      hx-swap="none">
                 <i class="bi bi-gear"></i> Options
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="help-tab" data-bs-toggle="tab" data-bs-target="#help" type="button" role="tab" aria-controls="help" aria-selected="false">
+                <i class="bi bi-question-circle"></i> Help
               </button>
             </li>
           </ul>  
@@ -313,6 +320,27 @@
                             hx-on::after-request="htmx.trigger('#queue-items', 'queue_update');">
                       <i class="bi bi-skip-forward-fill"></i> Clear queue
                     </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="tab-pane fade" id="help" role="tabpanel" aria-labelledby="help-tab">
+              <div class="p-3 overflow-auto custom-scrollbar" style="max-height: calc(95vh - 14rem);">
+                <div class="card mb-3">
+                  <div class="card-body">
+                    <h5 class="card-title"><i class="bi bi-question-circle"></i> How to Use the Queue</h5>
+                    <div class="mb-3">
+                      <ul class="list-unstyled">
+                        <li><i class="bi bi-play-circle text-primary"></i> Click any clip to start watching</li>
+                        <li><i class="bi bi-play-circle text-primary"></i> Clicking on a clip wil automatically mark the current one as watched with a neutral score</li>
+                        <li><i class="bi bi-hand-thumbs-up text-success"></i> Use the <strong>Good</strong> button to rate clips positively</li>
+                        <li><i class="bi bi-hand-thumbs-down text-danger"></i> Use the <strong>Bad</strong> button to rate clips negatively</li>
+                        <li><i class="bi bi-trash text-danger"></i> Skip clips you don't want to watch using the trash icon</li>
+                        <li><i class="bi bi-arrow-left"></i> You can resize the clip queue window by dragging the edge of the player</li>
+                        <li><i class="bi bi-person"></i> Click on a username to view the user's profile</li>
+                        <li><i class="bi bi-question-circle"></i> On clips, click on the question mark to view the clip's context</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>

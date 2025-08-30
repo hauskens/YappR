@@ -85,7 +85,6 @@
     // Update global tracking variable
     if (typeof currentClipId !== 'undefined') {
       currentClipId = clickedId;
-      console.log('Updated currentClipId from click:', currentClipId);
     }
     
     // Check if we're in history mode
@@ -98,7 +97,7 @@
       if (activeItem && activeItem !== this && activeItem.getAttribute('data-watched') === 'false') {
         // Mark the active item as watched before switching
         const itemId = activeItem.getAttribute('data-id');
-        markItemAsWatched(itemId, () => {
+        markItemAsWatched(itemId, 0.0, () => {
           // Update UI to show watched state
           activeItem.classList.add('watched-item');
           activeItem.setAttribute('data-watched', 'true');
@@ -118,12 +117,24 @@
     // Check if we're in history mode or if the item is already watched
     const isHistoryMode = {{ 'true' if show_history else 'false' }};
     const isWatched = this.getAttribute('data-watched') === 'true';
-    
-    // Only show the Next button if we're not in history mode and the clip isn't already watched
+    const ratingButtons = document.getElementsByClassName('rating-buttons');
+
     if (!isHistoryMode && !isWatched) {
-      document.getElementById('mark-watched-btn').style.display = 'block';
-    } else {
-      document.getElementById('mark-watched-btn').style.display = 'none';
+      for (let i = 0; i < ratingButtons.length; i++) {
+        const button = ratingButtons[i];
+        if (button) {
+          button.style.display = 'block';
+        }
+      }
+    }
+    // Only show the Next button if we're not in history mode and the clip isn't already watched
+    const markWatchedBtn = document.getElementsByClassName('mark-watched-btn');
+    if (markWatchedBtn.length > 0) {
+      if (!isHistoryMode && !isWatched) {
+        markWatchedBtn[0].style.display = 'block';
+      } else {
+        markWatchedBtn[0].style.display = 'none';
+      }
     }
     
     htmx.ajax('GET', '/clip_queue/details/{{ item.id }}', {target: '#clip-details', swap: 'innerHTML'});

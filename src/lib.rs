@@ -575,6 +575,8 @@ pub fn init_broadcaster_add_form() {
     broadcaster_add::broadcaster_init_form();
 }
 
+
+
 #[wasm_bindgen] 
 pub fn update_broadcaster_name() {
     broadcaster_add::broadcaster_update_name();

@@ -3,7 +3,7 @@ from app.logger import logger
 from app.rate_limit import limiter, rate_limit_exempt
 from app.search import search_v2
 from app.utils import get_valid_date
-from app.permissions import check_banned
+from app.permissions import check_banned, has_any_moderation_access, get_accessible_channels
 from app.services import UserService, ModerationService, BroadcasterService 
 from flask_login import current_user # type: ignore
 from app.models.channel import Channels
@@ -69,12 +69,12 @@ def search_word():
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 @check_banned()
 def chatlog_search_page():
-    # Only allow moderators and admins to access chatlog search
-    if current_user.is_anonymous or not (UserService.is_moderator(current_user) or UserService.is_admin(current_user)):
+    # Check authorization using new helper function
+    if not has_any_moderation_access(current_user):
         return render_template("403.html"), 403
     
-    # Get all channels for chatlog search
-    channels_query = db.session.execute(db.select(Channels)).scalars().all()
+    # Get accessible channels with chat collection enabled using helper function
+    channels_query = get_accessible_channels(current_user, chat_collection_only=True)
     
     # Convert channels to JSON serializable format
     channels = [
@@ -88,5 +88,5 @@ def chatlog_search_page():
         for channel in channels_query
     ]
     
-    logger.info(f"Loaded chatlog_search.html")
+    logger.info(f"Loaded chatlog_search.html for user with {len(channels)} accessible channels")
     return render_template("chatlog_search.html", channels=channels)

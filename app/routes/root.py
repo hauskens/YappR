@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, flash, send_from_directory, url_for, send_file, make_response, abort, jsonify, request, Response, redirect
 from app.logger import logger
 from flask_login import current_user, logout_user, login_required  # type: ignore
-from app.permissions import require_permission, require_api_key, check_banned
+from app.permissions import require_permission, require_api_key, check_banned, has_any_moderation_access, get_accessible_channels
 from app.models import PermissionType
 from app.csrf import csrf
 from app.retrievers import (
@@ -100,11 +100,18 @@ def recover_files():
 
 @root_blueprint.route("/utils/chatlog_search", methods=["POST"])
 @login_required
-@require_permission([PermissionType.Admin, PermissionType.Moderator])
 def chatlog_search():
     from app.models import ChatLog, Channels, Video
     from sqlalchemy import and_, or_, func
     from datetime import datetime, timedelta
+    
+    # Check authorization using helper function
+    if not has_any_moderation_access(current_user):
+        return {"error": "Access denied"}, 403
+    
+    # Get accessible channels with chat collection enabled for this user
+    accessible_channels = get_accessible_channels(current_user, chat_collection_only=True)
+    accessible_channel_ids = [ch.id for ch in accessible_channels] if accessible_channels else []
     
     try:
         # Get JSON data from request
@@ -147,7 +154,24 @@ def chatlog_search():
                         ChatLog.message.ilike(f"%{term}%")
                     )
         
-        # Channel filter
+        # Channel access filter - only show results from channels user can access
+        if accessible_channel_ids:
+            search_query = search_query.filter(ChatLog.channel_id.in_(accessible_channel_ids))
+        else:
+            # User has no accessible channels, return empty results
+            return {
+                "results": [],
+                "total": 0,
+                "query": query,
+                "filters": {
+                    "channel": None,
+                    "username": username if username else None,
+                    "date_from": date_from,
+                    "date_to": date_to
+                }
+            }
+        
+        # Channel filter (specific channel if provided)
         if channel_id:
             search_query = search_query.filter(ChatLog.channel_id == channel_id)
         

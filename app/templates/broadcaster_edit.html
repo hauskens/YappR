@@ -411,14 +411,14 @@
               <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addChannelModal">
                 <i class="bi bi-plus-circle me-2"></i>Add New Channel
               </button>
-              <a href="{{ url_for('broadcaster.broadcaster_queue', broadcaster_id=broadcaster.id) }}" class="btn btn-outline-primary">
+              <a href="{{ url_for('broadcaster.broadcaster_queue', broadcaster_id=broadcaster.id) }}" class="btn btn-primary">
                 <i class="bi bi-list-task me-2"></i>Manage Clip Queue
               </a>
               <button id="delete-broadcaster-btn" class="btn btn-outline-danger hold-to-delete" 
                       data-delete-url="{{ url_for('broadcaster.broadcaster_delete', broadcaster_id=broadcaster.id) }}">
                 <div class="progress-overlay"></div>
                 <div class="btn-content">
-                  <i class="bi bi-trash me-2"></i><span class="btn-text">Hold to Delete Broadcaster</span>
+                  <i class="bi bi-trash me-2"></i><span class="btn-text">Delete Broadcaster</span>
                 </div>
               </button>
             </div>

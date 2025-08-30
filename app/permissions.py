@@ -7,6 +7,7 @@ from flask import request, abort
 from app.models.config import config
 from app.models.enums import PermissionType, ChannelRole
 from app.models.user import Users, get_role_config
+from app.models import db
 from app.services import UserService, BroadcasterService, ModerationService
 from app.logger import logger
 
@@ -191,8 +192,6 @@ def check_permission(
         broadcaster = BroadcasterService.get_by_internal_channel_id(channel_id)
         if broadcaster is None:
             raise ValueError(f"Channel {channel_id} not found")
-        logger.info("Checking if channel %s is banned for user %s",
-                    channel_id, user)
         if any(channel_id in ModerationService.get_banned_channel_ids(user) for channel_id in broadcaster.channels):
             logger.info("User %s is banned from channel %s",
                         user, broadcaster_id)
@@ -239,3 +238,93 @@ def check_permission(
 
             if user_priority >= min_priority:
                 return True
+
+    return False
+
+
+def has_any_moderation_access(user: Users) -> bool:
+    """
+    Check if user has any moderation access (global or channel-specific).
+    
+    Returns True if user is:
+    - Global admin
+    - Global moderator 
+    - Broadcaster owner
+    - Channel moderator on any channel
+    """
+    if user.is_anonymous:
+        return False
+        
+    # Check global permissions first
+    if UserService.is_admin(user) or UserService.is_moderator(user):
+        return True
+        
+    # Check if user is a broadcaster
+    if UserService.is_broadcaster(user):
+        return True
+        
+    # Check if user has any channel moderation roles
+    if UserService.is_moderator(user, None):  # Check if mod on any channel
+        return True
+        
+    return False
+
+
+def get_accessible_channels(user: Users, chat_collection_only: bool = False) -> list:
+    """
+    Get list of channels that user can access for moderation purposes.
+    
+    Args:
+        user: User to check access for
+        chat_collection_only: If True, only return channels with chat collection enabled
+    
+    Returns:
+    - All channels if user is global admin/mod
+    - Only owned/moderated channels for regular users
+    """
+    if user.is_anonymous:
+        return []
+        
+    # Global admins and mods can access all channels
+    if UserService.is_admin(user) or UserService.is_moderator(user):
+        from app.models.channel import Channels, ChannelSettings
+        query = db.select(Channels)
+        if chat_collection_only:
+            query = query.join(ChannelSettings).filter(ChannelSettings.chat_collection_enabled == True)
+        return db.session.execute(query).scalars().all()
+    
+    accessible_channels = []
+    
+    # Add channels from broadcasters they own
+    if UserService.is_broadcaster(user):
+        broadcaster = UserService.get_broadcaster(user)
+        if broadcaster:
+            for channel in broadcaster.channels:
+                if not chat_collection_only or (channel.settings and channel.settings.chat_collection_enabled):
+                    accessible_channels.append(channel)
+    
+    # Add channels they moderate
+    from app.services.channel import ChannelService
+    moderated_channel_records = ChannelService.get_moderated_channels(user.id)
+    for mod_record in moderated_channel_records:
+        channel = ChannelService.get_by_id(mod_record.channel_id)
+        if channel not in accessible_channels:
+            if not chat_collection_only or (channel.settings and channel.settings.chat_collection_enabled):
+                accessible_channels.append(channel)
+    
+    return accessible_channels
+
+
+def require_moderation_access():
+    """
+    Decorator that allows access to users with any moderation role.
+    Equivalent to: global admin/mod OR broadcaster owner OR channel moderator
+    """
+    def decorator(f: Callable) -> Callable:
+        @wraps(f)
+        def decorated_function(*args: Any, **kwargs: Any) -> Any:
+            if current_user.is_anonymous or not has_any_moderation_access(current_user):
+                return render_template("errors/403.html"), 403
+            return f(*args, **kwargs)
+        return decorated_function
+    return decorator

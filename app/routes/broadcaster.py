@@ -109,7 +109,7 @@ def broadcaster_create():
                 platform_name=PlatformType.Twitch.value,
                 platform_ref=channel_name,
                 platform_channel_id=channel_id,
-                main_video_type=VideoType.VOD.name,
+                main_video_type=VideoType.Live.name,
             )
             db.session.add(new_channel)
             db.session.flush()

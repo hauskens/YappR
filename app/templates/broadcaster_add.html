@@ -18,11 +18,17 @@
           <form action="{{ url_for('broadcaster.broadcaster_create') }}" method="post">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
             <div class="mb-3">
-              <label for="twitch_channel" class="form-label">{% if is_admin %}Enter Twitch Channel ID:{% else %}Select Twitch Channel:{% endif %}</label>
+              <label for="twitch_channel" class="form-label">{% if is_admin %}Enter Twitch Channel:{% else %}Select Twitch Channel:{% endif %}</label>
               {% if is_admin %}
-                <input type="text" id="twitch_channel" name="twitch_channel" class="form-control" 
-                       placeholder="Enter Twitch channel ID or username" required>
-                <div class="form-text">Enter any Twitch channel ID or username (admin privilege)</div>
+                <div class="input-group">
+                  <input type="text" id="twitch_channel" name="twitch_channel" class="form-control" 
+                         placeholder="Enter Twitch channel username" required>
+                  <button type="button" id="validateChannelBtn" class="btn btn-outline-secondary">
+                    <i class="bi bi-search"></i> Validate
+                  </button>
+                </div>
+                <div class="form-text">Enter any Twitch channel username (admin privilege)</div>
+                <div id="channelValidationResult" class="mt-2"></div>
               {% else %}
                 <select id="twitch_channel" name="twitch_channel" class="form-select" required>
                   <option value="" disabled selected>-- Select a channel --</option>

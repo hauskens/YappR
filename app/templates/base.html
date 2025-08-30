@@ -68,8 +68,8 @@
         {% if current_user.is_anonymous == False %}
           <div class="collapse navbar-collapse" id="navbarScroll">
             <div class="navbar-nav d-flex align-items-center">
-              <!-- Search Dropdown for moderators -->
-              {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) %}
+              <!-- Search Dropdown -->
+              {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin", "mod"]) or user_service.is_broadcaster(current_user) or user_service.is_moderator(current_user)) %}
                 <div class="nav-item dropdown">
                   <a class="nav-link dropdown-toggle" href="#" id="searchDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     Search

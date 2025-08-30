@@ -344,6 +344,14 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
 
     html! {
         <div class="chatlog-search">
+            if props.channels.is_empty() {
+                <div class="alert alert-warning mb-4">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>{"No searchable channels available"}</strong>
+                    <p class="mb-0">{"Enable chatlog collection under broadcaster channel settings to search chat messages."}</p>
+                </div>
+            }
+            
             <form onsubmit={on_form_submit} class="mb-4">
                 <div class="row">
                     <div class="col-md-6 mb-3">
@@ -355,12 +363,13 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                             placeholder="Enter search terms..."
                             value={search_form.query.clone()}
                             oninput={on_query_input}
+                            disabled={props.channels.is_empty()}
                         />
                         <div class="form-text">{"Search for specific words or phrases in chat messages. Use quotes (\"exact phrase\") for strict matching. Leave empty to search by username only."}</div>
                     </div>
                     <div class="col-md-3 mb-3">
                         <label for="channel-filter" class="form-label">{"Channel (Optional)"}</label>
-                        <select class="form-select" id="channel-filter" onchange={on_channel_change}>
+                        <select class="form-select" id="channel-filter" onchange={on_channel_change} disabled={props.channels.is_empty()}>
                             <option value="" selected=true>{"All Channels"}</option>
                             {for props.channels.iter().map(|channel| {
                                 html! {
@@ -380,6 +389,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                             placeholder="Filter by username..."
                             value={search_form.username.clone()}
                             oninput={on_username_input}
+                            disabled={props.channels.is_empty()}
                         />
                         <div class="form-text small">{"Can be used alone to find all messages from a user"}</div>
                     </div>
@@ -393,6 +403,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                             id="date-from" 
                             value={search_form.date_from.clone()}
                             oninput={on_date_from_input}
+                            disabled={props.channels.is_empty()}
                         />
                     </div>
                     <div class="col-md-3 mb-3">
@@ -403,11 +414,12 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                             id="date-to" 
                             value={search_form.date_to.clone()}
                             oninput={on_date_to_input}
+                            disabled={props.channels.is_empty()}
                         />
                     </div>
                     <div class="col-md-3 mb-3">
                         <label for="limit" class="form-label">{"Max Results"}</label>
-                        <select class="form-select" id="limit" onchange={on_limit_change}>
+                        <select class="form-select" id="limit" onchange={on_limit_change} disabled={props.channels.is_empty()}>
                             <option value="50" selected={search_form.limit == 50}>{"50"}</option>
                             <option value="100" selected={search_form.limit == 100}>{"100"}</option>
                             <option value="250" selected={search_form.limit == 250}>{"250"}</option>
@@ -418,7 +430,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                         <button 
                             type="submit" 
                             class="btn btn-success w-100"
-                            disabled={*loading}
+                            disabled={*loading || props.channels.is_empty()}
                         >
                             if *loading {
                                 <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>

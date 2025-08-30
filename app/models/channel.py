@@ -57,45 +57,6 @@ class Channels(Base):
         DateTime, nullable=True)
 
 
-#     def link_to_channel(self, channel_id: int | None = None):
-#         if channel_id is not None:
-#             try:
-#                 target_channel = (
-#                     db.session.query(Channels)
-#                     .filter_by(id=channel_id, broadcaster_id=self.broadcaster_id)
-#                     .one()
-#                 )
-#                 self.source_channel_id = (
-#                     target_channel.id
-#                 )  # I could have just taken channel_id directly from function, but this is to validate that it exists on broadcaster
-#                 db.session.commit()
-#             except:
-#                 raise ValueError(
-#                     "Failed to find target channel on broadcaster, is the broadcaster the same?"
-#                 )
-#         else:
-#             self.source_channel_id = None
-#             db.session.commit()
-
-#     def look_for_linked_videos(self, margin_sec: int = 2, min_duration: int = 300):
-#         logger.info(f"Looking for potential links on channel {self.name}")
-#         for source_video in self.source_channel.videos:
-#             for target_video in self.videos:
-#                 if (
-#                     target_video.source_video_id is None
-#                     and target_video.duration > min_duration
-#                     and (
-#                         (source_video.duration - margin_sec)
-#                         <= target_video.duration
-#                         <= (source_video.duration + margin_sec)
-#                     )
-#                 ):
-#                     logger.info(
-#                         f"Found a match on video duration! Source: {source_video.id} -> target: {target_video.id}"
-#                     )
-#                     target_video.source_video_id = source_video.id
-#                     db.session.flush()
-#         db.session.commit()
 
 class ChannelEvent(Base):
     __tablename__ = "channel_events"

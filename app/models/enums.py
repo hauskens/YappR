@@ -6,6 +6,7 @@ class VideoType(Enum):
     VOD = "vod"
     Clip = "clip"  # Represents a clip on a platform such as twitch clips, youtube shorts etc
     Edit = "edit"  # Represents a edited video, such as a montage, collection of clips or other edited content
+    Live = "live"  # Represents a live stream
 
 
 class PlatformType(Enum):

@@ -101,7 +101,7 @@ def management_items():
                 item for item in queue_items if
                 search_query.lower() in item.content.title.lower() or
                 search_query.lower() in item.content.channel_name.lower() or
-                any(search_query.lower() in submission.user.username.lower() for submission in item.submissions) or
+                any(search_query.lower() in submission.user.name.lower() for submission in item.submissions) or
                 any(submission.user_comment and search_query.lower(
                 ) in submission.user_comment.lower() for submission in item.submissions)
             ]

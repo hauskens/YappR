@@ -17,7 +17,7 @@ channel_blueprint = Blueprint('channel', __name__, url_prefix='/channel',
 def channel_create():
     name = request.form["name"]
     broadcaster_id = int(request.form["broadcaster_id"])
-    platform_id = int(request.form["platform_id"])
+    platform_name = request.form["platform_name"]
     platform_ref = request.form["platform_ref"]
     channel_type = request.form["channel_type"]
     channel_id = request.form.get("channel_id", None)
@@ -26,7 +26,7 @@ def channel_create():
     new_channel = Channels(
         name=name,
         broadcaster_id=broadcaster_id,
-        platform_id=platform_id,
+        platform_name=platform_name,
         platform_ref=platform_ref,
         main_video_type=channel_type,
         platform_channel_id=channel_id,
@@ -35,14 +35,7 @@ def channel_create():
     db.session.commit()
     logger.info("Channel %s was successfully created", name, extra={
                 "channel_id": new_channel.id, "broadcaster_id": broadcaster_id})
-    return render_template(
-        "broadcaster_edit.html",
-        broadcaster=BroadcasterService.get_by_id(broadcaster_id),
-        channels=BroadcasterService.get_channels(
-            broadcaster_id=broadcaster_id),
-        platforms=[platform.name for platform in PlatformType],
-        video_types=[video_type.name for video_type in VideoType],
-    )
+    return redirect(request.referrer)
 
 
 @channel_blueprint.route("/<int:channel_id>/link", methods=["POST"])
@@ -105,7 +98,7 @@ def channel_look_for_linked(channel_id: int):
 def channel_delete(channel_id: int):
     logger.warning("Deleting channel", extra={"channel_id": channel_id})
     ChannelService.delete_channel(channel_id)
-    return "ok"
+    return redirect(request.referrer)
 
 
 @channel_blueprint.route("/<int:channel_id>/videos")
@@ -199,6 +192,19 @@ def channel_settings_update(channel_id: int):
     settings.content_queue_enabled = content_queue_enabled
     settings.chat_collection_enabled = chat_collection_enabled
 
+    # Update main video type if provided
+    main_video_type = request.form.get('main_video_type')
+    if main_video_type:
+        try:
+            # Convert string name to VideoType enum
+            new_video_type = VideoType[main_video_type]
+            channel.main_video_type = new_video_type
+            logger.info("Updated channel main_video_type to %s", main_video_type, 
+                       extra={"channel_id": channel_id, "user_id": current_user.id})
+        except KeyError:
+            logger.error("Invalid video type: %s", main_video_type, 
+                        extra={"channel_id": channel_id, "user_id": current_user.id})
+
     db.session.commit()
 
     # Check if this is an HTMX request
@@ -206,7 +212,6 @@ def channel_settings_update(channel_id: int):
         # Return success message for HTMX
         return f'<div class="alert alert-success">Settings updated for {channel.name}</div>'
     else:
-        flash('Channel settings updated successfully')
         return redirect(request.referrer)
 
 

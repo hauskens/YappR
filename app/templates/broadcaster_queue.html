@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+
+{% block styles %}
+<style>
+  /* Custom badge colors for platforms */
+  .bg-twitch {
+    background-color: #9147FF;
+    color: white;
+  }
+  .bg-discord {
+    background-color: #7289da;
+    color: white;
+  }
+  
+  /* Make sure buttons use pointer cursor for better UX */
+  button[hx-post], select[hx-get], input[hx-get] {
+    cursor: pointer;
+  }
+  
+  /* Add some transition effects for smoother UI */
+  .card {
+    transition: all 0.2s ease;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <h1 class="mb-2">Manage Clip Queue - {{ broadcaster.name }}</h1>
+  
+  <!-- Filter and Controls Row -->
+  <div class="row mb-4">
+    <div class="col-md-12">
+      <div class="card shadow">
+        <div class="card-header">
+          <h5 class="mb-0">Filters & Controls</h5>
+        </div>
+        <div class="card-body">
+          <div class="row g-3">
+            <!-- Search Box -->
+            <div class="col-md-4">
+              <label for="search-input" class="form-label">Search</label>
+              <div class="input-group">
+                <input type="text" id="search-input" name="search" class="form-control filter-control" 
+                       placeholder="Search by title, channel or user" 
+                       hx-get="/management/items" 
+                       hx-target="#queue-items-container" 
+                       hx-trigger="keyup changed delay:500ms" 
+                       hx-include=".filter-control" 
+                       hx-indicator=".search-indicator">
+                <span class="input-group-text search-indicator htmx-indicator">
+                  <div class="spinner-border spinner-border-sm" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                  </div>
+                </span>
+              </div>
+            </div>
+            <!-- Hidden Broadcaster Select (fixed to current broadcaster) -->
+            <input type="hidden" name="broadcaster_id" class="filter-control" value="{{ broadcaster.id }}">
+            <!-- Sort By -->
+            <div class="col-md-2">
+              <label class="form-label">Sort By</label>
+              <select class="form-select filter-control" name="sort_by" 
+                      hx-get="/management/items" 
+                      hx-target="#queue-items-container" 
+                      hx-trigger="change" 
+                      hx-include=".filter-control">
+                <option value="newest">Newest First</option>
+                <option value="oldest">Oldest First</option>
+                <option value="most_submitted">Most Submitted</option>
+              </select>
+            </div>
+            <!-- Items Per Page -->
+            <div class="col-md-2">
+              <label class="form-label">Items Per Page</label>
+              <select class="form-select filter-control" name="per_page" 
+                      hx-get="/management/items" 
+                      hx-target="#queue-items-container" 
+                      hx-trigger="change" 
+                      hx-include=".filter-control">
+                <option value="20">20</option>
+                <option value="50">50</option>
+                <option value="100" selected>100</option>
+              </select>
+            </div>
+            <hr>
+            <!-- Status Filters -->
+            <div class="col-md-4">
+              <label class="form-label">Status Filter</label>
+              <div class="d-flex gap-2">
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input filter-control" type="checkbox" id="show-watched" name="show_watched" value="true" checked 
+                         hx-get="/management/items" 
+                         hx-target="#queue-items-container" 
+                         hx-trigger="change" 
+                         hx-include=".filter-control">
+                  <label class="form-check-label" for="show-watched">Watched</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input filter-control" type="checkbox" id="show-skipped" name="show_skipped" value="true" checked
+                         hx-get="/management/items" 
+                         hx-target="#queue-items-container" 
+                         hx-trigger="change" 
+                         hx-include=".filter-control">
+                  <label class="form-check-label" for="show-skipped">Skipped</label>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Loading Indicator -->
+  <div id="main-loading-indicator" class="d-flex justify-content-center htmx-indicator">
+    <div class="spinner-border" role="status">
+      <span class="visually-hidden">Loading...</span>
+    </div>
+  </div>
+  
+  <!-- Content Queue Cards -->
+  <div id="queue-items-container" 
+      hx-get="/management/items" 
+      hx-trigger="load, change from:body, queue_update from:body" 
+      hx-include=".filter-control" 
+      hx-swap="innerHTML" 
+      hx-indicator="#main-loading-indicator">
+    <!-- Content will be loaded via HTMX -->
+  </div>
+</div>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-success" role="alert">
+          {% for message in messages %}
+            {{ message }}
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+<!-- User Modal Container -->
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div id="userModalContent">
+        <!-- Content will be loaded here via htmx -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+{% block extra_scripts %}
+<script src="{{ url_for('static', filename='js/management.js', v=version) }}"></script>
+{% endblock %}

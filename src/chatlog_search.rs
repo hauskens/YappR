@@ -138,7 +138,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                 }
                 
                 // Create request with custom headers
-                let mut opts = RequestInit::new();
+                let opts = RequestInit::new();
                 opts.set_method("POST");
                 opts.set_headers(&headers);
                 opts.set_body(&JsValue::from_str(&serde_json::to_string(&request_data).unwrap()));

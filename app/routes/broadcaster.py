@@ -2,7 +2,6 @@ from flask import Blueprint, render_template, redirect, request, url_for, flash
 from app.permissions import require_permission
 from app.models import db
 from app.models import (
-    VideoType,
     PermissionType,
     AccountSource,
     Broadcaster,
@@ -14,8 +13,9 @@ from app.models import (
     ContentQueueSubmissionSource,
     Content,
     Users,
+    Platforms,
 )
-from app.models.enums import PlatformType
+from app.models.enums import PlatformType, VideoType
 from app.services import BroadcasterService, UserService, ModerationService
 from app.cache import cache, make_cache_key
 from app.logger import logger
@@ -201,8 +201,21 @@ def broadcaster_edit(broadcaster_id: int):
         "broadcaster_edit.html",
         broadcaster=broadcaster,
         channels=broadcaster.channels,
-        platforms=[platform.name for platform in PlatformType],
-        video_types=[video_type.name for video_type in VideoType],
+        platforms=list(PlatformType),
+        video_types=list(VideoType),
+    )
+
+
+@broadcaster_blueprint.route("/queue/<int:broadcaster_id>", methods=["GET"])
+@login_required
+@require_permission(check_broadcaster=True, check_anyone=True)
+def broadcaster_queue(broadcaster_id: int):
+    broadcaster = BroadcasterService.get_by_id(broadcaster_id)
+    logger.info("Loaded broadcaster_queue.html", extra={
+                "broadcaster_id": broadcaster.id})
+    return render_template(
+        "broadcaster_queue.html",
+        broadcaster=broadcaster,
     )
 
 

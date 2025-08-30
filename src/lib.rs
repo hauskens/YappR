@@ -9,6 +9,7 @@ mod utils;
 mod platforms;
 
 mod broadcaster_add;
+mod broadcaster_edit;
 mod chat_tag_manager;
 mod chat_timeline_chart;
 mod chatlog_search;
@@ -587,4 +588,30 @@ pub fn check_broadcaster_form_validity() {
 #[wasm_bindgen]
 pub fn render_chatlog_search(channels_json: &str, element_id: &str) -> Result<(), String> {
     chatlog_search::render_chatlog_search(channels_json, element_id)
+}
+
+// Broadcaster edit functionality
+#[wasm_bindgen]
+pub fn init_broadcaster_edit() {
+    broadcaster_edit::init_broadcaster_edit();
+}
+
+#[wasm_bindgen]
+pub fn toggle_twitch_lookup() {
+    broadcaster_edit::toggle_twitch_lookup();
+}
+
+#[wasm_bindgen]
+pub fn lookup_twitch_id() {
+    broadcaster_edit::lookup_twitch_id();
+}
+
+#[wasm_bindgen]
+pub fn show_channel_link_modal(channel_id: i32, channel_name: String, current_source_channel_id: Option<i32>, current_source_channel_name: String) {
+    broadcaster_edit::show_channel_link_modal(channel_id, channel_name, current_source_channel_id, current_source_channel_name);
+}
+
+#[wasm_bindgen]
+pub fn show_enhanced_linking_modal(channel_id: i32, channel_name: String, source_channel_name: String) {
+    broadcaster_edit::show_enhanced_linking_modal(channel_id, channel_name, source_channel_name);
 }

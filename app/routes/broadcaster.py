@@ -13,11 +13,9 @@ from app.models import (
     ContentQueueSubmissionSource,
     Content,
     Users,
-    Platforms,
 )
 from app.models.enums import PlatformType, VideoType
 from app.services import BroadcasterService, UserService, ModerationService
-from app.cache import cache, make_cache_key
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime
@@ -52,8 +50,11 @@ def broadcasters():
 @require_permission(check_broadcaster=True, permissions=PermissionType.Admin)
 def broadcaster_delete(broadcaster_id: int):
     logger.warning("Attempting to delete broadcaster %s", broadcaster_id)
-    BroadcasterService.delete(broadcaster_id)
-    return redirect(url_for("broadcaster.broadcasters"))
+    delete_result = BroadcasterService.delete(broadcaster_id)
+    if delete_result:
+        return redirect(url_for("broadcaster.broadcasters"))
+    else:
+        return render_template("errors/500.html", error="Failed to delete broadcaster, contact admin to fix the issue")
 
 
 @broadcaster_blueprint.route("/create", methods=["POST", "GET"])
@@ -208,7 +209,7 @@ def broadcaster_edit(broadcaster_id: int):
 
 @broadcaster_blueprint.route("/queue/<int:broadcaster_id>", methods=["GET"])
 @login_required
-@require_permission(check_broadcaster=True, check_anyone=True)
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def broadcaster_queue(broadcaster_id: int):
     broadcaster = BroadcasterService.get_by_id(broadcaster_id)
     logger.info("Loaded broadcaster_queue.html", extra={
@@ -221,16 +222,10 @@ def broadcaster_queue(broadcaster_id: int):
 
 @broadcaster_blueprint.route("/<int:broadcaster_id>/create_clip", methods=["POST"])
 @login_required
+@require_permission(check_broadcaster=True)
 def broadcaster_create_clip(broadcaster_id: int):
-    # Check if user has permission to modify this broadcaster
     logger.info("Attempting to create clip for broadcaster",
                 extra={"broadcaster_id": broadcaster_id})
-    if current_user.is_anonymous or not (current_user.broadcaster_id == broadcaster_id or UserService.has_permission(current_user, PermissionType.Admin)):
-        logger.error("User does not have permission to create clip for broadcaster", extra={
-                     "broadcaster_id": broadcaster_id})
-        return "You do not have permission to modify this broadcaster", 403
-
-    # Add clip creation task to Redis queue
     from app import redis_task_queue
     task_id = redis_task_queue.enqueue_clip_creation(str(broadcaster_id))
 
@@ -248,7 +243,7 @@ def broadcaster_create_clip(broadcaster_id: int):
 
 @broadcaster_blueprint.route("/<int:broadcaster_id>/settings/update", methods=["POST"])
 @login_required
-@require_permission(permissions=[PermissionType.Moderator], check_broadcaster=True)
+@require_permission(permissions=[PermissionType.Moderator], check_broadcaster=True, check_moderator=True)
 def broadcaster_settings_update(broadcaster_id: int):
     settings = db.session.query(BroadcasterSettings).filter_by(
         broadcaster_id=broadcaster_id).first()

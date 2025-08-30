@@ -677,6 +677,34 @@
   </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="deleteConfirmationModalLabel">
+          <i class="bi bi-exclamation-triangle me-2"></i>Confirm Deletion
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-danger mb-3">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <strong>Warning:</strong> This action cannot be undone!
+        </div>
+        <p id="deleteConfirmationText"></p>
+        <p class="mb-0">If transcriptions has been enabled, it has been a lot of computing power to generate them and <strong> the dev will be sad :(</strong></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+          <i class="bi bi-trash me-2"></i>Yes, Delete Permanently
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 {% endblock %}
 
@@ -769,11 +797,22 @@
       }
       
       progressOverlay.style.width = '100%';
-      btnText.textContent = 'Deleting...';
-      deleteBtn.disabled = true;
+      btnText.textContent = 'Confirm Deletion';
       
-      // Redirect to delete URL
-      window.location.href = deleteUrl;
+      // Show confirmation modal with broadcaster-specific content
+      showDeleteConfirmation(
+        `You are about to permanently delete the broadcaster "{{ broadcaster.name }}" and all associated data including:
+         • All channels ({{ channels | length }} channel{{ 's' if channels | length != 1 else '' }})
+         • All video transcriptions and metadata
+         • All chat logs and user interactions
+         • All queue entries and moderation data`,
+        deleteUrl
+      );
+      
+      // Reset button state
+      setTimeout(() => {
+        cancelHold();
+      }, 500);
     }
     
     // Mouse events
@@ -861,10 +900,25 @@
       }
       
       progressOverlay.style.width = '100%';
-      deleteText.textContent = 'Deleting...';
+      deleteText.textContent = 'Confirm Deletion';
       
-      // Redirect to delete URL
-      window.location.href = deleteUrl;
+      // Get channel name from the card
+      const channelCard = deleteItem.closest('.channel-card');
+      const channelName = channelCard ? channelCard.querySelector('.card-title').textContent.trim() : 'this channel';
+      
+      // Show confirmation modal with channel-specific content
+      showDeleteConfirmation(
+        `You are about to permanently delete the channel "${channelName}" and all associated data including:
+         • All video transcriptions and metadata
+         • All chat logs and user interactions
+         • All queue entries related to this channel`,
+        deleteUrl
+      );
+      
+      // Reset button state
+      setTimeout(() => {
+        cancelChannelHold();
+      }, 500);
     }
     
     // Mouse events
@@ -899,5 +953,23 @@
       e.preventDefault();
     });
   });
+  
+  // Generic delete confirmation function
+  window.showDeleteConfirmation = function(message, deleteUrl) {
+    const confirmationText = document.getElementById('deleteConfirmationText');
+    confirmationText.innerHTML = message.replace(/\n/g, '<br>').replace(/•/g, '&bull;');
+    
+    const confirmModal = new bootstrap.Modal(document.getElementById('deleteConfirmationModal'));
+    confirmModal.show();
+    
+    // Remove any existing event listeners and add new one
+    const confirmBtn = document.getElementById('confirmDeleteBtn');
+    const newConfirmBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+    
+    newConfirmBtn.addEventListener('click', function() {
+      window.location.href = deleteUrl;
+    });
+  };
 </script>
 {% endblock %}

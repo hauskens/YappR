@@ -12,6 +12,7 @@ from app.models import (
     ChannelSettings, ContentQueue, ContentQueueSubmission, ChatLog, ChannelCreate,
     TranscriptionSource
 )
+from app.models.user import ModerationAction, UserChannelRole
 from app.logger import logger
 from app.utils import save_generic_thumbnail
 
@@ -153,6 +154,14 @@ class ChannelService:
 
             # Delete channel moderators
             db.session.query(ChannelModerator).filter_by(
+                channel_id=channel_id).delete()
+
+            # Delete moderation actions
+            db.session.query(ModerationAction).filter_by(
+                channel_id=channel_id).delete()
+
+            # Delete user channel roles
+            db.session.query(UserChannelRole).filter_by(
                 channel_id=channel_id).delete()
 
             # Delete content queue items if broadcaster exists

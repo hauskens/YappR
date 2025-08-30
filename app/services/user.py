@@ -13,7 +13,7 @@ from app.models.enums import PermissionType, AccountSource, TwitchAccountType, P
 from app.models.user import string_to_role, role_to_string
 from app.models.config import config
 from app.logger import logger
-from app.services.channel import ChannelService
+from app.services import ChannelService, BroadcasterService
 
 
 class UserService:
@@ -70,7 +70,12 @@ class UserService:
         if broadcaster_id is None:
             return db.session.query(ChannelModerator).filter_by(user_id=user.id).one_or_none() is not None
         else:
-            return db.session.query(ChannelModerator).filter_by(user_id=user.id, channel_id=broadcaster_id).one_or_none() is not None
+            channels = [channel.id for channel in BroadcasterService.get_channels(broadcaster_id)]
+            return db.session.execute(
+                select(ChannelModerator)
+                .where(ChannelModerator.user_id == user.id, ChannelModerator.channel_id.in_(channels))
+                .limit(1)
+            ).scalars().one_or_none() is not None
 
     @staticmethod
     def is_broadcaster(user: Users) -> bool:

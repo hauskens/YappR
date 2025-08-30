@@ -11,6 +11,7 @@ from app.models.video import Video
 from app.models.transcription import Transcription
 from app.models.enums import TranscriptionSource
 from app.models.user import Users
+from app.models.content_queue_settings import ContentQueueSettings
 from app.logger import logger
 
 
@@ -128,6 +129,11 @@ class BroadcasterService:
 
             # Delete broadcaster settings
             db.session.query(BroadcasterSettings).filter_by(
+                broadcaster_id=broadcaster_id
+            ).delete()
+
+            # Delete content queue settings
+            db.session.query(ContentQueueSettings).filter_by(
                 broadcaster_id=broadcaster_id
             ).delete()
 

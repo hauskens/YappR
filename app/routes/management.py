@@ -91,7 +91,7 @@ def management_items():
             include_watched=show_watched,
             include_skipped=show_skipped
         )
-        if (BroadcasterService.get_last_active(broadcaster_id) is None or BroadcasterService.get_last_active(broadcaster_id) < datetime.now() - timedelta(minutes=10)) and not UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
+        if UserService.is_broadcaster(current_user) and current_user.external_account_id == broadcaster_id:
             queue_items = [item for item in queue_items if item.content.url !=
                            "https://www.youtube.com/watch?v=dQw4w9WgXcQ"]
 

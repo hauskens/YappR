@@ -113,12 +113,18 @@ class BroadcasterService:
         try:
             broadcaster = BroadcasterService.get_by_id(broadcaster_id)
 
-            # Delete associated channels (cascade will handle related data)
-            for channel in broadcaster.channels:
-                # Update users who have this broadcaster_id
-                db.session.query(Users).filter_by(
-                    broadcaster_id=broadcaster_id
-                ).update({"broadcaster_id": None})
+            # Update users who have this broadcaster_id before deletion
+            users_to_update = db.session.query(Users).filter_by(
+                broadcaster_id=broadcaster_id
+            ).all()
+            for user in users_to_update:
+                user.broadcaster_id = None
+
+            # Delete associated channels using the proper channel service
+            from .channel import ChannelService
+            channels_to_delete = list(broadcaster.channels)  # Create a copy to avoid iteration issues
+            for channel in channels_to_delete:
+                ChannelService.delete_channel(channel.id)
 
             # Delete broadcaster settings
             db.session.query(BroadcasterSettings).filter_by(

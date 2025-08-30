@@ -53,7 +53,7 @@ def broadcasters():
 def broadcaster_delete(broadcaster_id: int):
     logger.warning("Attempting to delete broadcaster %s", broadcaster_id)
     BroadcasterService.delete(broadcaster_id)
-    return redirect(url_for("broadcasters"))
+    return redirect(url_for("broadcaster.broadcasters"))
 
 
 @broadcaster_blueprint.route("/create", methods=["POST", "GET"])

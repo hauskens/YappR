@@ -13,7 +13,6 @@ leaderboard_blueprint = Blueprint(
 
 
 @leaderboard_blueprint.route("", strict_slashes=False)
-@cache.cached(timeout=60)
 def leaderboard():
     """Main leaderboard page with user and broadcaster statistics"""
     try:

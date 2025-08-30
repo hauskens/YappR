@@ -553,7 +553,6 @@ def delete_transcription_job(job_id):
 
 
 @root_blueprint.route("/about")
-@cache.cached(timeout=600)
 def about():
     logger.info("Loaded about.html")
     return render_template(

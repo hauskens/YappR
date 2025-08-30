@@ -111,8 +111,6 @@
                     <li><a class="dropdown-item" href="{{ url_for('root.utils') }}">Utils</a></li>
                   </ul>
                 </div>
-              {% elif current_user.is_anonymous == False and user_service.is_broadcaster(current_user) %}
-                <a class="nav-link" href="{{ url_for('management.management') }}">Management</a>
               {% endif %}
               <a class="nav-link" href="{{ url_for('root.about') }}">About</a>
             </div>

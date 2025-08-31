@@ -44,6 +44,7 @@ def get_user_leaderboard_data():
                 Users.id,
                 Users.name,
                 Users.external_account_id,
+                Users.color,
                 func.count(ContentQueueSubmission.id).label('total_clips'),
                 func.avg(ContentQueue.score).label('average_rating'),
                 func.count(func.distinct(ContentQueue.broadcaster_id)).label('broadcasters_contributed_to')
@@ -72,6 +73,7 @@ def get_user_leaderboard_data():
                 'id': row.id,
                 'name': row.name,
                 'external_account_id': row.external_account_id,
+                'color': row.color or None,
                 'total_clips': total_clips,
                 'average_rating': round(avg_rating, 2),
                 'total_rating_points': round(calculated_points, 1),

@@ -128,6 +128,7 @@
           <div class="alert alert-primary" role="alert">
             <h5 class="alert-heading">You are almost there!</h5>
             <p>You, or a Twitch Moderator need to <a href="{{ url_for('broadcaster.broadcaster_create') }}" class="alert-link">create a new broadcaster</a></p>
+            <p>If the broadcaster is already set up, simply head over to <a href="{{ url_for('broadcaster.broadcasters') }}" class="alert-link">broadcaster page</a> > your broadcaster > Manage Clip Queue</p>
           </div>
         {% endif %}
         </div>

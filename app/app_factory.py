@@ -34,7 +34,7 @@ from .rate_limit import limiter
 from .csrf import csrf
 from app.services import (
     BroadcasterService, VideoService, TranscriptionService, SegmentService,
-    UserService, ContentQueueService, ContentService, PlatformServiceRegistry
+    UserService, ContentQueueService, ContentService, PlatformServiceRegistry, ChannelService
 )
 import mimetypes
 
@@ -125,6 +125,7 @@ def create_app(overrides: dict | None = None):
             content_queue_service=ContentQueueService(),
             content_service=ContentService(),
             user_service=UserService(),
+            channel_service=ChannelService(),
             platform_service_registry=PlatformServiceRegistry(),
         )
 

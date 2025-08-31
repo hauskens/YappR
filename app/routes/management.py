@@ -16,7 +16,7 @@ management_blueprint = Blueprint(
 @require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def management():
     logger.info("Loaded management.html")
-    moderated_channels = ChannelService.get_moderated_channels(current_user.id)
+    moderated_channels = UserService.get_moderated_channels_from_db(current_user)
     bots = None
     if UserService.has_permission(current_user, [PermissionType.Admin]):
         bots = get_bots()

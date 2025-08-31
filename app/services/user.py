@@ -7,7 +7,7 @@ import asyncio
 
 from sqlalchemy import select, or_, and_
 from app.models import db
-from app.models import Users, Permissions, Channels, ChannelModerator, Broadcaster, ChatLog
+from app.models import Users, Permissions, Channels, Broadcaster, ChatLog
 from app.models.user import UserChannelRole, ModerationAction
 from app.models.enums import PermissionType, AccountSource, TwitchAccountType, PlatformType, ChannelRole, ModerationScope, ModerationActionType
 from app.models.user import string_to_role, role_to_string
@@ -68,12 +68,25 @@ class UserService:
     def is_moderator(user: Users, broadcaster_id: int | None = None) -> bool:
         """Check if user is a moderator (optionally for specific broadcaster)."""
         if broadcaster_id is None:
-            return db.session.query(ChannelModerator).filter_by(user_id=user.id).one_or_none() is not None
+            return db.session.execute(
+                select(UserChannelRole)
+                .where(
+                    UserChannelRole.user_id == user.id,
+                    UserChannelRole.role == role_to_string(ChannelRole.Mod),
+                    UserChannelRole.active == True
+                )
+                .limit(1)
+            ).scalars().one_or_none() is not None
         else:
             channels = [channel.id for channel in BroadcasterService.get_channels(broadcaster_id)]
             return db.session.execute(
-                select(ChannelModerator)
-                .where(ChannelModerator.user_id == user.id, ChannelModerator.channel_id.in_(channels))
+                select(UserChannelRole)
+                .where(
+                    UserChannelRole.user_id == user.id,
+                    UserChannelRole.channel_id.in_(channels),
+                    UserChannelRole.role == role_to_string(ChannelRole.Mod),
+                    UserChannelRole.active == True
+                )
                 .limit(1)
             ).scalars().one_or_none() is not None
 
@@ -126,18 +139,41 @@ class UserService:
                 channels = asyncio.run(
                     platform_service.fetch_moderated_channels(user))
                 logger.debug("Updating moderated channels for user", extra={"user": user.name})
-                existing_channel_moderators = db.session.query(ChannelModerator).filter_by(user_id=user.id).all()
-                logger.debug("Found %s moderated channels for user", len(existing_channel_moderators), extra={"user": user.name})
-                if len(existing_channel_moderators) > 0:
-                    db.session.delete(existing_channel_moderators)
-                logger.debug("Deleted %s moderated channels for user", len(existing_channel_moderators), extra={"user": user.name})
-                db.session.flush()
+                
+                # Get existing channel roles for this user
+                existing_roles = db.session.execute(
+                    select(UserChannelRole)
+                    .where(
+                        UserChannelRole.user_id == user.id,
+                        UserChannelRole.role == role_to_string(ChannelRole.Mod),
+                        UserChannelRole.active == True
+                    )
+                ).scalars().all()
+                
+                existing_channel_ids = {role.channel_id for role in existing_roles}
+                logger.debug("Found %s existing moderated channels for user", len(existing_channel_ids), extra={"user": user.name})
+                
+                # Get channel IDs from Twitch API
+                logger.debug("Found %s channels from Twitch API", len(channels), extra={"user": user.name})
+                new_channel_ids = {channel.id for channel in channels}
+                
+                # Revoke roles for channels user no longer moderates
+                channels_to_revoke = existing_channel_ids - new_channel_ids
+                for channel_id in channels_to_revoke:
+                    UserService.revoke_channel_role(user.id, channel_id)
+                    logger.debug("Revoked moderator role from channel %s", channel_id, extra={"user": user.name})
+                
+                # Grant roles for new moderated channels
+                channels_to_grant = new_channel_ids - existing_channel_ids
+                logger.debug("Found %s new moderated channels for user", len(channels_to_grant), extra={"user": user.name})
                 for channel in channels:
-                    logger.debug("Adding channel %s to user", channel.name, extra={"channel": channel.name})
-                    db.session.add(ChannelModerator(
-                        user_id=user.id, channel_id=channel.id))
-                db.session.commit()
-                logger.debug("Updated %s moderated channels for user", len(channels), extra={"user": user.name})
+                    if channel.id in channels_to_grant:
+                        UserService.grant_channel_role(user.id, channel.id, ChannelRole.Mod)
+                        logger.debug("Granted moderator role for channel %s", channel.name, extra={"channel": channel.name})
+                
+                logger.debug("Updated moderated channels for user - granted: %s, revoked: %s", 
+                           len(channels_to_grant), len(channels_to_revoke), extra={"user": user.name})
+                return channels
 
             except Exception as e:
                 logger.error(
@@ -150,6 +186,26 @@ class UserService:
     def get_moderated_channels(user: Users) -> list[str]:
         """Get moderated channels for user."""
         return asyncio.run(UserService.fetch_moderated_channels(user))
+
+    @staticmethod
+    def get_moderated_channels_from_db(user: Users) -> list[Channels]:
+        """Get moderated channels from database (no API call)."""
+        moderated_roles = db.session.execute(
+            select(UserChannelRole)
+            .where(
+                UserChannelRole.user_id == user.id,
+                UserChannelRole.role == role_to_string(ChannelRole.Mod),
+                UserChannelRole.active == True
+            )
+        ).scalars().all()
+        
+        channels = []
+        for role_record in moderated_roles:
+            channel = db.session.get(Channels, role_record.channel_id)
+            if channel:
+                channels.append(channel)
+        
+        return channels
 
     @staticmethod
     async def fetch_moderated_channels(user: Users) -> list[str]:

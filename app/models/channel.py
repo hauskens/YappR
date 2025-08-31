@@ -49,10 +49,6 @@ class Channels(Base):
     )
     settings: Mapped["ChannelSettings"] = relationship(
         back_populates="channel", uselist=False)
-    moderators: Mapped[list["ChannelModerator"]] = relationship(
-        back_populates="channel",
-        cascade="all, delete-orphan"
-    )
     last_active: Mapped[datetime | None] = mapped_column(
         DateTime, nullable=True)
 
@@ -78,14 +74,6 @@ class ChannelEvent(Base):
         ForeignKey("chatlog_imports.id"), nullable=True)
 
 
-class ChannelModerator(Base):
-    __tablename__: str = "channel_moderators"
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    user: Mapped["Users"] = relationship(
-        back_populates="channel_moderators")  # type: ignore[name-defined]
-    channel_id: Mapped[int] = mapped_column(ForeignKey("channels.id"))
-    channel: Mapped["Channels"] = relationship(back_populates="moderators")
 
 
 class ChannelSettings(Base):

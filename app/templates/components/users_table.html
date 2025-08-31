@@ -87,6 +87,16 @@
                             <i class="bi bi-clock-history"></i>
                         </button>
                         
+                        {% if user.account_type.value == 'twitch' %}
+                        <button class="btn btn-sm btn-outline-primary" 
+                                hx-post="{{ url_for('users.refresh_moderated_channels', user_id=user.id) }}"
+                                hx-target="#user-roles-{{ user.id }}"
+                                hx-indicator="#refresh-indicator-{{ user.id }}"
+                                title="Refresh Moderated Channels">
+                            <i class="bi bi-arrow-clockwise"></i>
+                        </button>
+                        {% endif %}
+                        
                         <a href="{{ url_for('users.user_edit', user_id=user.id) }}" 
                            class="btn btn-sm btn-outline-secondary"
                            title="Edit User">

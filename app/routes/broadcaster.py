@@ -61,7 +61,7 @@ def broadcaster_delete(broadcaster_id: int):
 
 @broadcaster_blueprint.route("/create", methods=["POST", "GET"])
 @login_required
-@require_permission()
+@require_permission(check_anyone=True)
 def broadcaster_create():
     if request.method == "GET":
         logger.info("Loaded broadcaster_add.html")
@@ -270,14 +270,18 @@ def broadcaster_settings_update(broadcaster_id: int):
             logger.info("Updating broadcaster profile image URL", extra={
                         "broadcaster_id": broadcaster_id, "user_id": current_user.id})
 
-    # Update broadcaster hidden status (admin only)
-    if UserService.has_permission(current_user, PermissionType.Admin) and request.form.get('hidden') is not None:
-        broadcaster = db.session.query(
-            Broadcaster).filter_by(id=broadcaster_id).first()
-        if broadcaster:
-            broadcaster.hidden = 'hidden' in request.form
-            logger.info("Updating broadcaster hidden status, hidden: %s", 'hidden' in request.form, extra={
-                        "broadcaster_id": broadcaster_id, "user_id": current_user.id})
+    # Update broadcaster hidden status (admin, broadcaster owner, or moderator)
+    if (UserService.has_permission(current_user, PermissionType.Admin) or 
+        UserService.has_broadcaster_id(current_user, broadcaster_id) or 
+        UserService.is_moderator(current_user, broadcaster_id)):
+        # Check if the hidden field was included in the request (HTMX sends it when checkbox changes)
+        if 'hidden' in request.form or request.headers.get('HX-Trigger-Name') == 'hidden':
+            broadcaster = db.session.query(
+                Broadcaster).filter_by(id=broadcaster_id).first()
+            if broadcaster:
+                broadcaster.hidden = 'hidden' in request.form
+                logger.info("Updating broadcaster hidden status, hidden: %s", 'hidden' in request.form, extra={
+                            "broadcaster_id": broadcaster_id, "user_id": current_user.id})
 
     db.session.commit()
 

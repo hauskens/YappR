@@ -286,13 +286,15 @@
           </div>
         {% endfor %}
       {% else %}
-        <div class="card add-channel-btn mb-4" data-bs-toggle="modal" data-bs-target="#addChannelModal" style="cursor: pointer;">
-          <div class="card-body text-center py-4">
-            <i class="bi bi-plus-circle display-4 text-muted mb-3"></i>
-            <h5 class="text-muted">Add Twitch Stream Channel</h5>
-            <p class="text-muted">Set up your primary streaming channel</p>
+        {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id) %}
+          <div class="card add-channel-btn mb-4" data-bs-toggle="modal" data-bs-target="#addChannelModal" style="cursor: pointer;">
+            <div class="card-body text-center py-4">
+              <i class="bi bi-plus-circle display-4 text-muted mb-3"></i>
+              <h5 class="text-muted">Add Twitch Stream Channel</h5>
+              <p class="text-muted">Set up your primary streaming channel</p>
+            </div>
           </div>
-        </div>
+        {% endif %}
       {% endif %}
 
       <!-- VOD Channels Section -->
@@ -401,19 +403,21 @@
           {% endfor %}
         </div>
       {% else %}
-        <div class="card add-channel-btn mb-4" data-bs-toggle="modal" data-bs-target="#addChannelModal" style="cursor: pointer;">
-          <div class="card-body text-center py-4">
-            <i class="bi bi-plus-circle display-4 text-muted mb-3"></i>
-            <h5 class="text-muted">Add YouTube VOD Channel</h5>
-            <p class="text-muted">Add channels for video content and stream archives</p>
+        {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id) %}
+          <div class="card add-channel-btn mb-4" data-bs-toggle="modal" data-bs-target="#addChannelModal" style="cursor: pointer;">
+            <div class="card-body text-center py-4">
+              <i class="bi bi-plus-circle display-4 text-muted mb-3"></i>
+              <h5 class="text-muted">Add YouTube VOD Channel</h5>
+              <p class="text-muted">Add channels for video content and stream archives</p>
+            </div>
           </div>
-        </div>
+        {% endif %}
       {% endif %}
     </div>
 
     <!-- Sidebar -->
     <div class="col-xl-4">
-      {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
+      {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id) %}
         <!-- Management Actions -->
         <div class="card mb-4">
           <div class="card-header">
@@ -463,10 +467,11 @@
               <div class="form-text">URL to your profile image (will be displayed as a circle)</div>
             </div>
             
-            {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
+            {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id) %}
               <div class="form-check">
                 <input type="checkbox" class="form-check-input" 
                        id="hidden" 
+                       name="hidden"
                        {% if broadcaster.hidden %}checked{% endif %}
                        hx-post="{{ url_for('broadcaster.broadcaster_settings_update', broadcaster_id=broadcaster.id) }}"
                        hx-target="#settings-feedback"
@@ -755,6 +760,30 @@
   </div>
 </div>
 
+<!-- Permission Denied Modal -->
+<div class="modal fade" id="permissionDeniedModal" tabindex="-1" aria-labelledby="permissionDeniedModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-warning text-dark">
+        <h5 class="modal-title" id="permissionDeniedModalLabel">
+          <i class="bi bi-shield-exclamation me-2"></i>Access Denied
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-warning mb-3">
+          <i class="bi bi-exclamation-triangle-fill me-2"></i>
+          <strong>Insufficient Permissions</strong>
+        </div>
+        <p id="permissionDeniedText"></p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 {% endblock %}
 
@@ -849,15 +878,23 @@
       progressOverlay.style.width = '100%';
       btnText.textContent = 'Confirm Deletion';
       
-      // Show confirmation modal with broadcaster-specific content
-      showDeleteConfirmation(
-        `You are about to permanently delete the broadcaster "{{ broadcaster.name }}" and all associated data including:
-         • All channels ({{ channels | length }} channel{{ 's' if channels | length != 1 else '' }})
-         • All video transcriptions and metadata
-         • All chat logs and user interactions
-         • All queue entries and moderation data`,
-        deleteUrl
-      );
+      // Check permissions before showing delete confirmation
+      const canDelete = {{ 'true' if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) else 'false' }};
+      
+      if (canDelete) {
+        // Show confirmation modal with broadcaster-specific content
+        showDeleteConfirmation(
+          `You are about to permanently delete the broadcaster "{{ broadcaster.name }}" and all associated data including:
+           • All channels ({{ channels | length }} channel{{ 's' if channels | length != 1 else '' }})
+           • All video transcriptions and metadata
+           • All chat logs and user interactions
+           • All queue entries and moderation data`,
+          deleteUrl
+        );
+      } else {
+        // Show permission denied modal
+        showPermissionDenied('Only administrators and the broadcaster themselves can delete this broadcaster.');
+      }
       
       // Reset button state
       setTimeout(() => {
@@ -956,14 +993,22 @@
       const channelCard = deleteItem.closest('.channel-card');
       const channelName = channelCard ? channelCard.querySelector('.card-title').textContent.trim() : 'this channel';
       
-      // Show confirmation modal with channel-specific content
-      showDeleteConfirmation(
-        `You are about to permanently delete the channel "${channelName}" and all associated data including:
-         • All video transcriptions and metadata
-         • All chat logs and user interactions
-         • All queue entries related to this channel`,
-        deleteUrl
-      );
+      // Check permissions before showing delete confirmation
+      const canDelete = {{ 'true' if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) else 'false' }};
+      
+      if (canDelete) {
+        // Show confirmation modal with channel-specific content
+        showDeleteConfirmation(
+          `You are about to permanently delete the channel "${channelName}" and all associated data including:
+           • All video transcriptions and metadata
+           • All chat logs and user interactions
+           • All queue entries related to this channel`,
+          deleteUrl
+        );
+      } else {
+        // Show permission denied modal
+        showPermissionDenied('Only administrators and the broadcaster themselves can delete channels.');
+      }
       
       // Reset button state
       setTimeout(() => {
@@ -1020,6 +1065,15 @@
     newConfirmBtn.addEventListener('click', function() {
       window.location.href = deleteUrl;
     });
+  };
+  
+  // Permission denied function
+  window.showPermissionDenied = function(message) {
+    const permissionText = document.getElementById('permissionDeniedText');
+    permissionText.textContent = message;
+    
+    const permissionModal = new bootstrap.Modal(document.getElementById('permissionDeniedModal'));
+    permissionModal.show();
   };
 </script>
 {% endblock %}

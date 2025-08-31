@@ -21,11 +21,30 @@
         Legacy Ban
     </span>
 {% else %}
-    {# Check for active channel bans #}
-    {% set has_channel_ban = user.moderation_actions_received | selectattr('active', 'equalto', True) | selectattr('action_type', 'equalto', 'ban') | selectattr('scope', 'equalto', 'channel') | list | length > 0 %}
-    {% if has_channel_ban %}
-        <span class="badge bg-warning" title="Banned from one or more channels">
+    {# Check for active channel bans and timeouts #}
+    {% set channel_bans = user.moderation_actions_received | selectattr('active', 'equalto', True) | selectattr('action_type', 'equalto', 'ban') | selectattr('scope', 'equalto', 'channel') | list %}
+    {% set channel_timeouts = user.moderation_actions_received | selectattr('active', 'equalto', True) | selectattr('action_type', 'equalto', 'timeout') | selectattr('scope', 'equalto', 'channel') | list %}
+    {% if channel_bans %}
+        {% set ban_details = [] %}
+        {% for ban in channel_bans %}
+            {% set _ = ban_details.append(ban.channel.name if ban.channel else 'Unknown Channel') %}
+        {% endfor %}
+        <span class="badge bg-warning" title="Banned from: {{ ban_details | join(', ') }}">
             Channel Ban
+        </span>
+    {% elif channel_timeouts %}
+        {% set timeout_details = [] %}
+        {% for timeout in channel_timeouts %}
+            {% if timeout.expires_at %}
+                {% set channel_name = timeout.channel.name if timeout.channel else 'Unknown' %}
+                {% set expires_str = timeout.expires_at.strftime('%Y-%m-%d %H:%M UTC') %}
+                {% set _ = timeout_details.append(channel_name ~ ' (expires: ' ~ expires_str ~ ')') %}
+            {% else %}
+                {% set _ = timeout_details.append((timeout.channel.name if timeout.channel else 'Unknown') ~ ' (permanent)') %}
+            {% endif %}
+        {% endfor %}
+        <span class="badge bg-warning" title="Timed out from: {{ timeout_details | join(', ') }}">
+            Channel Timeout
         </span>
     {% else %}
         <span class="badge bg-success">Active</span>

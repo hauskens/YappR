@@ -130,6 +130,12 @@ class BroadcasterService:
                 broadcaster_id=broadcaster_id
             ).delete()
 
+            # Delete user weights
+            from app.models.user import UserWeight
+            db.session.query(UserWeight).filter_by(
+                broadcaster_id=broadcaster_id
+            ).delete()
+
             # Delete the broadcaster
             db.session.query(Broadcaster).filter_by(id=broadcaster_id).delete()
             db.session.commit()

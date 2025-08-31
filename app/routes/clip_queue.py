@@ -94,7 +94,7 @@ def clip_queue():
 # Todo add permission check for broadcaster
 @clip_queue_blueprint.route("/mark_watched/<int:item_id>", methods=["POST"])
 @login_required
-@require_permission()
+@require_permission(check_broadcaster=True, permissions=PermissionType.Moderator)
 def mark_clip_watched(item_id: int):
     """Mark a content queue item as watched"""
     try:
@@ -104,9 +104,12 @@ def mark_clip_watched(item_id: int):
         # Check if user has permission to mark this clip as watched
         broadcaster = BroadcasterService.get_by_external_id(
             current_user.external_account_id)
-        if broadcaster is None:
-            return jsonify({"error": "Broadcaster not found"}), 404
-        if broadcaster_id != broadcaster.id:
+        
+        # Admins and global moderators can mark any clip as watched
+        if UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
+            pass  # Allow access
+        # Otherwise, user must be the broadcaster for this specific queue item
+        elif broadcaster is None or broadcaster_id != broadcaster.id:
             return jsonify({"error": "You do not have permission to mark this clip as watched"}), 401
 
         if queue_item.watched:
@@ -146,9 +149,15 @@ def skip_clip_queue_item(item_id: int):
         # Check if user has permission to skip this clip
         broadcaster = BroadcasterService.get_by_external_id(
             current_user.external_account_id)
-        if broadcaster is None:
-            return jsonify({"error": "Broadcaster not found"}), 404
-        if broadcaster_id != broadcaster.id:
+        
+        # Admins and global moderators can skip any clip
+        if UserService.has_permission(current_user, [PermissionType.Admin, PermissionType.Moderator]):
+            pass  # Allow access
+        # Channel moderators for this broadcaster can skip clips
+        elif UserService.is_moderator(current_user, broadcaster_id):
+            pass  # Allow access
+        # Otherwise, user must be the broadcaster for this specific queue item
+        elif broadcaster is None or broadcaster_id != broadcaster.id:
             return jsonify({"error": "You do not have permission to skip this clip"}), 401
         if queue_item.skipped:
             logger.info("Unskipping clip", extra={

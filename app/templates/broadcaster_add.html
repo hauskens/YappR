@@ -10,8 +10,15 @@
         <div class="card-header">
           <h5>Broadcaster Information</h5>
         </div>
-        <!-- Get moderated channels -->
+        <!-- Get moderated channels and filter out existing ones -->
         {% set moderated_channels = user_service.get_moderated_channels(current_user) %}
+        {% set filtered_moderated_channels = [] %}
+        {% for channel in moderated_channels %}
+          {% set existing_channel = channel_service.get_by_platform_channel_id(channel.broadcaster_id) %}
+          {% if not existing_channel %}
+            {% set _ = filtered_moderated_channels.append(channel) %}
+          {% endif %}
+        {% endfor %}
         {% set own_channel_type = user_service.get_twitch_account_type(current_user) %}
         {% set is_admin = user_service.is_admin(current_user) %}
         <div class="card-body">
@@ -36,9 +43,9 @@
                     <option value="{{ current_user.external_account_id }}|{{ current_user.name }}" {{ "" if own_channel_type == "partner" or own_channel_type == "affiliate" else "disabled" }}>Your channel{{ '' if own_channel_type != "partner" or own_channel_type != "affiliate" else ' is not partner/affiliate'}}: {{ current_user.name }}</option>
                   {% endif %}
                   
-                  {% if moderated_channels %}
+                  {% if filtered_moderated_channels %}
                     <optgroup label="Channels you moderate:">
-                      {% for channel in moderated_channels %}
+                      {% for channel in filtered_moderated_channels %}
                         <option value="{{ channel.broadcaster_id }}|{{ channel.broadcaster_name }}">{{ channel.broadcaster_name }}</option>
                       {% endfor %}
                     </optgroup>

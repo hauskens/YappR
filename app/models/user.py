@@ -12,7 +12,7 @@ if TYPE_CHECKING:
     from .broadcaster import Broadcaster
     from .content_queue import ContentQueueSubmission
     from .auth import Permissions, OAuth
-    from .channel import ChannelModerator, Channels, ChannelEvent
+    from .channel import Channels, ChannelEvent
     from .chatlog import ChatLog, ChatLogImport
 
 class UserBase(BaseModel):
@@ -52,9 +52,6 @@ class Users(Base, UserMixin):
     
     # Global app permissions
     permissions: Mapped[list["Permissions"]] = relationship(
-        back_populates="user", cascade="all, delete-orphan"
-    )
-    channel_moderators: Mapped[list["ChannelModerator"]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
     oauth: Mapped[list["OAuth"]] = relationship(

@@ -9,7 +9,7 @@ from sqlalchemy import select, func, update
 from datetime import datetime
 from app.models import db
 from app.models import (
-    Video, Platforms, Broadcaster, Channels, Transcription, ChannelModerator,
+    Video, Platforms, Broadcaster, Channels, Transcription,
     ChannelSettings, ContentQueue, ContentQueueSubmission, ChatLog, ChannelCreate,
     TranscriptionSource, Users
 )
@@ -35,6 +35,13 @@ class ChannelService:
         """Get channel by platform reference."""
         return db.session.execute(
             select(Channels).filter_by(platform_ref=platform_ref)
+        ).scalars().one_or_none()
+
+    @staticmethod
+    def get_by_platform_channel_id(platform_channel_id: str) -> Channels | None:
+        """Get channel by platform channel ID."""
+        return db.session.execute(
+            select(Channels).filter_by(platform_channel_id=platform_channel_id)
         ).scalars().one_or_none()
 
     @staticmethod
@@ -87,10 +94,6 @@ class ChannelService:
             .scalar() or 0
         )
 
-    @staticmethod
-    def get_moderated_channels(user_id: int) -> list[ChannelModerator]:
-        """Get channels moderated by a user."""
-        return db.session.query(ChannelModerator).filter_by(user_id=user_id).all()
 
     @staticmethod
     def get_url(channel: Channels) -> str:
@@ -153,10 +156,6 @@ class ChannelService:
 
             # Delete channel settings
             db.session.query(ChannelSettings).filter_by(
-                channel_id=channel_id).delete()
-
-            # Delete channel moderators
-            db.session.query(ChannelModerator).filter_by(
                 channel_id=channel_id).delete()
 
             # Delete moderation actions

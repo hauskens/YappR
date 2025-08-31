@@ -261,14 +261,14 @@ class TwitchPlatformService(PlatformService):
 
     async def fetch_moderated_channels(self, user: Users) -> list[Channels]:
         from .channel import ChannelService
-        logger.info("Fetching moderated channels for %s", user.name)
+        logger.debug("Fetching moderated channels for %s", user.name)
         twitch_client = await TwitchClientFactory.get_user_client(user)
         moderated_channels = await get_moderated_channels(user.external_account_id, api_client=twitch_client)
-        logger.info("Got twitch moderated channels for user id: %s - %s channels",
+        logger.debug("Got twitch moderated channels for user id: %s - %s channels",
                      user.external_account_id, len(moderated_channels))
         result: list[Channels] = []
         for moderated_channel in moderated_channels:
-            channel = ChannelService.get_by_platform_ref(
+            channel = ChannelService.get_by_platform_channel_id(
                 moderated_channel.broadcaster_id)
             if channel is not None:
                 result.append(channel)

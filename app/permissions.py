@@ -298,8 +298,8 @@ def get_accessible_channels(user: Users, chat_collection_only: bool = False) -> 
     if user.is_anonymous:
         return []
         
-    # Global admins and mods can access all channels
-    if UserService.is_admin(user) or UserService.is_moderator(user):
+    # Global admins and global moderators can access all channels
+    if UserService.is_admin(user) or UserService.has_permission(user, PermissionType.Moderator):
         from app.models.channel import Channels, ChannelSettings
         query = db.select(Channels)
         if chat_collection_only:
@@ -317,10 +317,8 @@ def get_accessible_channels(user: Users, chat_collection_only: bool = False) -> 
                     accessible_channels.append(channel)
     
     # Add channels they moderate
-    from app.services.channel import ChannelService
-    moderated_channel_records = ChannelService.get_moderated_channels(user.id)
-    for mod_record in moderated_channel_records:
-        channel = ChannelService.get_by_id(mod_record.channel_id)
+    moderated_channels = UserService.get_moderated_channels_from_db(user)
+    for channel in moderated_channels:
         if channel not in accessible_channels:
             if not chat_collection_only or (channel.settings and channel.settings.chat_collection_enabled):
                 accessible_channels.append(channel)

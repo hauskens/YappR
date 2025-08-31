@@ -160,9 +160,27 @@ def ban_user(user_id: int):
             duration_seconds=duration_seconds
         )
         
-        return render_template(
+        user = db.session.get(Users, user_id)
+        
+        if duration_hours:
+            if duration_hours >= 24:  # 1 day or more
+                days = duration_hours // 24
+                hours = duration_hours % 24
+                if hours > 0:
+                    duration_text = f" for {days}d {hours}h"
+                else:
+                    duration_text = f" for {days}d"
+            else:  # Less than 1 day
+                duration_text = f" for {duration_hours}h"
+        else:
+            duration_text = " permanently"
+            
+        scope_text = "globally" if scope_str == 'global' else "from channel"
+        success_message = f"User {user.name} banned {scope_text}{duration_text}"
+        
+        return f'<div class="alert alert-success mb-2"><i class="bi bi-check-circle me-1"></i>{success_message}</div>' + render_template(
             "components/user_moderation_status.html",
-            user=db.session.get(Users, user_id)
+            user=user
         )
     except Exception as e:
         logger.error(f"Error banning user: {e}")
@@ -291,9 +309,29 @@ def timeout_user(user_id: int):
             issued_by_user_id=current_user.id
         )
         
-        return render_template(
+        user = db.session.get(Users, user_id)
+        channel = db.session.get(Channels, channel_id) if channel_id else None
+        
+        if duration_seconds:
+            if duration_seconds >= 3600:  # 1 hour or more
+                hours = duration_seconds // 3600
+                minutes = (duration_seconds % 3600) // 60
+                if minutes > 0:
+                    duration_text = f" for {hours}h {minutes}m"
+                else:
+                    duration_text = f" for {hours}h"
+            else:  # Less than 1 hour
+                minutes = duration_seconds // 60
+                duration_text = f" for {minutes}m"
+        else:
+            duration_text = " permanently"
+            
+        channel_text = f" from {channel.name}" if channel else ""
+        success_message = f"User {user.name} timed out{channel_text}{duration_text}"
+        
+        return f'<div class="alert alert-success mb-2"><i class="bi bi-check-circle me-1"></i>{success_message}</div>' + render_template(
             "components/user_moderation_status.html",
-            user=db.session.get(Users, user_id)
+            user=user
         )
     except Exception as e:
         logger.error(f"Error timing out user: {e}")
@@ -406,6 +444,32 @@ def grant_permission(user_id: int, permission_name: str):
     return render_template(
         "users.html", users=users, permission_types=PermissionType
     )
+
+
+@users_blueprint.route("/<int:user_id>/refresh_moderated_channels", methods=["POST"])
+@login_required
+@require_permission(permissions=PermissionType.Admin)
+def refresh_moderated_channels(user_id: int):
+    """Refresh moderated channels for a Twitch user."""
+    try:
+        user = UserService.get_by_id(user_id)
+        if not user:
+            return '<div class="text-danger">User not found</div>', 404
+        
+        if user.account_type.value != 'twitch':
+            return '<div class="text-warning">Only available for Twitch users</div>', 400
+        
+        UserService.update_moderated_channels(user)
+        logger.info("Refreshed moderated channels for user", extra={"user": user.name, "admin_user": current_user.name})
+        
+        return render_template(
+            "components/user_roles_display.html",
+            user=user,
+            get_role_config=get_role_config
+        )
+    except Exception as e:
+        logger.error("Error refreshing moderated channels", extra={"user_id": user_id, "error": str(e)})
+        return '<div class="text-danger">Error refreshing channels</div>', 500
 
 
 @users_blueprint.route("/<int:user_id>/edit", methods=["GET"])

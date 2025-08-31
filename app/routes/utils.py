@@ -4,6 +4,7 @@ from app.models import db
 from app.models import (
     PermissionType,
 )
+from app.services import TranscriptionService
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime
@@ -31,20 +32,21 @@ def utils():
 
 @utils_blueprint.route("/recover_files")
 @login_required
-@require_permission([PermissionType.Admin, PermissionType.Moderator])
+@require_permission([PermissionType.Admin])
 def recover_files():
     from app.services.file_recovery import FileRecoveryService
     return FileRecoveryService.recover_files()
 
 @utils_blueprint.route("/chatlog_search", methods=["POST"])
 @login_required
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def chatlog_search():
     from app.models import ChatLog, Channels, Video
     from datetime import datetime, timedelta
     
     # Check authorization using helper function
     if not has_any_moderation_access(current_user):
-        return {"error": "Access denied"}, 403
+        return {"error": "Access denied"}, 401
     
     # Get accessible channels with chat collection enabled for this user
     accessible_channels = get_accessible_channels(current_user, chat_collection_only=True)
@@ -353,7 +355,7 @@ def list_transcription_jobs():
 
 @utils_blueprint.route("/transcription/<job_id>/download")
 @login_required
-@require_permission([PermissionType.Admin, PermissionType.Moderator])
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def download_transcription_result(job_id):
     # Validate job_id to prevent directory traversal
     if not all(c.isalnum() or c == '-' for c in job_id):
@@ -390,7 +392,7 @@ def download_transcription_result(job_id):
 
 @utils_blueprint.route("/transcription/<job_id>/download-srt")
 @login_required
-@require_permission([PermissionType.Admin, PermissionType.Moderator])
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def download_transcription_srt(job_id):
     # Validate job_id to prevent directory traversal
     if not all(c.isalnum() or c == '-' for c in job_id):

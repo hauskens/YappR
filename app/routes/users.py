@@ -139,7 +139,7 @@ def revoke_role(user_id: int, channel_id: int):
 
 @users_blueprint.route("/<int:user_id>/ban", methods=["POST"])
 @login_required
-@require_permission()
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def ban_user(user_id: int):
     """Ban a user globally or from a specific channel."""
     scope_str = request.form.get('scope', 'global')
@@ -177,7 +177,7 @@ def ban_user(user_id: int):
 
 @users_blueprint.route("/<int:user_id>/unban", methods=["POST"])
 @login_required
-@require_permission(permissions=PermissionType.Admin)
+@require_permission(permissions=PermissionType.Moderator)
 def unban_user(user_id: int):
     """Unban a user."""
     channel_id = request.form.get('channel_id', type=int)
@@ -202,7 +202,7 @@ def unban_user(user_id: int):
 
 @users_blueprint.route("/<int:user_id>/moderation-history")
 @login_required
-@require_permission(permissions=PermissionType.Admin)
+@require_permission(permissions=PermissionType.Moderator)
 def moderation_history(user_id: int):
     """Get moderation history for a user."""
     channel_id = request.args.get('channel_id', type=int)
@@ -225,7 +225,7 @@ def moderation_history(user_id: int):
 
 @users_blueprint.route("/<int:user_id>/ban-modal")
 @login_required
-@require_permission(permissions=PermissionType.Admin)
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def ban_modal(user_id: int):
     """Get ban modal content."""
     user = db.session.get(Users, user_id)
@@ -246,7 +246,7 @@ def ban_modal(user_id: int):
 
 @users_blueprint.route("/<int:user_id>/view-roles")
 @login_required
-@require_permission(permissions=PermissionType.Admin)
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def view_roles_modal(user_id: int):
     """Get read-only view of user roles per channel."""
     user = db.session.get(Users, user_id)
@@ -274,7 +274,7 @@ def unban_modal(user_id: int):
 
 @users_blueprint.route("/<int:user_id>/timeout", methods=["POST"])
 @login_required
-@require_permission()
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def timeout_user(user_id: int):
     """Timeout a user from a specific channel."""
     channel_id = request.form.get('channel_id', type=int)

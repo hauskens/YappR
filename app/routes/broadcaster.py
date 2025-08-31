@@ -310,7 +310,7 @@ def broadcaster_events(broadcaster_id: int):
 
 @broadcaster_blueprint.route("/<int:broadcaster_id>/events_data", methods=["GET"])
 @login_required
-@require_permission(check_broadcaster=True, check_anyone=True)
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def broadcaster_events_data(broadcaster_id: int):
     """Return broadcaster events as JSON for GenericTable"""
     broadcaster = BroadcasterService.get_by_id(broadcaster_id)

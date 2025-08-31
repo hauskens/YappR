@@ -88,7 +88,7 @@ def clip_queue():
             )
         except Exception as e:
             logger.error("Error loading clip queue %s", e)
-            return "You do not have access", 403
+            return "You do not have access", 401
 
 
 # Todo add permission check for broadcaster
@@ -107,7 +107,7 @@ def mark_clip_watched(item_id: int):
         if broadcaster is None:
             return jsonify({"error": "Broadcaster not found"}), 404
         if broadcaster_id != broadcaster.id:
-            return jsonify({"error": "You do not have permission to mark this clip as watched"}), 403
+            return jsonify({"error": "You do not have permission to mark this clip as watched"}), 401
 
         if queue_item.watched:
             logger.info("Unmarking clip as watched", extra={
@@ -149,7 +149,7 @@ def skip_clip_queue_item(item_id: int):
         if broadcaster is None:
             return jsonify({"error": "Broadcaster not found"}), 404
         if broadcaster_id != broadcaster.id:
-            return jsonify({"error": "You do not have permission to skip this clip"}), 403
+            return jsonify({"error": "You do not have permission to skip this clip"}), 401
         if queue_item.skipped:
             logger.info("Unskipping clip", extra={
                         "queue_item_id": queue_item.id, "user_id": current_user.id})
@@ -368,7 +368,7 @@ def get_queue_items():
         elif broadcaster is not None and not queue_enabled:
             return "You have disabled the queue, visit <a href='/broadcaster/edit/" + str(broadcaster.id) + "'>broadcaster settings</a> to enable it"
         else:
-            return "You do not have access, no broadcaster_id found on you", 403
+            return "You do not have access, no broadcaster_id found on you", 401
     except Exception as e:
         logger.error("Error loading clip queue items %s",
                      e, extra={"user_id": current_user.id})
@@ -423,7 +423,7 @@ def get_clip_player(item_id: int):
 
 @clip_queue_blueprint.route("/<int:broadcaster_id>/external_user/<int:external_user_id>/penalty", methods=["POST"])
 @login_required
-# @require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", require_moderator=True)
+@require_permission(check_broadcaster=True, check_moderator=True)
 def penalty_external_user(broadcaster_id: int, external_user_id: int):
     standard_penalty = 0.2
     standard_ban_duration = 7
@@ -475,8 +475,7 @@ def penalty_external_user(broadcaster_id: int, external_user_id: int):
 
 @clip_queue_blueprint.route("/<int:broadcaster_id>/external_user/<int:external_user_id>/reset_penalties", methods=["POST"])
 @login_required
-# @require_permission(require_broadcaster=True, broadcaster_id_param="broadcaster_id", require_moderator=True)
-@require_permission()
+@require_permission(check_broadcaster=True, check_moderator=True)
 def reset_external_user_penalties(broadcaster_id: int, external_user_id: int):
     logger.info("Resetting external user penalties", extra={
                 "broadcaster_id": broadcaster_id, "external_user_id": external_user_id})

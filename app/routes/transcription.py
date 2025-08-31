@@ -52,7 +52,7 @@ def download_transcription_json(transcription_id: int):
 
 @transcription_blueprint.route("/<int:transcription_id>/purge")
 @login_required
-@require_permission(permissions=PermissionType.Admin)
+@require_permission(permissions=PermissionType.Moderator)
 def purge_transcription(transcription_id: int):
     logger.info("Purging transcription", extra={
                 "transcription_id": transcription_id, "user_id": current_user.id})
@@ -63,7 +63,7 @@ def purge_transcription(transcription_id: int):
 
 @transcription_blueprint.route("/<int:transcription_id>/delete")
 @login_required
-@require_permission()
+@require_permission(permissions=PermissionType.Moderator)
 def delete_transcription(transcription_id: int):
     transcription = TranscriptionService.get_by_id(transcription_id)
     broadcaster_id = transcription.video.channel.broadcaster_id
@@ -77,4 +77,4 @@ def delete_transcription(transcription_id: int):
     else:
         logger.error("User does not have permission to delete transcription", extra={
                      "transcription_id": transcription_id, "video_id": transcription.video_id, "user_id": current_user.id})
-        return abort(403)
+        return abort(401)

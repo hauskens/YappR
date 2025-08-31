@@ -60,13 +60,13 @@ def video_delete(video_id: int):
         VideoService.delete_video(video)
         return redirect(url_for("channel_get_videos", channel_id=channel_id))
     else:
-        return "You do not have access", 403
+        return "You do not have access", 401
 
 
 @video_blueprint.route("/<int:video_id>/edit")
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
-@require_permission()
+@require_permission(check_anyone=True)
 def video_edit(video_id: int):
     video = VideoService.get_by_id(video_id)
     return render_template(
@@ -189,7 +189,7 @@ def video_chatlogs(video_id: int):
 
 @video_blueprint.route("/<int:video_id>/parse_transcriptions")
 @login_required
-@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator], check_broadcaster=True, check_moderator=True)
 def parse_transcriptions(video_id: int):
     logger.info("Requesting transcriptions to be parsed",
                 extra={"video_id": video_id})
@@ -256,7 +256,7 @@ def serve_audio(video_id: int):
 @video_blueprint.route("/<int:video_id>/transcription_segments")
 @login_required
 @limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
-@require_permission()
+@require_permission(check_anyone=True)
 def video_transcription_segments(video_id: int):
     """Return transcription segments as JSON for searchable table"""
     logger.info("Getting transcription segments for video", extra={"video_id": video_id})

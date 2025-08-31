@@ -71,7 +71,7 @@ def search_word():
 def chatlog_search_page():
     # Check authorization using new helper function
     if not has_any_moderation_access(current_user):
-        return render_template("403.html"), 403
+        return render_template("errors/401.html"), 401
     
     # Get accessible channels with chat collection enabled using helper function
     channels_query = get_accessible_channels(current_user, chat_collection_only=True)

@@ -202,8 +202,10 @@ def check_permission(
     if check_anyone:
         return True
 
+    # Check if user is admin
     if UserService.is_admin(current_user):
         return True
+
     # Check global permissions first (highest priority)
     if permissions and UserService.has_permission(current_user, permissions):
         return True
@@ -211,6 +213,16 @@ def check_permission(
     # Check if user is the broadcaster
     if check_broadcaster and broadcaster_id:
         if UserService.has_broadcaster_id(current_user, broadcaster_id):
+            return True
+
+    # Check if user is any broadcaster
+    if check_broadcaster and not broadcaster_id:
+        if UserService.is_broadcaster(current_user):
+            return True
+
+    # Check if user is moderator any broadcaster
+    if check_moderator and not broadcaster_id:
+        if UserService.is_moderator(current_user):
             return True
 
     # Check if user is a moderator (legacy support)
@@ -325,7 +337,7 @@ def require_moderation_access():
         @wraps(f)
         def decorated_function(*args: Any, **kwargs: Any) -> Any:
             if current_user.is_anonymous or not has_any_moderation_access(current_user):
-                return render_template("errors/403.html"), 403
+                return render_template("errors/401.html"), 401
             return f(*args, **kwargs)
         return decorated_function
     return decorator

@@ -123,7 +123,7 @@ def lookup_twitch_id():
 @root_blueprint.route("/api/upload_chatlog", methods=["POST"])
 @login_required
 @csrf.exempt
-@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+@require_permission(check_broadcaster=True, permissions=[PermissionType.Admin, PermissionType.Moderator])
 def upload_chatlog():
     """API endpoint to upload and parse chatlog files"""
     if 'chatlog_file' not in request.files:

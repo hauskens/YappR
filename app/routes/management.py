@@ -13,7 +13,7 @@ management_blueprint = Blueprint(
 
 @management_blueprint.route("")
 @login_required
-@require_permission()
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def management():
     logger.info("Loaded management.html")
     moderated_channels = ChannelService.get_moderated_channels(current_user.id)
@@ -32,7 +32,7 @@ def management():
         broadcasters = BroadcasterService.get_all(show_hidden=False)
 
     if moderated_channels is None and not (UserService.has_permission(current_user, [PermissionType.Admin]) or UserService.is_broadcaster(current_user)):
-        return "You do not have access", 403
+        return "You do not have access", 401
 
     broadcaster_id = request.args.get('broadcaster_id', type=int)
     if broadcaster_id is None and UserService.is_broadcaster(current_user):
@@ -47,7 +47,7 @@ def management():
 
 @management_blueprint.route("/items")
 @login_required
-@require_permission()
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def management_items():
     logger.info("Loading management items with htmx")
     try:

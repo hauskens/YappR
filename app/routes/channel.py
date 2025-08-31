@@ -15,7 +15,7 @@ channel_blueprint = Blueprint('channel', __name__, url_prefix='/channel',
 
 @channel_blueprint.route("/create", methods=["POST"])
 @login_required
-@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def channel_create():
     name = request.form["name"]
     broadcaster_id = int(request.form["broadcaster_id"])
@@ -298,7 +298,7 @@ def channel_bulk_auto_link(channel_id: int):
 
 @channel_blueprint.route("/<int:channel_id>/estimate_upload_times", methods=["POST"])
 @login_required
-@require_permission(permissions=[PermissionType.Admin])
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator], check_broadcaster=True)
 def channel_estimate_upload_times(channel_id: int):
     """Bulk estimate upload times for videos using title dates and live events"""
     channel = ChannelService.get_by_id(channel_id)

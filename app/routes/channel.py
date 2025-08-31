@@ -4,7 +4,9 @@ from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models import db
 from app.models import Channels, VideoType, PermissionType, ChannelSettings, PlatformType, ChannelRole
+from app.models.channel import ChannelEvent
 from app.services import BroadcasterService, ChannelService
+from app.services.video_date_estimation import VideoDateEstimationService
 from app.rate_limit import limiter, rate_limit_exempt
 
 channel_blueprint = Blueprint('channel', __name__, url_prefix='/channel',
@@ -300,3 +302,48 @@ def channel_bulk_auto_link(channel_id: int):
         flash(f'Error running bulk auto-link: {str(e)}', 'error')
 
     return redirect(request.referrer)
+
+
+
+@channel_blueprint.route("/<int:channel_id>/estimate_upload_times", methods=["POST"])
+@login_required
+@require_permission(permissions=[PermissionType.Admin])
+def channel_estimate_upload_times(channel_id: int):
+    """Bulk estimate upload times for videos using title dates and live events"""
+    channel = ChannelService.get_by_id(channel_id)
+    if not channel:
+        flash('Channel not found', 'error')
+        return redirect(request.referrer)
+
+    try:
+        # Get parameters (with defaults)
+        date_margin_hours = int(request.form.get('date_margin_hours', 48))
+        duration_margin_seconds = int(request.form.get('duration_margin_seconds', 20))
+        
+        logger.info(f"Running bulk upload time estimation for channel {channel.name} with date margin {date_margin_hours}h and duration margin {duration_margin_seconds}s",
+                   extra={"channel_id": channel_id, "user_id": current_user.id})
+
+        # Run the bulk date estimation
+        result = VideoDateEstimationService.estimate_upload_times_for_channel(
+            channel_id=channel_id,
+            date_margin_hours=date_margin_hours,
+            duration_margin_seconds=duration_margin_seconds
+        )
+
+        updated_count = result['updated_count']
+        total_processed = result['total_processed']
+        
+        return jsonify({
+            "success": True,
+            "updated_count": updated_count,
+            "total_processed": total_processed,
+            "message": f"Successfully estimated upload times for {updated_count} out of {total_processed} videos in {channel.name}."
+        })
+
+    except Exception as e:
+        logger.error(f"Error running bulk upload time estimation for channel {channel_id}: {e}", 
+                    extra={"channel_id": channel_id, "user_id": current_user.id})
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 500

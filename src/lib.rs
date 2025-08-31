@@ -10,6 +10,7 @@ mod platforms;
 
 mod broadcaster_add;
 mod broadcaster_edit;
+mod broadcaster_events;
 mod chat_tag_manager;
 mod chat_timeline_chart;
 mod chatlog_search;
@@ -616,4 +617,10 @@ pub fn show_channel_link_modal(channel_id: i32, channel_name: String, current_so
 #[wasm_bindgen]
 pub fn show_enhanced_linking_modal(channel_id: i32, channel_name: String, source_channel_name: String) {
     broadcaster_edit::show_enhanced_linking_modal(channel_id, channel_name, source_channel_name);
+}
+
+// Broadcaster events functionality
+#[wasm_bindgen]
+pub fn init_broadcaster_events() {
+    broadcaster_events::init_broadcaster_events();
 }

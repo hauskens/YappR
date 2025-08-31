@@ -56,6 +56,15 @@ class ChannelRole(Enum):
     Follower = "Follower"
     Basic = "Basic"
 
+class ChannelEventType(Enum):
+    Live = "live"
+    Offline = "offline"
+    Raid = "raid"
+    Cheer = "cheer"
+    Subscription = "subscription"
+    Gift = "gift"
+    Follow = "follow"
+
 class ModerationActionType(Enum):
     ban = "ban"
     timeout = "timeout"

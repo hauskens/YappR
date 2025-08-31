@@ -124,4 +124,5 @@ Template structure follows standard Bootstrap patterns with semantic HTML and ac
 - Docker Compose setup includes all necessary services (PostgreSQL, Redis, GPU workers)
 - Search optimization focused on pure Python performance - avoided JIT compilation (Numba) due to type conversion overhead
 - Service layer provides clean separation between business logic and web routes
-- when writing log lines, use extra_info instead of f-strings
+- when writing log lines, use 'extra' argument instead of f-strings
+- When using Optional types, use Type | None instead of Optional[Type]

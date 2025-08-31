@@ -1,7 +1,7 @@
 from sqlalchemy import String, ForeignKey, DateTime, Integer, Boolean, Enum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from .base import Base
-from .enums import VideoType, PlatformType
+from .enums import VideoType, PlatformType, ChannelEventType
 from datetime import datetime
 from typing import TYPE_CHECKING
 from pydantic import BaseModel
@@ -67,7 +67,15 @@ class ChannelEvent(Base):
     channel: Mapped["Channels"] = relationship()
 
     timestamp: Mapped[datetime] = mapped_column(DateTime, nullable=False)
-    raw_message: Mapped[str] = mapped_column(String(512), nullable=False)
+    event_type: Mapped[ChannelEventType] = mapped_column(
+        Enum(ChannelEventType), nullable=False)
+    username: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True)
+    user: Mapped["Users | None"] = relationship()
+    raw_message: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    import_id: Mapped[int | None] = mapped_column(
+        ForeignKey("chatlog_imports.id"), nullable=True)
 
 
 class ChannelModerator(Base):

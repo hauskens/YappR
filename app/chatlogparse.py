@@ -3,6 +3,7 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from app.models import db
 from app.models import ChatLog, ChannelEvent, ChatLogImport
+from app.models.enums import ChannelEventType
 from typing import Optional, Union, List
 from pathlib import Path
 from app.logger import logger
@@ -103,11 +104,16 @@ class ChatLogParser:
             time_part, raw_message = event_match.groups()
             try:
                 full_timestamp = self._combine_with_base_date(time_part)
-                return ChannelEvent(
-                    channel_id=self.channel_id,
-                    timestamp=full_timestamp,
-                    raw_message=raw_message.strip(),
-                )
+                event_type, username = self._parse_event_type_and_username(raw_message)
+                
+                if event_type:
+                    return ChannelEvent(
+                        channel_id=self.channel_id,
+                        timestamp=full_timestamp,
+                        event_type=event_type,
+                        username=username,
+                        raw_message=raw_message.strip(),
+                    )
             except Exception as e:
                 logger.warning(
                     f"Failed to parse event timestamp: {line.strip()} | {e}")
@@ -129,6 +135,39 @@ class ChatLogParser:
         
         self.last_timestamp = combined
         return combined_server_tz
+
+    def _parse_event_type_and_username(self, raw_message: str) -> tuple[ChannelEventType | None, str | None]:
+        """Parse event type and extract username from raw message."""
+        message = raw_message.strip()
+        
+        # Live events: "username is live!" - no username needed (it's the streamer)
+        if " is live!" in message:
+            return ChannelEventType.Live, None
+        
+        # Offline events: "username is now offline." - no username needed (it's the streamer)
+        if " is now offline." in message:
+            return ChannelEventType.Offline, None
+        
+        # Subscription events: "username subscribed at Tier 1..."
+        if " subscribed at Tier" in message:
+            username = message.split(" subscribed at Tier")[0].strip()
+            return ChannelEventType.Subscription, username
+        
+        # Individual gift events: "username gifted a Tier 1 sub to username!"
+        if " gifted a Tier " in message and " sub to " in message and message.endswith("!"):
+            username = message.split(" gifted a Tier ")[0].strip()
+            return ChannelEventType.Gift, username
+        
+        # Skip grouped gift messages: "username is gifting 5 Tier 1 Subs to username's community!"
+        if " is gifting " in message and " Subs to " in message:
+            return None, None
+        
+        # Raid events: "4 raiders from username have joined!"
+        if " raiders from " in message and " have joined!" in message:
+            username_part = message.split(" raiders from ")[1].split(" have joined!")[0].strip()
+            return ChannelEventType.Raid, username_part
+        
+        return None, None
 
 
 def parse_log_start_line(line: str) -> tuple[datetime, str]:
@@ -233,7 +272,7 @@ def parse_logs(folder_path: str, channel_id: int, imported_by: int, timezone_str
         parse_log(log_file.as_posix(), channel_id, imported_by, timezone_str)
 
 
-def parse_log(log_path: str, channel_id: int, imported_by: int | None = None, timezone_str: str | None = None):
+def parse_log(log_path: str, channel_id: int, imported_by: int | None = None, timezone_str: str | None = None, events_only: bool = False):
     """
     Parse a chat log file and import it with duplicate detection.
     
@@ -242,7 +281,9 @@ def parse_log(log_path: str, channel_id: int, imported_by: int | None = None, ti
         channel_id: Channel ID to associate messages with
         imported_by: User ID who is importing (None for legacy/bot imports)
         timezone_str: Override timezone string (None to auto-detect from file)
+        events_only: If True, only import events and skip chat messages (bypasses all duplication checks)
     """
+    logger.info(f"Starting parse_log with events_only={events_only}, channel_id={channel_id}")
     with Path(log_path).open("r", encoding="utf-8") as f:
         lines = f.readlines()
     if not lines or not lines[0].startswith("# Start logging at"):
@@ -254,29 +295,46 @@ def parse_log(log_path: str, channel_id: int, imported_by: int | None = None, ti
     final_timezone = timezone_str or detected_timezone
     parser = ChatLogParser(base_date, channel_id, final_timezone)
 
-    # First pass: parse first 10 chat messages for duplicate detection
+    # First pass: parse items (collect chat messages for duplicate detection only if not events-only)
     first_chat_messages: list[ChatLog] = []
     all_parsed_items: list[ChatLog | ChannelEvent] = []
     
-    logger.info(f"Parsing {len(lines)-1} lines from {log_path}")
+    logger.info(f"Parsing {len(lines)-1} lines from {log_path} (events_only={events_only})")
     
     for line in lines[1:]:
         result = parser.parse_line(line)
         if result:
-            all_parsed_items.append(result)
-            if isinstance(result, ChatLog) and len(first_chat_messages) < 10:
-                first_chat_messages.append(result)
+            # In events-only mode, only add ChannelEvent items and skip chat message collection
+            if events_only:
+                if isinstance(result, ChannelEvent):
+                    all_parsed_items.append(result)
+                # Explicitly skip ChatLog items and don't add to first_chat_messages
+            else:
+                all_parsed_items.append(result)
+                if isinstance(result, ChatLog) and len(first_chat_messages) < 10:
+                    first_chat_messages.append(result)
     
-    # Check for duplicates only if we have an imported_by user (i.e., user import, not bot)
+    # Handle import record creation based on mode
     import_record = None
-    if imported_by and first_chat_messages:
-        has_duplicates = check_for_duplicate_import(channel_id, first_chat_messages, final_timezone)
-        if has_duplicates:
-            raise ValueError(f"This log appears to contain duplicate messages that already exist in the database (from bot collection or previous import)")
-        
-        # Create import record
-        import_record = create_import_record(channel_id, imported_by, final_timezone)
-        logger.info(f"Created import record {import_record.id} with timezone {final_timezone}")
+    if imported_by:
+        if events_only:
+            # For events-only imports, completely skip duplication check and create import record
+            logger.info(f"Events-only mode enabled - bypassing all duplication checks for channel {channel_id}")
+            import_record = create_import_record(channel_id, imported_by, final_timezone)
+            logger.info(f"Created import record {import_record.id} for events-only import with timezone {final_timezone} (duplication check skipped)")
+        elif first_chat_messages:
+            # For chat imports, check for duplicates first
+            logger.info(f"Running duplication check for {len(first_chat_messages)} chat messages")
+            has_duplicates = check_for_duplicate_import(channel_id, first_chat_messages, final_timezone)
+            if has_duplicates:
+                raise ValueError(f"This log appears to contain duplicate messages that already exist in the database (from bot collection or previous import)")
+            
+            # Create import record
+            import_record = create_import_record(channel_id, imported_by, final_timezone)
+            logger.info(f"Created import record {import_record.id} with timezone {final_timezone}")
+        else:
+            # No chat messages found, but not events-only mode - this is unusual
+            logger.warning(f"No chat messages found for import, but not in events-only mode")
     
     # Second pass: save all items with import_id if applicable
     chat_count = 0
@@ -289,6 +347,8 @@ def parse_log(log_path: str, channel_id: int, imported_by: int | None = None, ti
             db.session.add(item)
             chat_count += 1
         elif isinstance(item, ChannelEvent):
+            if import_record:
+                item.import_id = import_record.id
             db.session.add(item)
             event_count += 1
     

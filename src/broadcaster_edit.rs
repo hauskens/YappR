@@ -89,6 +89,7 @@ impl BroadcasterEditManager {
         self.setup_chat_log_listeners();
         self.setup_channel_linking_listeners();
         self.setup_parameter_validation();
+        self.setup_date_estimation_listeners();
     }
 
     fn setup_twitch_lookup_listener(&self) {
@@ -463,6 +464,13 @@ impl BroadcasterEditManager {
         let _ = form_data.append_with_blob("chatlog_file", file);
         let _ = form_data.append_with_str("channel_id", channel_id);
         
+        // Check if events-only checkbox is checked
+        if let Some(events_only_checkbox) = Self::get_element_by_id::<HtmlInputElement>("events-only") {
+            if events_only_checkbox.checked() {
+                let _ = form_data.append_with_str("events_only", "on");
+            }
+        }
+        
         if let Some(csrf_token) = &self.csrf_token {
             let _ = form_data.append_with_str("csrf_token", csrf_token);
         }
@@ -576,7 +584,7 @@ impl BroadcasterEditManager {
         "this channel".to_string()
     }
 
-    async fn submit_form(&self, form: &HtmlFormElement) -> Result<(), String> {
+    async fn submit_form(&self, form: &HtmlFormElement) -> Result<String, String> {
         let form_data = FormData::new_with_form(form).map_err(|_| "Failed to create form data")?;
         
         if let Some(csrf_token) = &self.csrf_token {
@@ -590,7 +598,7 @@ impl BroadcasterEditManager {
         match request.send().await {
             Ok(response) => {
                 if response.ok() {
-                    Ok(())
+                    response.text().await.map_err(|_| "Failed to read response text".to_string())
                 } else {
                     Err(format!("HTTP error: {}", response.status()))
                 }
@@ -657,6 +665,21 @@ impl BroadcasterEditManager {
                 closure.as_ref().unchecked_ref(),
                 5000
             );
+            closure.forget();
+        }
+    }
+
+    fn setup_date_estimation_listeners(&self) {
+        if let Some(run_btn) = Self::get_element_by_id::<HtmlButtonElement>("runDateEstimationBtn") {
+            let manager = self.clone();
+            let closure = Closure::wrap(Box::new(move |_: Event| {
+                let manager_clone = manager.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    manager_clone.handle_date_estimation_submit().await;
+                });
+            }) as Box<dyn FnMut(_)>);
+            
+            run_btn.set_onclick(Some(closure.as_ref().unchecked_ref()));
             closure.forget();
         }
     }
@@ -955,7 +978,7 @@ impl BroadcasterEditManager {
             save_btn.set_inner_html(&original_text);
             
             match result {
-                Ok(_) => {
+                Ok(_response) => {
                     // Close modal
                     self.hide_bootstrap_modal("channelLinkModal");
                     
@@ -1006,7 +1029,7 @@ This will analyze all videos and create links where matches are found."#,
             run_btn.set_inner_html(&original_text);
             
             match result {
-                Ok(_) => {
+                Ok(_response) => {
                     // Close modal
                     self.hide_bootstrap_modal("enhancedLinkingModal");
                     let _ = web_sys::window().unwrap().alert_with_message(&format!("Video linking completed for {}. Check the logs for details.", channel_name));
@@ -1031,6 +1054,86 @@ This will analyze all videos and create links where matches are found."#,
                 let hide_method = js_sys::Reflect::get(&modal_instance, &JsValue::from_str("hide")).unwrap();
                 let hide_fn = hide_method.dyn_into::<js_sys::Function>().unwrap();
                 let _ = hide_fn.call0(&modal_instance);
+            }
+        }
+    }
+
+    async fn handle_date_estimation_submit(&self) {
+        if let (Some(form), Some(run_btn), Some(channel_select)) = (
+            Self::get_element_by_id::<HtmlFormElement>("bulkDateEstimationForm"),
+            Self::get_element_by_id::<HtmlButtonElement>("runDateEstimationBtn"),
+            Self::get_element_by_id::<HtmlSelectElement>("modal_date_estimation_channel")
+        ) {
+            let channel_id = channel_select.value();
+            let channel_name = channel_select.item(channel_select.selected_index() as u32)
+                .and_then(|opt| opt.text_content()).unwrap_or_else(|| "Unknown".to_string());
+            
+            if channel_id.is_empty() {
+                let _ = web_sys::window().unwrap().alert_with_message("Please select a channel");
+                return;
+            }
+            
+            // Confirm action
+            let confirm_message = format!(
+                "Run upload time estimation for \"{}\"?\n\nThis will analyze video titles and match them with live events to estimate upload times.",
+                channel_name
+            );
+            
+            if !web_sys::window().unwrap().confirm_with_message(&confirm_message).unwrap_or(false) {
+                return;
+            }
+            
+            let original_text = run_btn.inner_html();
+            
+            // Show loading state
+            run_btn.set_disabled(true);
+            run_btn.set_inner_html(r#"<div class="spinner-border spinner-border-sm me-2" role="status"></div>Processing..."#);
+            
+            // Update form action with selected channel
+            form.set_action(&format!("/channel/{}/estimate_upload_times", channel_id));
+            
+            let result = self.submit_form(&form).await;
+            
+            // Reset button state
+            run_btn.set_disabled(false);
+            run_btn.set_inner_html(&original_text);
+            
+            match result {
+                Ok(response_text) => {
+                    // Parse JSON response
+                    match js_sys::JSON::parse(&response_text) {
+                        Ok(json) => {
+                            let success = js_sys::Reflect::get(&json, &JsValue::from_str("success"))
+                                .unwrap_or(JsValue::FALSE).as_bool().unwrap_or(false);
+                            
+                            if success {
+                                let updated_count = js_sys::Reflect::get(&json, &JsValue::from_str("updated_count"))
+                                    .ok().and_then(|v| v.as_f64()).unwrap_or(0.0) as i32;
+                                let total_processed = js_sys::Reflect::get(&json, &JsValue::from_str("total_processed"))
+                                    .ok().and_then(|v| v.as_f64()).unwrap_or(0.0) as i32;
+                                
+                                // Close modal
+                                self.hide_bootstrap_modal("bulkDateEstimationModal");
+                                
+                                let message = format!(
+                                    "Upload time estimation completed for {}!\n\nUpdated: {} videos\nProcessed: {} videos", 
+                                    channel_name, updated_count, total_processed
+                                );
+                                let _ = web_sys::window().unwrap().alert_with_message(&message);
+                            } else {
+                                let error = js_sys::Reflect::get(&json, &JsValue::from_str("error"))
+                                    .ok().and_then(|v| v.as_string()).unwrap_or_else(|| "Unknown error".to_string());
+                                let _ = web_sys::window().unwrap().alert_with_message(&format!("Error: {}", error));
+                            }
+                        }
+                        Err(_) => {
+                            let _ = web_sys::window().unwrap().alert_with_message("Error parsing response");
+                        }
+                    }
+                }
+                Err(error) => {
+                    let _ = web_sys::window().unwrap().alert_with_message(&format!("Error running upload time estimation: {}", error));
+                }
             }
         }
     }

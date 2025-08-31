@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+  .event-icon {
+    width: 20px;
+    text-align: center;
+  }
+  
+  .event-live { color: #28a745; }
+  .event-offline { color: #6c757d; }
+  .event-subscription { color: #007bff; }
+  .event-gift { color: #ffc107; }
+  .event-raid { color: #17a2b8; }
+  .event-follow { color: #dc3545; }
+  .event-cheer { color: #6f42c1; }
+  
+  .filter-card {
+    position: sticky;
+    top: 20px;
+    z-index: 100;
+  }
+  
+  .events-table {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  }
+  
+  .table-responsive {
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+</style>
+
+<div class="container-fluid">
+  <!-- Header Section -->
+  <div class="card mb-4">
+    <div class="card-body">
+      <div class="d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center">
+          <div class="me-3">
+            <div class="rounded-circle bg-primary bg-gradient d-inline-flex align-items-center justify-content-center" style="width: 3rem; height: 3rem;">
+              <i class="bi bi-calendar-event text-white fs-5"></i>
+            </div>
+          </div>
+          <div>
+            <h1 class="mb-1">{{ broadcaster.name }} Events</h1>
+            <div class="d-flex align-items-center gap-2">
+              <small class="text-muted">
+                <i class="bi bi-collection me-1"></i>{{ channels | length }} channel{{ 's' if channels | length != 1 else '' }}
+              </small>
+              <small class="text-muted">
+                <i class="bi bi-calendar-event me-1"></i>{{ events | length }} event{{ 's' if events | length != 1 else '' }} shown
+              </small>
+            </div>
+          </div>
+        </div>
+        <div>
+          <a href="{{ url_for('broadcaster.broadcaster_edit', broadcaster_id=broadcaster.id) }}" class="btn btn-outline-primary">
+            <i class="bi bi-arrow-left me-2"></i>Back to Broadcaster
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="row">
+    <!-- Filters Sidebar -->
+    <div class="col-md-3">
+      <div class="card filter-card">
+        <div class="card-header">
+          <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filters</h6>
+        </div>
+        <div class="card-body">
+          <form method="get" id="filterForm">
+            <div class="mb-3">
+              <label for="event_type" class="form-label">Event Type</label>
+              <select name="event_type" id="event_type" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
+                <option value="all" {% if not current_filters.event_type or current_filters.event_type == 'all' %}selected{% endif %}>All Events</option>
+                {% for event_type in event_types %}
+                  <option value="{{ event_type.name }}" {% if current_filters.event_type == event_type.name %}selected{% endif %}>
+                    {{ event_type.value }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <div class="mb-3">
+              <label for="channel_id" class="form-label">Channel</label>
+              <select name="channel_id" id="channel_id" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
+                <option value="" {% if not current_filters.channel_id %}selected{% endif %}>All Channels</option>
+                {% for channel in channels %}
+                  <option value="{{ channel.id }}" {% if current_filters.channel_id == channel.id %}selected{% endif %}>
+                    {{ channel.name }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+            
+            <div class="mb-3">
+              <label for="limit" class="form-label">Show Events</label>
+              <select name="limit" id="limit" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
+                <option value="50" {% if current_filters.limit == 50 %}selected{% endif %}>50 events</option>
+                <option value="100" {% if current_filters.limit == 100 %}selected{% endif %}>100 events</option>
+                <option value="250" {% if current_filters.limit == 250 %}selected{% endif %}>250 events</option>
+                <option value="500" {% if current_filters.limit == 500 %}selected{% endif %}>500 events</option>
+              </select>
+            </div>
+            
+            {% if current_filters.event_type or current_filters.channel_id %}
+              <div class="d-grid">
+                <a href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id) }}" class="btn btn-outline-secondary btn-sm">
+                  <i class="bi bi-x-circle me-2"></i>Clear Filters
+                </a>
+              </div>
+            {% endif %}
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Events Table -->
+    <div class="col-md-9">
+      <div class="events-table">
+        {% if events %}
+          <div class="table-responsive">
+            <table class="table table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th style="width: 50px;"></th>
+                  <th style="width: 120px;">Type</th>
+                  <th style="width: 150px;">Channel</th>
+                  <th style="width: 120px;">Username</th>
+                  <th>Message</th>
+                  <th style="width: 140px;">Timestamp</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for event in events %}
+                  <tr>
+                    <td class="text-center">
+                      {% set icon_map = {
+                        'Live': 'bi-broadcast',
+                        'Offline': 'bi-broadcast-pin',
+                        'Subscription': 'bi-star-fill',
+                        'Gift': 'bi-gift',
+                        'Raid': 'bi-people-fill',
+                        'Follow': 'bi-heart',
+                        'Cheer': 'bi-gem'
+                      } %}
+                      {% set event_type_name = event.event_type.value if event.event_type else 'Unknown' %}
+                      <i class="bi {{ icon_map.get(event_type_name, 'bi-calendar-event') }} event-icon event-{{ event_type_name.lower() }}"></i>
+                    </td>
+                    <td>
+                      {% set badge_colors = {
+                        'Live': 'success',
+                        'Offline': 'secondary',
+                        'Subscription': 'primary',
+                        'Gift': 'warning',
+                        'Raid': 'info',
+                        'Follow': 'danger',
+                        'Cheer': 'purple'
+                      } %}
+                      <span class="badge bg-{{ badge_colors.get(event_type_name, 'secondary') }}">
+                        {{ event_type_name }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="fw-medium">{{ event.channel.name }}</span>
+                      <br>
+                      <small class="text-muted">{{ event.channel.platform_name }}</small>
+                    </td>
+                    <td>
+                      {% if event.username %}
+                        <span class="text-primary fw-medium">{{ event.username }}</span>
+                      {% else %}
+                        <span class="text-muted">—</span>
+                      {% endif %}
+                    </td>
+                    <td>
+                      <span class="text-muted">{{ event.raw_message or 'No message' }}</span>
+                    </td>
+                    <td>
+                      <div class="text-end">
+                        <div class="fw-medium">{{ event.timestamp.strftime('%H:%M:%S') }}</div>
+                        <small class="text-muted">{{ event.timestamp.strftime('%Y-%m-%d') }}</small>
+                      </div>
+                    </td>
+                  </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <div class="text-center py-5">
+            <i class="bi bi-calendar-x display-1 text-muted mb-3"></i>
+            <h4 class="text-muted">No Events Found</h4>
+            <p class="text-muted mb-0">
+              {% if current_filters.event_type or current_filters.channel_id %}
+                No events match your current filters. <a href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id) }}">Clear filters</a> to see all events.
+              {% else %}
+                This broadcaster has no recorded events yet.
+              {% endif %}
+            </p>
+          </div>
+        {% endif %}
+      </div>
+      
+      {% if events and events | length >= current_filters.limit %}
+        <div class="alert alert-info mt-3">
+          <i class="bi bi-info-circle me-2"></i>
+          Showing the most recent {{ current_filters.limit }} events. Use filters to narrow down results or increase the limit.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="module">
+  import init, { init_broadcaster_events } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
+  
+  async function run() {
+    await init();
+    init_broadcaster_events();
+  }
+  
+  run();
+</script>
+{% endblock %}

@@ -28,6 +28,7 @@ from .routes.transcription import transcription_blueprint
 from .routes.broadcaster import broadcaster_blueprint
 from .routes.users import users_blueprint
 from .routes.leaderboard import leaderboard_blueprint
+from .routes.utils import utils_blueprint
 from werkzeug.middleware.proxy_fix import ProxyFix
 from .rate_limit import limiter
 from .csrf import csrf
@@ -196,6 +197,7 @@ def create_app(overrides: dict | None = None):
     app.register_blueprint(broadcaster_blueprint)
     app.register_blueprint(users_blueprint)
     app.register_blueprint(leaderboard_blueprint)
+    app.register_blueprint(utils_blueprint)
     return app
 
 

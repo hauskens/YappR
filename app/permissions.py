@@ -7,9 +7,10 @@ from flask import request, abort
 from app.models.config import config
 from app.models.enums import PermissionType, ChannelRole
 from app.models.user import Users, get_role_config
-from app.models import db
+from app.models import db, Channels
 from app.services import UserService, BroadcasterService, ModerationService
 from app.logger import logger
+from typing import Sequence
 
 F = TypeVar("F", bound=Callable[..., Any])
 
@@ -270,7 +271,7 @@ def has_any_moderation_access(user: Users) -> bool:
     return False
 
 
-def get_accessible_channels(user: Users, chat_collection_only: bool = False) -> list:
+def get_accessible_channels(user: Users, chat_collection_only: bool = False) -> Sequence[Channels]:
     """
     Get list of channels that user can access for moderation purposes.
     

@@ -85,6 +85,7 @@
           <th scope="col">Status</th>
           <th scope="col">Linked Status</th>
           <th scope="col">Published</th>
+          <th scope="col">Estimated Upload</th>
           <th scope="col">Actions</th>
         </tr>
       </thead>
@@ -125,6 +126,7 @@
             {% endif %}
           </td>
           <td>{{ video.uploaded }}</td>
+          <td>{{ video.estimated_upload_time if video.estimated_upload_time else 'N/A' }}</td>
           <td>
             <div class="container mb-2">
               <a class="btn btn-primary" role="button" href="{{ url_for('video.video_edit', video_id=video.id) }}">Edit Video</a>

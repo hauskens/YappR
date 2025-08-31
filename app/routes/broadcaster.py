@@ -14,12 +14,14 @@ from app.models import (
     Content,
     Users,
 )
+from app.models.channel import ChannelEvent
+from app.models.enums import ChannelEventType
 from app.models.enums import PlatformType, VideoType
 from app.services import BroadcasterService, UserService, ModerationService
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime
-from sqlalchemy import select
+from sqlalchemy import select, and_, or_
 
 broadcaster_blueprint = Blueprint(
     'broadcaster', __name__, url_prefix='/broadcaster', template_folder='templates', static_folder='static')
@@ -276,3 +278,56 @@ def broadcaster_settings_update(broadcaster_id: int):
     else:
         flash('Broadcaster settings updated successfully')
         return redirect(request.referrer)
+
+
+@broadcaster_blueprint.route("/<int:broadcaster_id>/events", methods=["GET"])
+@login_required
+@require_permission(check_broadcaster=True, check_anyone=True)
+def broadcaster_events(broadcaster_id: int):
+    """View all events for all channels belonging to a broadcaster"""
+    broadcaster = BroadcasterService.get_by_id(broadcaster_id)
+    if not broadcaster:
+        return render_template("errors/404.html"), 404
+    
+    # Get all channel IDs for this broadcaster
+    channel_ids = [channel.id for channel in broadcaster.channels]
+    
+    # Get filter parameters
+    event_type_filter = request.args.get('event_type')
+    channel_filter = request.args.get('channel_id', type=int)
+    limit = min(int(request.args.get('limit', 100)), 500)  # Max 500 events
+    
+    # Build query
+    query = db.session.query(ChannelEvent).filter(
+        ChannelEvent.channel_id.in_(channel_ids)
+    )
+    
+    # Apply filters
+    if event_type_filter and event_type_filter != 'all':
+        try:
+            event_type_enum = ChannelEventType[event_type_filter]
+            query = query.filter(ChannelEvent.event_type == event_type_enum)
+        except KeyError:
+            pass  # Invalid event type, ignore filter
+    
+    if channel_filter and channel_filter in channel_ids:
+        query = query.filter(ChannelEvent.channel_id == channel_filter)
+    
+    # Get events ordered by most recent
+    events = query.order_by(ChannelEvent.timestamp.desc()).limit(limit).all()
+    
+    logger.info(f"Loaded broadcaster events page for {broadcaster.name} with {len(events)} events",
+                extra={"broadcaster_id": broadcaster_id, "user_id": current_user.id})
+    
+    return render_template(
+        "broadcaster_events.html",
+        broadcaster=broadcaster,
+        events=events,
+        channels=broadcaster.channels,
+        event_types=list(ChannelEventType),
+        current_filters={
+            'event_type': event_type_filter,
+            'channel_id': channel_filter,
+            'limit': limit
+        }
+    )

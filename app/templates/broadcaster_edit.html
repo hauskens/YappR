@@ -194,6 +194,9 @@
                     <li><a class="dropdown-item" href="{{ url_for('channel.channel_get_videos', channel_id=channel.id) }}">
                       <i class="bi bi-collection-play me-2"></i>View Channel
                     </a></li>
+                    <li><a class="dropdown-item" href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id, channel_id=channel.id) }}">
+                      <i class="bi bi-calendar-event me-2"></i>View Events
+                    </a></li>
                     {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
                       <li><hr class="dropdown-divider"></li>
                       <li><a class="dropdown-item" href="{{ url_for('channel.channel_fetch_details', channel_id=channel.id) }}">
@@ -315,6 +318,9 @@
                         <li><a class="dropdown-item" href="{{ url_for('channel.channel_get_videos', channel_id=channel.id) }}">
                           <i class="bi bi-collection-play me-2"></i>View Channel
                         </a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id, channel_id=channel.id) }}">
+                          <i class="bi bi-calendar-event me-2"></i>View Events
+                        </a></li>
                         {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
                           <li><hr class="dropdown-divider"></li>
                           <li><a class="dropdown-item" href="{{ url_for('channel.channel_fetch_details', channel_id=channel.id) }}">
@@ -414,6 +420,14 @@
               <a href="{{ url_for('broadcaster.broadcaster_queue', broadcaster_id=broadcaster.id) }}" class="btn btn-primary">
                 <i class="bi bi-list-task me-2"></i>Manage Clip Queue
               </a>
+              <a href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id) }}" class="btn btn-outline-primary">
+                <i class="bi bi-calendar-event me-2"></i>View All Events
+              </a>
+              {% if user_service.has_permission(current_user, ["admin"]) %}
+                <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#bulkDateEstimationModal">
+                  <i class="bi bi-clock-history me-2"></i>Estimate Upload Times
+                </button>
+              {% endif %}
               <button id="delete-broadcaster-btn" class="btn btn-outline-danger hold-to-delete" 
                       data-delete-url="{{ url_for('broadcaster.broadcaster_delete', broadcaster_id=broadcaster.id) }}">
                 <div class="progress-overlay"></div>
@@ -486,6 +500,16 @@
               <label for="chatlog-files" class="form-label">Chat Log Files</label>
               <input type="file" id="chatlog-files" class="form-control" multiple accept=".log,.txt">
               <div class="form-text">Select .log or .txt files from Chatterino or similar</div>
+            </div>
+            
+            <div class="mb-3">
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" id="events-only" name="events_only">
+                <label class="form-check-label" for="events-only">
+                  Import Events Only
+                </label>
+                <div class="form-text">Only import channel events (live/offline, subs, raids, etc.) and skip chat messages</div>
+              </div>
             </div>
             
             <div id="file-list" class="mb-3" style="display: none;">
@@ -671,6 +695,72 @@
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
         <button type="button" class="btn btn-primary" id="runLinkingBtn">
           <i class="bi bi-play-circle me-2"></i>Run Video Linking
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- Bulk Date Estimation Modal -->
+<div class="modal fade" id="bulkDateEstimationModal" tabindex="-1" aria-labelledby="bulkDateEstimationModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bulkDateEstimationModalLabel">
+          <i class="bi bi-clock-history me-2"></i>Bulk Upload Time Estimation
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div class="alert alert-info">
+          <i class="bi bi-info-circle me-2"></i>
+          This utility extracts dates from video titles and matches them with live events to estimate upload times.
+        </div>
+        
+        <form id="bulkDateEstimationForm" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          
+          <div class="mb-3">
+            <label for="modal_date_estimation_channel" class="form-label">Target Channel</label>
+            <select id="modal_date_estimation_channel" name="channel_id" class="form-select" required>
+              <option value="">Choose a channel...</option>
+              {% for channel in channels %}
+                <option value="{{ channel.id }}">{{ channel.name }} ({{ channel.platform_name }})</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Select the channel to process for upload time estimation</div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="modal_date_estimation_margin" class="form-label">Date Margin (hours)</label>
+                <input type="number" class="form-control" id="modal_date_estimation_margin" 
+                       name="date_margin_hours" value="48" min="1" max="168">
+                <div class="form-text">Max time between title date and stream start</div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="modal_duration_margin" class="form-label">Duration Margin (seconds)</label>
+                <input type="number" class="form-control" id="modal_duration_margin" 
+                       name="duration_margin_seconds" value="20" min="0" max="300">
+                <div class="form-text">Max difference between video and stream duration</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>Note:</strong> This will only update videos that don't already have an estimated upload time.
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-info" id="runDateEstimationBtn">
+          <i class="bi bi-play-circle me-2"></i>Run Estimation
         </button>
       </div>
     </div>

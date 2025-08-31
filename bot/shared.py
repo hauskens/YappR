@@ -262,7 +262,7 @@ async def _get_or_create_content(url: str, broadcaster_id: int, session, platfor
             author=platform_video_data['author']
         )
         session.add(content)
-        session.flush()  # Flush to get the content ID
+        session.commit()
         logger.info("Created new content: %s", content, extra={
                     "broadcaster_id": broadcaster_id, "content_id": content.id})
         return content.id
@@ -451,7 +451,7 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
                 broadcaster_id, content_id, session, platform_handler)
 
             # Create or update submission
-            submission = _create_or_update_submission(queue_item_id, content_id, user, submission_source_type,
+            _create_or_update_submission(queue_item_id, content_id, user, submission_source_type,
                                                       submission_source_id, submission_weight, user_weight, user_comment, session)
 
             # Commit all changes

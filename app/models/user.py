@@ -23,6 +23,7 @@ class UserBase(BaseModel):
     avatar_url: HttpUrl | None = Field(..., max_length=500)
     banned: bool = Field(default=False)
     banned_reason: str | None
+    color: str | None
 
 class Users(Base, UserMixin):
     __tablename__: str = "users"
@@ -37,6 +38,7 @@ class Users(Base, UserMixin):
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     banned: Mapped[bool] = mapped_column(Boolean, default=False)
     banned_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    color: Mapped[str | None] = mapped_column(String(50), nullable=True)
     
     # Fields migrated from ExternalUser
     disabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')

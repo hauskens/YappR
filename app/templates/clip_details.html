@@ -43,12 +43,13 @@
   {% endif %}
   {% if item.submissions|length > 0 %}
   {% set submission = item.submissions[0] %}
-  {% set badge_class = 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge' %}
+  {% set badge_class = 'twitch-badge' if submission.user.account_type.value.lower() == 'twitch' else 'discord-badge' %}
   <span class="badge {{ badge_class }} opacity-50" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}"
-    style="cursor: pointer;"
     hx-get="{{ url_for('users.user_detail', user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
     hx-target="#userModalContent" hx-trigger="click" onclick="event.stopPropagation();"
-    hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()">
+    hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()"
+    {% if submission.user.color %}style="color: {{ submission.user.color }}; cursor: pointer;"{% else %}style="cursor: pointer;"{% endif %}
+    >
     {{ submission.user.name }}{{ '*' if submission.user_comment is not none else '' }}
   </span>
   {% if item.submissions|length > 1 %}

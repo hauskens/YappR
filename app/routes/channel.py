@@ -3,7 +3,7 @@ from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from app.permissions import require_permission
 from app.models import db
-from app.models import Channels, VideoType, PermissionType, ChannelSettings, PlatformType, ChannelRole
+from app.models import Channels, VideoType, PermissionType, ChannelSettings, PlatformType, ChannelRole, ChannelCreate
 from app.models.channel import ChannelEvent
 from app.services import BroadcasterService, ChannelService
 from app.services.video_date_estimation import VideoDateEstimationService
@@ -25,16 +25,14 @@ def channel_create():
     channel_id = request.form.get("channel_id", None)
     logger.info("Creating new channel: %s for broadcaster: %s", name,
                 broadcaster_id, extra={"broadcaster_id": broadcaster_id})
-    new_channel = Channels(
+    new_channel = ChannelService.create(ChannelCreate(
         name=name,
         broadcaster_id=broadcaster_id,
-        platform_name=platform_name,
+        platform_name=platform_name.lower(),
         platform_ref=platform_ref,
-        main_video_type=channel_type,
+        main_video_type=channel_type.lower(),
         platform_channel_id=channel_id,
-    )
-    db.session.add(new_channel)
-    db.session.commit()
+    ))
     logger.info("Channel %s was successfully created", name, extra={
                 "channel_id": new_channel.id, "broadcaster_id": broadcaster_id})
     return redirect(request.referrer)
@@ -130,14 +128,7 @@ def channel_fetch_details(channel_id: int):
                 extra={"channel_id": channel_id})
     channel = ChannelService.get_by_id(channel_id)
     ChannelService.update_channel_details(channel)
-    return render_template(
-        "broadcaster_edit.html",
-        broadcaster=channel.broadcaster,
-        channels=BroadcasterService.get_channels(
-            broadcaster_id=channel.broadcaster.id),
-        platforms=[platform.name for platform in PlatformType],
-        video_types=[video_type.name for video_type in VideoType],
-    )
+    return redirect(request.referrer)
 
 
 @channel_blueprint.route("/<int:channel_id>/fetch_videos")

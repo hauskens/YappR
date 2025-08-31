@@ -474,7 +474,7 @@ class ChannelService:
         channel = Channels(
             name=channel_create.name,
             broadcaster_id=channel_create.broadcaster_id,
-            platform_name=channel_create.platform_name.name,
+            platform_name=channel_create.platform_name,
             platform_ref=channel_create.platform_ref,
             platform_channel_id=channel_create.platform_channel_id,
             main_video_type=channel_create.main_video_type,

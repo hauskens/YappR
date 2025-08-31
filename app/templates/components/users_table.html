@@ -21,7 +21,7 @@
                         <img src="{{ user.avatar_url }}" class="rounded-circle me-2" width="32" height="32" alt="Avatar">
                         {% endif %}
                         <div>
-                            <strong>{{ user.name or 'N/A' }}</strong>
+                            <strong {% if user.color %}style="color: {{ user.color }}"{% endif %}>{{ user.name or 'N/A' }}</strong>
                             {% if user.external_account_id %}
                             <br><small class="text-muted">{{ user.external_account_id }}</small>
                             {% endif %}

@@ -690,6 +690,8 @@ def add_content():
             broadcasters = [broadcaster for broadcaster in all_broadcasters if broadcaster.id not in banned_broadcaster_ids]
             if UserService.is_broadcaster(current_user):
                 broadcasters.append(UserService.get_broadcaster(current_user))
+
+        user = UserService.get_by_external_id(current_user.external_account_id)
         
         if request.method == "GET":
             return render_template("add_content.html", broadcasters=broadcasters)
@@ -726,8 +728,8 @@ def add_content():
                 return await add_to_content_queue(
                     url=url,
                     broadcaster_id=selected_broadcaster_id,
-                    username=current_user.name,
-                    external_user_id=current_user.external_account_id,
+                    username=user.name,
+                    external_user_id=user.external_account_id,
                     submission_source_type=ContentQueueSubmissionSource.Web,
                     submission_source_id=0,
                     submission_weight=1.0,

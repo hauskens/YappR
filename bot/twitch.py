@@ -423,7 +423,8 @@ class TwitchBot:
                         name=chat_user.name,
                         external_account_id=chat_user.id,
                         account_type=AccountSource.Twitch,
-                        disabled=False
+                        disabled=False,
+                        color=chat_user.color
                     )
                     role_session.add(user)
                     role_session.flush()
@@ -431,6 +432,8 @@ class TwitchBot:
                     # Update username if it changed
                     if user.name != chat_user.name:
                         user.name = chat_user.name
+                    if user.color != chat_user.color:
+                        user.color = chat_user.color
                 
                 # Check existing role
                 existing_role = role_session.execute(

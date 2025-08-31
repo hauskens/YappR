@@ -304,7 +304,7 @@ class PlatformServiceRegistry:
     def get_service_for_channel(cls, channel: Channels) -> PlatformService | None:
         """Get platform service for a channel object"""
         platform_name = channel.platform_name
-        return cls.get_service(PlatformType(platform_name))
+        return cls.get_service(PlatformType(platform_name.lower()))
 
 
 # Register platform services

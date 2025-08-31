@@ -77,7 +77,7 @@
                       <td>
                         <div class="d-flex align-items-center">
                           <div>
-                            <div class="fw-bold">{{ user.name }}</div>
+                            <div class="fw-bold" {% if user.color %}style="color: {{ user.color }}"{% endif %}>{{ user.name }}</div>
                           </div>
                         </div>
                       </td>

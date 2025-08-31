@@ -227,12 +227,12 @@
           {% endif %}
           {% if item.submissions|length > 0 %}
           {% set submission = item.submissions[0] %}
-          {% set badge_class = 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge'
+          {% set badge_class = 'twitch-badge' if submission.user.account_type.value.lower() == 'twitch' else 'discord-badge'
           %}
           <span class="badge {{ badge_class }} opacity-50" 
                 data-bs-toggle="tooltip"
                 title="{{ submission.user_comment or '' }}"
-                style="cursor: pointer;"
+                {% if submission.user.color %}style="color: {{ submission.user.color }}; cursor: pointer;"{% else %}style="cursor: pointer;"{% endif %}
                 hx-get="{{ url_for('users.user_detail', user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
                 hx-target="#userModalContent"
                 hx-trigger="click"
@@ -278,10 +278,9 @@
                 {% if item.submissions %}
                   {% for submission in item.submissions %}
                     <div class='mb-1'>
-                      <span class='badge {{ 'twitch-badge' if submission.submission_source_type.name == 'Twitch' else 'discord-badge' }} opacity-75'>
-                        {{ submission.submission_source_type.name }}
+                      <span class='badge {{ 'twitch-badge' if submission.user.account_type.value.lower() == 'twitch' else 'discord-badge' }} opacity-75' style='cursor: pointer; {% if submission.user.color %}color: {{ submission.user.color }};{% endif %}'>
+                        {{ submission.user.name }}
                       </span>
-                      {{ submission.user.name }}
                       <br/>
                       <span class='text-muted'>{{ submission.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}</span>
                       {% if submission.user_comment %}

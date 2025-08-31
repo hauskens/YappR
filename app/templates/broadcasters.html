@@ -1,34 +1,118 @@
 {% extends 'base.html' %}
 
 {% block content %}
-  <div class="container">
-    <h1>Broadcasters</h1>
-    <table class="table table-striped">
-      <thead>
-        <tr>
-          <th scope="col">Broadcaster</th>
-          <th scope="col">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for broadcaster in broadcasters %}
-        {% if not broadcaster.hidden or (broadcaster.hidden and user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id)) %}
-          <tr>
-          <td>
-            {{ broadcaster.name }}<a href="{{ url_for('broadcaster.broadcaster_edit', broadcaster_id=broadcaster.id) }}" class="text-primary"></a>
-          </td>
-          <td>
-            <a class="btn btn-primary" role="button" href="{{ url_for('broadcaster.broadcaster_edit', broadcaster_id=broadcaster.id) }}">Show</a>
-          </td>
-          </tr>
+<div class="container py-4">
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      <div class="text-center mb-5 shadow">
+        <h1 class="display-4 mb-3">Broadcasters</h1>
+        <p class="lead text-muted">Manage and browse available broadcasters</p>
+      </div>
+
+      <div class="card shadow mb-4">
+        <div class="card-header">
+          <h5 class="mb-0"><i class="fas fa-search me-2"></i>Find Broadcasters</h5>
+        </div>
+        <div class="card-body">
+          <div class="row">
+            <div class="col-md-8">
+              <div class="input-group">
+                <span class="input-group-text">
+                  <i class="fas fa-search text-muted"></i>
+                </span>
+                <input type="text" 
+                       class="form-control" 
+                       id="broadcasterSearch" 
+                       placeholder="Search broadcasters by name..."
+                       autocomplete="off">
+              </div>
+            </div>
+            <div class="col-md-4 text-md-end mt-2 mt-md-0 d-flex align-items-center justify-content-md-end">
+              <small class="text-muted me-3">
+                <span id="broadcastersCount">{{ broadcasters|length }}</span> broadcaster(s) found
+              </small>
+              <a href="{{ url_for('broadcaster.broadcaster_create') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-1"></i>Add New
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="row" id="broadcastersGrid">
+        {% for broadcaster in broadcasters %}
+          {% if not broadcaster.hidden or (broadcaster.hidden and user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id)) %}
+            <div class="col-xl-3 col-lg-4 col-md-6 mb-4 broadcaster-card" data-name="{{ broadcaster.name|lower }}">
+              <div class="card border-0 shadow h-100">
+                <div class="card-body text-center d-flex flex-column">
+                  <div class="mb-3">
+                    <div class="d-flex justify-content-center mb-3">
+                      {% if broadcaster.profile_image_url %}
+                        <img src="{{ broadcaster.profile_image_url }}" 
+                             class="rounded-circle" 
+                             style="width: 60px; height: 60px; object-fit: cover;"
+                             alt="{{ broadcaster.name }} profile image">
+                      {% else %}
+                        <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                          <i class="fas fa-broadcast-tower fs-4"></i>
+                        </div>
+                      {% endif %}
+                    </div>
+                    <h5 class="card-title mb-2">{{ broadcaster.name }}</h5>
+                    {% if broadcaster.hidden %}
+                      <span class="badge bg-warning text-dark mb-2">
+                        <i class="fas fa-eye-slash me-1"></i>Hidden
+                      </span>
+                    {% endif %}
+                  </div>
+                  <div class="mt-auto">
+                    <a href="{{ url_for('broadcaster.broadcaster_edit', broadcaster_id=broadcaster.id) }}" 
+                       class="btn btn-primary w-100">
+                      <i class="fas fa-eye me-2"></i>View Details
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
           {% endif %}
-      {% endfor %}
-      </tbody>
-    </table>
-    <a href="{{ url_for('broadcaster.broadcaster_create') }}" class="btn btn-primary">
-      <i class="fas fa-plus"></i> Create New Broadcaster
-    </a>
+        {% endfor %}
+      </div>
+
+      <div id="noResults" class="text-center py-5" style="display: none;">
+        <div class="text-muted">
+          <i class="fas fa-search fa-3x mb-3"></i>
+          <h5>No broadcasters found</h5>
+          <p>Try adjusting your search terms</p>
+        </div>
+      </div>
+    </div>
   </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('broadcasterSearch');
+    const broadcasterCards = document.querySelectorAll('.broadcaster-card');
+    const broadcastersCount = document.getElementById('broadcastersCount');
+    const noResults = document.getElementById('noResults');
+    
+    searchInput.addEventListener('input', function() {
+      const searchTerm = this.value.toLowerCase().trim();
+      let visibleCount = 0;
+      
+      broadcasterCards.forEach(card => {
+        const broadcasterName = card.dataset.name;
+        const isVisible = broadcasterName.includes(searchTerm);
+        
+        card.style.display = isVisible ? 'block' : 'none';
+        if (isVisible) visibleCount++;
+      });
+      
+      broadcastersCount.textContent = visibleCount;
+      noResults.style.display = visibleCount === 0 ? 'block' : 'none';
+    });
+  });
+</script>
 
 
   {% with messages = get_flashed_messages() %}

@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, request, url_for, flash
+from flask import Blueprint, render_template, redirect, request, url_for, flash, jsonify
 from app.permissions import require_permission
 from app.models import db
 from app.models import (
@@ -17,7 +17,7 @@ from app.models import (
 from app.models.channel import ChannelEvent
 from app.models.enums import ChannelEventType
 from app.models.enums import PlatformType, VideoType
-from app.services import BroadcasterService, UserService, ModerationService
+from app.services import BroadcasterService, UserService, ModerationService, ChannelService
 from app.logger import logger
 from flask_login import current_user, login_required  # type: ignore
 from datetime import datetime
@@ -260,6 +260,16 @@ def broadcaster_settings_update(broadcaster_id: int):
     logger.info("Updating broadcaster settings, linked discord channel id: %s",
                 discord_channel_id, extra={"dcaster_id": broadcaster_id, "user_id": current_user.id})
 
+    # Update broadcaster profile image URL
+    profile_image_url = request.form.get('profile_image_url')
+    if profile_image_url is not None:
+        broadcaster = db.session.query(
+            Broadcaster).filter_by(id=broadcaster_id).first()
+        if broadcaster:
+            broadcaster.profile_image_url = profile_image_url.strip() if profile_image_url.strip() else None
+            logger.info("Updating broadcaster profile image URL", extra={
+                        "broadcaster_id": broadcaster_id, "user_id": current_user.id})
+
     # Update broadcaster hidden status (admin only)
     if UserService.has_permission(current_user, PermissionType.Admin) and request.form.get('hidden') is not None:
         broadcaster = db.session.query(
@@ -282,52 +292,114 @@ def broadcaster_settings_update(broadcaster_id: int):
 
 @broadcaster_blueprint.route("/<int:broadcaster_id>/events", methods=["GET"])
 @login_required
-@require_permission(check_broadcaster=True, check_anyone=True)
+@require_permission(check_broadcaster=True, check_moderator=True, permissions=PermissionType.Moderator)
 def broadcaster_events(broadcaster_id: int):
     """View all events for all channels belonging to a broadcaster"""
     broadcaster = BroadcasterService.get_by_id(broadcaster_id)
     if not broadcaster:
         return render_template("errors/404.html"), 404
     
+    logger.info(f"Loaded broadcaster events page for {broadcaster.name}",
+                extra={"broadcaster_id": broadcaster_id, "user_id": current_user.id})
+    
+    return render_template(
+        "broadcaster_events.html",
+        broadcaster=broadcaster,
+    )
+
+
+@broadcaster_blueprint.route("/<int:broadcaster_id>/events_data", methods=["GET"])
+@login_required
+@require_permission(check_broadcaster=True, check_anyone=True)
+def broadcaster_events_data(broadcaster_id: int):
+    """Return broadcaster events as JSON for GenericTable"""
+    broadcaster = BroadcasterService.get_by_id(broadcaster_id)
+    if not broadcaster:
+        return jsonify({"error": "Broadcaster not found"}), 404
+    
     # Get all channel IDs for this broadcaster
     channel_ids = [channel.id for channel in broadcaster.channels]
-    
-    # Get filter parameters
-    event_type_filter = request.args.get('event_type')
-    channel_filter = request.args.get('channel_id', type=int)
-    limit = min(int(request.args.get('limit', 100)), 500)  # Max 500 events
     
     # Build query
     query = db.session.query(ChannelEvent).filter(
         ChannelEvent.channel_id.in_(channel_ids)
     )
     
-    # Apply filters
-    if event_type_filter and event_type_filter != 'all':
-        try:
-            event_type_enum = ChannelEventType[event_type_filter]
-            query = query.filter(ChannelEvent.event_type == event_type_enum)
-        except KeyError:
-            pass  # Invalid event type, ignore filter
-    
-    if channel_filter and channel_filter in channel_ids:
-        query = query.filter(ChannelEvent.channel_id == channel_filter)
-    
     # Get events ordered by most recent
-    events = query.order_by(ChannelEvent.timestamp.desc()).limit(limit).all()
+    events = query.order_by(ChannelEvent.timestamp.desc()).all()
     
-    logger.info(f"Loaded broadcaster events page for {broadcaster.name} with {len(events)} events",
-                extra={"broadcaster_id": broadcaster_id, "user_id": current_user.id})
+    # Format events for GenericTable
+    events_data = []
+    for event in events:
+        event_type_name = event.event_type.value if event.event_type else 'Unknown'
+        events_data.append({
+            "id": str(event.id),
+            "event_type": event_type_name,
+            "channel_name": event.channel.name,
+            "platform_name": event.channel.platform_name,
+            "username": event.username or "—",
+            "raw_message": event.raw_message or "No message",
+            "timestamp": event.timestamp.strftime('%Y-%m-%d %H:%M:%S'),
+            "time_display": event.timestamp.strftime('%H:%M:%S'),
+            "date_display": event.timestamp.strftime('%Y-%m-%d')
+        })
     
-    return render_template(
-        "broadcaster_events.html",
-        broadcaster=broadcaster,
-        events=events,
-        channels=broadcaster.channels,
-        event_types=list(ChannelEventType),
-        current_filters={
-            'event_type': event_type_filter,
-            'channel_id': channel_filter,
-            'limit': limit
-        }
-    )
+    return jsonify({"events": events_data})
+
+
+@broadcaster_blueprint.route("/<int:broadcaster_id>/match_channel_event_users", methods=["POST"])
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+def match_channel_event_users(broadcaster_id: int):
+    """Match ChannelEvent entries to Users by username for this broadcaster"""
+    try:
+        broadcaster = BroadcasterService.get_by_id(broadcaster_id)
+        if not broadcaster:
+            return '<div class="alert alert-danger">Broadcaster not found</div>'
+        
+        logger.info("Starting ChannelEvent user matching process for broadcaster %s", broadcaster.name, 
+                   extra={"broadcaster_id": broadcaster_id, "user_id": current_user.id})
+        
+        # Call the ChannelService function
+        results = ChannelService.match_channel_event_users()
+        
+        # Format results as HTML for HTMX response
+        if results['status'] == 'success':
+            if results['total_unmatched'] == 0:
+                html = """
+                <div class="alert alert-info">
+                    <h5><i class="bi bi-info-circle me-2"></i>No Unmatched Records</h5>
+                    <p class="mb-0">All ChannelEvents already have user associations.</p>
+                </div>
+                """
+            else:
+                html = f"""
+                <div class="alert alert-success">
+                    <h5><i class="bi bi-check-circle me-2"></i>User Matching Complete</h5>
+                    <ul class="mb-0">
+                        <li><strong>Total unmatched:</strong> {results['total_unmatched']:,} records</li>
+                        <li><strong>Successfully matched:</strong> {results['total_matched']:,} events</li>
+                    </ul>
+                </div>
+                """
+        elif results['status'] == 'warning':
+            html = f"""
+            <div class="alert alert-warning">
+                <h5><i class="bi bi-exclamation-triangle me-2"></i>Warning</h5>
+                <p class="mb-0">{'; '.join(results['errors'])}</p>
+            </div>
+            """
+        else:
+            html = f"""
+            <div class="alert alert-danger">
+                <h5><i class="bi bi-x-circle me-2"></i>Error</h5>
+                <p class="mb-0">Failed to complete user matching: {'; '.join(results['errors'])}</p>
+            </div>
+            """
+        
+        return html
+        
+    except Exception as e:
+        logger.error("Error in ChannelEvent user matching endpoint: %s", str(e), 
+                    extra={"broadcaster_id": broadcaster_id, "user_id": current_user.id})
+        return '<div class="alert alert-danger">An unexpected error occurred during user matching.</div>'

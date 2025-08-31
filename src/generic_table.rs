@@ -21,6 +21,7 @@ pub enum ColumnRenderType {
     Link { url_key: Option<String> },
     Number,
     Duration, // For displaying time in seconds as mm:ss format
+    Badge { color_map: Option<HashMap<String, String>> },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -40,6 +41,19 @@ pub enum SortOrder {
     Desc,
 }
 
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FilterOption {
+    pub value: String,
+    pub label: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct CustomFilter {
+    pub key: String,
+    pub label: String,
+    pub options: Vec<FilterOption>,
+}
+
 #[derive(Properties, PartialEq)]
 pub struct GenericTableProps {
     pub data_endpoint: String,
@@ -49,6 +63,7 @@ pub struct GenericTableProps {
     pub show_search: Option<bool>,
     pub default_sort_column: Option<String>,
     pub default_sort_order: Option<SortOrder>,
+    pub custom_filters: Option<Vec<CustomFilter>>,
 }
 
 #[function_component(GenericTable)]
@@ -66,6 +81,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
     });
     let sort_order = use_state(|| props.default_sort_order.clone().unwrap_or(SortOrder::Asc));
     let error_message = use_state(|| None::<String>);
+    let custom_filter_values = use_state(|| HashMap::<String, String>::new());
 
     // Load data from endpoint
     {
@@ -106,17 +122,20 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
         });
     }
 
-    // Filter and sort data when search term, sort field, or sort order changes
+    // Filter and sort data when search term, sort field, sort order, or custom filters change
     {
         let rows = rows.clone();
         let filtered_rows = filtered_rows.clone();
         let search_term = search_term.clone();
         let sort_field = sort_field.clone();
         let sort_order = sort_order.clone();
+        let custom_filter_values = custom_filter_values.clone();
         let columns = props.columns.clone();
+        let custom_filters = props.custom_filters.clone().unwrap_or_default();
 
-        use_effect_with(((*search_term).clone(), (*sort_field).clone(), (*sort_order).clone()), move |(search, sort_field, sort_order)| {
+        use_effect_with(((*search_term).clone(), (*sort_field).clone(), (*sort_order).clone(), (*custom_filter_values).clone()), move |(search, sort_field, sort_order, filter_values)| {
             let mut filtered = filter_rows(&*rows, search, &columns);
+            filtered = apply_custom_filters(filtered, filter_values, &custom_filters);
             sort_rows(&mut filtered, sort_field, sort_order);
             filtered_rows.set(filtered);
         });
@@ -170,9 +189,30 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
 
     let on_clear_search = {
         let search_term = search_term.clone();
+        let custom_filter_values = custom_filter_values.clone();
         let current_page = current_page.clone();
         Callback::from(move |_| {
             search_term.set(String::new());
+            custom_filter_values.set(HashMap::new());
+            current_page.set(1);
+        })
+    };
+
+    let on_custom_filter_change = {
+        let custom_filter_values = custom_filter_values.clone();
+        let current_page = current_page.clone();
+        Callback::from(move |e: Event| {
+            let select: web_sys::HtmlSelectElement = e.target_unchecked_into();
+            let filter_key = select.get_attribute("data-filter-key").unwrap_or_default();
+            let value = select.value();
+            
+            let mut new_values = (*custom_filter_values).clone();
+            if value.is_empty() || value == "all" {
+                new_values.remove(&filter_key);
+            } else {
+                new_values.insert(filter_key, value);
+            }
+            custom_filter_values.set(new_values);
             current_page.set(1);
         })
     };
@@ -210,16 +250,17 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
         let SortField::Column(current_key) = &*sort_field;
         if current_key == column_key {
             match *sort_order {
-                SortOrder::Asc => html! { <i class="fas fa-sort-up ms-1"></i> },
-                SortOrder::Desc => html! { <i class="fas fa-sort-down ms-1"></i> },
+                SortOrder::Asc => html! { <i class="bi bi-sort-up ms-1"></i> },
+                SortOrder::Desc => html! { <i class="bi bi-sort-down ms-1"></i> },
             }
         } else {
-            html! { <i class="fas fa-sort ms-1 text-muted"></i> }
+            html! { <i class="bi bi-sort-up ms-1 text-muted"></i> }
         }
     };
 
     let has_search = props.show_search.unwrap_or(true);
     let has_active_search = !search_term.is_empty();
+    let has_active_filters = has_active_search || !custom_filter_values.is_empty();
 
     // Generate pagination buttons
     let pagination_buttons = generate_pagination_buttons(*current_page, total_pages, on_page_change.clone());
@@ -245,11 +286,43 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                                     onclick={on_clear_search}
                                     title="Clear search"
                                 >
-                                    <i class="fas fa-times"></i>
+                                    <i class="bi bi-x"></i>
                                 </button>
                             }
                         </div>
                     }
+                    
+                    // Custom filter dropdowns
+                    {
+                        if let Some(custom_filters) = &props.custom_filters {
+                            custom_filters.iter().map(|filter| {
+                                html! {
+                                    <select 
+                                        class="form-select form-select-sm me-2" 
+                                        style="width: auto;" 
+                                        onchange={on_custom_filter_change.clone()}
+                                        data-filter-key={filter.key.clone()}
+                                        value={custom_filter_values.get(&filter.key).cloned().unwrap_or_default()}
+                                    >
+                                        <option value="all">{format!("All {}", filter.label)}</option>
+                                        {for filter.options.iter().map(|option| {
+                                            let selected = custom_filter_values.get(&filter.key)
+                                                .map(|v| v == &option.value)
+                                                .unwrap_or(false);
+                                            html! {
+                                                <option value={option.value.clone()} selected={selected}>
+                                                    {&option.label}
+                                                </option>
+                                            }
+                                        })}
+                                    </select>
+                                }
+                            }).collect::<Html>()
+                        } else {
+                            html! {}
+                        }
+                    }
+                    
                     <select class="form-select form-select-sm" style="width: auto;" onchange={on_page_size_change} value={page_size.to_string()}>
                         <option value="25">{"25 per page"}</option>
                         <option value="50" selected={*page_size == 50}>{"50 per page"}</option>
@@ -265,7 +338,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                     end_idx,
                     total_filtered
                 )}
-                if has_active_search {
+                if has_active_filters {
                     <span class="badge bg-primary ms-2">{"Filtered"}</span>
                 }
             </div>
@@ -386,6 +459,19 @@ fn parse_response_data(data: serde_json::Value) -> Vec<TableRow> {
                 rows.push(TableRow { id, data: row_data });
             }
         }
+    } else if let Some(events) = data.get("events").and_then(|s| s.as_array()) {
+        // Broadcaster events format
+        for event in events {
+            if let Some(obj) = event.as_object() {
+                let mut row_data = HashMap::new();
+                for (key, value) in obj {
+                    row_data.insert(key.clone(), format!("{}", value).trim_matches('"').to_string());
+                }
+                
+                let id = row_data.get("id").cloned().unwrap_or_default();
+                rows.push(TableRow { id, data: row_data });
+            }
+        }
     }
     
     rows
@@ -411,6 +497,22 @@ fn filter_rows(rows: &[TableRow], search_term: &str, columns: &[TableColumn]) ->
         .collect()
 }
 
+fn apply_custom_filters(rows: Vec<TableRow>, filter_values: &HashMap<String, String>, _filters: &[CustomFilter]) -> Vec<TableRow> {
+    if filter_values.is_empty() {
+        return rows;
+    }
+
+    rows.into_iter()
+        .filter(|row| {
+            filter_values.iter().all(|(filter_key, filter_value)| {
+                row.data.get(filter_key)
+                    .map(|value| value == filter_value)
+                    .unwrap_or(false)
+            })
+        })
+        .collect()
+}
+
 fn sort_rows(rows: &mut [TableRow], sort_field: &SortField, sort_order: &SortOrder) {
     let SortField::Column(column_key) = sort_field;
     rows.sort_by(|a, b| {
@@ -418,8 +520,13 @@ fn sort_rows(rows: &mut [TableRow], sort_field: &SortField, sort_order: &SortOrd
         let b_val = b.data.get(column_key).cloned().unwrap_or_default();
         
         // Try to parse as numbers first for proper numeric sorting
-        let comparison = if let (Ok(a_num), Ok(b_num)) = (a_val.parse::<f64>(), b_val.parse::<f64>()) {
-            a_num.partial_cmp(&b_num).unwrap_or(std::cmp::Ordering::Equal)
+        // Skip numeric parsing for values that contain letters (like timestamps with 's')
+        let comparison = if !a_val.chars().any(|c| c.is_alphabetic()) && !b_val.chars().any(|c| c.is_alphabetic()) {
+            if let (Ok(a_num), Ok(b_num)) = (a_val.parse::<f64>(), b_val.parse::<f64>()) {
+                a_num.partial_cmp(&b_num).unwrap_or(std::cmp::Ordering::Equal)
+            } else {
+                a_val.cmp(&b_val)
+            }
         } else {
             a_val.cmp(&b_val)
         };
@@ -454,6 +561,18 @@ fn render_cell_content(render_type: &ColumnRenderType, value: &str, row_data: &H
                 <a href={url} target="_blank" class="text-decoration-none">
                     {value}
                 </a>
+            }
+        },
+        ColumnRenderType::Badge { color_map } => {
+            let color = color_map.as_ref()
+                .and_then(|map| map.get(value))
+                .cloned()
+                .unwrap_or_else(|| "secondary".to_string());
+            
+            html! {
+                <span class={format!("badge bg-{}", color)}>
+                    {value}
+                </span>
             }
         }
     }

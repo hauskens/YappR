@@ -1,38 +1,6 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<style>
-  .event-icon {
-    width: 20px;
-    text-align: center;
-  }
-  
-  .event-live { color: #28a745; }
-  .event-offline { color: #6c757d; }
-  .event-subscription { color: #007bff; }
-  .event-gift { color: #ffc107; }
-  .event-raid { color: #17a2b8; }
-  .event-follow { color: #dc3545; }
-  .event-cheer { color: #6f42c1; }
-  
-  .filter-card {
-    position: sticky;
-    top: 20px;
-    z-index: 100;
-  }
-  
-  .events-table {
-    background: white;
-    border-radius: 8px;
-    overflow: hidden;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  }
-  
-  .table-responsive {
-    max-height: 70vh;
-    overflow-y: auto;
-  }
-</style>
 
 <div class="container-fluid">
   <!-- Header Section -->
@@ -47,17 +15,26 @@
           </div>
           <div>
             <h1 class="mb-1">{{ broadcaster.name }} Events</h1>
-            <div class="d-flex align-items-center gap-2">
-              <small class="text-muted">
-                <i class="bi bi-collection me-1"></i>{{ channels | length }} channel{{ 's' if channels | length != 1 else '' }}
-              </small>
-              <small class="text-muted">
-                <i class="bi bi-calendar-event me-1"></i>{{ events | length }} event{{ 's' if events | length != 1 else '' }} shown
-              </small>
-            </div>
           </div>
         </div>
-        <div>
+        <div class="d-flex gap-2">
+          <button 
+            class="btn btn-outline-info btn-sm" 
+            id="match-channel-events-btn"
+            hx-post="{{ url_for('broadcaster.match_channel_event_users', broadcaster_id=broadcaster.id) }}" 
+            hx-target="#match-status" 
+            hx-indicator="#match-loading"
+            hx-on::before-request="document.getElementById('match-channel-events-btn').disabled = true"
+            hx-on::after-request="document.getElementById('match-channel-events-btn').disabled = false"
+          >
+            <span class="spinner-border spinner-border-sm d-none" id="match-loading" role="status" aria-hidden="true"></span>
+            <i class="bi bi-person-lines-fill me-1"></i>Match Users
+          </button>
+          {% if user_service.has_permission(current_user, ["admin"]) %}
+            <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#bulkDateEstimationModal">
+              <i class="bi bi-clock-history me-2"></i>Estimate Upload Times
+            </button>
+          {% endif %}
           <a href="{{ url_for('broadcaster.broadcaster_edit', broadcaster_id=broadcaster.id) }}" class="btn btn-outline-primary">
             <i class="bi bi-arrow-left me-2"></i>Back to Broadcaster
           </a>
@@ -66,166 +43,85 @@
     </div>
   </div>
 
-  <div class="row">
-    <!-- Filters Sidebar -->
-    <div class="col-md-3">
-      <div class="card filter-card">
-        <div class="card-header">
-          <h6 class="mb-0"><i class="bi bi-funnel me-2"></i>Filters</h6>
-        </div>
-        <div class="card-body">
-          <form method="get" id="filterForm">
-            <div class="mb-3">
-              <label for="event_type" class="form-label">Event Type</label>
-              <select name="event_type" id="event_type" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
-                <option value="all" {% if not current_filters.event_type or current_filters.event_type == 'all' %}selected{% endif %}>All Events</option>
-                {% for event_type in event_types %}
-                  <option value="{{ event_type.name }}" {% if current_filters.event_type == event_type.name %}selected{% endif %}>
-                    {{ event_type.value }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-            
-            <div class="mb-3">
-              <label for="channel_id" class="form-label">Channel</label>
-              <select name="channel_id" id="channel_id" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
-                <option value="" {% if not current_filters.channel_id %}selected{% endif %}>All Channels</option>
-                {% for channel in channels %}
-                  <option value="{{ channel.id }}" {% if current_filters.channel_id == channel.id %}selected{% endif %}>
-                    {{ channel.name }}
-                  </option>
-                {% endfor %}
-              </select>
-            </div>
-            
-            <div class="mb-3">
-              <label for="limit" class="form-label">Show Events</label>
-              <select name="limit" id="limit" class="form-select form-select-sm" onchange="document.getElementById('filterForm').submit();">
-                <option value="50" {% if current_filters.limit == 50 %}selected{% endif %}>50 events</option>
-                <option value="100" {% if current_filters.limit == 100 %}selected{% endif %}>100 events</option>
-                <option value="250" {% if current_filters.limit == 250 %}selected{% endif %}>250 events</option>
-                <option value="500" {% if current_filters.limit == 500 %}selected{% endif %}>500 events</option>
-              </select>
-            </div>
-            
-            {% if current_filters.event_type or current_filters.channel_id %}
-              <div class="d-grid">
-                <a href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id) }}" class="btn btn-outline-secondary btn-sm">
-                  <i class="bi bi-x-circle me-2"></i>Clear Filters
-                </a>
-              </div>
-            {% endif %}
-          </form>
-        </div>
+<!-- Bulk Date Estimation Modal -->
+<div class="modal fade" id="bulkDateEstimationModal" tabindex="-1" aria-labelledby="bulkDateEstimationModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="bulkDateEstimationModalLabel">
+          <i class="bi bi-clock-history me-2"></i>Bulk Upload Time Estimation
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
-    </div>
-
-    <!-- Events Table -->
-    <div class="col-md-9">
-      <div class="events-table">
-        {% if events %}
-          <div class="table-responsive">
-            <table class="table table-hover mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th style="width: 50px;"></th>
-                  <th style="width: 120px;">Type</th>
-                  <th style="width: 150px;">Channel</th>
-                  <th style="width: 120px;">Username</th>
-                  <th>Message</th>
-                  <th style="width: 140px;">Timestamp</th>
-                </tr>
-              </thead>
-              <tbody>
-                {% for event in events %}
-                  <tr>
-                    <td class="text-center">
-                      {% set icon_map = {
-                        'Live': 'bi-broadcast',
-                        'Offline': 'bi-broadcast-pin',
-                        'Subscription': 'bi-star-fill',
-                        'Gift': 'bi-gift',
-                        'Raid': 'bi-people-fill',
-                        'Follow': 'bi-heart',
-                        'Cheer': 'bi-gem'
-                      } %}
-                      {% set event_type_name = event.event_type.value if event.event_type else 'Unknown' %}
-                      <i class="bi {{ icon_map.get(event_type_name, 'bi-calendar-event') }} event-icon event-{{ event_type_name.lower() }}"></i>
-                    </td>
-                    <td>
-                      {% set badge_colors = {
-                        'Live': 'success',
-                        'Offline': 'secondary',
-                        'Subscription': 'primary',
-                        'Gift': 'warning',
-                        'Raid': 'info',
-                        'Follow': 'danger',
-                        'Cheer': 'purple'
-                      } %}
-                      <span class="badge bg-{{ badge_colors.get(event_type_name, 'secondary') }}">
-                        {{ event_type_name }}
-                      </span>
-                    </td>
-                    <td>
-                      <span class="fw-medium">{{ event.channel.name }}</span>
-                      <br>
-                      <small class="text-muted">{{ event.channel.platform_name }}</small>
-                    </td>
-                    <td>
-                      {% if event.username %}
-                        <span class="text-primary fw-medium">{{ event.username }}</span>
-                      {% else %}
-                        <span class="text-muted">—</span>
-                      {% endif %}
-                    </td>
-                    <td>
-                      <span class="text-muted">{{ event.raw_message or 'No message' }}</span>
-                    </td>
-                    <td>
-                      <div class="text-end">
-                        <div class="fw-medium">{{ event.timestamp.strftime('%H:%M:%S') }}</div>
-                        <small class="text-muted">{{ event.timestamp.strftime('%Y-%m-%d') }}</small>
-                      </div>
-                    </td>
-                  </tr>
-                {% endfor %}
-              </tbody>
-            </table>
-          </div>
-        {% else %}
-          <div class="text-center py-5">
-            <i class="bi bi-calendar-x display-1 text-muted mb-3"></i>
-            <h4 class="text-muted">No Events Found</h4>
-            <p class="text-muted mb-0">
-              {% if current_filters.event_type or current_filters.channel_id %}
-                No events match your current filters. <a href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id) }}">Clear filters</a> to see all events.
-              {% else %}
-                This broadcaster has no recorded events yet.
-              {% endif %}
-            </p>
-          </div>
-        {% endif %}
-      </div>
-      
-      {% if events and events | length >= current_filters.limit %}
-        <div class="alert alert-info mt-3">
+      <div class="modal-body">
+        <div class="alert alert-info">
           <i class="bi bi-info-circle me-2"></i>
-          Showing the most recent {{ current_filters.limit }} events. Use filters to narrow down results or increase the limit.
+          This utility extracts dates from video titles and matches them with live events to estimate upload times.
         </div>
-      {% endif %}
+        
+        <form id="bulkDateEstimationForm" method="post">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+          
+          <div class="mb-3">
+            <label for="modal_date_estimation_channel" class="form-label">Target Channel</label>
+            <select id="modal_date_estimation_channel" name="channel_id" class="form-select" required>
+              <option value="">Choose a channel...</option>
+              {% for channel in channels %}
+                <option value="{{ channel.id }}">{{ channel.name }} ({{ channel.platform_name }})</option>
+              {% endfor %}
+            </select>
+            <div class="form-text">Select the channel to process for upload time estimation</div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="modal_date_estimation_margin" class="form-label">Date Margin (hours)</label>
+                <input type="number" class="form-control" id="modal_date_estimation_margin" 
+                       name="date_margin_hours" value="48" min="1" max="168">
+                <div class="form-text">Max time between title date and stream start</div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="modal_duration_margin" class="form-label">Duration Margin (seconds)</label>
+                <input type="number" class="form-control" id="modal_duration_margin" 
+                       name="duration_margin_seconds" value="20" min="0" max="300">
+                <div class="form-text">Max difference between video and stream duration</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="alert alert-warning">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>Note:</strong> This will only update videos that don't already have an estimated upload time.
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-info" id="runDateEstimationBtn">
+          <i class="bi bi-play-circle me-2"></i>Run Estimation
+        </button>
+      </div>
     </div>
   </div>
+</div>
+  <!-- Match Status Section -->
+  <div id="match-status" class="mb-3"></div>
+
+  <!-- Events Table -->
+  <div id="broadcaster-events-table"></div>
 </div>
 {% endblock %}
 
 {% block scripts %}
 <script type="module">
-  import init, { init_broadcaster_events } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
+  import init, { render_broadcaster_events_table } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
   
   async function run() {
     await init();
-    init_broadcaster_events();
+    render_broadcaster_events_table({{ broadcaster.id }}, 'broadcaster-events-table');
   }
   
   run();

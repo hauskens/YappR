@@ -26,6 +26,7 @@ class Broadcaster(Base):
     content_queue_settings: Mapped["ContentQueueSettings"] = relationship(  # type: ignore[name-defined]
         "ContentQueueSettings", back_populates="broadcaster", uselist=False
     )
+    profile_image_url: Mapped[str | None] = mapped_column(String(250), nullable=True)
 
 
 class BroadcasterModel(BaseModel):

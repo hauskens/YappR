@@ -12,7 +12,8 @@ if TYPE_CHECKING:
     from .broadcaster import Broadcaster
     from .content_queue import ContentQueueSubmission
     from .auth import Permissions, OAuth
-    from .channel import ChannelModerator, Channels
+    from .channel import ChannelModerator, Channels, ChannelEvent
+    from .chatlog import ChatLog, ChatLogImport
 
 class UserBase(BaseModel):
     id: int
@@ -44,7 +45,7 @@ class Users(Base, UserMixin):
     disabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
     ignore_weight_penalty: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
     
-    # New moderation fields
+    # Moderation fields
     globally_banned: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
     global_ban_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     global_ban_expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
@@ -60,7 +61,7 @@ class Users(Base, UserMixin):
         back_populates="user", cascade="all, delete-orphan"
     )
     
-    # New role and moderation relationships
+    # Role and moderation relationships
     channel_roles: Mapped[List["UserChannelRole"]] = relationship(
         "UserChannelRole", 
         foreign_keys="UserChannelRole.user_id",
@@ -78,9 +79,10 @@ class Users(Base, UserMixin):
         back_populates="issued_by_user"
     )
     
-    # Relationships migrated from ExternalUser
     submissions: Mapped[list["ContentQueueSubmission"]] = relationship(back_populates="user")
     weights: Mapped[list["UserWeight"]] = relationship(back_populates="user")
+    chat_log_imports: Mapped[list["ChatLogImport"]] = relationship(back_populates="imported_by_user")
+    channel_events: Mapped[list["ChannelEvent"]] = relationship(back_populates="user")
     
     @property
     def broadcaster_id(self) -> int | None:

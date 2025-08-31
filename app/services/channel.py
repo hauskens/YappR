@@ -5,13 +5,16 @@ import asyncio
 from collections.abc import Sequence
 from typing import Optional
 
-from sqlalchemy import select, func
+from sqlalchemy import select, func, update
+from datetime import datetime
 from app.models import db
 from app.models import (
     Video, Platforms, Broadcaster, Channels, Transcription, ChannelModerator,
     ChannelSettings, ContentQueue, ContentQueueSubmission, ChatLog, ChannelCreate,
-    TranscriptionSource
+    TranscriptionSource, Users
 )
+from app.models.channel import ChannelEvent
+from app.models.enums import AccountSource
 from app.models.user import ModerationAction, UserChannelRole
 from app.logger import logger
 from app.utils import save_generic_thumbnail
@@ -495,6 +498,77 @@ class ChannelService:
                 setattr(channel, key, value)
         db.session.commit()
         return channel
+
+    @staticmethod
+    def match_channel_event_users() -> dict:
+        """
+        Match ChannelEvents without user_id to Users with Twitch accounts.
+        
+        Returns:
+            Dictionary with matching results and statistics
+        """
+        results = {
+            'status': 'success',
+            'total_unmatched': 0,
+            'total_matched': 0,
+            'errors': [],
+            'started_at': datetime.now().isoformat(),
+            'completed_at': None
+        }
+        
+        try:
+            # Load all Twitch users into memory for fast lookups
+            logger.info("Loading Twitch users into memory")
+            twitch_users = db.session.query(Users.name, Users.id).filter(
+                Users.account_type == AccountSource.Twitch
+            ).all()
+            
+            username_to_user_id = {user.name.lower(): user.id for user in twitch_users}
+            logger.info(f"Loaded {len(username_to_user_id):,} Twitch users for matching")
+            
+            if not username_to_user_id:
+                results['status'] = 'warning'
+                results['errors'].append("No Twitch users found in database")
+                results['completed_at'] = datetime.now().isoformat()
+                return results
+            
+            # Get all unmatched channel events
+            unmatched_events = db.session.query(ChannelEvent).filter(
+                ChannelEvent.user_id.is_(None),
+                ChannelEvent.username.is_not(None)
+            ).all()
+            
+            results['total_unmatched'] = len(unmatched_events)
+            logger.info(f"Found {len(unmatched_events):,} unmatched ChannelEvents")
+            
+            if not unmatched_events:
+                results['completed_at'] = datetime.now().isoformat()
+                return results
+            
+            # Match and update events
+            matched_count = 0
+            for event in unmatched_events:
+                normalized_username = event.username.lower()
+                if normalized_username in username_to_user_id:
+                    event.user_id = username_to_user_id[normalized_username]
+                    matched_count += 1
+            
+            # Commit all changes
+            db.session.commit()
+            
+            results['total_matched'] = matched_count
+            results['completed_at'] = datetime.now().isoformat()
+            
+            logger.info(f"ChannelEvent matching completed - matched: {matched_count:,} of {len(unmatched_events):,} events")
+            
+        except Exception as e:
+            logger.error(f"Error during ChannelEvent user matching: {e}")
+            db.session.rollback()
+            results['status'] = 'error'
+            results['errors'].append(str(e))
+            results['completed_at'] = datetime.now().isoformat()
+            
+        return results
 
 
 # For template accessibility, create simple function interfaces

@@ -3,7 +3,7 @@
 
 {% if not url %}
 <!-- Empty player with message -->
-<div class="d-flex justify-content-center align-items-center h-100 bg-light w-100">
+<div class="d-flex justify-content-center align-items-center h-100 w-100">
   <div class="text-center p-4">
     <p class="text-muted">No URL provided for this content</p>
   </div>
@@ -70,7 +70,7 @@
 
 {% else %}
 <!-- Fallback for unsupported URLs with handler but unknown type -->
-<div class="d-flex justify-content-center align-items-center h-100 bg-light w-100 ratio ratio-16x9">
+<div class="d-flex justify-content-center align-items-center h-100 w-100 ratio ratio-16x9">
   <div class="text-center">
     <p class="text-muted">Unsupported content type</p>
     <p class="small text-muted">Handler: {{ handler.handler_name }}</p>

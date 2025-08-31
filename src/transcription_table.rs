@@ -52,6 +52,7 @@ pub fn transcription_table(props: &TranscriptionTableProps) -> Html {
             show_search={Some(true)}
             default_sort_column={Some("start".to_string())}
             default_sort_order={Some(SortOrder::Asc)}
+            custom_filters={None}
         />
     }
 }

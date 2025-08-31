@@ -621,6 +621,6 @@ pub fn show_enhanced_linking_modal(channel_id: i32, channel_name: String, source
 
 // Broadcaster events functionality
 #[wasm_bindgen]
-pub fn init_broadcaster_events() {
-    broadcaster_events::init_broadcaster_events();
+pub fn render_broadcaster_events_table(broadcaster_id: i32, element_id: &str) -> Result<(), String> {
+    broadcaster_events::render_broadcaster_events_table(broadcaster_id, element_id)
 }

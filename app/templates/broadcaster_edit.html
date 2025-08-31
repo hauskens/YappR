@@ -122,9 +122,16 @@
     <div class="card-body">
       <div class="d-flex align-items-center">
         <div class="me-3">
-          <div class="rounded-circle bg-primary bg-gradient d-inline-flex align-items-center justify-content-center" style="width: 3.5rem; height: 3.5rem;">
-            <i class="bi bi-broadcast text-white fs-4"></i>
-          </div>
+          {% if broadcaster.profile_image_url %}
+            <img src="{{ broadcaster.profile_image_url }}" 
+                 class="rounded-circle" 
+                 style="width: 3.5rem; height: 3.5rem; object-fit: cover;"
+                 alt="{{ broadcaster.name }} profile image">
+          {% else %}
+            <div class="rounded-circle bg-primary bg-gradient d-inline-flex align-items-center justify-content-center" style="width: 3.5rem; height: 3.5rem;">
+              <i class="bi bi-broadcast text-white fs-4"></i>
+            </div>
+          {% endif %}
         </div>
         <div class="flex-grow-1">
           <h1 class="card-title mb-1">{{ broadcaster.name }}</h1>
@@ -420,14 +427,9 @@
               <a href="{{ url_for('broadcaster.broadcaster_queue', broadcaster_id=broadcaster.id) }}" class="btn btn-primary">
                 <i class="bi bi-list-task me-2"></i>Manage Clip Queue
               </a>
-              <a href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id) }}" class="btn btn-outline-primary">
+              <a href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id) }}" class="btn btn-primary">
                 <i class="bi bi-calendar-event me-2"></i>View All Events
               </a>
-              {% if user_service.has_permission(current_user, ["admin"]) %}
-                <button class="btn btn-info" data-bs-toggle="modal" data-bs-target="#bulkDateEstimationModal">
-                  <i class="bi bi-clock-history me-2"></i>Estimate Upload Times
-                </button>
-              {% endif %}
               <button id="delete-broadcaster-btn" class="btn btn-outline-danger hold-to-delete" 
                       data-delete-url="{{ url_for('broadcaster.broadcaster_delete', broadcaster_id=broadcaster.id) }}">
                 <div class="progress-overlay"></div>
@@ -441,7 +443,44 @@
       {% endif %}
 
       {% if user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id) %}
-        <!-- Bot Settings -->
+        <!-- Broadcaster Settings -->
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-person-gear me-2"></i>Broadcaster Settings</h5>
+          </div>
+          <div class="card-body">
+            <div class="mb-3">
+              <label for="profile_image_url" class="form-label">Profile Image URL</label>
+              <input type="url" class="form-control" 
+                     id="profile_image_url" 
+                     name="profile_image_url"
+                     value="{{ broadcaster.profile_image_url if broadcaster.profile_image_url else '' }}" 
+                     placeholder="https://example.com/image.jpg"
+                     hx-post="{{ url_for('broadcaster.broadcaster_settings_update', broadcaster_id=broadcaster.id) }}"
+                     hx-target="#settings-feedback"
+                     hx-indicator="#settings-spinner"
+                     hx-trigger="change">
+              <div class="form-text">URL to your profile image (will be displayed as a circle)</div>
+            </div>
+            
+            {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
+              <div class="form-check">
+                <input type="checkbox" class="form-check-input" 
+                       id="hidden" 
+                       {% if broadcaster.hidden %}checked{% endif %}
+                       hx-post="{{ url_for('broadcaster.broadcaster_settings_update', broadcaster_id=broadcaster.id) }}"
+                       hx-target="#settings-feedback"
+                       hx-indicator="#settings-spinner">
+                <label class="form-check-label" for="hidden">
+                  Hide from Public
+                </label>
+                <div class="form-text">Only visible to admins and the broadcaster</div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Bot Integration -->
         <div class="card mb-4">
           <div class="card-header">
             <h5 class="mb-0"><i class="bi bi-robot me-2"></i>Bot Integration</h5>
@@ -462,21 +501,6 @@
                 to your server, then use <code>/verify</code> to get the channel ID.
               </div>
             </div>
-            
-            {% if user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) %}
-              <div class="form-check">
-                <input type="checkbox" class="form-check-input" 
-                       id="hidden" 
-                       {% if broadcaster.hidden %}checked{% endif %}
-                       hx-post="{{ url_for('broadcaster.broadcaster_settings_update', broadcaster_id=broadcaster.id) }}"
-                       hx-target="#settings-feedback"
-                       hx-indicator="#settings-spinner">
-                <label class="form-check-label" for="hidden">
-                  Hide from Public
-                </label>
-                <div class="form-text">Only visible to admins and the broadcaster</div>
-              </div>
-            {% endif %}
           </div>
         </div>
 
@@ -702,70 +726,6 @@
 </div>
 
 
-<!-- Bulk Date Estimation Modal -->
-<div class="modal fade" id="bulkDateEstimationModal" tabindex="-1" aria-labelledby="bulkDateEstimationModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="bulkDateEstimationModalLabel">
-          <i class="bi bi-clock-history me-2"></i>Bulk Upload Time Estimation
-        </h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <div class="alert alert-info">
-          <i class="bi bi-info-circle me-2"></i>
-          This utility extracts dates from video titles and matches them with live events to estimate upload times.
-        </div>
-        
-        <form id="bulkDateEstimationForm" method="post">
-          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-          
-          <div class="mb-3">
-            <label for="modal_date_estimation_channel" class="form-label">Target Channel</label>
-            <select id="modal_date_estimation_channel" name="channel_id" class="form-select" required>
-              <option value="">Choose a channel...</option>
-              {% for channel in channels %}
-                <option value="{{ channel.id }}">{{ channel.name }} ({{ channel.platform_name }})</option>
-              {% endfor %}
-            </select>
-            <div class="form-text">Select the channel to process for upload time estimation</div>
-          </div>
-          
-          <div class="row">
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label for="modal_date_estimation_margin" class="form-label">Date Margin (hours)</label>
-                <input type="number" class="form-control" id="modal_date_estimation_margin" 
-                       name="date_margin_hours" value="48" min="1" max="168">
-                <div class="form-text">Max time between title date and stream start</div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="mb-3">
-                <label for="modal_duration_margin" class="form-label">Duration Margin (seconds)</label>
-                <input type="number" class="form-control" id="modal_duration_margin" 
-                       name="duration_margin_seconds" value="20" min="0" max="300">
-                <div class="form-text">Max difference between video and stream duration</div>
-              </div>
-            </div>
-          </div>
-          
-          <div class="alert alert-warning">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            <strong>Note:</strong> This will only update videos that don't already have an estimated upload time.
-          </div>
-        </form>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-        <button type="button" class="btn btn-info" id="runDateEstimationBtn">
-          <i class="bi bi-play-circle me-2"></i>Run Estimation
-        </button>
-      </div>
-    </div>
-  </div>
-</div>
 
 <!-- Delete Confirmation Modal -->
 <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">

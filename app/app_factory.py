@@ -1,6 +1,6 @@
 
 from flask import Flask, request, g, render_template
-from flask_login import LoginManager, current_user  # type: ignore
+from flask_login import LoginManager, current_user, user_logged_in  # type: ignore
 from flask_wtf.csrf import CSRFError # type: ignore
 from sqlalchemy.exc import NoResultFound
 from os import makedirs, environ
@@ -135,6 +135,16 @@ def create_app(overrides: dict | None = None):
     csrf.init_app(app)
     cors.init_app(app, resources={
                   r"/*": {"origins": config.app_url}}, supports_credentials=True)
+
+    # Set up user login signal handler
+    @user_logged_in.connect_via(app)
+    def handle_user_login(sender, user, **extra):
+        try:
+            UserService().update_last_login(user.id)
+            UserService.update_moderated_channels(user)
+            logger.info("User logged in", extra={"user_id": user.id})
+        except Exception as e:
+            logger.error("Failed to update user last login", extra={"user_id": user.id, "error": str(e)})
     app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)  # type: ignore
 
     # Only initialize rate limiter when not in testing mode

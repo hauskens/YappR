@@ -40,9 +40,6 @@ def broadcasters():
 
     broadcasters = [broadcaster for broadcaster in all_broadcasters if broadcaster.id not in banned_broadcaster_ids]
 
-    if UserService.is_broadcaster(current_user):
-        broadcasters.append(UserService.get_broadcaster(current_user))
-
     logger.info("Loaded broadcasters.html", extra={"banned_broadcaster_ids": banned_broadcaster_ids})
     return render_template("broadcasters.html", broadcasters=broadcasters)
 

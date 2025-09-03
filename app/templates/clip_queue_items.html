@@ -265,8 +265,8 @@
     </div>
 
     <!-- Context button - only visible on hover -->
-    <button class="btn btn-sm btn-outline-secondary context-btn" type="button"
-            style="position: absolute; top: 5px; right: 40px; z-index: 100; opacity: 0; transition: opacity 0.2s; padding: 0.25rem 0.4rem;"
+    <button class="btn btn-sm btn-secondary context-btn" type="button"
+            style="position: absolute; top: 5px; right: 40px; z-index: 100; opacity: 0; transition: opacity 0.2s; padding: 0.25rem 0.4rem; background-color: #6c757d; border-color: #6c757d; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"
             data-bs-toggle="popover"
             data-bs-placement="left"
             data-bs-trigger="click"
@@ -313,8 +313,8 @@
 
     {% if show_history %}
     <!-- Reset status button - only visible on hover in history tab -->
-    <button class="btn btn-sm btn-outline-warning reset-btn" type="button"
-            style="position: absolute; top: 5px; right: 5px; z-index: 100; opacity: 0; transition: opacity 0.2s; padding: 0.25rem 0.4rem;"
+    <button class="btn btn-sm btn-warning reset-btn" type="button"
+            style="position: absolute; top: 5px; right: 5px; z-index: 100; opacity: 0; transition: opacity 0.2s; padding: 0.25rem 0.4rem; background-color: #ffc107; border-color: #ffc107; color: #000; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"
             title="Reset status (mark as unwatched)"
             hx-post="/clip_queue/mark_watched/{{ item.id }}"
             hx-swap="none"
@@ -327,8 +327,8 @@
     </button>
     {% else %}
     <!-- Skip button (trash icon) - only visible on hover in main queue -->
-    <button class="btn btn-sm btn-outline-danger skip-btn" type="button"
-            style="position: absolute; top: 5px; right: 5px; z-index: 100; opacity: 0; transition: opacity 0.2s; padding: 0.25rem 0.4rem;"
+    <button class="btn btn-sm btn-danger skip-btn" type="button"
+            style="position: absolute; top: 5px; right: 5px; z-index: 100; opacity: 0; transition: opacity 0.2s; padding: 0.25rem 0.4rem; background-color: #dc3545; border-color: #dc3545; color: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"
             title="Skip this clip"
             hx-post="/clip_queue/item/{{ item.id }}/skip"
             hx-swap="none"

@@ -149,7 +149,7 @@
         {% if current_user.is_anonymous == False %}
           <details class="dropdown d-inline-block">
             <summary class="d-flex align-items-center" style="cursor: pointer; list-style: none;">
-              <span class="me-2" {% if current_user.color %}style="color: {{ current_user.color }}"{% endif %}>{{ current_user.name }}</span>
+              <span class="me-2" {% if current_user.color %}style="color: {{ current_user.color }}; font-weight: bold;"{% endif %}>{{ current_user.name }}</span>
               <img width="50" height="50" src="{{ current_user.avatar_url }}" alt="User Icon" class="rounded-circle">
             </summary>
             <div class="dropdown-menu show p-2">

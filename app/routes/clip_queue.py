@@ -222,9 +222,13 @@ def get_queue_items():
         show_history = request.args.get(
             'show_history', 'false').lower() == 'true'
 
+        
         # Get broadcaster and content queue settings
         broadcaster = BroadcasterService.get_by_external_id(
             current_user.external_account_id)
+        
+        if broadcaster is None:
+            return render_template("401.html", error="Broadcaster not found, you do not have permission to access this page"), 401
 
         # Get prefer_shorter_content setting from database
         weight_settings = WeightSettingsService.get_by_broadcaster(broadcaster.id)
@@ -239,8 +243,6 @@ def get_queue_items():
         limit = int(request.args.get('limit', 20))
         offset = (page - 1) * limit
 
-        broadcaster = BroadcasterService.get_by_external_id(
-            current_user.external_account_id)
         queue_enabled = False
         for channel in broadcaster.channels:
             if str(channel.platform_name).lower() == "twitch" and channel.settings.content_queue_enabled:

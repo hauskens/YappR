@@ -100,6 +100,12 @@
                     <a href="{{ url_for('video.video_edit', video_id=video.source_video.id) }}" class="btn btn-outline-secondary btn-sm">
                       <i class="bi bi-pencil me-1"></i>Edit Source
                     </a>
+                    {% if current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin", "mod"]) %}
+                      <br>
+                      <button type="button" class="btn btn-outline-warning btn-sm mt-2" data-bs-toggle="modal" data-bs-target="#offsetAdjustModal">
+                        <i class="bi bi-clock-history me-1"></i>Adjust Offset
+                      </button>
+                    {% endif %}
                   </div>
                 </div>
               </div>
@@ -264,6 +270,31 @@
           </div>
           <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Offset Adjustment Modal -->
+    <div class="modal fade" id="offsetAdjustModal" tabindex="-1" aria-labelledby="offsetAdjustModalLabel" aria-hidden="true">
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="offsetAdjustModalLabel">Adjust Timestamp Offset</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <p class="text-muted mb-3">Adjust the time offset for all timestamp mappings linked to this video. Positive values delay the timing, negative values advance it.</p>
+              <label for="offsetAdjustment" class="form-label">Offset Adjustment (seconds)</label>
+              <input type="number" class="form-control" id="offsetAdjustment" step="0.1" placeholder="0.0" value="0.0">
+              <div class="form-text">Examples: +2.5 to delay by 2.5 seconds, -1.0 to advance by 1 second</div>
+            </div>
+            <div id="offset-adjust-status" class="mt-3"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="button" class="btn btn-warning" id="applyOffsetBtn">Apply Adjustment</button>
           </div>
         </div>
       </div>

@@ -470,3 +470,44 @@ def remove_timestamp_mapping(mapping_id: int):
     else:
         return jsonify({"error": "Mapping not found or could not be removed"}), 404
 
+
+@video_blueprint.route("/<int:video_id>/adjust_offset", methods=["POST"])
+@login_required
+@require_permission(permissions=[PermissionType.Admin, PermissionType.Moderator])
+def video_adjust_offset(video_id: int):
+    """Adjust time offset for all timestamp mappings of a video"""
+    video = VideoService.get_by_id(video_id)
+    if not video:
+        return jsonify({"error": "Video not found"}), 404
+    
+    data = request.get_json()
+    offset_adjustment = data.get("offset_adjustment")
+    
+    if offset_adjustment is None:
+        return jsonify({"error": "offset_adjustment parameter is required"}), 400
+    
+    try:
+        offset_adjustment = float(offset_adjustment)
+    except (ValueError, TypeError):
+        return jsonify({"error": "offset_adjustment must be a number"}), 400
+    
+    # Adjust all active timestamp mappings for this video
+    updated_count = 0
+    for mapping in video.target_mappings:
+        if mapping.active:
+            new_offset = mapping.time_offset + offset_adjustment
+            mapping.adjust_time_offset(new_offset)
+            updated_count += 1
+    
+    db.session.commit()
+    
+    logger.info(f"Adjusted time offset by {offset_adjustment}s for {updated_count} mappings", 
+                extra={"video_id": video_id, "offset_adjustment": offset_adjustment, 
+                       "updated_mappings": updated_count, "user_id": current_user.id})
+    
+    return jsonify({
+        "success": True,
+        "message": f"Adjusted offset by {offset_adjustment}s for {updated_count} timestamp mappings",
+        "updated_count": updated_count
+    })
+

@@ -395,6 +395,9 @@ class TitleDateParser:
             
             # DD Month YYYY format: '15 January 2025 Stream'
             (r'(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})', self._parse_day_month_name_year),
+            
+            # [Month DD(th|st|nd|rd)?, YYYY] format: '[May 16th, 2025] Stream'
+            (r'\[([A-Za-z]+)\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})\]', self._parse_month_day_year_full_bracket),
         ]
         
         self.month_names = {
@@ -475,6 +478,14 @@ class TitleDateParser:
     def _parse_day_month_name_year(self, groups: Tuple[str, ...]) -> datetime | None:
         """Parse 'DD Month YYYY' format"""
         day, month_str, year = groups
+        month = self.month_names.get(month_str.lower())
+        if not month:
+            return None
+        return datetime(int(year), month, int(day))
+    
+    def _parse_month_day_year_full_bracket(self, groups: Tuple[str, ...]) -> datetime | None:
+        """Parse '[Month DD, YYYY]' format"""
+        month_str, day, year = groups
         month = self.month_names.get(month_str.lower())
         if not month:
             return None

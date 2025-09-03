@@ -119,6 +119,11 @@ class VideoPage {
     if (previewButton) {
       previewButton.addEventListener('click', () => this.showLinkPreview());
     }
+
+    const applyOffsetBtn = document.getElementById('applyOffsetBtn');
+    if (applyOffsetBtn) {
+      applyOffsetBtn.addEventListener('click', () => this.applyOffsetAdjustment());
+    }
   }
 
   private async showLinkPreview() {
@@ -237,7 +242,7 @@ class VideoPage {
                   <a href="${sourceVideo.url}" target="_blank" class="btn btn-outline-secondary btn-sm me-2">
                     <i class="bi bi-box-arrow-up-right"></i>
                   </a>
-                  <button class="btn btn-primary btn-sm" onclick="videoPage.confirmVideoLink(${sourceVideo.id}, '${this.escapeHtml(sourceVideo.title)}')">
+                  <button class="btn btn-primary btn-sm" onclick="videoPage.confirmVideoLink(${sourceVideo.id}, \`${sourceVideo.title.replace(/`/g, '\\`').replace(/\\/g, '\\\\')}\`)">
                     Link Video
                   </button>
                 </div>
@@ -252,7 +257,7 @@ class VideoPage {
   }
 
   public async confirmVideoLink(sourceVideoId: number, sourceTitle: string) {
-    if (!confirm(`Link this video to "${sourceTitle}"?\n\nThis action will connect the videos and may transfer transcriptions.`)) {
+    if (!confirm(`Link this video to "${sourceTitle}"?\n\nThis action will connect the videos, you can adjust the offset later.`)) {
       return;
     }
 
@@ -290,6 +295,72 @@ class VideoPage {
     } catch (error) {
       console.error('Error linking video:', error);
       alert(`Error: ${error instanceof Error ? error.message : 'Failed to link video'}`);
+    }
+  }
+
+  public async applyOffsetAdjustment() {
+    const offsetInput = document.getElementById('offsetAdjustment') as HTMLInputElement;
+    const statusDiv = document.getElementById('offset-adjust-status');
+    
+    if (!offsetInput || !statusDiv) return;
+
+    const offsetValue = parseFloat(offsetInput.value);
+    
+    if (isNaN(offsetValue)) {
+      statusDiv.innerHTML = '<div class="alert alert-danger">Please enter a valid number</div>';
+      return;
+    }
+
+    if (offsetValue === 0) {
+      statusDiv.innerHTML = '<div class="alert alert-warning">No adjustment needed - offset is 0</div>';
+      return;
+    }
+
+    if (!confirm(`Adjust timing by ${offsetValue > 0 ? '+' : ''}${offsetValue} seconds?\n\nThis will modify all timestamp mappings for this video.`)) {
+      return;
+    }
+
+    try {
+      statusDiv.innerHTML = '<div class="text-center"><div class="spinner-border spinner-border-sm me-2"></div>Applying offset adjustment...</div>';
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // Add CSRF token if available
+      if ((window as any).csrfToken) {
+        headers['X-CSRFToken'] = (window as any).csrfToken;
+      }
+
+      const response = await fetch(`/video/${this.videoId}/adjust_offset`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ offset_adjustment: offsetValue })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to adjust offset');
+      }
+
+      statusDiv.innerHTML = `<div class="alert alert-success"><i class="bi bi-check-circle me-2"></i>${data.message}</div>`;
+      
+      // Reset input
+      offsetInput.value = '0.0';
+      
+      // Auto-close modal after 2 seconds
+      setTimeout(() => {
+        const modal = document.getElementById('offsetAdjustModal') as any;
+        const modalInstance = (window as any).bootstrap.Modal.getInstance(modal);
+        if (modalInstance) {
+          modalInstance.hide();
+        }
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error adjusting offset:', error);
+      statusDiv.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle me-2"></i>Error: ${error instanceof Error ? error.message : 'Failed to adjust offset'}</div>`;
     }
   }
 

@@ -148,11 +148,21 @@ class ChatLogParser:
         if " is now offline." in message:
             return ChannelEventType.Offline, None
         
+        # Subscription events: "username subscribed with Prime."
+        if " subscribed with Prime" in message:
+            username = message.split(" subscribed with Prime")[0].strip()
+            return ChannelEventType.Subscription, username
+        
         # Subscription events: "username subscribed at Tier 1..."
         if " subscribed at Tier" in message:
             username = message.split(" subscribed at Tier")[0].strip()
             return ChannelEventType.Subscription, username
         
+        # Individual gift events: "username is gifting 1 Tier 1 Subs to"
+        if " is gifting " in message and " Subs to " in message:
+            username = message.split(" is gifting ")[1].split(" Subs to")[0].strip()
+            return ChannelEventType.Gift, username
+
         # Individual gift events: "username gifted a Tier 1 sub to username!"
         if " gifted a Tier " in message and " sub to " in message and message.endswith("!"):
             username = message.split(" gifted a Tier ")[0].strip()

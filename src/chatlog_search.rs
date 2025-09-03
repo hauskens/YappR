@@ -4,6 +4,7 @@ use yew::html::TargetCast;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Local, TimeZone};
 use wasm_bindgen::JsValue;
+use crate::chat_image_generator::{generate_chat_image, save_image_settings, load_image_settings, download_canvas_as_image, copy_canvas_to_clipboard};
 
 #[derive(Deserialize, Clone, PartialEq)]
 pub struct ChatLogSearchResult {
@@ -14,6 +15,7 @@ pub struct ChatLogSearchResult {
     pub channel_id: i32,
     pub channel_name: String,
     pub vod: Option<VodInfo>,
+    pub user_color: Option<String>,
 }
 
 #[derive(Deserialize, Clone, PartialEq)]
@@ -62,6 +64,33 @@ pub struct SearchFormData {
     pub limit: usize,
 }
 
+#[derive(Clone, PartialEq)]
+pub struct ImageGeneratorData {
+    pub username: String,
+    pub message: String,
+    pub user_color: String,
+    pub message_color: String,
+    pub background_color: String,
+    pub font_size: u32,
+    pub max_width: u32,
+    pub show_modal: bool,
+}
+
+impl Default for ImageGeneratorData {
+    fn default() -> Self {
+        Self {
+            username: String::new(),
+            message: String::new(),
+            user_color: "#ff6b6b".to_string(),
+            message_color: "#efeff1".to_string(),
+            background_color: "#0e0e10".to_string(),
+            font_size: 16,
+            max_width: 600,
+            show_modal: false,
+        }
+    }
+}
+
 impl Default for SearchFormData {
     fn default() -> Self {
         Self {
@@ -92,6 +121,55 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
     let search_results = use_state(|| None::<ChatLogSearchResponse>);
     let loading = use_state(|| false);
     let error_message = use_state(|| None::<String>);
+    let image_generator = use_state(|| {
+        // Try to load settings from localStorage
+        if let Some(settings_json) = load_image_settings() {
+            if let Ok(settings) = serde_json::from_str::<serde_json::Value>(&settings_json) {
+                ImageGeneratorData {
+                    user_color: settings["user_color"].as_str().unwrap_or("#ff6b6b").to_string(),
+                    message_color: settings["message_color"].as_str().unwrap_or("#efeff1").to_string(),
+                    background_color: settings["background_color"].as_str().unwrap_or("#0e0e10").to_string(),
+                    font_size: settings["font_size"].as_u64().unwrap_or(16) as u32,
+                    max_width: settings["max_width"].as_u64().unwrap_or(600) as u32,
+                    ..ImageGeneratorData::default()
+                }
+            } else {
+                ImageGeneratorData::default()
+            }
+        } else {
+            ImageGeneratorData::default()
+        }
+    });
+    
+    // Auto-update preview when settings change
+    {
+        let image_generator = image_generator.clone();
+        use_effect_with(image_generator.clone(), move |data| {
+            if data.show_modal && !data.username.is_empty() && !data.message.is_empty() {
+                // Save settings
+                save_image_settings(&data.user_color, &data.message_color, &data.background_color, data.font_size, data.max_width);
+                
+                // Update preview
+                if let Ok(canvas) = generate_chat_image(
+                    &data.username,
+                    &data.user_color,
+                    &data.message,
+                    &data.message_color,
+                    &data.background_color,
+                    data.font_size,
+                    data.max_width,
+                ) {
+                    if let Some(document) = web_sys::window().and_then(|w| w.document()) {
+                        if let Some(preview_container) = document.get_element_by_id("image-preview") {
+                            preview_container.set_inner_html("");
+                            let _ = preview_container.append_child(&canvas);
+                        }
+                    }
+                }
+            }
+            || ()
+        });
+    }
 
     let on_form_submit = {
         let search_form = search_form.clone();
@@ -236,6 +314,62 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
         })
     };
 
+    // Image generator callbacks
+    let on_open_image_modal = {
+        let image_generator = image_generator.clone();
+        Callback::from(move |(username, message, user_color): (String, String, Option<String>)| {
+            let mut data = (*image_generator).clone();
+            data.username = username;
+            data.message = message;
+            if let Some(color) = user_color {
+                data.user_color = color;
+            }
+            data.show_modal = true;
+            image_generator.set(data);
+        })
+    };
+
+    let on_close_image_modal = {
+        let image_generator = image_generator.clone();
+        Callback::from(move |_| {
+            let mut data = (*image_generator).clone();
+            data.show_modal = false;
+            image_generator.set(data);
+        })
+    };
+
+    let on_color_change = {
+        let image_generator = image_generator.clone();
+        Callback::from(move |(field, value): (String, String)| {
+            let mut data = (*image_generator).clone();
+            match field.as_str() {
+                "user_color" => data.user_color = value,
+                "message_color" => data.message_color = value,
+                "background_color" => data.background_color = value,
+                _ => {}
+            }
+            image_generator.set(data);
+        })
+    };
+
+    let on_font_size_change = {
+        let image_generator = image_generator.clone();
+        Callback::from(move |size: u32| {
+            let mut data = (*image_generator).clone();
+            data.font_size = size;
+            image_generator.set(data);
+        })
+    };
+
+    let on_max_width_change = {
+        let image_generator = image_generator.clone();
+        Callback::from(move |width: u32| {
+            let mut data = (*image_generator).clone();
+            data.max_width = width;
+            image_generator.set(data);
+        })
+    };
+
     let render_search_results = |results: &ChatLogSearchResponse| -> Html {
         if results.results.is_empty() {
             return html! {
@@ -284,19 +418,32 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                 
                 <div class="table-responsive">
                     <table class="table table-striped table-hover">
-                        <thead class="table-dark">
+                        <thead class="table">
                             <tr>
                                 <th style="width: 140px; min-width: 140px;">{"Time"}</th>
                                 <th style="width: 120px; min-width: 120px;">{"Channel"}</th>
                                 <th style="width: 120px; min-width: 120px;">{"Username"}</th>
                                 <th style="width: auto; max-width: 300px;">{"Message"}</th>
                                 <th style="width: 140px; min-width: 140px;">{"VOD Link"}</th>
+                                <th style="width: 100px; min-width: 100px;">{"Actions"}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {for results.results.iter().map(|result| {
                                 let highlighted_message = highlight_search_terms(&result.message, &results.query);
                                 let timestamp = format_timestamp(&result.timestamp);
+                                let username = result.username.clone();
+                                let message = result.message.clone();
+                                let user_color = result.user_color.clone();
+                                let on_generate_click = {
+                                    let on_open_image_modal = on_open_image_modal.clone();
+                                    let username = username.clone();
+                                    let message = message.clone();
+                                    let user_color = user_color.clone();
+                                    Callback::from(move |_: MouseEvent| {
+                                        on_open_image_modal.emit((username.clone(), message.clone(), user_color.clone()));
+                                    })
+                                };
                                 
                                 html! {
                                     <tr key={result.id}>
@@ -325,6 +472,15 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                                 }
                                             }
                                         </td>
+                                        <td>
+                                            <button 
+                                                class="btn btn-sm btn-outline-success"
+                                                onclick={on_generate_click}
+                                                title="Generate chat image"
+                                            >
+                                                <i class="bi bi-image"></i>
+                                            </button>
+                                        </td>
                                     </tr>
                                 }
                             })}
@@ -342,8 +498,237 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
         }
     };
 
+    // Render image generator modal
+    let render_image_modal = || -> Html {
+        if !image_generator.show_modal {
+            return html! {};
+        }
+
+        let on_user_color_change = {
+            let on_color_change = on_color_change.clone();
+            Callback::from(move |e: Event| {
+                let input: HtmlInputElement = e.target_unchecked_into();
+                on_color_change.emit(("user_color".to_string(), input.value()));
+            })
+        };
+
+        let on_message_color_change = {
+            let on_color_change = on_color_change.clone();
+            Callback::from(move |e: Event| {
+                let input: HtmlInputElement = e.target_unchecked_into();
+                on_color_change.emit(("message_color".to_string(), input.value()));
+            })
+        };
+
+        let on_background_color_change = {
+            let on_color_change = on_color_change.clone();
+            Callback::from(move |e: Event| {
+                let input: HtmlInputElement = e.target_unchecked_into();
+                on_color_change.emit(("background_color".to_string(), input.value()));
+            })
+        };
+
+        let on_font_size_input = {
+            let on_font_size_change = on_font_size_change.clone();
+            Callback::from(move |e: InputEvent| {
+                let input: HtmlInputElement = e.target_unchecked_into();
+                if let Ok(size) = input.value().parse::<u32>() {
+                    on_font_size_change.emit(size);
+                }
+            })
+        };
+
+        let on_max_width_input = {
+            let on_max_width_change = on_max_width_change.clone();
+            Callback::from(move |e: InputEvent| {
+                let input: HtmlInputElement = e.target_unchecked_into();
+                if let Ok(width) = input.value().parse::<u32>() {
+                    on_max_width_change.emit(width);
+                }
+            })
+        };
+
+        let on_download_image = {
+            let image_generator = image_generator.clone();
+            Callback::from(move |_: MouseEvent| {
+                let data = (*image_generator).clone();
+                if let Ok(canvas) = generate_chat_image(
+                    &data.username,
+                    &data.user_color,
+                    &data.message,
+                    &data.message_color,
+                    &data.background_color,
+                    data.font_size,
+                    data.max_width,
+                ) {
+                    let filename = format!("{}_chat.png", data.username.replace(" ", "_"));
+                    let _ = download_canvas_as_image(&canvas, &filename);
+                }
+            })
+        };
+
+        let on_copy_image = {
+            let image_generator = image_generator.clone();
+            Callback::from(move |_: MouseEvent| {
+                let data = (*image_generator).clone();
+                if let Ok(canvas) = generate_chat_image(
+                    &data.username,
+                    &data.user_color,
+                    &data.message,
+                    &data.message_color,
+                    &data.background_color,
+                    data.font_size,
+                    data.max_width,
+                ) {
+                    wasm_bindgen_futures::spawn_local(async move {
+                        if let Err(_) = copy_canvas_to_clipboard(&canvas).await {
+                            web_sys::window().unwrap().alert_with_message("Failed to copy to clipboard").unwrap();
+                        }
+                    });
+                }
+            })
+        };
+
+        html! {
+            <div class="modal fade show" style="display: block; background-color: rgba(0,0,0,0.5);">
+                <div class="modal-dialog modal-lg">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">{"Generate Chat Image"}</h5>
+                            <button type="button" class="btn-close" onclick={on_close_image_modal.clone()}></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>{"Color Settings"}</h6>
+                                    <div class="mb-3">
+                                        <label class="form-label">{"Username Color"}</label>
+                                        <input 
+                                            type="color" 
+                                            class="form-control form-control-color" 
+                                            value={image_generator.user_color.clone()}
+                                            onchange={on_user_color_change}
+                                        />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">{"Message Color"}</label>
+                                        <input 
+                                            type="color" 
+                                            class="form-control form-control-color" 
+                                            value={image_generator.message_color.clone()}
+                                            onchange={on_message_color_change}
+                                        />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">{"Background Color"}</label>
+                                        <input 
+                                            type="color" 
+                                            class="form-control form-control-color" 
+                                            value={image_generator.background_color.clone()}
+                                            onchange={on_background_color_change}
+                                        />
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">{"Font Size"}</label>
+                                        <input 
+                                            type="range" 
+                                            class="form-range" 
+                                            min="12" 
+                                            max="32" 
+                                            value={image_generator.font_size.to_string()}
+                                            oninput={on_font_size_input}
+                                        />
+                                        <small class="text-muted">{format!("{}px", image_generator.font_size)}</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label class="form-label">{"Max Width"}</label>
+                                        <input 
+                                            type="range" 
+                                            class="form-range" 
+                                            min="300" 
+                                            max="1200" 
+                                            step="50" 
+                                            value={image_generator.max_width.to_string()}
+                                            oninput={on_max_width_input}
+                                        />
+                                        <small class="text-muted">{format!("{}px", image_generator.max_width)}</small>
+                                    </div>
+                                    <div class="mb-3">
+                                        <h6>{"Presets"}</h6>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-outline-primary btn-sm" 
+                                                onclick={
+                                                    let image_generator = image_generator.clone();
+                                                    Callback::from(move |_| {
+                                                        let mut data = (*image_generator).clone();
+                                                        data.user_color = "#9146ff".to_string();
+                                                        data.message_color = "#efeff1".to_string();
+                                                        data.background_color = "#0e0e10".to_string();
+                                                        image_generator.set(data);
+                                                    })
+                                                }>
+                                                {"Twitch"}
+                                            </button>
+                                            <button type="button" class="btn btn-outline-primary btn-sm"
+                                                onclick={
+                                                    let image_generator = image_generator.clone();
+                                                    Callback::from(move |_| {
+                                                        let mut data = (*image_generator).clone();
+                                                        data.user_color = "#7289da".to_string();
+                                                        data.message_color = "#dcddde".to_string();
+                                                        data.background_color = "#36393f".to_string();
+                                                        image_generator.set(data);
+                                                    })
+                                                }>
+                                                {"Discord"}
+                                            </button>
+                                            <button type="button" class="btn btn-outline-primary btn-sm"
+                                                onclick={
+                                                    let image_generator = image_generator.clone();
+                                                    Callback::from(move |_| {
+                                                        let mut data = (*image_generator).clone();
+                                                        data.user_color = "#00ff00".to_string();
+                                                        data.message_color = "#ffffff".to_string();
+                                                        data.background_color = "#000000".to_string();
+                                                        image_generator.set(data);
+                                                    })
+                                                }>
+                                                {"Classic"}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>{"Preview"}</h6>
+                                    <div class="border rounded p-1 mb-1 d-flex justify-content-center align-items-center" style="min-height: 100px; max-height: 200px; overflow: auto;">
+                                        <div id="image-preview"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" onclick={on_close_image_modal.clone()}>
+                                {"Close"}
+                            </button>
+                            <button type="button" class="btn btn-outline-primary" onclick={on_copy_image}>
+                                <i class="bi bi-clipboard me-2"></i>
+                                {"Copy to Clipboard"}
+                            </button>
+                            <button type="button" class="btn btn-primary" onclick={on_download_image}>
+                                <i class="bi bi-download me-2"></i>
+                                {"Download Image"}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    };
+
     html! {
         <div class="chatlog-search">
+            {render_image_modal()}
+            
             if props.channels.is_empty() {
                 <div class="alert alert-warning mb-4">
                     <i class="bi bi-exclamation-triangle me-2"></i>

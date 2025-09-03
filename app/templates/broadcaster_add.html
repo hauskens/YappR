@@ -40,7 +40,7 @@
                 <select id="twitch_channel" name="twitch_channel" class="form-select" required>
                   <option value="" disabled selected>-- Select a channel --</option>
                   {% if current_user.external_account_id %}
-                    <option value="{{ current_user.external_account_id }}|{{ current_user.name }}" {{ "" if own_channel_type == "partner" or own_channel_type == "affiliate" else "disabled" }}>Your channel{{ '' if own_channel_type != "partner" or own_channel_type != "affiliate" else ' is not partner/affiliate'}}: {{ current_user.name }}</option>
+                    <option value="{{ current_user.external_account_id }}|{{ current_user.name }}" {{ "" if own_channel_type == "partner" or own_channel_type == "affiliate" else "" }}>Your channel{{ '' if own_channel_type != "partner" or own_channel_type != "affiliate" else ' is not partner/affiliate'}}: {{ current_user.name }}</option>
                   {% endif %}
                   
                   {% if filtered_moderated_channels %}

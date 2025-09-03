@@ -13,6 +13,7 @@ mod broadcaster_edit;
 mod broadcaster_events;
 mod chat_tag_manager;
 mod chat_timeline_chart;
+mod chat_image_generator;
 mod chatlog_search;
 mod generic_table;
 mod transcription_table;

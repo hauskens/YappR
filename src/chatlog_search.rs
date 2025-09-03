@@ -4,6 +4,8 @@ use yew::html::TargetCast;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Local, TimeZone};
 use wasm_bindgen::JsValue;
+use rand::{Rng, SeedableRng};
+use rand::seq::SliceRandom;
 use crate::chat_image_generator::{generate_chat_image, save_image_settings, load_image_settings, download_canvas_as_image, copy_canvas_to_clipboard};
 
 #[derive(Deserialize, Clone, PartialEq)]
@@ -451,7 +453,13 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                         <td>
                                             <span class="badge bg-secondary text-truncate d-inline-block" style="max-width: 100px;">{&result.channel_name}</span>
                                         </td>
-                                        <td class="fw-bold text-truncate" style="max-width: 120px;" title={result.username.clone()}>{&result.username}</td>
+                                        <td class="fw-bold text-nowrap" style={
+                                            if let Some(color) = &result.user_color {
+                                                format!("color: {};", color)
+                                            } else {
+                                                String::new()
+                                            }
+                                        } title={result.username.clone()}>{&result.username}</td>
                                         <td style="word-wrap: break-word; word-break: break-word; max-width: 300px;">{Html::from_html_unchecked(highlighted_message.into())}</td>
                                         <td class="text-nowrap">
                                             {
@@ -661,7 +669,10 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                                     let image_generator = image_generator.clone();
                                                     Callback::from(move |_| {
                                                         let mut data = (*image_generator).clone();
-                                                        data.user_color = "#9146ff".to_string();
+                                                        let colors = vec!["#0EDD00", "#1976D2", "#00F4EB", "#D2691E", "#8A2BE2", "#00FF7F", "#FFCCFF", "#B22222", "#FF7F50"];
+                                                        let mut rng = rand::rngs::StdRng::from_entropy();
+                                                        let color = colors.choose(&mut rng).unwrap();
+                                                        data.user_color = color.to_string();
                                                         data.message_color = "#efeff1".to_string();
                                                         data.background_color = "#0e0e10".to_string();
                                                         image_generator.set(data);
@@ -674,7 +685,10 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                                     let image_generator = image_generator.clone();
                                                     Callback::from(move |_| {
                                                         let mut data = (*image_generator).clone();
-                                                        data.user_color = "#7289da".to_string();
+                                                        let colors = vec!["#0EDD00", "#1976D2", "#00F4EB", "#D2691E", "#8A2BE2", "#00FF7F", "#FFCCFF", "#B22222", "#FF7F50"];
+                                                        let mut rng = rand::rngs::StdRng::from_entropy();
+                                                        let color = colors.choose(&mut rng).unwrap();
+                                                        data.user_color = color.to_string();
                                                         data.message_color = "#dcddde".to_string();
                                                         data.background_color = "#36393f".to_string();
                                                         image_generator.set(data);
@@ -687,9 +701,12 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                                     let image_generator = image_generator.clone();
                                                     Callback::from(move |_| {
                                                         let mut data = (*image_generator).clone();
-                                                        data.user_color = "#00ff00".to_string();
+                                                        let colors = vec!["#0EDD00", "#1976D2", "#00F4EB", "#D2691E", "#8A2BE2", "#00FF7F", "#FFCCFF", "#B22222", "#FF7F50"];
+                                                        let mut rng = rand::rngs::StdRng::from_entropy();
+                                                        let color = colors.choose(&mut rng).unwrap();
+                                                        data.user_color = color.to_string();
                                                         data.message_color = "#ffffff".to_string();
-                                                        data.background_color = "#000000".to_string();
+                                                        data.background_color = "#191919".to_string();
                                                         image_generator.set(data);
                                                     })
                                                 }>

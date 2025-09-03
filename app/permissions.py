@@ -298,8 +298,14 @@ def get_accessible_channels(user: Users, chat_collection_only: bool = False) -> 
     if user.is_anonymous:
         return []
         
-    # Global admins and global moderators can access all channels
-    if UserService.is_admin(user) or UserService.has_permission(user, PermissionType.Moderator):
+    # Global admins can access ALL channels regardless of chat collection setting
+    if UserService.is_admin(user):
+        from app.models.channel import Channels
+        query = db.select(Channels)
+        return db.session.execute(query).scalars().all()
+    
+    # Global moderators can access all channels with chat collection enabled
+    if UserService.has_permission(user, PermissionType.Moderator):
         from app.models.channel import Channels, ChannelSettings
         query = db.select(Channels)
         if chat_collection_only:

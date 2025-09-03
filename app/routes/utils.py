@@ -71,7 +71,8 @@ def chatlog_search():
         
         logger.info(f"User is searching chatlog for user: '%s', query '%s'", username, query, extra={"user_id": current_user.id})
         # Build the query
-        search_query = db.session.query(ChatLog, Channels.name.label('channel_name')).join(Channels)
+        from app.models import Users
+        search_query = db.session.query(ChatLog, Channels.name.label('channel_name'), Users.color.label('user_color')).join(Channels).outerjoin(Users, ChatLog.username == Users.name)
         
         # Text search in message content only (if query provided)
         if query:
@@ -112,7 +113,22 @@ def chatlog_search():
         
         # Channel filter (specific channel if provided)
         if channel_id:
-            search_query = search_query.filter(ChatLog.channel_id == channel_id)
+            # Verify the user can access this specific channel
+            if channel_id in accessible_channel_ids:
+                search_query = search_query.filter(ChatLog.channel_id == channel_id)
+            else:
+                # User cannot access this channel, return empty results
+                return {
+                    "results": [],
+                    "total": 0,
+                    "query": query,
+                    "filters": {
+                        "channel": None,
+                        "username": username if username else None,
+                        "date_from": date_from,
+                        "date_to": date_to
+                    }
+                }
         
         # Username filter
         if username:
@@ -141,7 +157,7 @@ def chatlog_search():
         
         # Format results with VOD links
         formatted_results = []
-        for chatlog, channel_name in results:
+        for chatlog, channel_name, user_color in results:
             # Find matching VOD for this chatlog timestamp
             vod_info = find_matching_vod(chatlog.channel_id, chatlog.timestamp)
             
@@ -151,7 +167,8 @@ def chatlog_search():
                 "message": chatlog.message,
                 "timestamp": chatlog.timestamp.isoformat(),
                 "channel_id": chatlog.channel_id,
-                "channel_name": channel_name
+                "channel_name": channel_name,
+                "user_color": user_color
             }
             
             # Add VOD information if available

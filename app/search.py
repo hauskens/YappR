@@ -117,6 +117,9 @@ def search_v2(
 
     # Sort results
     for v in video_result:
+        if v.video.active == False:
+            video_result.remove(v)
+            continue
         v.segment_results.sort(key=lambda r: r.start_time())
     video_result.sort(key=lambda v: v.video.uploaded, reverse=True)
 

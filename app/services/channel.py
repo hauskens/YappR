@@ -396,6 +396,9 @@ class ChannelService:
         
         successful_count = 0
         failed_count = 0
+        for v in channel.videos:
+            v.active = False
+        db.session.flush()
         
         for video in videos:
             try:

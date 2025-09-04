@@ -1,6 +1,16 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<style>
+.title-truncate {
+  max-width: 30vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: top;
+}
+</style>
   <div class="container">
     <h1>Videos on Channel: {{ channel.name }}</h1>
     {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin"]) or user_service.has_broadcaster_id(current_user, channel.broadcaster_id) or user_service.is_moderator(current_user, channel.broadcaster_id)) %}
@@ -96,7 +106,7 @@
           <td>
                   <img src="{{url_for('root.index')}}thumbnails/{{video.id}}" alt="" style="max-width:100%; max-height:250px;">
           </td>
-          <td>{{ video.title }}</td>
+          <td><span class="title-truncate" title="{{ video.title }}">{{ video.title }}</span></td>
           <td>{{ video_service.get_duration_str(video) }}</td>
           <td> 
             {% if video.transcriptions|length == 0 and video.active == true and not video.source_video %}

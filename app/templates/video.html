@@ -133,7 +133,7 @@
           </button>
         </h4>
       </div>
-      <div id="chatMessagesCollapse" class="collapse show">
+      <div id="chatMessagesCollapse" class="collapse">
         <div class="card-body">
           <!-- Tag Categories Management -->
           <div id="tag-category-manager"></div>
@@ -236,6 +236,9 @@
               <hr class="my-4">
               <div id="transcription-segments-container">
                 <button onclick="renderTranscriptionTable({{ video.id }})" class="btn btn-primary">Load Transcription Segments</button>
+                {% if video.target_mappings %}
+                  <div class="form-text mt-1">Includes transcription segments from linked source video</div>
+                {% endif %}
               </div>
             {% endif %}
           {% else %}

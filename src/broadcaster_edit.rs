@@ -819,27 +819,35 @@ impl ModalManager {
         dropdown.set_inner_html(r#"<option value="None">None (No source channel)</option>"#);
         
         let document = web_sys::window().unwrap().document().unwrap();
-        let channel_rows = document.query_selector_all("tbody tr").unwrap();
+        let channel_cards = document.query_selector_all(".channel-card").unwrap();
         
-        for i in 0..channel_rows.length() {
-            if let Some(row) = channel_rows.get(i) {
-                if let Ok(element) = row.dyn_into::<Element>() {
-                    if let (Some(id_cell), Some(name_cell)) = (
-                        element.query_selector("td:first-child").unwrap(),
-                        element.query_selector("td:nth-child(3)").unwrap()
-                    ) {
-                    let row_channel_id: i32 = id_cell.text_content().unwrap_or_default().parse().unwrap_or(0);
-                    let row_channel_name = name_cell.text_content().unwrap_or_default();
+        for i in 0..channel_cards.length() {
+            if let Some(card) = channel_cards.get(i) {
+                if let Ok(card_element) = card.dyn_into::<Element>() {
+                    // Get channel ID from data attributes or from delete button data
+                    let channel_id_opt = if let Some(delete_btn) = card_element.query_selector("[data-channel-id]").unwrap() {
+                        delete_btn.get_attribute("data-channel-id")
+                            .and_then(|id_str| id_str.parse::<i32>().ok())
+                    } else {
+                        None
+                    };
                     
-                    if row_channel_id != 0 && row_channel_id != current_channel_id && !row_channel_name.is_empty() {
-                        let option = document.create_element("option").unwrap();
-                        option.set_attribute("value", &row_channel_id.to_string()).unwrap();
-                        option.set_text_content(Some(&row_channel_name));
+                    // Get channel name from card title
+                    let channel_name_opt = card_element.query_selector(".card-title").unwrap()
+                        .and_then(|title| title.text_content());
+                    
+                    if let (Some(row_channel_id), Some(row_channel_name)) = (channel_id_opt, channel_name_opt) {
+                        let row_channel_name = row_channel_name.trim().to_string();
                         
-                        if current_source_channel_id == Some(row_channel_id) {
-                            option.set_attribute("selected", "selected").unwrap();
-                        }
-                        
+                        if row_channel_id != current_channel_id && !row_channel_name.is_empty() {
+                            let option = document.create_element("option").unwrap();
+                            option.set_attribute("value", &row_channel_id.to_string()).unwrap();
+                            option.set_text_content(Some(&row_channel_name));
+                            
+                            if current_source_channel_id == Some(row_channel_id) {
+                                option.set_attribute("selected", "selected").unwrap();
+                            }
+                            
                             let _ = dropdown.append_child(&option);
                         }
                     }

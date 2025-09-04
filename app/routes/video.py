@@ -69,9 +69,19 @@ def video_delete(video_id: int):
 @require_permission(check_anyone=True)
 def video_edit(video_id: int):
     video = VideoService.get_by_id(video_id)
+    
+    # Collect transcriptions from current video and source video if linked
+    all_transcriptions = list(video.transcriptions)
+    
+    # Add transcriptions from source video if this video is linked via TimestampMapping
+    if video.target_mappings:
+        for mapping in video.target_mappings:
+            if mapping.active and mapping.source_video:
+                all_transcriptions.extend(mapping.source_video.transcriptions)
+    
     return render_template(
         "video.html",
-        transcriptions=video.transcriptions,
+        transcriptions=all_transcriptions,
         video=video,
     )
 
@@ -266,6 +276,8 @@ def video_transcription_segments(video_id: int):
         abort(404, description="Video not found")
     
     segments = []
+    
+    # Add segments from current video's transcriptions
     for transcription in video.transcriptions:
         if transcription.processed:
             for segment in transcription.segments:
@@ -278,8 +290,39 @@ def video_transcription_segments(video_id: int):
                     "timestamp_url": f"{VideoService.get_url(video)}{'&' if '?' in VideoService.get_url(video) else '?'}t={int(segment.start)}s"
                 })
     
+    # Add segments from source video's transcriptions if linked via TimestampMapping
+    if video.target_mappings:
+        for mapping in video.target_mappings:
+            if mapping.active and mapping.source_video:
+                source_video = mapping.source_video
+                for transcription in source_video.transcriptions:
+                    if transcription.processed:
+                        for segment in transcription.segments:
+                            # Translate source timestamp to target timestamp
+                            target_start = mapping.translate_source_to_target(segment.start)
+                            target_end = mapping.translate_source_to_target(segment.end)
+                            
+                            # Only include segments that can be mapped to target video
+                            if target_start is not None and target_end is not None:
+                                segments.append({
+                                    "id": f"source_{segment.id}",
+                                    "transcription_id": transcription.id,
+                                    "start": target_start,
+                                    "end": target_end,
+                                    "text": f"{segment.text}",
+                                    "timestamp_url": f"{VideoService.get_url(video)}{'&' if '?' in VideoService.get_url(video) else '?'}t={int(target_start)}s"
+                                })
+                            else:
+                                logger.debug("Segment timestamp could not be translated", extra={
+                                    "segment_id": segment.id,
+                                    "source_start": segment.start,
+                                    "source_end": segment.end
+                                })
+    
     # Sort by start time
     segments.sort(key=lambda x: float(x["start"])) # type: ignore
+    
+    logger.info("Returning transcription segments", extra={"video_id": video_id, "total_segments": len(segments)})
     
     response = jsonify({
         "video_platform_ref": video.platform_ref,

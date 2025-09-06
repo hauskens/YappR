@@ -115,11 +115,10 @@ def search_v2(
             video_result.append(new_video_result)
             video_lookup[video_id] = new_video_result
 
-    # Sort results
+    # Filter out inactive videos and sort results
+    video_result = [v for v in video_result if v.video.active]
+    
     for v in video_result:
-        if v.video.active == False:
-            video_result.remove(v)
-            continue
         v.segment_results.sort(key=lambda r: r.start_time())
     video_result.sort(key=lambda v: v.video.uploaded, reverse=True)
 

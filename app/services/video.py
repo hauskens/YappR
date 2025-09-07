@@ -305,6 +305,14 @@ class VideoService:
         return len(target_video.target_mappings) > 0
 
     @staticmethod
+    def source_has_transcriptions(target_video: Video) -> bool:
+        """Check if a linked source video has transcriptions."""
+        source_video = VideoService.get_source_video(target_video)
+        if source_video:
+            return len(source_video.transcriptions) > 0
+        return False
+
+    @staticmethod
     def add_timestamp_mapping(target_video: Video, source_video: Video, 
                             source_start: float = 0.0, source_end: float | None = None,
                             target_start: float = 0.0, target_end: float | None = None,

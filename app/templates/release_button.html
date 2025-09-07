@@ -350,7 +350,7 @@
                     </div>
                 </div>
 
-                <div class="countdown" id="countdown">Hold to Launch!</div>
+                <div class="countdown" id="countdown"></div>
                 
  
             {% endif %}
@@ -411,7 +411,7 @@ function stopHold() {
     if (isReleased || !button) return;
     
     clearInterval(holdTimer);
-    if (countdown) countdown.textContent = 'Hold to Launch!';
+    if (countdown) countdown.textContent = '';
     button.style.transform = ''; // Reset to allow CSS hover to work
 }
 

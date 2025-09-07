@@ -185,22 +185,23 @@
                   <div class="row">
                     <div class="col-md-6">
                       <small class="text-muted">Channel ID: {{ channel.platform_channel_id }}</small><br>
-                      <small class="text-muted">Platform Ref: {{ channel.platform_ref }}</small>
-                    </div>
-                    <div class="col-md-6">
+                      <small class="text-muted">Platform Ref: {{ channel.platform_ref }}</small><br>
                       <small class="text-muted">Last Active: {{ channel.last_active if channel.last_active else 'Never' }}</small><br>
                     </div>
                   </div>
+                  <div class="mt-3">
+                    <a class="btn btn-primary btn-sm" href="{{ url_for('channel.channel_get_videos', channel_id=channel.id) }}">
+                      <i class="bi bi-collection-play me-2"></i>View Channel
+                    </a>
+                  </div>
                 </div>
+                {% if user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, broadcaster.id) or user_service.is_moderator(current_user, broadcaster.id) %}
                 <div class="dropdown">
                   <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" 
                           data-bs-toggle="dropdown" aria-expanded="false">
                     Actions
                   </button>
                   <ul class="dropdown-menu">
-                    <li><a class="dropdown-item" href="{{ url_for('channel.channel_get_videos', channel_id=channel.id) }}">
-                      <i class="bi bi-collection-play me-2"></i>View Channel
-                    </a></li>
                     <li><a class="dropdown-item" href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id, channel_id=channel.id) }}">
                       <i class="bi bi-calendar-event me-2"></i>View Events
                     </a></li>
@@ -225,6 +226,7 @@
                     {% endif %}
                   </ul>
                 </div>
+                {% endif %}
               </div>
               
               <!-- Stream Channel Settings -->
@@ -317,6 +319,11 @@
                         <span class="badge platform-badge {{ channel.platform_name.lower() }}">{{ channel.platform_name }}</span>
                       </div>
                       <small class="text-muted">{{ channel.platform_channel_id }}</small>
+                      <div class="mt-3">
+                        <a class="btn btn-primary btn-sm" href="{{ url_for('channel.channel_get_videos', channel_id=channel.id) }}">
+                          <i class="bi bi-collection-play me-2"></i>View Channel
+                        </a>
+                      </div>
                     </div>
                     <div class="dropdown">
                       <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" 
@@ -324,9 +331,6 @@
                         <i class="bi bi-three-dots"></i>
                       </button>
                       <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="{{ url_for('channel.channel_get_videos', channel_id=channel.id) }}">
-                          <i class="bi bi-collection-play me-2"></i>View Channel
-                        </a></li>
                         <li><a class="dropdown-item" href="{{ url_for('broadcaster.broadcaster_events', broadcaster_id=broadcaster.id, channel_id=channel.id) }}">
                           <i class="bi bi-calendar-event me-2"></i>View Events
                         </a></li>

@@ -109,7 +109,7 @@
           <td><span class="title-truncate" title="{{ video.title }}">{{ video.title }}</span></td>
           <td>{{ video_service.get_duration_str(video) }}</td>
           <td> 
-            {% if video.transcriptions|length == 0 and video.active == True or (current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"])) %}
+            {% if (video.transcriptions|length == 0 and not video_service.source_has_transcriptions(video) and video.active == True) or (current_user.is_anonymous == False and user_service.has_permission(current_user, ["admin"])) %}
               {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin", "mod"]) or user_service.has_broadcaster_id(current_user, channel.broadcaster_id) or user_service.is_moderator(current_user, channel.broadcaster_id)) %}
                   <a class="btn btn-primary" onclick="return confirm('After you put this in queue, please have patience, task runs on server and will take a while.')" title="Run in background: This will queue up full processing of video and will take some time depending on how much is in queue and how long the video is, you should expect a wait time of at least 5 min for YT, and 15 min for Twitch." role="button" href="{{ url_for('video_process_full', video_id=video.id) }}">Start full processing</a>
               {% endif %}

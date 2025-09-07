@@ -6,12 +6,13 @@ from collections.abc import Sequence
 from typing import Optional
 
 from sqlalchemy import select, func, update
+from sqlalchemy.orm import aliased
 from datetime import datetime
 from app.models import db
 from app.models import (
     Video, Platforms, Broadcaster, Channels, Transcription,
     ChannelSettings, ContentQueue, ContentQueueSubmission, ChatLog, ChannelCreate,
-    TranscriptionSource, Users
+    TranscriptionSource, Users, TimestampMapping
 )
 from app.models.channel import ChannelEvent
 from app.models.enums import AccountSource
@@ -83,16 +84,36 @@ class ChannelService:
     @staticmethod
     def get_stats_videos_with_good_transcription(channel_id: int) -> int:
         """Get count of videos with high quality transcriptions for a channel."""
-        return (
-            db.session.query(func.count(func.distinct(Video.id)))
+        # Create alias for source video to avoid naming conflicts
+        SourceVideo = aliased(Video)
+        
+        # Videos with direct transcriptions
+        direct_transcriptions = (
+            db.session.query(Video.id)
             .filter(
                 Video.transcriptions.any(
                     Transcription.source == TranscriptionSource.Unknown
                 ),
                 Video.channel_id == channel_id,
             )
-            .scalar() or 0
         )
+        
+        # Videos linked to sources with transcriptions
+        linked_transcriptions = (
+            db.session.query(Video.id)
+            .join(TimestampMapping, Video.id == TimestampMapping.target_video_id)
+            .join(SourceVideo, TimestampMapping.source_video_id == SourceVideo.id)
+            .filter(
+                SourceVideo.transcriptions.any(
+                    Transcription.source == TranscriptionSource.Unknown
+                ),
+                Video.channel_id == channel_id,
+            )
+        )
+        
+        # Union both queries and count distinct video IDs
+        combined_query = direct_transcriptions.union(linked_transcriptions)
+        return db.session.query(func.count()).select_from(combined_query.subquery()).scalar() or 0
 
 
     @staticmethod

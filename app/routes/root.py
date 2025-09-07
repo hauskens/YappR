@@ -20,9 +20,14 @@ from app.models.config import config
 from app.routes.search import search_page
 from app.chatlogparse import parse_log
 import tempfile
+from datetime import datetime
+import redis
 
 root_blueprint = Blueprint('root', __name__, url_prefix='/',
                            template_folder='templates', static_folder='static')
+
+# Redis connection for release tracking
+r = redis.Redis.from_url(config.redis_uri)
 
 
 @root_blueprint.route("/")
@@ -413,4 +418,81 @@ def match_chatlog_users():
             <p>An unexpected error occurred during the matching process: <code>{str(e)}</code></p>
         </div>
         """
+
+
+@root_blueprint.route("/release")
+@login_required
+@require_permission()
+def release_page():
+    """Release button page - only accessible to global admins and moderators"""
+    # Check if release has already happened
+    released = r.get("yappr_1_0_released") == b"true"
+    
+    launch_data = None
+    if released:
+        # Get launch metadata
+        launch_data = r.hgetall("yappr_1_0_launch_data")
+        # Convert bytes to strings for template
+        if launch_data:
+            launch_data = {k.decode('utf-8') if isinstance(k, bytes) else k: 
+                          v.decode('utf-8') if isinstance(v, bytes) else v 
+                          for k, v in launch_data.items()}
+    
+    return render_template("release_button.html", released=released, launch_data=launch_data)
+
+
+@root_blueprint.route("/release-launch", methods=["POST"])
+@login_required
+@require_permission([PermissionType.Admin, PermissionType.Moderator])
+@csrf.exempt  # CSRF is handled in the template
+def release_launch():
+    """Trigger the 1.0 release - can only be called once"""
+    try:
+        # Check if already released
+        if r.get("yappr_1_0_released") == b"true":
+            return jsonify({
+                "success": False,
+                "message": "YappR 1.0 has already been launched!"
+            })
+        
+        # Mark as released atomically
+        release_key = "yappr_1_0_released"
+        if r.set(release_key, "true", nx=True):  # Only set if key doesn't exist
+            # Log the historic moment
+            logger.info("🎉 YappR 1.0 OFFICIALLY LAUNCHED! 🎉", extra={
+                "user_id": current_user.id,
+                "username": current_user.name,
+                "event": "yappr_1_0_launch",
+                "timestamp": "1.0 release"
+            })
+            
+            # Store launch metadata
+            launch_data = {
+                "launched_by": current_user.id,
+                "launched_by_username": current_user.name,
+                "launch_timestamp": datetime.now().isoformat(),
+                "version": "1.0.0"
+            }
+            r.hset("yappr_1_0_launch_data", mapping=launch_data)
+            
+            return jsonify({
+                "success": True,
+                "message": f"🚀 YappR 1.0 LAUNCHED by {current_user.name}! 🚀"
+            })
+        else:
+            # Someone else beat us to it
+            return jsonify({
+                "success": False,
+                "message": "YappR 1.0 has already been launched by someone else!"
+            })
+            
+    except Exception as e:
+        logger.error("Failed to launch YappR 1.0", extra={
+            "user_id": current_user.id,
+            "error": str(e)
+        }, exc_info=True)
+        return jsonify({
+            "success": False,
+            "message": "Launch failed due to technical difficulties. Try again!"
+        })
 

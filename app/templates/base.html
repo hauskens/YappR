@@ -169,14 +169,18 @@
     <!-- Theme toggle functionality is now handled by theme-toggle.js -->
     {% block extra_scripts %}{% endblock %}
     <footer class="footer mt-auto text-center text-white bg-body-tertiary w-100 p-2">
-      <div class="d-flex justify-content-center align-items-center gap-2 text-body-secondary fs-6">
-        <span class="d-flex align-items-center">Made by Hausken</span>
-        <span>
-          <a class="github-button" href="https://github.com/hauskens/YappR"
-             data-color-scheme="no-preference: light; light: light; dark: light;"
-             data-show-count="true" size="small" data-icon="octicon-star"
-             aria-label="Star hauskens/YappR on GitHub">GitHub</a>
-        </span>
+      <div class="d-flex justify-content-between align-items-center text-body-secondary fs-6">
+        <div></div>
+        <div class="d-flex align-items-center gap-2">
+          <span class="d-flex align-items-center">Made by Hausken</span>
+          <span>
+            <a class="github-button" href="https://github.com/hauskens/YappR"
+               data-color-scheme="no-preference: light; light: light; dark: light;"
+               data-show-count="true" size="small" data-icon="octicon-star"
+               aria-label="Star hauskens/YappR on GitHub">GitHub</a>
+          </span>
+        </div>
+        <a href="{{ url_for('root.release_page') }}" class="text-muted small">v{{ version }}</a>
       </div>
     </footer>
     </body>

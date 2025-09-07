@@ -1,0 +1,544 @@
+{% extends "base.html" %}
+
+{% block head %}
+{{ super() }}
+<title>YappR 1.0 Release</title>
+<style>
+    .release-hero {
+        background: transparent;
+        min-height: 40vh;
+        border-radius: 15px;
+        position: relative;
+        overflow: hidden;
+        margin: 1rem 0;
+    }
+
+    .release-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 40vh;
+        text-align: center;
+        position: relative;
+        z-index: 10;
+        padding: 1rem;
+    }
+
+    .title {
+        color: var(--bs-body-color);
+        font-size: 3.5rem;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        margin-bottom: 0.5rem;
+        animation: pulse 2s ease-in-out infinite alternate;
+    }
+
+    .subtitle {
+        color: var(--bs-body-color);
+        opacity: 0.8;
+        font-size: 1.3rem;
+        margin-bottom: 1.5rem;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+    }
+
+    .launch-status {
+        background: var(--bs-body-bg);
+        border: 1px solid var(--bs-border-color);
+        padding: 1.5rem;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        margin-bottom: 1rem;
+        max-width: 500px;
+        width: 100%;
+    }
+
+    .status-icon {
+        font-size: 4rem;
+        margin-bottom: 1rem;
+    }
+
+    .status-title {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 1rem;
+    }
+
+    .status-subtitle {
+        font-size: 1.1rem;
+        color: #666;
+        margin-bottom: 1.5rem;
+    }
+
+    .launch-metadata {
+        background: var(--bs-secondary-bg);
+        border: 1px solid var(--bs-border-color-translucent);
+        padding: 1rem;
+        border-radius: 10px;
+        margin-top: 1rem;
+    }
+
+    /* Nuclear Launch Button */
+    .nuclear-button {
+        width: 200px;
+        height: 200px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #ff6b6b, #d63031);
+        border: 5px solid #2d3436;
+        box-shadow: 0 0 30px rgba(255,107,107,0.5), inset 0 0 10px rgba(255,255,255,0.2);
+        position: relative;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        overflow: hidden;
+        margin: 0 auto 1rem auto;
+    }
+
+    .nuclear-button:hover:not(.disabled) {
+        transform: scale(1.05);
+        box-shadow: 0 0 60px rgba(255,107,107,0.8);
+    }
+
+    .nuclear-button:active:not(.disabled) {
+        transform: scale(0.98);
+    }
+
+    .nuclear-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: white;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+    }
+
+    .nuclear-icon {
+        font-size: 3rem;
+        margin-bottom: 0.5rem;
+        animation: rotate 3s linear infinite;
+    }
+
+    .nuclear-text {
+        font-size: 1.2rem;
+        line-height: 1.2;
+    }
+
+    /* Countdown Timer */
+    .countdown {
+        font-size: 1.5rem;
+        color: var(--bs-body-color);
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        margin-top: 1rem;
+    }
+
+    /* Disabled State */
+    .nuclear-button.disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: scale(0.95);
+        background: radial-gradient(circle, #95a5a6, #7f8c8d);
+    }
+
+    .nuclear-button.disabled:hover {
+        transform: scale(0.95);
+        box-shadow: 0 0 40px rgba(149,165,166,0.3);
+    }
+
+    /* Pulse Animation */
+    .pulse-ring {
+        position: absolute;
+        border: 3px solid rgba(255,255,255,0.6);
+        border-radius: 50%;
+        animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+    }
+
+    /* Success Effects */
+    .firework {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 50%;
+        animation: firework 4s ease-out forwards;
+        opacity: 0;
+        z-index: 9999;
+    }
+
+    .confetti {
+        position: fixed;
+        width: 8px;
+        height: 8px;
+        animation: confetti 3s ease-out forwards;
+        z-index: 9999;
+    }
+
+    /* Background Stars */
+    .star {
+        position: absolute;
+        background: rgba(255,255,255,0.8);
+        clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%);
+        animation: twinkle 3s ease-in-out infinite;
+    }
+
+    /* Animations */
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        100% { transform: scale(1.05); }
+    }
+
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+
+    @keyframes pulse-ring {
+        0% {
+            transform: scale(1);
+            opacity: 1;
+        }
+        80%, 100% {
+            transform: scale(1.6);
+            opacity: 0;
+        }
+    }
+
+    @keyframes firework {
+        0% {
+            transform: translate(-50%, -50%) scale(0);
+            opacity: 1;
+        }
+        50% {
+            opacity: 1;
+        }
+        100% {
+            transform: translate(-50%, -50%) scale(15);
+            opacity: 0;
+        }
+    }
+
+    @keyframes confetti {
+        0% {
+            transform: translateY(-100vh) rotateZ(0deg);
+            opacity: 1;
+        }
+        100% {
+            transform: translateY(100vh) rotateZ(720deg);
+            opacity: 0;
+        }
+    }
+
+    @keyframes twinkle {
+        0%, 100% { opacity: 0.3; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.2); }
+    }
+
+
+    @media (max-width: 768px) {
+        .title {
+            font-size: 2.5rem;
+        }
+        .nuclear-button {
+            width: 200px;
+            height: 200px;
+        }
+        .nuclear-icon {
+            font-size: 2.5rem;
+        }
+        .nuclear-text {
+            font-size: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-4">
+        <div class="star" style="top: 15%; left: 10%; width: 15px; height: 15px; animation-delay: 0s;"></div>
+        <div class="star" style="top: 25%; left: 80%; width: 12px; height: 12px; animation-delay: 1s;"></div>
+        <div class="star" style="top: 60%; left: 15%; width: 18px; height: 18px; animation-delay: 2s;"></div>
+        <div class="star" style="top: 70%; left: 85%; width: 14px; height: 14px; animation-delay: 1.5s;"></div>
+        <div class="star" style="top: 35%; left: 65%; width: 16px; height: 16px; animation-delay: 0.5s;"></div>
+        <div class="star" style="top: 8%; left: 25%; width: 10px; height: 10px; animation-delay: 2.5s;"></div>
+        <div class="star" style="top: 18%; left: 90%; width: 11px; height: 11px; animation-delay: 3s;"></div>
+        <div class="star" style="top: 30%; left: 5%; width: 9px; height: 9px; animation-delay: 0.3s;"></div>
+        <div class="star" style="top: 40%; left: 30%; width: 14px; height: 14px; animation-delay: 1.2s;"></div>
+        <div class="star" style="top: 45%; left: 75%; width: 12px; height: 12px; animation-delay: 2.8s;"></div>
+        <div class="star" style="top: 50%; left: 50%; width: 10px; height: 10px; animation-delay: 0.8s;"></div>
+        <div class="star" style="top: 55%; left: 20%; width: 16px; height: 16px; animation-delay: 3.5s;"></div>
+        <div class="star" style="top: 65%; left: 40%; width: 11px; height: 11px; animation-delay: 1.6s;"></div>
+        <div class="star" style="top: 75%; left: 60%; width: 13px; height: 13px; animation-delay: 2.2s;"></div>
+        <div class="star" style="top: 80%; left: 25%; width: 15px; height: 15px; animation-delay: 0.7s;"></div>
+        <div class="star" style="top: 85%; left: 70%; width: 9px; height: 9px; animation-delay: 3.2s;"></div>
+        <div class="star" style="top: 22%; left: 15%; width: 8px; height: 8px; animation-delay: 1.4s;"></div>
+        <div class="star" style="top: 38%; left: 85%; width: 12px; height: 12px; animation-delay: 2.6s;"></div>
+        <div class="star" style="top: 48%; left: 8%; width: 14px; height: 14px; animation-delay: 0.2s;"></div>
+        <div class="star" style="top: 58%; left: 78%; width: 10px; height: 10px; animation-delay: 3.8s;"></div>
+        <div class="star" style="top: 68%; left: 12%; width: 11px; height: 11px; animation-delay: 1.9s;"></div>
+        <div class="star" style="top: 78%; left: 92%; width: 13px; height: 13px; animation-delay: 2.4s;"></div>
+        <div class="star" style="top: 88%; left: 35%; width: 9px; height: 9px; animation-delay: 0.6s;"></div>
+        <div class="star" style="top: 95%; left: 55%; width: 12px; height: 12px; animation-delay: 3.1s;"></div>
+        <div class="star" style="top: 15%; left: 10%; width: 15px; height: 15px; animation-delay: 0s;"></div>
+        <div class="star" style="top: 25%; left: 80%; width: 12px; height: 12px; animation-delay: 1s;"></div>
+        <div class="star" style="top: 60%; left: 15%; width: 18px; height: 18px; animation-delay: 2s;"></div>
+        <div class="star" style="top: 70%; left: 85%; width: 14px; height: 14px; animation-delay: 1.5s;"></div>
+        <div class="star" style="top: 35%; left: 65%; width: 16px; height: 16px; animation-delay: 0.5s;"></div>
+        <div class="star" style="top: 8%; left: 25%; width: 10px; height: 10px; animation-delay: 2.5s;"></div>
+        <div class="star" style="top: 18%; left: 90%; width: 11px; height: 11px; animation-delay: 3s;"></div>
+        <div class="star" style="top: 30%; left: 5%; width: 9px; height: 9px; animation-delay: 0.3s;"></div>
+        <div class="star" style="top: 40%; left: 30%; width: 14px; height: 14px; animation-delay: 1.2s;"></div>
+        <div class="star" style="top: 45%; left: 75%; width: 12px; height: 12px; animation-delay: 2.8s;"></div>
+        <div class="star" style="top: 50%; left: 50%; width: 10px; height: 10px; animation-delay: 0.8s;"></div>
+        <div class="star" style="top: 55%; left: 20%; width: 16px; height: 16px; animation-delay: 3.5s;"></div>
+        <div class="star" style="top: 65%; left: 40%; width: 11px; height: 11px; animation-delay: 1.6s;"></div>
+        <div class="star" style="top: 75%; left: 60%; width: 13px; height: 13px; animation-delay: 2.2s;"></div>
+        <div class="star" style="top: 80%; left: 25%; width: 15px; height: 15px; animation-delay: 0.7s;"></div>
+        <div class="star" style="top: 85%; left: 70%; width: 9px; height: 9px; animation-delay: 3.2s;"></div>
+        <div class="star" style="top: 22%; left: 15%; width: 8px; height: 8px; animation-delay: 1.4s;"></div>
+        <div class="star" style="top: 38%; left: 85%; width: 12px; height: 12px; animation-delay: 2.6s;"></div>
+        <div class="star" style="top: 48%; left: 8%; width: 14px; height: 14px; animation-delay: 0.2s;"></div>
+        <div class="star" style="top: 58%; left: 78%; width: 10px; height: 10px; animation-delay: 3.8s;"></div>
+        <div class="star" style="top: 68%; left: 12%; width: 11px; height: 11px; animation-delay: 1.9s;"></div>
+        <div class="star" style="top: 78%; left: 92%; width: 13px; height: 13px; animation-delay: 2.4s;"></div>
+        <div class="star" style="top: 88%; left: 35%; width: 9px; height: 9px; animation-delay: 0.6s;"></div>
+        <div class="star" style="top: 95%; left: 55%; width: 12px; height: 12px; animation-delay: 3.1s;"></div>
+    </div>
+    <div class="release-hero">
+
+        <div class="release-content">
+            <h1 class="title">YappR 1.0</h1>
+            
+            {% if released %}
+                <!-- Already Released State -->
+                <div class="launch-status">
+                    <div class="status-title text-success">We are live!</div>
+                    
+                    {% if launch_data %}
+                    <div class="launch-metadata text-start">
+                        <small>
+                            📅 <strong>Launch date:</strong> {{ launch_data.launch_timestamp[:19].replace('T', ' ') }} GMT<br>
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="nuclear-button disabled">
+                    <div class="nuclear-content">
+                        <i class="fas fa-check-circle nuclear-icon" style="animation: none;"></i>
+                        <div class="nuclear-text">LAUNCHED!</div>
+                    </div>
+                </div>
+                
+                
+            {% else %}
+                <!-- Ready to Launch State -->
+                
+                <div class="launch-status">
+                    <img src="https://cdn.7tv.app/emote/01FV6CYX6R0007AE4462XB9AX8/4x.avif" alt="" class="status-icon">
+                    <div class="status-title text-primary">READY TO LAUNCH</div>
+                    <div class="status-subtitle">Hold the button for 5 seconds to release 1.0!</div>
+                </div>
+
+                <div class="nuclear-button" id="launchButton">
+                    <div class="pulse-ring"></div>
+                    <div class="pulse-ring" style="animation-delay: 0.5s;"></div>
+                    <div class="nuclear-content">
+                        <i class="fas fa-rocket nuclear-icon"></i>
+                        <div class="nuclear-text">LAUNCH</div>
+                    </div>
+                </div>
+
+                <div class="countdown" id="countdown">Hold to Launch!</div>
+                
+ 
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+let holdTimer;
+let holdDuration = 5000; // 5 seconds
+let startTime;
+let isReleased = {{ 'true' if released else 'false' }};
+
+const button = document.getElementById('launchButton');
+const countdown = document.getElementById('countdown');
+
+if (isReleased && button) {
+    button.classList.add('disabled');
+}
+
+function updateCountdown(remainingTime) {
+    const seconds = Math.ceil(remainingTime / 1000);
+    if (countdown) {
+        if (seconds > 0) {
+            countdown.textContent = `${seconds}..`;
+        } else {
+            countdown.textContent = 'LAUNCHING...';
+        }
+    }
+}
+
+function startHold() {
+    if (isReleased || !button) return;
+    
+    startTime = Date.now();
+    if (countdown) countdown.textContent = `${Math.ceil(holdDuration / 1000)}..`;
+    
+    holdTimer = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        const remaining = holdDuration - elapsed;
+        
+        if (remaining > 0) {
+            updateCountdown(remaining);
+            // Add some visual feedback
+            const progress = elapsed / holdDuration;
+            button.style.transform = `scale(${1 + progress * 0.1})`;
+        } else {
+            clearInterval(holdTimer);
+            launch();
+        }
+    }, 100);
+}
+
+function stopHold() {
+    if (isReleased || !button) return;
+    
+    clearInterval(holdTimer);
+    if (countdown) countdown.textContent = 'Hold to Launch!';
+    button.style.transform = ''; // Reset to allow CSS hover to work
+}
+
+function launch() {
+    if (isReleased) return;
+    
+    // Disable button immediately
+    isReleased = true;
+    button.classList.add('disabled');
+    
+    // Send launch request
+    fetch('/release-launch', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': window.csrfToken
+        },
+        credentials: 'same-origin'
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showSuccessState();
+        } else {
+            // Re-enable button on failure
+            isReleased = false;
+            button.classList.remove('disabled');
+            if (countdown) countdown.textContent = data.message || 'Launch failed. Try again!';
+        }
+    })
+    .catch(error => {
+        console.error('Launch error:', error);
+        // Re-enable button on error
+        isReleased = false;
+        button.classList.remove('disabled');
+        if (countdown) countdown.textContent = 'Launch failed. Try again!';
+    });
+}
+
+function showSuccessState() {
+    // Update button content
+    const buttonText = button.querySelector('.nuclear-text');
+    const buttonIcon = button.querySelector('.nuclear-icon');
+    if (buttonText) buttonText.innerHTML = 'LAUNCHED!';
+    if (buttonIcon) {
+        buttonIcon.className = 'fas fa-check-circle nuclear-icon';
+        buttonIcon.style.animation = 'none';
+    }
+    if (countdown) countdown.style.display = 'none';
+    
+    // Update the status card to show success
+    const statusCard = document.querySelector('.launch-status');
+    if (statusCard) {
+        statusCard.innerHTML = `
+            <img src="https://cdn.7tv.app/emote/01FHAS29700002A36MZG9A9NZM/4x.avif" alt="" class="status-icon">
+            <div class="status-title text-success">YappR 1.0 is live!</div>
+        `;
+    }
+    
+    // Create fireworks and confetti
+    createFireworks();
+    createConfetti();
+    
+    // Refresh page after 10 seconds
+    setTimeout(() => {
+        window.location.reload();
+    }, 10000);
+}
+
+
+function createFireworks() {
+    const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57'];
+    
+    for (let i = 0; i < 30; i++) {
+        setTimeout(() => {
+            const firework = document.createElement('div');
+            firework.className = 'firework';
+            firework.style.left = Math.random() * 100 + '%';
+            firework.style.top = Math.random() * 100 + '%';
+            firework.style.background = colors[Math.floor(Math.random() * colors.length)];
+            document.body.appendChild(firework);
+            
+            setTimeout(() => firework.remove(), 8000);
+        }, i * 200);
+    }
+}
+
+function createConfetti() {
+    const colors = ['#f39c12', '#e74c3c', '#9b59b6', '#3498db', '#2ecc71', '#f1c40f'];
+    
+    for (let i = 0; i < 40; i++) {
+        setTimeout(() => {
+            const confetti = document.createElement('div');
+            confetti.className = 'confetti';
+            confetti.style.left = Math.random() * 100 + '%';
+            confetti.style.background = colors[Math.floor(Math.random() * colors.length)];
+            confetti.style.animationDuration = (Math.random() * 2 + 1) + 's';
+            document.body.appendChild(confetti);
+            
+            setTimeout(() => confetti.remove(), 5000);
+        }, i * 30);
+    }
+}
+
+// Event listeners - only add if button exists and not released
+if (button && !isReleased) {
+    // Mouse events
+    button.addEventListener('mousedown', startHold);
+    button.addEventListener('mouseup', stopHold);
+    button.addEventListener('mouseleave', stopHold);
+
+    // Touch events for mobile
+    button.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        startHold();
+    });
+    button.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        stopHold();
+    });
+    button.addEventListener('touchcancel', (e) => {
+        e.preventDefault();
+        stopHold();
+    });
+
+    // Prevent context menu
+    button.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+</script>
+{% endblock %}

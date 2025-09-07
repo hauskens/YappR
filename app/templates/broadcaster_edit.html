@@ -499,6 +499,7 @@
               <label for="discord_channel_id" class="form-label">Discord Channel ID</label>
               <input type="number" class="form-control" 
                      id="discord_channel_id" 
+                     name="discord_channel_id"
                      value="{{ broadcaster.settings.linked_discord_channel_id if broadcaster.settings else '' }}" 
                      placeholder="Enter Discord Channel ID"
                      hx-post="{{ url_for('broadcaster.broadcaster_settings_update', broadcaster_id=broadcaster.id) }}"
@@ -507,7 +508,8 @@
                      hx-trigger="change">
               <div class="form-text">
                 <a href="https://discord.com/oauth2/authorize?client_id=1359399600733290586" target="_blank">Add the bot</a> 
-                to your server, then use <code>/verify</code> to get the channel ID.
+                to your server, then use <code>/verify</code> to get the channel ID. <br>
+                Make sure the bot has the permissions to read messages in the channel!
               </div>
             </div>
           </div>

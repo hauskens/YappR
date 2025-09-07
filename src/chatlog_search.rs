@@ -4,7 +4,7 @@ use yew::html::TargetCast;
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Local, TimeZone};
 use wasm_bindgen::JsValue;
-use rand::{Rng, SeedableRng};
+use rand::SeedableRng;
 use rand::seq::SliceRandom;
 use crate::chat_image_generator::{generate_chat_image, save_image_settings, load_image_settings, download_canvas_as_image, copy_canvas_to_clipboard};
 

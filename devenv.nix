@@ -19,6 +19,9 @@ in
     cargo-watch
     lld
     trunk
+    pkg-config
+    openssl
+    sea-orm-cli
     ];
 
   languages = {
@@ -53,9 +56,10 @@ in
   '';
 
   scripts = {
-    "db:new".exec = "alembic revision --autogenerate -m '$@'";
-    "db:upgrade".exec = "alembic upgrade head";
-    "db:downgrade".exec = "alembic downgrade -1";
+    ",db:new".exec = "alembic revision --autogenerate -m '$@'";
+    ",db:upgrade".exec = "alembic upgrade head";
+    ",db:downgrade".exec = "alembic downgrade -1";
+    ",db:seaorm".exec = "sea-orm-cli generate entity -o src/entities --database-url $DATABASE_URL";
   };
 
 }

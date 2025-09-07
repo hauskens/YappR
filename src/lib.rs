@@ -8,6 +8,14 @@ use serde::{Deserialize};
 mod utils;
 mod platforms;
 
+#[cfg(not(target_arch = "wasm32"))]
+pub mod database;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod entities;
+
+#[cfg(not(target_arch = "wasm32"))]
+pub use database::get_database_connection;
+
 mod broadcaster_add;
 mod broadcaster_edit;
 mod broadcaster_events;

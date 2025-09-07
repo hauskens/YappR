@@ -159,7 +159,7 @@
 
 {% block scripts %}
 <script type="module">
-import init, { init_broadcaster_add_form } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
+import init, { init_broadcaster_add_form } from "{{ url_for('static', filename='wasm/yappr.js', v=version) }}";
 
 async function run() {
     try {

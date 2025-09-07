@@ -4,7 +4,7 @@ import init, {
   render_chat_logs, 
   render_tag_category_manager, 
   render_transcription_table 
-} from "../app/static/wasm/yappr_wasm.js";
+} from "../app/static/wasm/yappr.js";
 
 class VideoPage {
   private wasmReady = false;
@@ -37,7 +37,7 @@ class VideoPage {
     
     // Fallback - construct URL (this might need adjustment based on your routing)
     const version = document.querySelector('meta[name="version"]')?.getAttribute('content') || '';
-    return `/static/wasm/yappr_wasm_bg.wasm${version ? `?v=${version}` : ''}`;
+    return `/static/wasm/yappr_bg.wasm${version ? `?v=${version}` : ''}`;
   }
 
   private setupGlobalFunctions() {

@@ -1,7 +1,7 @@
 use clap::{Parser, Subcommand};
 use sea_orm::*;
-use yappr_wasm::database;
-use yappr_wasm::entities::prelude::*;
+use yappr::database;
+use yappr::entities::prelude::*;
 
 #[derive(Parser)]
 #[command(name = "DB CLI")]

@@ -117,7 +117,7 @@
 
 {% block scripts %}
 <script type="module">
-  import init, { render_broadcaster_events_table } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
+  import init, { render_broadcaster_events_table } from "{{ url_for('static', filename='wasm/yappr.js', v=version) }}";
   
   async function run() {
     await init();

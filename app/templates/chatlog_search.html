@@ -75,13 +75,13 @@
 
 {% block extra_scripts %}
 <script type="module">
-import init, { render_chatlog_search } from "{{ url_for('static', filename='wasm/yappr_wasm.js', v=version) }}";
+import init, { render_chatlog_search } from "{{ url_for('static', filename='wasm/yappr.js', v=version) }}";
 
 async function initChatlogSearch() {
   try {
     // Get WASM URL
     const version = document.querySelector('meta[name="version"]')?.getAttribute('content') || '';
-    const wasmUrl = `{{ url_for('static', filename='wasm/yappr_wasm_bg.wasm') }}${version ? `?v=${version}` : ''}`;
+    const wasmUrl = `{{ url_for('static', filename='wasm/yappr_bg.wasm') }}${version ? `?v=${version}` : ''}`;
     
     await init(wasmUrl);
     

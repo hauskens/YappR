@@ -150,7 +150,7 @@
         {% endif %}
 
         <!-- Duration and status badges -->
-        <div class="d-flex flex-wrap align-items-center gap-1 mb-1">
+        <div class="d-flex flex-wrap align-items-center gap-1 mb-1 opacity-50">
           {% if item.content.duration %}
           {% set minutes = (item.content.duration // 60)|int %}
           {% set seconds = (item.content.duration % 60)|int %}

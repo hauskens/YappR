@@ -65,9 +65,14 @@
         <a class="navbar-brand" href="{{ url_for('root.index') }}">
         <img src="{{ url_for('static', filename='logo_48.ico') }}" alt="YappR" width="48" height="48" style="margin-right: 5px;">YappR
         </a>
-        {% if current_user.is_anonymous == False %}
-          <div class="collapse navbar-collapse" id="navbarScroll">
-            <div class="navbar-nav d-flex align-items-center">
+        
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarScroll" aria-controls="navbarScroll" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="collapse navbar-collapse" id="navbarScroll">
+          <div class="navbar-nav me-auto flex-grow-1">
+            {% if current_user.is_anonymous == False %}
               <!-- Search Dropdown -->
               {% if current_user.is_anonymous == False and (user_service.has_permission(current_user, ["admin", "mod"]) or user_service.is_broadcaster(current_user) or user_service.is_moderator(current_user)) %}
                 <div class="nav-item dropdown">
@@ -113,11 +118,7 @@
                 </div>
               {% endif %}
               <a class="nav-link" href="{{ url_for('root.about') }}">About</a>
-            </div>
-          </div>
-        {% else %}
-          <div class="collapse navbar-collapse" id="navbarScroll">
-            <div class="navbar-nav mr-auto">
+            {% else %}
               <a class="nav-link" href="{{ url_for('search.search_page') }}">Search</a>
               
               <!-- Queue Dropdown for anonymous users -->
@@ -133,35 +134,35 @@
               
               <a class="nav-link" href="{{ url_for('leaderboard.leaderboard') }}">Leaderboard</a>
               <a class="nav-link" href="{{ url_for('root.about') }}">About</a>
-            </div>
+            {% endif %}
           </div>
-        {% endif %}
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarScroll" aria-controls="navbarScroll" aria-expanded="false" aria-label="Toggle navigation">
-          <span class="navbar-toggler-icon"></span>
-        </button>
-      </div>
-      <div class="container">
-        <div class="form-check form-switch ms-auto me-2">
-          <button id="themeToggle" class="btn">
-            <span id="themeIcon" class="bi bi-moon-fill"></span>
-          </button>
+          
+          <div class="d-flex align-items-center">
+            <div class="form-check form-switch me-2">
+              <button id="themeToggle" class="btn">
+                <span id="themeIcon" class="bi bi-moon-fill"></span>
+              </button>
+            </div>
+            {% if current_user.is_anonymous == False %}
+              <details class="dropdown d-inline-block">
+                <summary class="d-flex align-items-center" style="cursor: pointer; list-style: none;">
+                  <span class="me-2" {% if current_user.color %}style="color: {{ current_user.color }}; font-weight: bold;"{% endif %}>{{ current_user.name }}</span>
+                  <img width="50" height="50" src="{{ current_user.avatar_url }}" alt="User Icon" class="rounded-circle">
+                </summary>
+                <div class="dropdown-menu show p-2">
+                  <a class="dropdown-item" href="{{ url_for('root.logout') }}">Log out</a>
+                </div>
+              </details>
+            {% else %}
+              <div class="vr"></div>
+              <div class="ms-2">
+                <a href="{{ url_for('root.login') }}" class="btn btn-primary btn-sm">
+                  <i class="bi bi-box-arrow-in-right me-1"></i>Login
+                </a>
+              </div>
+            {% endif %}
+          </div>
         </div>
-        {% if current_user.is_anonymous == False %}
-          <details class="dropdown d-inline-block">
-            <summary class="d-flex align-items-center" style="cursor: pointer; list-style: none;">
-              <span class="me-2" {% if current_user.color %}style="color: {{ current_user.color }}; font-weight: bold;"{% endif %}>{{ current_user.name }}</span>
-              <img width="50" height="50" src="{{ current_user.avatar_url }}" alt="User Icon" class="rounded-circle">
-            </summary>
-            <div class="dropdown-menu show p-2">
-              <a class="dropdown-item" href="{{ url_for('root.logout') }}">Log out</a>
-            </div>
-          </details>
-        {% else %}
-          <div class="vr"></div>
-          <div class="ms-2">
-            <a href="{{ url_for('root.login') }}">Login</a>
-          </div>
-        {% endif %}
       </div>
     </nav>
     {% block content %}{% endblock %}

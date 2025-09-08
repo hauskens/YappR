@@ -43,6 +43,8 @@ COPY --from=rust-builder --chown=yappr:yappr /src/pkg ./app/static/wasm/
 RUN bun run build
 USER yappr
 
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --start-interval=1s --retries=3 \
+    CMD curl -f http://localhost:5000/health --header "X-API-Key: ${API_KEY-not_a_secure_key!11}" || exit 1
 
 FROM nvidia/cuda:12.9.0-cudnn-runtime-ubuntu24.04 AS worker-gpu
 WORKDIR /src

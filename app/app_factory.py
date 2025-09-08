@@ -179,16 +179,6 @@ def create_app(overrides: dict | None = None):
     # Global exception handler for non-404 errors
     @app.errorhandler(Exception)
     def handle_exception(e):
-        if not isinstance(e, NotFound):
-            # Log the exception with full stack trace
-            logger.error("Unhandled exception occurred", exc_info=True, extra={
-                "exception_type": type(e).__name__,
-                "exception_message": str(e),
-                "endpoint": request.endpoint,
-                "method": request.method,
-                "url": request.url,
-                "request_id": getattr(g, 'request_id', None)
-            })
         if isinstance(e, Unauthorized):
             return render_template('errors/401.html'), 401
         if isinstance(e, InternalServerError):

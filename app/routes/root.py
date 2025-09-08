@@ -80,6 +80,19 @@ def about():
         transcriptions_lq_count=get_stats_videos_with_low_transcription(),
     )
 
+@root_blueprint.route("/health")
+@require_api_key
+def health():
+    from app.models import db
+    from sqlalchemy import text
+    try:
+        db.session.execute(text("SELECT 1"))
+        return "OK", 200
+    except Exception as e:
+        logger.error("Database connection failed with exception %s", e)
+        return "ERROR", 500
+
+
 
 @root_blueprint.route("/thumbnails/<int:video_id>")
 @limiter.shared_limit("10000 per hour", exempt_when=rate_limit_exempt, scope="images")

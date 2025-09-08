@@ -393,7 +393,7 @@ def _create_or_update_submission(queue_item_id: int, content_id: int, user: User
 
 
 def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, session, platform_handler: PlatformHandler) -> int:
-    """Create new ContentQueue item."""
+    """Create new ContentQueue item or re-enable existing disabled item."""
     existing_queue_item = session.execute(
         select(ContentQueue).filter(
             ContentQueue.broadcaster_id == broadcaster_id,
@@ -413,6 +413,12 @@ def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, sess
                      "broadcaster_id": broadcaster_id, "queue_item_id": queue_item.id})
         return queue_item.id
     else:
+        # If the existing item is disabled, re-enable it when someone submits it again
+        if existing_queue_item.disabled:
+            existing_queue_item.disabled = False
+            session.flush()
+            logger.info("Re-enabled disabled content queue item", extra={
+                       "broadcaster_id": broadcaster_id, "queue_item_id": existing_queue_item.id})
         return existing_queue_item.id
 
 

@@ -28,8 +28,9 @@ class ContentQueueService:
         ).scalars().one()
 
     @staticmethod
-    def get_by_broadcaster(broadcaster_id: int, watched: Optional[bool] = None,
-                           skipped: Optional[bool] = None) -> Sequence[ContentQueue]:
+    def get_by_broadcaster(broadcaster_id: int, watched: bool | None = None,
+                           skipped: bool | None = None,
+                           disabled: bool | None = None) -> Sequence[ContentQueue]:
         """Get content queue entries for a broadcaster with optional filters."""
         query = select(ContentQueue).filter_by(broadcaster_id=broadcaster_id)
 
@@ -37,6 +38,8 @@ class ContentQueueService:
             query = query.filter_by(watched=watched)
         if skipped is not None:
             query = query.filter_by(skipped=skipped)
+        if disabled is not None:
+            query = query.filter_by(disabled=disabled)
 
         return db.session.execute(
             query.order_by(ContentQueue.score.desc(), ContentQueue.id)
@@ -46,7 +49,7 @@ class ContentQueueService:
     def get_unwatched_by_broadcaster(broadcaster_id: int) -> Sequence[ContentQueue]:
         """Get unwatched content queue entries for a broadcaster."""
         return ContentQueueService.get_by_broadcaster(
-            broadcaster_id, watched=False, skipped=False
+            broadcaster_id, watched=False, skipped=False, disabled=False
         )
 
     @staticmethod
@@ -59,6 +62,7 @@ class ContentQueueService:
             content_timestamp=content_timestamp,
             watched=False,
             skipped=False,
+            disabled=False,
             score=score
         )
         db.session.add(content_queue)
@@ -74,6 +78,7 @@ class ContentQueueService:
         content_queue.watched = True
         content_queue.watched_at = watched_at or datetime.utcnow()
         content_queue.skipped = False
+        content_queue.disabled = False
         db.session.commit()
         logger.info(
             f"Marked content queue entry {content_queue_id} as watched")
@@ -86,6 +91,7 @@ class ContentQueueService:
         content_queue.skipped = True
         content_queue.watched = False
         content_queue.watched_at = None
+        content_queue.disabled = False
         db.session.commit()
         logger.info(
             f"Marked content queue entry {content_queue_id} as skipped")
@@ -494,6 +500,10 @@ class ContentQueueSubmissionService:
                weight: float, user_comment: Optional[str] = None,
                submitted_at: Optional[datetime] = None) -> ContentQueueSubmission:
         """Create a new content queue submission."""
+        content_queue = ContentQueueService.get_by_id(content_queue_id)
+        if content_queue.disabled:
+            content_queue.disabled = False
+            db.session.flush()
         submission = ContentQueueSubmission(
             content_queue_id=content_queue_id,
             content_id=content_id,

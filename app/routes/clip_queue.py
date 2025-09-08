@@ -112,17 +112,19 @@ def mark_clip_watched(item_id: int):
         elif broadcaster is None or broadcaster_id != broadcaster.id:
             return jsonify({"error": "You do not have permission to mark this clip as watched"}), 401
 
-        if queue_item.watched:
+        if queue_item.watched or queue_item.disabled:
             logger.info("Unmarking clip as watched", extra={
                         "queue_item_id": queue_item.id, "user_id": current_user.id})
             queue_item.watched = False
             queue_item.watched_at = None
+            queue_item.disabled = False
             queue_item.score = 0.0
         else:
             logger.info("Marking clip as watched", extra={
                         "queue_item_id": queue_item.id, "user_id": current_user.id})
             queue_item.watched = True
             queue_item.watched_at = datetime.now()
+            queue_item.disabled = False
             rating = float(request.form.get('rating', 0.0))
             rating = max(-1.0, min(1.0, rating))
             queue_item.score = rating
@@ -176,6 +178,62 @@ def skip_clip_queue_item(item_id: int):
         flash("Error updating skip status", "error")
         return redirect(request.referrer)
 
+@clip_queue_blueprint.route("/disable_all", methods=["POST"])
+@login_required
+@require_permission()
+def disable_all_queue_items():
+    """Disable all unwatched and non-skipped queue items, optionally from a specific point in time"""
+    try:
+        broadcaster = BroadcasterService.get_by_external_id(
+            current_user.external_account_id)
+        if broadcaster is None:
+            return jsonify({"error": "Broadcaster not found"}), 404
+
+        # Get all unwatched and non-skipped items in the queue
+        queue_items = db.session.query(ContentQueue).filter_by(
+            broadcaster_id=broadcaster.id,
+            watched=False,
+            skipped=False,
+            disabled=False
+        ).all()
+
+        if request.form.get('hours_to_disable'):
+            try:
+                hours_to_disable = int(request.form.get('hours_to_disable'))
+            except ValueError:
+                hours_to_disable = 24
+            # Filter items where the newest submission is older than the specified hours
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_to_disable)
+            filtered_items = []
+            for item in queue_items:
+                if item.submissions:
+                    # Get the newest submission time and make it timezone-aware if needed
+                    newest_submission = max(sub.submitted_at for sub in item.submissions)
+                    if newest_submission.tzinfo is None:
+                        newest_submission = newest_submission.replace(tzinfo=timezone.utc)
+                    if newest_submission < cutoff_time:
+                        filtered_items.append(item)
+            queue_items = filtered_items
+
+            
+
+            
+
+        count = 0
+        for item in queue_items:
+            item.disabled = True
+            count += 1
+
+        db.session.commit()
+        logger.info(f"Marked {count} queue items as disabled", extra={
+                    "user_id": current_user.id, "broadcaster_id": broadcaster.id})
+
+        return jsonify({"status": "success", "count": count})
+    except Exception as e:
+        logger.error(f"Error disabling all queue items: {e}", extra={
+                     "user_id": current_user.id})
+        db.session.rollback()
+        return jsonify({"error": str(e)}), 500
 
 @clip_queue_blueprint.route("/skip_all", methods=["POST"])
 @login_required
@@ -192,7 +250,8 @@ def skip_all_queue_items():
         queue_items = db.session.query(ContentQueue).filter_by(
             broadcaster_id=broadcaster.id,
             watched=False,
-            skipped=False
+            skipped=False,
+            disabled=False
         ).all()
 
         count = 0
@@ -251,7 +310,7 @@ def get_queue_items():
         if broadcaster is not None and queue_enabled:
             # Include watched and skipped clips if show_history is True
             queue_items = get_content_queue(
-                broadcaster.id, include_watched=show_history, include_skipped=show_history)
+                broadcaster.id, include_watched=show_history, include_skipped=show_history, include_disabled=show_history) # TODO: make include_disabled configurable instead of using show_history
 
             # Filter out rickroll if not active and not admin/mod
             if (BroadcasterService.get_last_active(broadcaster.id) is None or BroadcasterService.get_last_active(broadcaster.id) < datetime.now() - timedelta(minutes=10)) and not UserService.has_permission(current_user, [PermissionType.Moderator, PermissionType.Admin]):
@@ -261,7 +320,7 @@ def get_queue_items():
             # If showing history tab, filter to only include watched or skipped items
             if show_history:
                 queue_items = [
-                    item for item in queue_items if item.watched or item.skipped]
+                    item for item in queue_items if item.watched or item.skipped or item.disabled]
 
             # Apply search filter if provided
             if search_query:

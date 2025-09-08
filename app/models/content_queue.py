@@ -76,6 +76,7 @@ class ContentQueue(Base):
     submissions: Mapped[list["ContentQueueSubmission"]
                         ] = relationship(back_populates="content_queue")
     score: Mapped[float] = mapped_column(Float, default=0, server_default='0')
+    disabled: Mapped[bool] = mapped_column(Boolean, default=False, server_default='false')
 
     @property
     def total_weight(self) -> float:

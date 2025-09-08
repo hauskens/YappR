@@ -310,15 +310,58 @@
                 <div class="card">
                   <div class="card-body">
                     <h5 class="card-title">Queue Management</h5>
+                    
+                    <!-- Hour slider for selective disable -->
+                    <div class="mb-3">
+                      <label for="hours-slider" class="form-label">Disable clips older than: <span id="hours-value">24</span> hours</label>
+                      <input type="range" class="form-range" id="hours-slider" min="1" max="168" value="24" step="1">
+                      <div class="d-flex justify-content-between text-muted small">
+                        <span>1h</span>
+                        <span>1 week</span>
+                      </div>
+                      <button class="btn btn-warning mt-2" 
+                              id="disable-older-clips-btn"
+                              data-bs-toggle="tooltip" 
+                              data-bs-placement="top" 
+                              title="This will disable clips older than the selected hours from your queue"
+                              onclick="disableOlderClips()"
+                              type="button">
+                        <i class="bi bi-clock-history"></i> Disable older clips
+                      </button>
+                    </div>
+
+                    <script>
+                      // Update the hours display when slider changes
+                      document.getElementById('hours-slider').addEventListener('input', function() {
+                        document.getElementById('hours-value').textContent = this.value;
+                      });
+
+                      // Function to handle disable older clips with confirmation
+                      function disableOlderClips() {
+                        const hours = document.getElementById('hours-slider').value;
+                        const message = `This will disable clips older than ${hours} hours from your queue. If someone submits the clip again, it will be enabled again.`;
+                        if (confirm(message)) {
+                          // Make HTMX request
+                          htmx.ajax('POST', '/clip_queue/disable_all', {
+                            values: { hours_to_disable: hours },
+                            swap: 'none'
+                          }).then(() => {
+                            htmx.trigger('#queue-items', 'queue_update');
+                          });
+                        }
+                      }
+                    </script>
+
+                    <hr>
                     <button class="btn btn-danger" 
                             data-bs-toggle="tooltip" 
                             data-bs-placement="top" 
-                            title="This will remove all clips from your queue by marking them as skipped"
+                            title="This will mark all clips as skipped, which means they will NEVER appear in queue again"
                             hx-post="/clip_queue/skip_all"
                             hx-confirm="This will mark all clips as skipped, which means they will never appear in queue again. Are you sure?"
                             hx-swap="none"
                             hx-on::after-request="htmx.trigger('#queue-items', 'queue_update');">
-                      <i class="bi bi-skip-forward-fill"></i> Clear queue
+                      <i class="bi bi-skip-forward-fill"></i> Mark all as skipped
                     </button>
                   </div>
                 </div>

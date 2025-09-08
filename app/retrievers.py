@@ -74,7 +74,7 @@ def get_stats_segments() -> int:
     return db.session.query(Segments).count()
 
 
-def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool = False, include_watched: bool = False) -> Sequence[ContentQueue]:
+def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool = False, include_watched: bool = False, include_disabled: bool = False) -> Sequence[ContentQueue]:
     """Get content queue items, optionally filtered by broadcaster_id"""
     query = select(ContentQueue)
     if broadcaster_id is not None:
@@ -83,4 +83,6 @@ def get_content_queue(broadcaster_id: int | None = None, include_skipped: bool =
             query = query.filter(ContentQueue.skipped == False)
         if not include_watched:
             query = query.filter(ContentQueue.watched == include_watched)
+        if not include_disabled:
+            query = query.filter(ContentQueue.disabled == False)
     return db.session.execute(query.order_by(ContentQueue.id.desc())).scalars().all()

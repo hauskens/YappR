@@ -162,7 +162,10 @@
           {% if item.skipped %}
           <span class="badge bg-warning text-dark">Skipped</span>
           {% endif %}
-          {% if not (item.watched or item.skipped) %}
+          {% if item.disabled %}
+          <span class="badge bg-danger text-dark">Disabled</span>
+          {% endif %}
+          {% if not (item.watched or item.skipped or item.disabled) %}
           <!-- Weight/Score chip with hover tooltip -->
           {% set score_breakdown = weight_settings_service.get_score_breakdown(item, item.broadcaster_id) %}
           <span class="badge bg-info text-dark" 
@@ -274,6 +277,7 @@
             data-bs-title="<i class='bi bi-info-circle'></i> Clip Details"
             data-bs-content="
               <div class='small'>
+                <span class='text-muted'> More context will come soon, like who has watched this clip and timestamp vod links </span><br/>
                 <strong>Submitted by:</strong><br/>
                 {% if item.submissions %}
                   {% for submission in item.submissions %}

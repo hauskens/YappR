@@ -12,6 +12,12 @@ mod platforms;
 pub mod database;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod entities;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod services;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod types;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod bots;
 
 #[cfg(not(target_arch = "wasm32"))]
 pub use database::get_database_connection;

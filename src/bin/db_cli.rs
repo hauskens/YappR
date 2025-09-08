@@ -2,6 +2,8 @@ use clap::{Parser, Subcommand};
 use sea_orm::*;
 use yappr::database;
 use yappr::entities::prelude::*;
+use yappr::services::broadcaster::BroadcasterService;
+use yappr::services::user::UserService;
 
 #[derive(Parser)]
 #[command(name = "DB CLI")]
@@ -19,6 +21,8 @@ enum Commands {
     Broadcasters,
     /// List all channels
     Channels,
+    /// List bot user
+    BotUser,
     /// Count records in a table
     Count { table: String },
 }
@@ -37,7 +41,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Commands::Broadcasters => {
-            let broadcasters = Broadcaster::find().limit(10).all(&db).await?;
+            let broadcaster_service = BroadcasterService::new(db);
+            let broadcasters = broadcaster_service.get_all(None).await?;
             println!("Found {} broadcasters:", broadcasters.len());
             for broadcaster in broadcasters {
                 println!(
@@ -45,6 +50,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     broadcaster.id, broadcaster.name
                 );
             }
+        }
+        Commands::BotUser => {
+            let user_service = UserService::new(db);
+            let bot_user = user_service.get_bot_user().await?;
+            let bot_oauth = user_service.get_user_oauth_token(bot_user.id).await?;
+            println!("Bot user: {} , Oauth access token: {} , Oauth refresh token: {}", bot_user.name, bot_oauth.as_ref().unwrap().access_token, bot_oauth.as_ref().unwrap().refresh_token);
         }
         Commands::Channels => {
             let channels = Channels::find().limit(10).all(&db).await?;

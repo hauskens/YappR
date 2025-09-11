@@ -25,7 +25,7 @@ def management():
     elif moderated_channels is not None or UserService.is_broadcaster(current_user):
         # Convert moderated channels to a list of broadcasters
         broadcaster_ids = [
-            channel.channel.broadcaster_id for channel in moderated_channels]
+            channel.broadcaster_id for channel in moderated_channels]
         if UserService.is_broadcaster(current_user):
             broadcaster_ids.append(
                 UserService.get_broadcaster(current_user).id)

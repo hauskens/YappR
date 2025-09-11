@@ -15,7 +15,7 @@ from app.logger import logger
 from twitchAPI.twitch import AuthScope
 
 user_oauth_scope=[AuthScope.USER_READ_MODERATED_CHANNELS]
-bot_oauth_scope=[AuthScope.CHAT_READ, AuthScope.CHAT_EDIT, AuthScope.CLIPS_EDIT, AuthScope.USER_BOT]
+bot_oauth_scope=[AuthScope.CHAT_READ, AuthScope.CHAT_EDIT, AuthScope.CLIPS_EDIT, AuthScope.USER_BOT, AuthScope.USER_READ_CHAT]
 
 blueprint = make_twitch_blueprint(
     client_id=config.twitch_client_id,

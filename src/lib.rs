@@ -20,6 +20,9 @@ pub mod types;
 pub mod bots;
 
 #[cfg(not(target_arch = "wasm32"))]
+pub mod chatlog_parser;
+
+#[cfg(not(target_arch = "wasm32"))]
 pub use database::get_database_connection;
 
 mod broadcaster_add;

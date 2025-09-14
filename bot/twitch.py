@@ -11,8 +11,8 @@ import signal
 import time
 from datetime import datetime
 from twitchAPI.type import AuthScope, ChatEvent
-from twitchAPI.chat import Chat, EventData, ChatMessage, ChatUser
-from .shared import ChannelSettingsDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event, task_manager, start_task_manager, url_pattern, get_platform, add_to_content_queue
+from twitchAPI.chat import Chat, ClearChatEvent, EventData, ChatMessage, ChatUser
+from .shared import ChannelSettingsDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event, task_manager, start_task_manager, url_pattern, get_platform, add_to_content_queue, _timeout_user
 from functools import cache
 
 
@@ -214,7 +214,8 @@ class TwitchBot:
                                 submission_source_type=ContentQueueSubmissionSource.Twitch,
                                 submission_source_id=int(room_id),
                                 broadcaster_id=self.channel_settings[channel_id]['broadcaster_id'],
-                                user_comment=user_comment if user_comment else None
+                                user_comment=user_comment if user_comment else None,
+                                session=self.session
                             )
 
             if self.channel_settings[channel_id]['chat_collection_enabled']:
@@ -242,98 +243,6 @@ class TwitchBot:
         except Exception as e:
             logger.error("Error processing chat message: %s - %s", e, msg)
             self.session.rollback()
-
-    async def on_notice(self, notice_event):
-        """Handle notice events, including timeout and ban notifications."""
-        try:
-            logger.debug("Received notice event: %s", notice_event, extra={"event_type": "notice"})
-            
-            # Get the raw IRC message to parse timeout/ban information
-            if not hasattr(notice_event, 'parsed') or not notice_event.parsed:
-                logger.debug("Notice event has no parsed data")
-                return
-                
-            parsed = notice_event.parsed
-            room_id = notice_event.room.room_id if notice_event.room else None
-            
-            logger.debug("Notice event parsed data: %s", parsed, extra={"room_id": room_id})
-            
-            if not room_id or room_id not in self.enabled_channels:
-                logger.debug("Notice event from untracked room: %s", room_id)
-                return
-                
-            channel_id = self.enabled_channels[room_id]
-            
-            # Parse IRC tags for moderation events
-            tags = parsed.get('tags', {})
-            msg_id = tags.get('msg-id', '')
-            
-            logger.info("Processing notice event with msg-id: %s", msg_id, extra={"channel_id": channel_id, "tags": tags})
-            
-            # Handle timeout events
-            if msg_id == 'timeout':
-                await self._handle_timeout_notice(tags, channel_id)
-            # Handle ban events  
-            elif msg_id == 'ban':
-                await self._handle_ban_notice(tags, channel_id)
-            # Log other notice types for debugging
-            else:
-                logger.debug("Received notice with msg-id: %s in channel %s", msg_id, channel_id)
-                
-        except Exception as e:
-            logger.error("Error processing notice event: %s", e)
-    
-    async def _handle_timeout_notice(self, tags, channel_id):
-        """Handle timeout notice from IRC tags."""
-        try:
-            target_user = tags.get('target-user-id')
-            target_username = tags.get('target-username', 'unknown')
-            duration = tags.get('ban-duration', '0')
-            reason = tags.get('ban-reason', 'Timeout')
-            
-            if not target_user:
-                logger.warning("Timeout notice missing target user ID")
-                return
-            
-            # Handle moderation events in a separate session to avoid conflicts
-            await self._record_moderation_event(
-                target_user_id=target_user,
-                target_username=target_username,
-                action_type=ModerationActionType.timeout,
-                channel_id=channel_id,
-                reason=reason,
-                duration_seconds=int(duration) if duration.isdigit() else None
-            )
-            
-            logger.info(f"Recorded timeout for user {target_username} ({duration}s) in channel {channel_id}")
-            
-        except Exception as e:
-            logger.error("Error processing timeout notice: %s", e)
-    
-    async def _handle_ban_notice(self, tags, channel_id):
-        """Handle ban notice from IRC tags."""
-        try:
-            target_user = tags.get('target-user-id')
-            target_username = tags.get('target-username', 'unknown')
-            reason = tags.get('ban-reason', 'Ban')
-            
-            if not target_user:
-                logger.warning("Ban notice missing target user ID")
-                return
-            
-            # Handle moderation events in a separate session to avoid conflicts
-            await self._record_moderation_event(
-                target_user_id=target_user,
-                target_username=target_username,
-                action_type=ModerationActionType.ban,
-                channel_id=channel_id,
-                reason=reason
-            )
-            
-            logger.info(f"Recorded ban for user {target_username} in channel {channel_id}")
-            
-        except Exception as e:
-            logger.error("Error processing ban notice: %s", e)
 
     async def _record_moderation_event(self, target_user_id: str, target_username: str, action_type: ModerationActionType, channel_id: int, reason: str, duration_seconds: int | None = None):
         """Record a moderation event using a separate database session."""
@@ -492,9 +401,16 @@ class TwitchBot:
         # Default to Basic role if no special badges
         return ChannelRole.Basic
 
-    async def on_message_delete(self, delete_event: EventData):
+
+    async def on_message_delete(self, delete_event: ClearChatEvent):
         """Handle message delete events (placeholder for future implementation)."""
-        logger.info("Message deleted: %s", delete_event)
+        # Print all attributes of the delete_event object
+        if delete_event.duration and delete_event.banned_user_id and delete_event.room_id:
+            _timeout_user(delete_event.banned_user_id, delete_event.duration, int(delete_event.room_id), self.session, reason="Twitch moderator timeout")
+        elif delete_event.banned_user_id and delete_event.room_id:
+            _timeout_user(delete_event.banned_user_id, 0, int(delete_event.room_id), self.session, reason="Twitch moderator ban")
+        else:
+            logger.error("Invalid delete event: %s", delete_event)
 
     async def periodic_commit(self):
         """Periodically commit messages to the database"""
@@ -620,8 +536,7 @@ async def main():
     chat = await Chat(bot.twitch)
     chat.register_event(ChatEvent.READY, bot.on_ready)
     chat.register_event(ChatEvent.MESSAGE, bot.on_message)
-    chat.register_event(ChatEvent.NOTICE, bot.on_notice)
-    chat.register_event(ChatEvent.MESSAGE_DELETE, bot.on_message_delete)
+    chat.register_event(ChatEvent.CHAT_CLEARED, bot.on_message_delete)
     chat.start()
 
     # Store chat reference in the bot for periodic channel check

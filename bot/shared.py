@@ -8,11 +8,12 @@ from app.logger import logger
 import re
 from app.models.content_queue_settings import ContentQueueSettings
 from app.models.content_queue import Content, ContentQueue, ContentQueueSubmission, ContentQueueSubmissionSource
-from app.models.user import Users, UserWeight
-from app.models.enums import AccountSource
+from app.models.user import Users, UserWeight, ModerationAction
+from app.models import Channels
+from app.models.enums import AccountSource, ModerationActionType, ModerationScope
 from sqlalchemy import select
 from app.twitch_api import Twitch
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.platforms.handler import PlatformRegistry, PlatformHandler
 
 engine = create_engine(config.database_uri)
@@ -271,8 +272,145 @@ async def _get_or_create_content(url: str, broadcaster_id: int, session, platfor
                     "broadcaster_id": broadcaster_id, "content_id": existing_content.id})
         return existing_content.id
 
+def _timeout_user(user_id: str, duration_seconds: int, channel_id: int, session: scoped_session, reason: str = "Automated moderation", username: str = "Unknown"):
+    """Handle user timeout or ban based on duration. If duration is 0, it's a ban, otherwise it's a timeout."""
+    # Get or create user - need to provide the required parameters for the existing function
+    user = _get_or_create_user(
+        external_user_id=user_id, 
+        username=username, 
+        submission_source_type=ContentQueueSubmissionSource.Twitch, 
+        broadcaster_id=channel_id, 
+        session=session
+    )
+    
+    # Determine action type based on duration
+    if duration_seconds == 0:
+        # Permanent ban
+        action_type = ModerationActionType.ban
+        scope = ModerationScope.channel
+        expires_at = None
+    else:
+        # Timeout
+        action_type = ModerationActionType.timeout
+        scope = ModerationScope.channel
+        expires_at = datetime.now() + timedelta(seconds=duration_seconds)
+    
+    logger.info("_timeout_user: %s", channel_id)
+    channel = session.execute(
+        select(Channels).filter(
+            Channels.platform_channel_id == str(channel_id)
+        )
+    ).scalars().one()
 
-def _get_or_create_user(external_user_id: str, username: str, submission_source_type: ContentQueueSubmissionSource, broadcaster_id: int, session) -> Users:
+    # Create moderation action record
+    action = ModerationAction(
+        target_user_id=user.id,
+        action_type=action_type.value,
+        scope=scope.value,
+        channel_id=channel.id,  # Using broadcaster_id as channel_id for bot context
+        reason=reason,
+        duration_seconds=duration_seconds if duration_seconds > 0 else None,
+        expires_at=expires_at,
+        issued_by=None  # Bot-issued action
+    )
+    
+    session.add(action)
+    
+    # Clean up content queue entries for this user
+    _cleanup_user_content_queue_entries(user.id, channel.id, action_type, duration_seconds, session)
+    
+    session.commit()
+    
+    action_desc = "banned" if duration_seconds == 0 else f"timed out for {duration_seconds}s"
+    logger.info(f"User {user_id} ({username}) {action_desc} in channel {channel.id}: {reason}")
+    
+    return action
+
+
+def _cleanup_user_content_queue_entries(target_user_id: int, channel_id: int, 
+                                       action_type: ModerationActionType, 
+                                       duration_seconds: int, session: scoped_session) -> int:
+    """Clean up content queue entries for moderated users. Removes all unwatched/unskipped entries for bans and entries from the past X seconds for timeouts. minimum 1 minute"""
+    count = 0
+    
+    logger.info("_cleanup_user_content_queue_entries: %s", channel_id)
+
+    channel = session.execute(
+        select(Channels)
+        .filter(
+            Channels.id == channel_id
+        )
+    ).scalars().one()
+
+    
+
+    if action_type == ModerationActionType.ban:
+        # For bans, remove all unwatched/unskipped entries
+        
+        entries_to_delete = session.execute(
+            select(ContentQueueSubmission)
+            .join(ContentQueue, ContentQueueSubmission.content_queue_id == ContentQueue.id)
+            .where(
+                ContentQueue.broadcaster_id == channel.broadcaster_id,
+                ContentQueueSubmission.user_id == target_user_id,
+                ContentQueue.watched == False,
+                ContentQueue.skipped == False
+            )
+        ).scalars().all()
+        
+        for entry in entries_to_delete:
+            session.delete(entry)
+            count += 1
+        
+        logger.info(f"Cleaned up {count} content queue entries for banned user {target_user_id}")
+        
+    elif action_type == ModerationActionType.timeout and duration_seconds > 0:
+        # For timeouts, remove entries from the past X seconds, minimum 1 minute
+        if duration_seconds < 60:
+            duration_seconds = 60
+
+        cutoff_time = datetime.now() - timedelta(seconds=duration_seconds)
+        
+        entries_to_delete = session.execute(
+            select(ContentQueueSubmission)
+            .join(ContentQueue, ContentQueueSubmission.content_queue_id == ContentQueue.id)
+            .where(
+                ContentQueue.broadcaster_id == channel.broadcaster_id,
+                ContentQueueSubmission.user_id == target_user_id,
+                ContentQueue.watched == False,
+                ContentQueue.skipped == False,
+                ContentQueueSubmission.submitted_at >= cutoff_time
+            )
+        ).scalars().all()
+        
+        for entry in entries_to_delete:
+            session.delete(entry)
+            count += 1
+        
+        logger.info(f"Cleaned up {count} content queue entries for timed out user {target_user_id} (past {duration_seconds}s)")
+        
+    session.flush()
+    # Clean up ContentQueue entries that are empty
+    content_queue_entries_to_hide = session.execute(
+        select(ContentQueue)
+        .where(
+            ContentQueue.broadcaster_id == channel.broadcaster_id,
+            ContentQueue.watched == False,
+            ContentQueue.skipped == False,
+            ContentQueue.disabled == False,
+            )
+        ).scalars().all()
+        
+    for queue_entry in content_queue_entries_to_hide:
+        if len(queue_entry.submissions) == 0:
+            queue_entry.disabled = True
+    
+    session.flush()
+    
+    return count
+
+
+def _get_or_create_user(external_user_id: str, username: str, submission_source_type: ContentQueueSubmissionSource, broadcaster_id: int, session: scoped_session) -> Users:
     """Get existing external user or create new one."""
     account_source: AccountSource = AccountSource.Twitch if submission_source_type == ContentQueueSubmissionSource.Twitch else AccountSource.Discord
 
@@ -280,6 +418,7 @@ def _get_or_create_user(external_user_id: str, username: str, submission_source_
     user = session.execute(
         select(Users).filter(
             Users.external_account_id == external_user_id,
+            Users.account_type == account_source,
         )
     ).scalars().one_or_none()
 
@@ -318,7 +457,7 @@ def _get_or_create_user(external_user_id: str, username: str, submission_source_
     return user
 
 
-def _get_or_create_user_weight(user: Users, broadcaster_id: int, session) -> UserWeight:
+def _get_or_create_user_weight(user: Users, broadcaster_id: int, session: scoped_session) -> UserWeight:
     """Get existing user weight or create new one."""
     user_weight = session.execute(
         select(UserWeight).filter(
@@ -361,7 +500,7 @@ def _get_or_create_user_weight(user: Users, broadcaster_id: int, session) -> Use
     return user_weight
 
 
-def _create_or_update_submission(queue_item_id: int, content_id: int, user: Users, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, submission_weight: float, user_weight: UserWeight, user_comment: str | None, session) -> ContentQueueSubmission:
+def _create_or_update_submission(queue_item_id: int, content_id: int, user: Users, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, submission_weight: float, user_weight: UserWeight, user_comment: str | None, session: scoped_session) -> ContentQueueSubmission:
     """Create new submission or update existing one."""
     # Check if submission already exists
     existing_submission = session.execute(
@@ -392,7 +531,7 @@ def _create_or_update_submission(queue_item_id: int, content_id: int, user: User
         return existing_submission
 
 
-def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, session, platform_handler: PlatformHandler) -> int:
+def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, session: scoped_session, platform_handler: PlatformHandler) -> int:
     """Create new ContentQueue item or re-enable existing disabled item."""
     existing_queue_item = session.execute(
         select(ContentQueue).filter(
@@ -422,13 +561,10 @@ def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, sess
         return existing_queue_item.id
 
 
-async def add_to_content_queue(url: str, broadcaster_id: int, username: str, external_user_id: str, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, user_comment: str | None = None, submission_weight: float = 1.0, twitch_client: Twitch | None = None, session=None) -> int | None:
+async def add_to_content_queue(url: str, broadcaster_id: int, username: str, external_user_id: str, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, session: scoped_session, user_comment: str | None = None, submission_weight: float = 1.0, twitch_client: Twitch | None = None) -> int | None:
     """Add a URL to the content queue for a channel and record who submitted it"""
     # Create a session if one wasn't provided
-    close_session = False
-    if session is None:
-        session = SessionLocal()
-        close_session = True
+
 
     try:
         platform_handler = PlatformRegistry.get_handler_by_url(url)
@@ -477,19 +613,11 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
         logger.error("Error adding URL to content queue: %s", e,
                      extra={"broadcaster_id": broadcaster_id})
         return None
-    finally:
-        if close_session:
-            session.close()
 
 
-async def update_submission_weight(submission_source_id: int, weight: float, session=None):
+async def update_submission_weight(submission_source_id: int, weight: float, session: scoped_session):
     logger.debug("Updating submission weight", extra={
                  "submission_source_id": submission_source_id})
-    # Create a session if one wasn't provided
-    close_session = False
-    if session is None:
-        session = SessionLocal()
-        close_session = True
     try:
         existing_submission = session.execute(
             select(ContentQueueSubmission).filter(
@@ -507,9 +635,6 @@ async def update_submission_weight(submission_source_id: int, weight: float, ses
         session.rollback()
         logger.error("Error updating submission weight: %s", e, extra={
                      "submission_source_id": submission_source_id})
-    finally:
-        if close_session:
-            session.close()
 
 # Singleton instance of the task manager
 task_manager = BotTaskManager()

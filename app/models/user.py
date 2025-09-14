@@ -178,7 +178,7 @@ class ModerationAction(Base):
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     
     # Tracking
-    issued_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    issued_by: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=True)
     issued_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, server_default='now()')
     
     # Status

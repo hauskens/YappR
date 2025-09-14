@@ -27,6 +27,7 @@ in
   languages = {
     python = {
       enable = true;
+      package = pkgs.python312;
       uv = {
         enable = true;
         sync.enable = true;

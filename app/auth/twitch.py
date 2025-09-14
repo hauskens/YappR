@@ -93,7 +93,6 @@ def handle_login_bot(blueprint, token):
     if not resp.ok:
         return False
     info = resp.json()
-    logger.info(f'Bot info: {info}')
     user_id = info["data"][0]["id"]
     query = db.session.query(OAuth).filter_by(
         provider='twitch_bot'
@@ -106,9 +105,11 @@ def handle_login_bot(blueprint, token):
 
     try:
         query = db.session.query(Users).filter_by(
-            name="bot", account_type=AccountSource.Twitch
+            external_account_id=str(info["data"][0]["id"]), account_type=AccountSource.Twitch
         )
         u = query.one()
+        oauth.user = u
+        db.session.add(oauth)
     except NoResultFound:
         u = Users(
             name="bot",
@@ -116,8 +117,8 @@ def handle_login_bot(blueprint, token):
             account_type=AccountSource.Twitch,
             avatar_url=info["data"][0]["profile_image_url"],
         )
-    oauth.user = u
-    db.session.add_all([u, oauth])
+        oauth.user = u
+        db.session.add_all([u, oauth])
     db.session.commit()
     # Disable Flask-Dance's default behavior for saving the OAuth token
     return False

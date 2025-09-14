@@ -2,6 +2,7 @@ import discord
 from discord import Message, app_commands
 from discord.ext import commands, tasks
 from sqlalchemy import select
+from sqlalchemy.orm import scoped_session
 from .shared import ScopedSession, logger, url_pattern, add_to_content_queue, get_platform, update_submission_weight
 from app.models.broadcaster import BroadcasterSettings
 from app.models.content_queue import ContentQueueSubmission, ContentQueueSubmissionSource, ContentQueue
@@ -144,6 +145,28 @@ class DiscordBot(commands.Bot):
         logger.info(
             f"Tracking {len(self.tracked_messages)} messages for vote updates")
 
+    async def on_message_delete(self, message: Message):
+        if message.id in self.tracked_messages:
+            self.tracked_messages.remove(message.id)
+            logger.info(f"Removed message ID {message.id} from tracked messages")
+            submission = self.session.execute(select(ContentQueueSubmission).where(
+                ContentQueueSubmission.submission_source_id == message.id,
+                ContentQueueSubmission.submission_source_type == ContentQueueSubmissionSource.Discord
+            )).scalars().one_or_none()
+            logger.info(f"Found submission: {submission}")
+            if submission:
+                content_queue = self.session.execute(select(ContentQueue).where(
+                    ContentQueue.id == submission.content_queue_id
+                )).scalars().one()
+                self.session.delete(submission)
+                self.session.flush()
+                logger.info(f"Deleted submission: {submission} has {len(content_queue.submissions)} submissions")
+                #clean up content queue items that are linked to this submission if they are not watched or skipped or empty
+                if len(content_queue.submissions) == 0:
+                    logger.info(f"Disabling entry: {content_queue}")
+                    content_queue.disabled = True
+                self.session.commit()
+
     async def on_message(self, message: Message):
         """Handler for when a message is received"""
         if message.author.bot:
@@ -222,7 +245,8 @@ class DiscordBot(commands.Bot):
                             external_user_id=str(message.author.id),
                             submission_source_type=ContentQueueSubmissionSource.Discord,
                             submission_source_id=message.id,
-                            user_comment=user_comment if user_comment else None
+                            user_comment=user_comment if user_comment else None,
+                            session=self.session
                         )
 
             # Create a thread if enabled
@@ -264,7 +288,7 @@ class DiscordBot(commands.Bot):
                             unique_users.add(user.id)
                 logger.debug(
                     f"Counted {len(unique_users)} unique users for message ID {message.id}")
-                await update_submission_weight(payload.message_id, len(unique_users))
+                await update_submission_weight(payload.message_id, len(unique_users), session=self.session)
             else:
                 logger.error(
                     f"Channel type {type(channel).__name__} does not support fetch_message")

@@ -9,7 +9,7 @@ from app.models.config import config
 import asyncio
 import signal
 import time
-from datetime import datetime
+from datetime import datetime, date
 from twitchAPI.type import AuthScope, ChatEvent
 from twitchAPI.chat import Chat, ClearChatEvent, EventData, ChatMessage, ChatUser
 from .shared import ChannelSettingsDict, ScopedSession, logger, SessionLocal, handle_shutdown, shutdown_event, task_manager, start_task_manager, url_pattern, get_platform, add_to_content_queue, _timeout_user
@@ -311,14 +311,15 @@ class TwitchBot:
             role = self._map_badges_to_role(badges, channel_id)
             
             if role:
-                self._update_user_role(msg.user, channel_id, role)
+                # send date with minute, second and microsecond set to 0 to bust cache every hour
+                self._update_user_role(msg.user, channel_id, role, datetime.now().replace(minute=0, second=0, microsecond=0))
                 
                         
         except Exception as e:
             logger.error("Error processing badges for role update: %s", e)
 
     @cache
-    def _update_user_role(self, chat_user: ChatUser, channel_id: int, role: ChannelRole):
+    def _update_user_role(self, chat_user: ChatUser, channel_id: int, role: ChannelRole, _date_cached: datetime, clear_moderation_actions: bool = True):
         with SessionLocal() as role_session:
             try:
                 # Get or create user
@@ -370,6 +371,19 @@ class TwitchBot:
                     role_session.add(new_role)
                     logger.debug(f"Granted role {role.value} to user {chat_user.name} in channel {channel_id}")
                 
+                if clear_moderation_actions:
+                    from app.models.user import ModerationAction
+                    # check if user has active ban/timeout that can be cleared
+                    existing_moderation_actions = role_session.execute(
+                        select(ModerationAction).filter_by(
+                            target_user_id=user.id,
+                            channel_id=channel_id,
+                            active=True
+                        )
+                    ).scalars().all()
+                    for existing_moderation_action in existing_moderation_actions:
+                        existing_moderation_action.active = False
+                    
                 role_session.commit()
             
             except Exception as e:

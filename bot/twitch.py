@@ -3,7 +3,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy import select
 from app.models.auth import OAuth
 from app.models.enums import ContentQueueSubmissionSource, AccountSource, ModerationActionType, ChannelRole
-from app.models import Channels, ChannelSettings, Users, UserChannelRole
+from app.models import Channels, ChannelSettings, Users, UserChannelRole, ContentQueueSubmission
 from app.models.chatlog import ChatLog
 from app.models.config import config
 import asyncio
@@ -51,11 +51,11 @@ class TwitchBot:
             raise Exception("No bot OAuth token found in DB")
 
         logger.info("Twitch bot setting authentication")
+        from app.auth.twitch import bot_oauth_scope
         await self.twitch.set_user_authentication(
             token=token_data['access_token'],
             refresh_token=token_data['refresh_token'],
-            scope=[AuthScope.CHAT_READ,
-                   AuthScope.CHAT_EDIT, AuthScope.CLIPS_EDIT],
+            scope=bot_oauth_scope,
         )
         logger.info("Twitch bot authentication set")
 
@@ -173,6 +173,18 @@ class TwitchBot:
             await self._update_user_role_from_badges(msg, channel_id)
 
             if self.channel_settings and self.channel_settings[channel_id]['content_queue_enabled']:
+                if msg.reply_parent_msg_id:
+                    current_queue_submission = self.session.query(ContentQueueSubmission).filter_by(
+                        submission_source_type = ContentQueueSubmissionSource.Twitch,
+                        submission_source_id = int(room_id),
+                        submission_source_ref = msg.reply_parent_msg_id
+                        ).one_or_none()
+                        
+                    if current_queue_submission and current_queue_submission.user.external_account_id != msg.user.id:
+                        logger.info("Found existing submission for message %s", msg.text, extra={
+                                    "channel_id": channel_id})
+                        current_queue_submission.weight += 1
+                        self.session.commit()
 
                 # Check for URLs in the message
                 urls = url_pattern.findall(msg.text)
@@ -213,13 +225,13 @@ class TwitchBot:
                                 external_user_id=msg.user.id,
                                 submission_source_type=ContentQueueSubmissionSource.Twitch,
                                 submission_source_id=int(room_id),
+                                submission_source_ref=msg.id,
                                 broadcaster_id=self.channel_settings[channel_id]['broadcaster_id'],
                                 user_comment=user_comment if user_comment else None,
                                 session=self.session
                             )
 
             if self.channel_settings[channel_id]['chat_collection_enabled']:
-
                 # Create a new ChatLog entry
                 chat_log = ChatLog(
                     channel_id=channel_id,
@@ -408,9 +420,6 @@ class TwitchBot:
         # Check for subscriber badge
         if 'subscriber' in badges:
             return ChannelRole.Subscriber
-        
-        # For now, we can't detect followers from badges alone
-        # Follower status would require API calls
         
         # Default to Basic role if no special badges
         return ChannelRole.Basic

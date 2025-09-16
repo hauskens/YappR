@@ -6,13 +6,13 @@
       <h5 class="modal-title">User Details</h5>
       <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
     </div>
-    
+
     {% if weights %}
-        {% set user_weight = weights|first %}
+    {% set user_weight = weights|first %}
     {% else %}
-        {% set user_weight = None %}
+    {% set user_weight = None %}
     {% endif %}
-    
+
     <!-- Modal Body -->
     <div class="modal-body">
       <div class="row mb-3">
@@ -20,130 +20,93 @@
           <div class="card">
             <div class="card-body">
               <h5 class="card-title">{{ user.name }}</h5>
-              
-              <!-- User Source Badge -->
+
+              <!-- User Badges and Statistics -->
               <div class="mb-3">
-                {% if user.account_type.name == 'Twitch' %}
-                <span class="badge" style="background-color: #9147FF;">
-                  <i class="bi bi-twitch"></i> Twitch
-                </span>
-                {% elif user.account_type.name == 'Discord' %}
-                <span class="badge" style="background-color: #5865F2;">
-                  <i class="bi bi-discord"></i> Discord
-                </span>
-                {% endif %}
-                <span class="badge bg-secondary">ID: {{ user.external_account_id }}</span>
-                
-                <!-- Moderation Status -->
-                <div id="user-status-{{ user.id }}" class="d-inline">
-                  {% include 'components/user_moderation_status.html' %}
-                </div>
-              </div>
-              
-              <!-- User Stats -->
-              <div class="mb-3">
-                <h6>User Statistics</h6>
-                <ul class="list-group list-group-flush">
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Total Clips Submitted
-                    <span class="badge bg-primary rounded-pill">{{ total_clips_submitted }}</span>
-                  </li>
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Watched Clips
-                    <span class="badge bg-success rounded-pill">{{ watched_clips_count }}</span>
-                  </li>
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Average Rating
-                    <span class="badge {% if average_score > 0.1 %}bg-success{% elif average_score < -0.1 %}bg-danger{% else %}bg-secondary{% endif %} rounded-pill">
-                      {% if average_score > 0 %}+{% endif %}{{ average_score }}
-                    </span>
-                  </li>
-                  
-                  {% if user_weight %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Current Weight
-                    <span class="badge {% if user_weight.weight <= 0.5 %}bg-warning{% else %}bg-success{% endif %} rounded-pill">
-                      {{ user_weight.weight }}
-                    </span>
-                  </li>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                  <!-- Platform Badge -->
+                  {% if user.account_type.name == 'Twitch' %}
+                  <span class="badge" style="background-color: #9147FF;">
+                    <i class="bi bi-twitch"></i> Twitch
+                  </span>
+                  {% elif user.account_type.name == 'Discord' %}
+                  <span class="badge" style="background-color: #5865F2;">
+                    <i class="bi bi-discord"></i> Discord
+                  </span>
                   {% endif %}
-                  
+
+                  <!-- Statistics Chips -->
+                  <span class="badge bg-primary" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="Total number of clips this user has submitted to the queue">
+                    <i class="bi bi-camera-video me-1"></i>{{ total_clips_submitted }} Clips
+                  </span>
+                  <span class="badge bg-success" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="Number of submitted clips watched by broadcasters">
+                    <i class="bi bi-eye me-1"></i>{{ watched_clips_count }} Watched
+                  </span>
+
+                  <!-- Status Badges -->
                   {% if user.disabled %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Status
-                    <span class="badge bg-warning">Disabled</span>
-                  </li>
+                  <span class="badge bg-warning" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="This user account has been disabled and cannot submit clips">
+                    <i class="bi bi-exclamation-triangle me-1"></i>Disabled
+                  </span>
                   {% endif %}
-                  
+
                   {% if user.ignore_weight_penalty %}
-                  <li class="list-group-item d-flex justify-content-between align-items-center">
-                    Weight Penalties
-                    <span class="badge bg-info">Ignored</span>
-                  </li>
+                  <span class="badge bg-info" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="This user is exempt from weight penalties when submitting clips">
+                    <i class="bi bi-shield-check me-1"></i>Weight Penalties Ignored
+                  </span>
                   {% endif %}
-                </ul>
-              </div>
 
-              <!-- Global Permissions -->
-              {% if user.permissions and user.permissions | length > 0 %}
-              <div class="mb-3">
-                <h6>Global Permissions</h6>
-                <div class="d-flex flex-wrap gap-2">
+                  <!-- Moderation Status -->
+                  <div id="user-status-{{ user.id }}" class="d-inline">
+                    {% include 'components/user_moderation_status.html' %}
+                  </div>
+                {% if user.permissions and user.permissions | length > 0 %}
                   {% for permission in user.permissions %}
-                    {% if permission.permission_type.name == 'Admin' %}
-                      <span class="badge bg-danger">{{ permission.permission_type.value.title() }}</span>
-                    {% elif permission.permission_type.name == 'Moderator' %}
-                      <span class="badge bg-warning">{{ permission.permission_type.value.title() }}</span>
-                    {% elif permission.permission_type.name == 'Reader' %}
-                      <span class="badge bg-info">{{ permission.permission_type.value.title() }}</span>
-                    {% else %}
-                      <span class="badge bg-secondary">{{ permission.permission_type.value.title() }}</span>
-                    {% endif %}
+                  {% if permission.permission_type.name == 'Admin' %}
+                  <span class="badge bg-danger" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="Full administrative access to all system features and settings">
+                    {{ permission.permission_type.value.title() }}
+                  </span>
+                  {% elif permission.permission_type.name == 'Moderator' %}
+                  <span class="badge bg-warning" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="Can moderate users, manage clips, and perform moderation actions">
+                    {{ permission.permission_type.value.title() }}
+                  </span>
+                  {% elif permission.permission_type.name == 'Reader' %}
+                  <span class="badge bg-info" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="Read-only access to view system information and statistics">
+                    {{ permission.permission_type.value.title() }}
+                  </span>
+                  {% else %}
+                  <span class="badge bg-secondary" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="Custom permission level with specific access rights">
+                    {{ permission.permission_type.value.title() }}
+                  </span>
+                  {% endif %}
                   {% endfor %}
-                </div>
-              </div>
-              {% endif %}
+                {% endif %}
 
-              <!-- Channel Roles -->
-              {% if user.channel_roles and user.channel_roles | selectattr('active', 'equalto', True) | list | length > 0 %}
-              <div class="mb-3">
-                <h6>Channel Roles</h6>
-                <div class="table-responsive">
-                  <table class="table table-sm">
-                    <thead>
-                      <tr>
-                        <th>Channel</th>
-                        <th>Role</th>
-                        <th>Description</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {% for channel_role in user.channel_roles | selectattr('active', 'equalto', True) %}
-                        {% set config = get_role_config(channel_role.role) %}
-                        <tr>
-                          <td>
-                            <strong>{{ channel_role.channel.name }}</strong>
-                          </td>
-                          <td>
-                            <span class="badge" style="background-color: {{ config.background_color }}; color: {{ config.text_color }};">
-                              {{ channel_role.role.value }}
-                            </span>
-                          </td>
-                          <td>
-                            <small class="text-muted">{{ config.description }}</small>
-                          </td>
-                        </tr>
-                      {% endfor %}
-                    </tbody>
-                  </table>
-                </div>
+                <!-- Channel Roles -->
+                {% if user.channel_roles and user.channel_roles | selectattr('active', 'equalto', True) | list | length > 0 %}
+                  {% for channel_role in user.channel_roles | selectattr('active', 'equalto', True) %}
+                  {% set config = get_role_config(channel_role.role) %}
+                  <span class="badge" data-bs-toggle="tooltip" data-bs-placement="top"
+                    title="{{ config.description }} in {{ channel_role.channel.name }}"
+                    style="background-color: {{ config.background_color }}; color: {{ config.text_color }};">
+                    {{ channel_role.channel.name }}
+                  </span>
+                  {% endfor %}
+                {% endif %}
               </div>
-              {% endif %}
-              
+
               <!-- Recent Submissions with Scrollbar -->
               <div class="mb-3">
                 <h6 class="mb-2">Recent Submissions ({{ submissions|length }})</h6>
-                
+
                 <div id="submissions-container">
                   {% if submissions %}
                   <div class="list-group" style="max-height: 300px; overflow-y: auto;">
@@ -179,11 +142,11 @@
         </div>
       </div>
     </div>
-    
+
     <!-- Modal Footer with Channel-Specific Actions Only -->
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-      
+
       <!-- Channel-Specific Moderation Actions -->
       <div class="btn-group" role="group">
         <!-- Timeout Dropdown -->
@@ -192,55 +155,38 @@
             <i class="bi bi-clock me-1"></i> Timeout
           </button>
           <ul class="dropdown-menu">
-            <li><a class="dropdown-item" href="#" 
-                   hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
-                   hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "60", "reason": "1 minute timeout"}'
-                   hx-target="#user-status-{{ user.id }}"
-                   hx-confirm="Timeout user for 1 minute?">1 minute</a></li>
-            <li><a class="dropdown-item" href="#" 
-                   hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
-                   hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "300", "reason": "5 minute timeout"}'
-                   hx-target="#user-status-{{ user.id }}"
-                   hx-confirm="Timeout user for 5 minutes?">5 minutes</a></li>
-            <li><a class="dropdown-item" href="#" 
-                   hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
-                   hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "600", "reason": "10 minute timeout"}'
-                   hx-target="#user-status-{{ user.id }}"
-                   hx-confirm="Timeout user for 10 minutes?">10 minutes</a></li>
-            <li><a class="dropdown-item" href="#" 
-                   hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
-                   hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "1800", "reason": "30 minute timeout"}'
-                   hx-target="#user-status-{{ user.id }}"
-                   hx-confirm="Timeout user for 30 minutes?">30 minutes</a></li>
-            <li><a class="dropdown-item" href="#" 
-                   hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
-                   hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "3600", "reason": "1 hour timeout"}'
-                   hx-target="#user-status-{{ user.id }}"
-                   hx-confirm="Timeout user for 1 hour?">1 hour</a></li>
-            <li><a class="dropdown-item" href="#" 
-                   hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
-                   hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "14400", "reason": "4 hour timeout"}'
-                   hx-target="#user-status-{{ user.id }}"
-                   hx-confirm="Timeout user for 4 hours?">4 hours</a></li>
-            <li><a class="dropdown-item" href="#" 
-                   hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
-                   hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "86400", "reason": "24 hour timeout"}'
-                   hx-target="#user-status-{{ user.id }}"
-                   hx-confirm="Timeout user for 24 hours?">24 hours</a></li>
+            <li><a class="dropdown-item" href="#" hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
+                hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "60", "reason": "1 minute timeout"}'
+                hx-target="#user-status-{{ user.id }}" hx-confirm="Timeout user for 1 minute?">1 minute</a></li>
+            <li><a class="dropdown-item" href="#" hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
+                hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "300", "reason": "5 minute timeout"}'
+                hx-target="#user-status-{{ user.id }}" hx-confirm="Timeout user for 5 minutes?">5 minutes</a></li>
+            <li><a class="dropdown-item" href="#" hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
+                hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "600", "reason": "10 minute timeout"}'
+                hx-target="#user-status-{{ user.id }}" hx-confirm="Timeout user for 10 minutes?">10 minutes</a></li>
+            <li><a class="dropdown-item" href="#" hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
+                hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "1800", "reason": "30 minute timeout"}'
+                hx-target="#user-status-{{ user.id }}" hx-confirm="Timeout user for 30 minutes?">30 minutes</a></li>
+            <li><a class="dropdown-item" href="#" hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
+                hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "3600", "reason": "1 hour timeout"}'
+                hx-target="#user-status-{{ user.id }}" hx-confirm="Timeout user for 1 hour?">1 hour</a></li>
+            <li><a class="dropdown-item" href="#" hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
+                hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "14400", "reason": "4 hour timeout"}'
+                hx-target="#user-status-{{ user.id }}" hx-confirm="Timeout user for 4 hours?">4 hours</a></li>
+            <li><a class="dropdown-item" href="#" hx-post="{{ url_for('users.timeout_user', user_id=user.id) }}"
+                hx-vals='{"channel_id": "{{ channel_id }}", "duration_seconds": "86400", "reason": "24 hour timeout"}'
+                hx-target="#user-status-{{ user.id }}" hx-confirm="Timeout user for 24 hours?">24 hours</a></li>
           </ul>
         </div>
-        
+
         <!-- Ban from Channel Button with Confirmation -->
-        <button type="button" class="btn btn-danger"
-                hx-post="{{ url_for('users.ban_user', user_id=user.id) }}"
-                hx-vals='{"scope": "channel", "channel_id": "{{ channel_id }}", "reason": "Banned from channel by moderator"}'
-                hx-target="#user-status-{{ user.id }}"
-                hx-confirm="Are you sure you want to ban this user from the channel?">
+        <button type="button" class="btn btn-danger" hx-post="{{ url_for('users.ban_user', user_id=user.id) }}"
+          hx-vals='{"scope": "channel", "channel_id": "{{ channel_id }}", "reason": "Banned from channel by moderator"}'
+          hx-target="#user-status-{{ user.id }}" hx-confirm="Are you sure you want to ban this user from the channel?">
           <i class="bi bi-slash-circle me-1"></i> Ban from Channel
         </button>
       </div>
-      
+
     </div>
   </div>
 </div>
-

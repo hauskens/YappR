@@ -116,10 +116,7 @@ def create_app(overrides: dict | None = None):
     # Make version available in templates, used for cache busting
     @app.context_processor
     def inject_functions():
-        # Check if release has happened via Redis
-        from app.routes.root import r
-        released = r.get("yappr_1_0_released") == b"true"
-        current_version = "1.0.0" if released else str(config.version).strip(":")
+        current_version = str(config.version).strip(":")
         
         return dict(
             version=current_version,

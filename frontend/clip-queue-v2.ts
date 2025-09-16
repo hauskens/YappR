@@ -30,7 +30,7 @@ function handleHtmxAfterSwap(): void {
       
       // Show rating buttons when clip is playing
       if (currentClipId) {
-        const ratingButtons = document.getElementById('rating-buttons');
+        const ratingButtons = document.getElementById('rating-btn');
         if (ratingButtons) ratingButtons.style.display = 'flex';
       }
     }
@@ -232,7 +232,7 @@ function initializeTabSwitching(): void {
       // Hide player and rating buttons
       const playerContainer = document.getElementById('player-container');
       const playerMessage = document.getElementById('player-message');
-      const ratingButtons = document.getElementsByClassName('rating-buttons');
+      const ratingButtons = document.getElementsByClassName('rating-btn');
       
       if (playerContainer) playerContainer.style.display = 'none';
       if (playerMessage) playerMessage.style.display = 'block';
@@ -252,7 +252,7 @@ function initializeTabSwitching(): void {
       // Hide player and rating buttons when switching to history
       const playerContainer = document.getElementById('player-container');
       const playerMessage = document.getElementById('player-message');
-      const ratingButtons = document.getElementsByClassName('rating-buttons');
+      const ratingButtons = document.getElementsByClassName('rating-btn');
       
       if (playerContainer) playerContainer.style.display = 'none';
       if (playerMessage) playerMessage.style.display = 'block';
@@ -281,7 +281,7 @@ function initializeTabSwitching(): void {
       // Hide player and rating buttons
       const playerContainer = document.getElementById('player-container');
       const playerMessage = document.getElementById('player-message');
-      const ratingButtons = document.getElementsByClassName('rating-buttons');
+      const ratingButtons = document.getElementsByClassName('rating-btn');
       
       if (playerContainer) playerContainer.style.display = 'none';
       if (playerMessage) playerMessage.style.display = 'block';
@@ -312,7 +312,7 @@ function initializeTabSwitching(): void {
       // Hide player and rating buttons
       const playerContainer = document.getElementById('player-container');
       const playerMessage = document.getElementById('player-message');
-      const ratingButtons = document.getElementsByClassName('rating-buttons');
+      const ratingButtons = document.getElementsByClassName('rating-btn');
       
       if (playerContainer) playerContainer.style.display = 'none';
       if (playerMessage) playerMessage.style.display = 'block';
@@ -428,7 +428,7 @@ function markCurrentWatchedInternal(rating: number): void {
         playerMessage.style.display = 'block';
       }
       
-      const ratingButtons = document.getElementById('rating-buttons');
+      const ratingButtons = document.getElementById('rating-btn');
       if (ratingButtons) ratingButtons.style.display = 'none';
     });
   }
@@ -438,7 +438,7 @@ function markCurrentWatchedInternal(rating: number): void {
 function initPlayer(): void {
   const playerContainer = document.getElementById('player-container') as HTMLElement;
   const playerMessage = document.getElementById('player-message') as HTMLElement;
-  const ratingButtons = document.getElementsByClassName('rating-buttons') as HTMLCollectionOf<HTMLElement>;
+  const ratingButtons = document.getElementsByClassName('rating-btn') as HTMLCollectionOf<HTMLElement>;
 
   for (let i = 0; i < ratingButtons.length; i++) {
     const button = ratingButtons[i] as HTMLElement;

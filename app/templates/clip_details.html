@@ -1,62 +1,111 @@
 <!-- Clip details template for htmx loading -->
-<div class="d-flex flex-column equal-col overflow-hidden" style="min-width:30%">
-  <div class="queue-title fw-bold text-truncate w-100" title="{{ item.content.title }}">
-    {{ item.content.title }}
-  </div>
-  <div class="mt-1">
-    {% if item.content.get_platform() == 'youtube' %}
-    <img
-      src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000"
-      alt="YouTube badge">
-    {% elif item.content.get_platform() == 'twitch' %}
-    <img
-      src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D"
-      alt="Twitch badge">
-    {% endif %}
-    <a href="{{ item.content.url }}" target="_blank">link to video</a>
-  </div>
-  {% if item.content.get_platform() == 'twitch' and item.content.author %}
-  <div><span>Clip created by: {{ item.content.author }}</span></div>
-  {% endif %}
-  {% if item.content.get_platform() == 'twitch' and item.content.created_at %}
-  <div><span>Clip created at: {{ item.content.created_at }}</span></div>
-  {% endif %}
-  {% if item.content.get_platform() == 'youtube' and item.content.created_at %}
-  <div><span>Uploaded: {{ item.content.created_at }}</span></div>
-  {% endif %}
+<div class="d-flex align-items-stretch w-100">
+  <!-- Left section: Title and metadata stacked -->
+  <div class="d-flex flex-column flex-grow-1 me-3" style="min-width: 0;">
+    <!-- Title row -->
+    <div class="d-flex align-items-center mb-1">
+      <div class="queue-title fw-bold fs-5 text-truncate flex-grow-1 me-3" title="{{ item.content.title }}" style="min-width: 0;">
+        {{ item.content.title }}
+      </div>
+    </div>
+    
+    <!-- Platform and metadata row -->
+    <div class="d-flex align-items-center gap-1 flex-wrap">
+      <!-- Platform and channel info -->
+      <div class="d-flex align-items-center gap-1 flex-shrink-0">
+        {% if item.content.get_platform() == 'youtube' %}
+        <img
+          src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-FF0000?style=plastic&logo=youtube&logoColor=white&color=6C757D&labelColor=FF0000"
+          alt="YouTube badge">
+        {% elif item.content.get_platform() == 'twitch' %}
+        <img
+          src="https://img.shields.io/badge/{{ item.content.channel_name | urlencode }}-9147FF?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF&color=6C757D"
+          alt="Twitch badge">
+        {% endif %}
+        <a href="{{ item.content.url }}" target="_blank" class="text-decoration-none small">
+          <i class="fas fa-external-link-alt"></i>
+        </a>
+      </div>
 
-</div>
-<div class="vr mx-2 flex-shrink-0"></div>
-<div class="d-flex flex-wrap align-items-center gap-1 mt-1 equal-col">
+      <!-- Metadata section -->
+      <div class="d-flex align-items-center gap-1 text-muted small flex-shrink-0">
+        {% if item.content.get_platform() == 'twitch' and item.content.author %}
+        <span>Clipped by {{ item.content.author }}</span>
+        {% endif %}
+        {% if item.content.created_at %}
+        <span>•</span>
+        <span>
+          {{ item.content.created_at.strftime('%Y-%m-%d') }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Separator -->
+  <div class="vr mx-2 flex-shrink-0"></div>
+
+  <!-- Right section: Submissions -->
   {% if item.submissions %}
-  {% set earliest = (item.submissions | sort(attribute='submitted_at'))[0] %}
+  {% set sorted_submissions = item.submissions | sort(attribute='submitted_at') %}
+  {% set earliest = sorted_submissions[0] %}
   {% set seconds_diff = (now - earliest.submitted_at).total_seconds()|int %}
   {% set minutes_diff = (seconds_diff / 60)|int %}
   {% set hours_diff = (seconds_diff / 3600)|int %}
   {% set days_diff = (hours_diff / 24)|int %}
-  <span class="text-muted">•</span>
-  <span class="text-muted" data-bs-toggle="tooltip" title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
-    Added {% if hours_diff >= 24 %}{{ days_diff }} day{% if days_diff != 1 %}s{% endif %}{% elif hours_diff >= 1 %}{{
-    hours_diff }} hour{% if hours_diff != 1 %}s{% endif %}{% else %}{{ minutes_diff }} minute{% if minutes_diff != 1
-    %}s{% endif %}{% endif %} ago by:
-  </span>
-  {% endif %}
-  {% if item.submissions|length > 0 %}
-  {% set submission = item.submissions[0] %}
-  {% set badge_class = 'twitch-badge' if submission.user.account_type.value.lower() == 'twitch' else 'discord-badge' %}
-  <span class="badge {{ badge_class }} opacity-50" data-bs-toggle="tooltip" title="{{ submission.user_comment or '' }}"
-    hx-get="{{ url_for('users.user_detail', user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
-    hx-target="#userModalContent" hx-trigger="click" onclick="event.stopPropagation();"
-    style="cursor: pointer;"
-    hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()"
-    >
-    {{ submission.user.name }}{{ '*' if submission.user_comment is not none else '' }}
-  </span>
-  {% if item.submissions|length > 1 %}
-  <span class="badge bg-secondary opacity-50" data-bs-toggle="tooltip"
-    title="{% for s in item.submissions[1:] %}{{ s.user.name }}{% if not loop.last %}, {% endif %}{% endfor %}">
-    +{{ item.submissions|length - 1 }} other{{ 's' if item.submissions|length > 2 else '' }}
-  </span>
-  {% endif %}
+  <div class="d-flex flex-column justify-content-start" style="min-width: 200px; max-width: 400px; max-height: 60px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: #ccc transparent;">
+    <style>
+      .d-flex.flex-column::-webkit-scrollbar {
+        width: 1px;
+      }
+      .d-flex.flex-column::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .d-flex.flex-column::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 1px;
+      }
+      .d-flex.flex-column::-webkit-scrollbar-thumb:hover {
+        background: #999;
+      }
+    </style>
+    <!-- Header with first submission info -->
+    <div class="text-muted small mb-1" data-bs-toggle="tooltip" title="{{ earliest.submitted_at.strftime('%Y-%m-%d %H:%M:%S') }}">
+      First submitted by 
+      <span class="fw-semibold text-decoration-underline" style="cursor: pointer;{% if earliest.user.color %} color: {{ earliest.user.color }};{% endif %}"
+        hx-get="{{ url_for('users.user_detail', user_id=earliest.user.id, broadcaster_id=item.broadcaster_id) }}"
+        hx-target="#userModalContent" hx-trigger="click" onclick="event.stopPropagation();"
+        hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()">{{ earliest.user.name }}</span>
+      {% if hours_diff >= 24 %}{{ days_diff }}d{% elif hours_diff >= 1 %}{{ hours_diff }}h{% else %}{{ minutes_diff }}m{% endif %} ago
+    </div>
+    
+    <!-- All submissions with comments -->
+    {% for submission in sorted_submissions %}
+    {% if submission.user_comment %}
+    <div class="d-flex align-items-center justify-content-start gap-1 mb-1">
+      <div class="text-muted small text-start d-flex align-items-center" style="min-width: 0;">
+        <span class="fw-semibold text-decoration-underline" style="cursor: pointer;{% if submission.user.color %} color: {{ submission.user.color }};{% endif %}"
+          hx-get="{{ url_for('users.user_detail', user_id=submission.user.id, broadcaster_id=item.broadcaster_id) }}"
+          hx-target="#userModalContent" hx-trigger="click" onclick="event.stopPropagation();"
+          hx-on::after-request="new bootstrap.Modal(document.getElementById('userModal')).show()">{{ submission.user.name }}:</span>
+        <span class="text-truncate ms-1" style="max-width: 200px;" title="{{ submission.user_comment }}">{{ submission.user_comment }}</span>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+    
+    <!-- Additional submitters without comments (if any) -->
+    {% set users_without_comments = [] %}
+    {% for submission in sorted_submissions %}
+    {% if not submission.user_comment %}
+    {% set _ = users_without_comments.append(submission.user.name) %}
+    {% endif %}
+    {% endfor %}
+    {% if users_without_comments|length > 1 or (users_without_comments|length == 1 and users_without_comments[0] != earliest.user.name) %}
+    <div class="text-muted small">
+      Also: {{ users_without_comments | reject('equalto', earliest.user.name) | list | join(', ') }}
+    </div>
+    {% endif %}
+  </div>
   {% endif %}
 </div>

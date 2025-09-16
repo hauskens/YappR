@@ -214,7 +214,7 @@ def _validate_platform_allowed(url: str, broadcaster_id: int, platform_handler: 
     return True
 
 
-async def _get_or_create_content(url: str, broadcaster_id: int, session, platform_handler: PlatformHandler, twitch_client: Twitch | None = None) -> int:
+async def _get_or_create_content(url: str, broadcaster_id: int, session: scoped_session, platform_handler: PlatformHandler, twitch_client: Twitch | None = None) -> int:
     """Get existing content or create new content from URL."""
     # Check if content already exists
     platform_handler = PlatformRegistry.get_handler_by_url(url)
@@ -223,7 +223,7 @@ async def _get_or_create_content(url: str, broadcaster_id: int, session, platfor
                                platform_handler.deduplicate_url())
     ).scalars().one_or_none()
 
-    if existing_content is None:
+    if existing_content is None or existing_content.created_at is None:
         logger.info("Content not found in database, fetching data from platform and trying to create it", extra={
                     "broadcaster_id": broadcaster_id})
         # Use platform registry to get the appropriate handler
@@ -252,17 +252,23 @@ async def _get_or_create_content(url: str, broadcaster_id: int, session, platfor
 
         logger.info("Fetched data for url: %s", url, extra={
                     "broadcaster_id": broadcaster_id})
-        # Create new content entry
-        content = Content(
-            url=url,
-            stripped_url=platform_video_data['deduplicated_url'],
-            title=platform_video_data['title'],
-            duration=platform_video_data['duration'],
-            thumbnail_url=platform_video_data['thumbnail_url'],
-            channel_name=platform_video_data['channel_name'],
-            author=platform_video_data['author']
-        )
-        session.add(content)
+
+        if existing_content is None:
+            # Create new content entry
+            content = Content(
+                url=url,
+                stripped_url=platform_video_data['deduplicated_url'],
+                title=platform_video_data['title'],
+                duration=platform_video_data['duration'],
+                thumbnail_url=platform_video_data['thumbnail_url'],
+                channel_name=platform_video_data['channel_name'],
+                author=platform_video_data['author'],
+                created_at=platform_video_data['created_at']
+            )
+            session.add(content)
+        else:
+            existing_content.created_at = platform_video_data['created_at']
+            
         session.commit()
         logger.info("Created new content: %s", content, extra={
                     "broadcaster_id": broadcaster_id, "content_id": content.id})
@@ -500,7 +506,7 @@ def _get_or_create_user_weight(user: Users, broadcaster_id: int, session: scoped
     return user_weight
 
 
-def _create_or_update_submission(queue_item_id: int, content_id: int, user: Users, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, submission_weight: float, user_weight: UserWeight, user_comment: str | None, session: scoped_session) -> ContentQueueSubmission:
+def _create_or_update_submission(queue_item_id: int, content_id: int, user: Users, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, submission_source_ref: str | None, submission_weight: float, user_weight: UserWeight, user_comment: str | None, session: scoped_session) -> ContentQueueSubmission:
     """Create new submission or update existing one."""
     # Check if submission already exists
     existing_submission = session.execute(
@@ -521,6 +527,7 @@ def _create_or_update_submission(queue_item_id: int, content_id: int, user: User
             submitted_at=datetime.now(),
             submission_source_type=submission_source_type,
             submission_source_id=submission_source_id,
+            submission_source_ref=submission_source_ref,
             weight=submission_weight * user_weight.weight,
             user_comment=user_comment
         )
@@ -561,7 +568,7 @@ def _get_or_create_content_queue_item(broadcaster_id: int, content_id: int, sess
         return existing_queue_item.id
 
 
-async def add_to_content_queue(url: str, broadcaster_id: int, username: str, external_user_id: str, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, session: scoped_session, user_comment: str | None = None, submission_weight: float = 1.0, twitch_client: Twitch | None = None) -> int | None:
+async def add_to_content_queue(url: str, broadcaster_id: int, username: str, external_user_id: str, submission_source_type: ContentQueueSubmissionSource, submission_source_id: int, session: scoped_session, submission_source_ref: str | None = None, user_comment: str | None = None, submission_weight: float = 1.0, twitch_client: Twitch | None = None) -> int | None:
     """Add a URL to the content queue for a channel and record who submitted it"""
     # Create a session if one wasn't provided
 
@@ -594,7 +601,7 @@ async def add_to_content_queue(url: str, broadcaster_id: int, username: str, ext
 
             # Create or update submission
             _create_or_update_submission(queue_item_id, content_id, user, submission_source_type,
-                                                      submission_source_id, submission_weight, user_weight, user_comment, session)
+                                                      submission_source_id, submission_source_ref, submission_weight, user_weight, user_comment, session)
 
             # Commit all changes
             session.commit()

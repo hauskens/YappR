@@ -117,7 +117,7 @@
     // Check if we're in history mode or if the item is already watched
     const isHistoryMode = {{ 'true' if show_history else 'false' }};
     const isWatched = this.getAttribute('data-watched') === 'true';
-    const ratingButtons = document.getElementsByClassName('rating-buttons');
+    const ratingButtons = document.getElementsByClassName('rating-btn');
 
     if (!isHistoryMode && !isWatched) {
       for (let i = 0; i < ratingButtons.length; i++) {

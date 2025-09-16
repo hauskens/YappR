@@ -3,7 +3,7 @@
 {% block content %}
 <div class="container py-3">
   <div class="row justify-content-center">
-    <div class="col-lg-12">
+    <div class="col-lg-8">
       <div class="text-center mb-5 shadow">
         <h1 class="display-4 mb-3">Clip Queue Leaderboard</h1>
         <p class="lead text-muted">Submitted clips by users and watched clips by broadcasters</p>
@@ -36,8 +36,7 @@
                   <h5 class="card-title mb-0">
                     <i class="bi bi-person-plus"></i> Top Clip Contributors
                   </h5>
-                  <small class="text-muted">Ranked by number of watched clips by Streamer and average rating
-                    given</small>
+                  <small class="text-muted">Ranked by number of watched clips by Streamer</small>
                 </div>
                 <div class="card-body">
                   {% if user_stats %}
@@ -52,20 +51,6 @@
                               title="Total watched clips submitted"></i>
                             Clips
                           </th>
-                          <th class="text-center">
-                            <i class="bi bi-star-fill" data-bs-toggle="tooltip"
-                              title="Average rating (good/bad votes)"></i>
-                            Avg Rating
-                          </th>
-                          <th class="text-center">
-                            <i class="bi bi-graph-up" data-bs-toggle="tooltip"
-                              title="Total rating points accumulated"></i>
-                            Total Points
-                          </th>
-                          <!-- <th class="text-center">
-                          <i class="bi bi-broadcast" data-bs-toggle="tooltip" title="Number of different broadcasters contributed to"></i>
-                          Broadcasters
-                        </th> -->
                         </tr>
                       </thead>
                       <tbody>
@@ -92,20 +77,6 @@
                           <td class="text-center">
                             <span class="badge bg-primary">{{ user.total_clips }}</span>
                           </td>
-                          <td class="text-center">
-                            <span
-                              class="badge {% if user.average_rating > 0.1 %}bg-success{% elif user.average_rating < -0.1 %}bg-danger{% else %}bg-secondary{% endif %}">
-                              {% if user.average_rating > 0 %}+{% endif %}{{ user.average_rating }}
-                            </span>
-                          </td>
-                          <td class="text-center">
-                            <span
-                              class="badge {% if user.total_rating_points > 0 %}bg-primary{% elif user.total_rating_points < 0 %}bg-danger{% else %}bg-secondary{% endif %}">
-                              {% if user.total_rating_points < 0 %}-{% endif %}{{ user.total_rating_points }} </span>
-                          </td>
-                          <!-- <td class="text-center">
-                          <span class="badge bg-info">{{ user.broadcasters_contributed_to }}</span>
-                        </td> -->
                         </tr>
                         {% endfor %}
                       </tbody>
@@ -148,23 +119,8 @@
                             Watched
                           </th>
                           <th class="text-center">
-                            <i class="bi bi-star-fill" data-bs-toggle="tooltip"
-                              title="Average rating given to clips"></i>
-                            Avg Rating
-                          </th>
-                          <th class="text-center">
                             <i class="bi bi-people" data-bs-toggle="tooltip" title="Number of unique contributors"></i>
                             Contributors
-                          </th>
-                          <th class="text-center">
-                            <i class="bi bi-hand-thumbs-up text-success" data-bs-toggle="tooltip"
-                              title="Percentage of positive ratings given"></i>
-                            Positive %
-                          </th>
-                          <th class="text-center">
-                            <i class="bi bi-hand-thumbs-down text-danger" data-bs-toggle="tooltip"
-                              title="Percentage of negative ratings given"></i>
-                            Negative %
                           </th>
                         </tr>
                       </thead>
@@ -192,20 +148,7 @@
                             <span class="badge bg-primary">{{ broadcaster.total_clips_watched }}</span>
                           </td>
                           <td class="text-center">
-                            <span
-                              class="badge {% if broadcaster.average_rating_given > 0.1 %}bg-success{% elif broadcaster.average_rating_given < -0.1 %}bg-danger{% else %}bg-secondary{% endif %}">
-                              {% if broadcaster.average_rating_given > 0 %}+{% endif %}{{
-                              broadcaster.average_rating_given }}
-                            </span>
-                          </td>
-                          <td class="text-center">
                             <span class="badge bg-primary">{{ broadcaster.unique_contributors }}</span>
-                          </td>
-                          <td class="text-center">
-                            <span class="badge bg-success">{{ broadcaster.positive_rate }}%</span>
-                          </td>
-                          <td class="text-center">
-                            <span class="badge bg-danger">{{ broadcaster.negative_rate }}%</span>
                           </td>
                         </tr>
                         {% endfor %}
@@ -242,21 +185,6 @@
                   <small class="text-muted">Active Broadcasters</small>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-        <div class="col-md-6">
-          <div class="card shadow h-100">
-            <div class="card-body">
-              <h6 class="card-title"><i class="bi bi-info-circle"></i> About Ratings</h6>
-              <p class="small mb-0">
-                Ratings are given when clips are marked as watched:
-              </p>
-              <p class="small mb-0">
-                <span class="badge bg-success">Good (+1.0)</span>
-                <span class="badge bg-secondary">Neutral (0.0)</span>
-                <span class="badge bg-danger">Bad (-1.0)</span>
-              </p>
             </div>
           </div>
         </div>

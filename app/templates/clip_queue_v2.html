@@ -24,24 +24,15 @@
             <div id="clip-details" class="d-flex align-items-stretch flex-nowrap overflow-hidden flex-grow-1">
               <!-- Clip details will be loaded here via HTMX -->
             </div>
-            <div id="rating-buttons" class="d-flex gap-2 flex-shrink-0 me-2 align-self-center" style="display:none">
+            <div id="rating-buttons rating-floating" class="d-flex flex-shrink-0 mx-3 align-self-center" style="display:none">
               <button 
-                class="btn btn-danger rating-ghost bad rating-buttons"
-                id="mark-bad-btn"
+                class="btn btn-primary rating-btn "
+                id="mark-neutral-btn"
                 data-bs-toggle="tooltip"
                 style="display: none;"
-                title="Mark as bad clip and move to next"
-                onclick="markCurrentWatchedWithRating(-1.0)">
-                <i class="bi bi-hand-thumbs-down-fill"></i> Bad
-              </button>
-              <button 
-                class="btn btn-success rating-ghost good rating-buttons"
-                id="mark-good-btn"
-                data-bs-toggle="tooltip"
-                style="display: none;"
-                title="Mark as good clip and move to next"
-                onclick="markCurrentWatchedWithRating(1.0)">
-                <i class="bi bi-hand-thumbs-up-fill"></i> Good
+                title="Mark as watched and move to next"
+                onclick="markCurrentWatchedWithRating(0.0)">
+                Next
               </button>
             </div>
           </div>

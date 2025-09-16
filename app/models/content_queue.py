@@ -28,6 +28,8 @@ class ContentQueueSubmission(Base):
         Enum(ContentQueueSubmissionSource), nullable=False)
     submission_source_id: Mapped[int] = mapped_column(
         BigInteger, nullable=False)
+    submission_source_ref: Mapped[str | None] = mapped_column(
+        String(256), nullable=True)
     weight: Mapped[float] = mapped_column(Float, nullable=False)
     user_comment: Mapped[str | None] = mapped_column(
         String(256), nullable=True)

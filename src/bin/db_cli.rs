@@ -31,7 +31,7 @@ struct Args {
     
     /// User ID who is importing (for creating import record)
     #[arg(long, value_name = "ID", help = "User ID performing import for parse-chatlogs action")]
-    imported_by: i32,
+    imported_by: Option<i32>,
     
     /// Override timezone string (e.g., "US/Eastern", "UTC")
     #[arg(long, value_name = "TZ", help = "Override timezone for parse-chatlogs action")]
@@ -117,7 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &db,
                 path,
                 channel_id,
-                args.imported_by,
+                args.imported_by.unwrap(),
                 args.timezone,
                 args.events_only,
                 args.margin_ms,

@@ -1,0 +1,24 @@
+[package]
+name = "web"
+version = "0.1.0"
+edition = "2024"
+
+
+[[bin]]
+name = "web"
+path = "src/main.rs"
+
+[dependencies]
+yappr-shared = { path = "../shared" }
+leptos = { version = "0.8.8", features = ["ssr"] }
+leptos_router = { version = "0.8.6", features = ["ssr"] }
+leptos_axum = { version = "0.8.6", optional = true }
+leptos_meta = "0.8.5"
+wasm-bindgen = { version = "0.2.101", optional = true }
+console_error_panic_hook = { version = "0.1.7", optional = true }
+
+
+
+[features]
+ssr = ["leptos/ssr", "leptos_axum"]
+hydrate = ["leptos/hydrate"]

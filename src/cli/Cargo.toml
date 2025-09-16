@@ -1,0 +1,15 @@
+[package]
+name = "yappr-cli"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "db-cli"
+path = "src/db_cli.rs"
+
+[dependencies]
+yappr-shared = { path = "../shared" }
+tokio = { workspace = true }
+clap = { workspace = true }
+sea-orm = { workspace = true }
+chrono = { workspace = true }

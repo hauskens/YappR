@@ -1,0 +1,15 @@
+[package]
+name = "yappr-shared"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+sea-orm = { workspace = true }
+chrono = { workspace = true }
+regex.workspace = true
+chrono-tz.workspace = true

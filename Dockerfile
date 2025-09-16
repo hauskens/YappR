@@ -22,8 +22,8 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM rust:bookworm AS rust-builder
 WORKDIR /src
 RUN cargo install wasm-pack
-COPY Cargo.toml ./
-COPY src ./src
+COPY src/wasm/Cargo.toml ./
+COPY src/wasm/src ./src
 # Build WASM library for existing functionality
 RUN wasm-pack build --target web --out-dir pkg
 

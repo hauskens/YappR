@@ -2,8 +2,8 @@ use twitch_api::{
     client::ClientDefault, types::UserId, HelixClient
 };
 use twitch_oauth2::UserToken;
-use yappr::bots::websocket;
-use yappr::bots::twitch_auth;
+use yappr_bot::websocket;
+use yappr_bot::twitch_auth;
 use eyre::WrapErr;
 
 #[tokio::main]

@@ -1,8 +1,8 @@
 use eyre::{Context, OptionExt};
 use twitch_oauth2::UserToken;
 use std::env;
-use crate::database::get_database_connection;
-use crate::services::user::UserService;
+use yappr_shared::database::get_database_connection;
+use yappr_shared::services::user::UserService;
 use twitch_api::HelixClient;
 use twitch_oauth2::{AccessToken, RefreshToken, ClientSecret, ClientId};
 use twitch_api::client::ClientDefault;

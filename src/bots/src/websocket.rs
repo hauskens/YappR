@@ -10,7 +10,7 @@ use twitch_api::{
     HelixClient,
 };
 use twitch_oauth2::{TwitchToken, UserToken};
-use crate::bots::twitch_auth;
+use crate::twitch_auth;
 
 pub struct WebsocketClient {
     /// The session id of the websocket connection

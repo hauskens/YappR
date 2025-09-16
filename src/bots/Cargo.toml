@@ -1,0 +1,21 @@
+[package]
+name = "yappr-bot"
+version = "0.1.0"
+edition = "2024"
+
+[[bin]]
+name = "bot"
+path = "src/twitch_bot.rs"
+
+[dependencies]
+yappr-shared = { path = "../shared" }
+twitch_api = { workspace = true }
+tokio = { workspace = true }
+twitch_oauth2 = { workspace = true }
+eyre = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+reqwest = { workspace = true }
+tokio-tungstenite = { workspace = true }
+url = { workspace = true }
+futures.workspace = true

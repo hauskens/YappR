@@ -9,7 +9,7 @@ path = "src/db_cli.rs"
 
 [dependencies]
 yappr-shared = { path = "../shared" }
-tokio = { workspace = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 clap = { workspace = true }
 sea-orm = { workspace = true }
 chrono = { workspace = true }

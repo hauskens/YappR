@@ -10,12 +10,12 @@ path = "src/twitch_bot.rs"
 [dependencies]
 yappr-shared = { path = "../shared" }
 twitch_api = { workspace = true }
-tokio = { workspace = true }
+tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 twitch_oauth2 = { workspace = true }
 eyre = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 reqwest = { workspace = true }
-tokio-tungstenite = { workspace = true }
+tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots", "native-tls", "url"] }
 url = { workspace = true }
 futures.workspace = true

@@ -9,7 +9,11 @@ crate-type = ["rlib"]
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }
-sea-orm = { workspace = true }
+sea-orm = { workspace = true, optional = true }
 chrono = { workspace = true }
 regex.workspace = true
 chrono-tz.workspace = true
+
+[features]
+default = ["dep:sea-orm"]
+database = ["dep:sea-orm"]

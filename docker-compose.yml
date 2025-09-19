@@ -150,6 +150,29 @@ services:
           path: ./pyproject.toml
         - action: rebuild
           path: ./uv.lock
+  web:
+    build:
+      context: .
+      dockerfile: src/web/Dockerfile
+      target: development
+    ports:
+      - "3000:3000"
+      - "3001:3001"
+    networks:
+      - internal
+    develop:
+      watch:
+        - action: sync
+          path: ./src/web/src/
+          target: /app/src/web/src/
+        - action: sync
+          path: ./src/web/public/
+          target: /app/src/web/public/
+        - action: sync
+          path: ./src/shared/
+          target: /app/src/shared/
+        - action: rebuild
+          path: ./src/web/Cargo.toml
     
 volumes:
   # db:

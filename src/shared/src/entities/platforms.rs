@@ -87,10 +87,18 @@ impl PlatformVariant {
             PlatformVariant::YouTubeVideo => {
                 r"^(?:https?://)?(?:www\.|m\.)?(?:youtube\.com/watch\?v=|youtu\.be/)[\w\-]{11}(?:$|[&?])"
             }
-            PlatformVariant::YouTubeShort => r"^(?:https?://)?(?:www.|m.)?youtube\.com/shorts/[\w\-]{11}(?:$|[&?])",
-            PlatformVariant::YouTubeClip => r"^(?:https?://)?(?:www.|m.)?youtube\.com/clip/[\w\-]{36}(?:$|[&?])",
-            PlatformVariant::TwitchVOD => r"^(?:https?://)?(?:www.|m.)?twitch\.tv/videos/\d{10}(?:$|[&?])",
-            PlatformVariant::TwitchClip => r"^(?:https?://)?(?:www.|m.)?(?:clips\.twitch\.tv/[\w\-]+|twitch\.tv/\w+/clip/[\w\-]+)(?:$|[&?])",
+            PlatformVariant::YouTubeShort => {
+                r"^(?:https?://)?(?:www.|m.)?youtube\.com/shorts/[\w\-]{11}(?:$|[&?])"
+            }
+            PlatformVariant::YouTubeClip => {
+                r"^(?:https?://)?(?:www.|m.)?youtube\.com/clip/[\w\-]{36}(?:$|[&?])"
+            }
+            PlatformVariant::TwitchVOD => {
+                r"^(?:https?://)?(?:www.|m.)?twitch\.tv/videos/\d{10}(?:$|[&?])"
+            }
+            PlatformVariant::TwitchClip => {
+                r"^(?:https?://)?(?:www.|m.)?(?:clips\.twitch\.tv/[\w\-]+|twitch\.tv/\w+/clip/[\w\-]+)(?:$|[&?])"
+            }
         }
     }
     pub fn matches_url(&self, url: &str) -> bool {
@@ -312,7 +320,6 @@ mod tests {
             "https://clips.twitch.tv/broadcaster/clip/CleverClipName", // broacaster is not under clips.twitch.tv
             "https://www.twitch.tv/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", // missing /broadcaster
             "https://www.twitch.tv/brittt/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", // missing /clip behind broadcaster
-
         ];
 
         for url in valid_urls {
@@ -342,11 +349,13 @@ mod tests {
             Some(PlatformVariant::YouTubeShort)
         );
         assert_eq!(
-            PlatformVariant::from_url("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
+            PlatformVariant::from_url(
+                "https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"
+            ),
             Some(PlatformVariant::YouTubeClip)
         );
         assert_eq!(
-            PlatformVariant::from_url("https://www.twitch.tv/videos/123456789"),
+            PlatformVariant::from_url("https://www.twitch.tv/videos/1234567890"),
             Some(PlatformVariant::TwitchVOD)
         );
         assert_eq!(

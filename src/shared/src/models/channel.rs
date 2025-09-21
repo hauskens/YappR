@@ -14,8 +14,8 @@ impl Channel for channels::Model {
     
     fn channel_url(&self) -> String {
         match self.platform() {
-            Platform::YouTube => format!("{}/@{}", self.platform().base_url(), self.platform_channel_id),
-            Platform::Twitch => format!("{}/{}", self.platform().base_url(), self.platform_channel_id),
+            Platform::YouTube => self.platform().base_url().join(&format!("/@{}", self.platform_channel_id)).unwrap().to_string(),
+            Platform::Twitch => self.platform().base_url().join(&format!("/{}", self.platform_channel_id)).unwrap().to_string(),
         }
     }
 }
@@ -57,7 +57,7 @@ mod tests {
     }
     
     #[test]
-    #[should_panic(expected = "Invalid platform name: invalid")]
+    #[should_panic(expected = "Channel has invalid platform name: invalid")]
     fn test_invalid_platform() {
         let channel = create_test_channel(3, "invalid", "test");
         channel.platform();

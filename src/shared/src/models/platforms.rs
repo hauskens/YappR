@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use url::Url;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Platform {
@@ -31,10 +32,10 @@ impl Platform {
         }
     }
 
-    pub fn base_url(&self) -> &'static str {
+    pub fn base_url(&self) -> Url {
         match self {
-            Platform::YouTube => "https://youtube.com",
-            Platform::Twitch => "https://twitch.tv",
+            Platform::YouTube => Url::parse("https://youtube.com").unwrap(),
+            Platform::Twitch => Url::parse("https://twitch.tv").unwrap(),
         }
     }
 
@@ -70,6 +71,16 @@ impl PlatformVariant {
             PlatformVariant::YouTubeClip => Platform::YouTube,
             PlatformVariant::TwitchVOD => Platform::Twitch,
             PlatformVariant::TwitchClip => Platform::Twitch,
+        }
+    }
+
+    pub fn base_content_url(&self) -> Url {
+        match self {
+            PlatformVariant::YouTubeVideo => self.platform().base_url().join("/watch").unwrap(),
+            PlatformVariant::YouTubeShort => self.platform().base_url().join("/shorts").unwrap(),
+            PlatformVariant::YouTubeClip => self.platform().base_url().join("/clip").unwrap(),
+            PlatformVariant::TwitchVOD => self.platform().base_url().join("/videos").unwrap(),
+            PlatformVariant::TwitchClip => url::Url::parse("https://clips.twitch.tv").unwrap(),
         }
     }
 
@@ -116,6 +127,79 @@ impl PlatformVariant {
         }
         None
     }
+    pub fn standardized_url(&self, url: &str) -> Url {
+        let mut base_url = self.base_content_url();
+        match self {
+            PlatformVariant::YouTubeVideo => {
+                let parsed_url = Url::parse(url).unwrap();
+
+                // First, try to extract from query parameter 'v='
+                if let Some(query) = parsed_url.query() {
+                    for pair in query.split('&') {
+                        if let Some((key, value)) = pair.split_once('=')
+                            && key == "v" {
+                                base_url.set_query(Some(&format!("v={}", value)));
+                                return base_url;
+                            }
+                    }
+                }
+                
+                // If no query param, check if path has /watch/ and extract ID
+                let path = parsed_url.path();
+                if path.starts_with("/watch/") {
+                    let video_id = path.trim_start_matches("/watch/");
+                    base_url.set_query(Some(&format!("v={}", video_id)));
+                    return base_url;
+                }
+                
+                // Handle youtu.be URLs - extract ID from path
+                if parsed_url.host_str() == Some("youtu.be") {
+                    let video_id = path.trim_start_matches('/');
+                    base_url.set_query(Some(&format!("v={}", video_id)));
+                    return base_url;
+                }
+                
+                panic!("Could not extract video ID from URL: {}", url);
+            }
+            PlatformVariant::YouTubeShort => {
+                let parsed_url = Url::parse(url).unwrap();
+                let path = parsed_url.path();
+                
+                if path.contains("/shorts/") {
+                    let video_id = path.split('/').next_back().unwrap();
+                    base_url.set_path(&format!("/shorts/{}", video_id));
+                    return base_url;
+                }
+                
+                panic!("Could not extract video ID from YouTube Shorts URL: {}", url);
+            }
+            PlatformVariant::YouTubeClip => {
+                let parsed_url = Url::parse(url).unwrap();
+                let path = parsed_url.path();
+                
+                if path.contains("/clip/") {
+                    let clip_id = path.split('/').next_back().unwrap();
+                    base_url.set_path(&format!("/clip/{}", clip_id));
+                    return base_url;
+                }
+                
+                panic!("Could not extract video ID from YouTube Clip URL: {}", url);
+            }
+            PlatformVariant::TwitchVOD => {
+                let parsed_url = Url::parse(url).unwrap();
+                let video_id = parsed_url.path().split('/').next_back().unwrap();
+                base_url.join(&format!("/videos/{}", video_id)).unwrap()
+            }
+            PlatformVariant::TwitchClip => {
+                let parsed_url = Url::parse(url).unwrap();
+                let path = parsed_url.path();
+                
+                let clip_id = path.split('/').next_back().unwrap();
+                
+                base_url.join(clip_id).unwrap()
+            }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -144,6 +228,7 @@ mod tests {
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=ESugKbhZOHe6PFbA",
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=ESugKbhZOHe6PFbA&test=123",
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=ESugKbhZOHe6PFbA&test=123&t=456",
+            // "youtube.com/watch/1234567890", // TODO: Add support for this format
             "https://youtu.be/dQw4w9WgXcQ",
             "https://youtu.be/dQw4w9WgXcQ?si=ESugKbhZOHe6PFbA",
             "https://youtu.be/dQw4w9WgXcQ?feature=shared&t=44",
@@ -367,5 +452,129 @@ mod tests {
             None
         );
         assert_eq!(PlatformVariant::from_url("not-a-url"), None);
+    }
+
+    #[test]
+    fn test_youtube_video_standardized_url() {
+        let test_cases = [
+            // Standard watch URLs
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=ESugKbhZOHe6PFbA", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=123", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+            ("https://youtube.com/watch?v=dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+            
+            // youtu.be URLs
+            ("https://youtu.be/dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+            ("https://youtu.be/dQw4w9WgXcQ?si=ESugKbhZOHe6PFbA", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+            ("https://youtu.be/dQw4w9WgXcQ?t=123", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+            
+            // /watch/ID format
+            ("https://www.youtube.com/watch/dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+            ("https://youtube.com/watch/dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+        ];
+
+        for (input_url, expected_url) in test_cases {
+            let result = PlatformVariant::YouTubeVideo.standardized_url(input_url);
+            assert_eq!(
+                result.as_str(),
+                expected_url,
+                "Failed to sanitize URL: {} -> expected: {}, got: {}",
+                input_url,
+                expected_url,
+                result.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn test_youtube_short_standardized_url() {
+        let test_cases = [
+            ("https://www.youtube.com/shorts/dQw4w9WgXcQ", "https://youtube.com/shorts/dQw4w9WgXcQ"),
+            ("https://youtube.com/shorts/dQw4w9WgXcQ", "https://youtube.com/shorts/dQw4w9WgXcQ"),
+            ("https://youtube.com/shorts/dQw4w9WgXcQ?feature=shared", "https://youtube.com/shorts/dQw4w9WgXcQ"),
+            ("https://m.youtube.com/shorts/dQw4w9WgXcQ", "https://youtube.com/shorts/dQw4w9WgXcQ"),
+            ("https://m.youtube.com/shorts/dQw4w9WgXcQ?si=ESugKbhZOHe6PFbA", "https://youtube.com/shorts/dQw4w9WgXcQ"),
+        ];
+
+        for (input_url, expected_url) in test_cases {
+            let result = PlatformVariant::YouTubeShort.standardized_url(input_url);
+            assert_eq!(
+                result.as_str(),
+                expected_url,
+                "Failed to standardize YouTube Short URL: {} -> expected: {}, got: {}",
+                input_url,
+                expected_url,
+                result.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn test_youtube_clip_standardized_url() {
+        let test_cases = [
+            ("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
+            ("https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
+            ("https://youtube.com/clip/UgkxhANZ5PHqXaGMfg5qX-TDKX7Qn9UeDv5c?feature=shared", "https://youtube.com/clip/UgkxhANZ5PHqXaGMfg5qX-TDKX7Qn9UeDv5c"),
+            ("https://m.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
+        ];
+
+        for (input_url, expected_url) in test_cases {
+            let result = PlatformVariant::YouTubeClip.standardized_url(input_url);
+            assert_eq!(
+                result.as_str(),
+                expected_url,
+                "Failed to standardize YouTube Clip URL: {} -> expected: {}, got: {}",
+                input_url,
+                expected_url,
+                result.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn test_twitch_vod_standardized_url() {
+        let test_cases = [
+            ("https://www.twitch.tv/videos/1234567890", "https://twitch.tv/videos/1234567890"),
+            ("https://twitch.tv/videos/1234567890", "https://twitch.tv/videos/1234567890"),
+            ("https://www.twitch.tv/videos/3338399115?t=01h09m43s", "https://twitch.tv/videos/3338399115"),
+            ("https://m.twitch.tv/videos/3338399115?t=01h09m43s&test=123", "https://twitch.tv/videos/3338399115"),
+            ("https://m.twitch.tv/videos/3338399115", "https://twitch.tv/videos/3338399115"),
+        ];
+
+        for (input_url, expected_url) in test_cases {
+            let result = PlatformVariant::TwitchVOD.standardized_url(input_url);
+            assert_eq!(
+                result.as_str(),
+                expected_url,
+                "Failed to standardize Twitch VOD URL: {} -> expected: {}, got: {}",
+                input_url,
+                expected_url,
+                result.as_str()
+            );
+        }
+    }
+
+    #[test]
+    fn test_twitch_clip_standardized_url() {
+        let test_cases = [
+            ("https://clips.twitch.tv/CleverClipName", "https://clips.twitch.tv/CleverClipName"),
+            ("https://twitch.tv/broadcaster/clip/CleverClipName", "https://clips.twitch.tv/CleverClipName"),
+            ("https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
+            ("https://www.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR?filter=clips&range=all&sort=time", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
+            ("https://www.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
+            ("https://m.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
+        ];
+
+        for (input_url, expected_url) in test_cases {
+            let result = PlatformVariant::TwitchClip.standardized_url(input_url);
+            assert_eq!(
+                result.as_str(),
+                expected_url,
+                "Failed to standardize Twitch Clip URL: {} -> expected: {}, got: {}",
+                input_url,
+                expected_url,
+                result.as_str()
+            );
+        }
     }
 }

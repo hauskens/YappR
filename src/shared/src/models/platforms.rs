@@ -137,13 +137,14 @@ impl PlatformVariant {
                 if let Some(query) = parsed_url.query() {
                     for pair in query.split('&') {
                         if let Some((key, value)) = pair.split_once('=')
-                            && key == "v" {
-                                base_url.set_query(Some(&format!("v={}", value)));
-                                return base_url;
-                            }
+                            && key == "v"
+                        {
+                            base_url.set_query(Some(&format!("v={}", value)));
+                            return base_url;
+                        }
                     }
                 }
-                
+
                 // If no query param, check if path has /watch/ and extract ID
                 let path = parsed_url.path();
                 if path.starts_with("/watch/") {
@@ -151,38 +152,41 @@ impl PlatformVariant {
                     base_url.set_query(Some(&format!("v={}", video_id)));
                     return base_url;
                 }
-                
+
                 // Handle youtu.be URLs - extract ID from path
                 if parsed_url.host_str() == Some("youtu.be") {
                     let video_id = path.trim_start_matches('/');
                     base_url.set_query(Some(&format!("v={}", video_id)));
                     return base_url;
                 }
-                
+
                 panic!("Could not extract video ID from URL: {}", url);
             }
             PlatformVariant::YouTubeShort => {
                 let parsed_url = Url::parse(url).unwrap();
                 let path = parsed_url.path();
-                
+
                 if path.contains("/shorts/") {
                     let video_id = path.split('/').next_back().unwrap();
                     base_url.set_path(&format!("/shorts/{}", video_id));
                     return base_url;
                 }
-                
-                panic!("Could not extract video ID from YouTube Shorts URL: {}", url);
+
+                panic!(
+                    "Could not extract video ID from YouTube Shorts URL: {}",
+                    url
+                );
             }
             PlatformVariant::YouTubeClip => {
                 let parsed_url = Url::parse(url).unwrap();
                 let path = parsed_url.path();
-                
+
                 if path.contains("/clip/") {
                     let clip_id = path.split('/').next_back().unwrap();
                     base_url.set_path(&format!("/clip/{}", clip_id));
                     return base_url;
                 }
-                
+
                 panic!("Could not extract video ID from YouTube Clip URL: {}", url);
             }
             PlatformVariant::TwitchVOD => {
@@ -193,9 +197,9 @@ impl PlatformVariant {
             PlatformVariant::TwitchClip => {
                 let parsed_url = Url::parse(url).unwrap();
                 let path = parsed_url.path();
-                
+
                 let clip_id = path.split('/').next_back().unwrap();
-                
+
                 base_url.join(clip_id).unwrap()
             }
         }
@@ -229,6 +233,7 @@ mod tests {
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=ESugKbhZOHe6PFbA&test=123",
             "https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=ESugKbhZOHe6PFbA&test=123&t=456",
             // "youtube.com/watch/1234567890", // TODO: Add support for this format
+            "youtu.be/dQw4w9WgXcQ",
             "https://youtu.be/dQw4w9WgXcQ",
             "https://youtu.be/dQw4w9WgXcQ?si=ESugKbhZOHe6PFbA",
             "https://youtu.be/dQw4w9WgXcQ?feature=shared&t=44",
@@ -458,19 +463,48 @@ mod tests {
     fn test_youtube_video_standardized_url() {
         let test_cases = [
             // Standard watch URLs
-            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
-            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=ESugKbhZOHe6PFbA", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
-            ("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=123", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
-            ("https://youtube.com/watch?v=dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
-            
+            (
+                "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
+            (
+                "https://www.youtube.com/watch?v=dQw4w9WgXcQ&si=ESugKbhZOHe6PFbA",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
+            (
+                "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=123",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
+            (
+                "https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=123&test=123",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
+            (
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
             // youtu.be URLs
-            ("https://youtu.be/dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
-            ("https://youtu.be/dQw4w9WgXcQ?si=ESugKbhZOHe6PFbA", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
-            ("https://youtu.be/dQw4w9WgXcQ?t=123", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
-            
+            (
+                "https://youtu.be/dQw4w9WgXcQ",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
+            (
+                "https://youtu.be/dQw4w9WgXcQ?si=ESugKbhZOHe6PFbA",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
+            (
+                "https://youtu.be/dQw4w9WgXcQ?t=123",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
             // /watch/ID format
-            ("https://www.youtube.com/watch/dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
-            ("https://youtube.com/watch/dQw4w9WgXcQ", "https://youtube.com/watch?v=dQw4w9WgXcQ"),
+            (
+                "https://www.youtube.com/watch/dQw4w9WgXcQ",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
+            (
+                "https://youtube.com/watch/dQw4w9WgXcQ",
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
         ];
 
         for (input_url, expected_url) in test_cases {
@@ -489,11 +523,30 @@ mod tests {
     #[test]
     fn test_youtube_short_standardized_url() {
         let test_cases = [
-            ("https://www.youtube.com/shorts/dQw4w9WgXcQ", "https://youtube.com/shorts/dQw4w9WgXcQ"),
-            ("https://youtube.com/shorts/dQw4w9WgXcQ", "https://youtube.com/shorts/dQw4w9WgXcQ"),
-            ("https://youtube.com/shorts/dQw4w9WgXcQ?feature=shared", "https://youtube.com/shorts/dQw4w9WgXcQ"),
-            ("https://m.youtube.com/shorts/dQw4w9WgXcQ", "https://youtube.com/shorts/dQw4w9WgXcQ"),
-            ("https://m.youtube.com/shorts/dQw4w9WgXcQ?si=ESugKbhZOHe6PFbA", "https://youtube.com/shorts/dQw4w9WgXcQ"),
+            (
+                "https://www.youtube.com/shorts/dQw4w9WgXcQ",
+                "https://youtube.com/shorts/dQw4w9WgXcQ",
+            ),
+            (
+                "https://www.youtube.com/shorts/dQw4w9WgXcQ?feature=shared&test=123",
+                "https://youtube.com/shorts/dQw4w9WgXcQ",
+            ),
+            (
+                "https://youtube.com/shorts/dQw4w9WgXcQ",
+                "https://youtube.com/shorts/dQw4w9WgXcQ",
+            ),
+            (
+                "https://youtube.com/shorts/dQw4w9WgXcQ?feature=shared",
+                "https://youtube.com/shorts/dQw4w9WgXcQ",
+            ),
+            (
+                "https://m.youtube.com/shorts/dQw4w9WgXcQ",
+                "https://youtube.com/shorts/dQw4w9WgXcQ",
+            ),
+            (
+                "https://m.youtube.com/shorts/dQw4w9WgXcQ?si=ESugKbhZOHe6PFbA",
+                "https://youtube.com/shorts/dQw4w9WgXcQ",
+            ),
         ];
 
         for (input_url, expected_url) in test_cases {
@@ -512,10 +565,22 @@ mod tests {
     #[test]
     fn test_youtube_clip_standardized_url() {
         let test_cases = [
-            ("https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
-            ("https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
-            ("https://youtube.com/clip/UgkxhANZ5PHqXaGMfg5qX-TDKX7Qn9UeDv5c?feature=shared", "https://youtube.com/clip/UgkxhANZ5PHqXaGMfg5qX-TDKX7Qn9UeDv5c"),
-            ("https://m.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM", "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM"),
+            (
+                "https://www.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM",
+                "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM",
+            ),
+            (
+                "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM?feature=shared&test=123",
+                "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM",
+            ),
+            (
+                "https://youtube.com/clip/UgkxhANZ5PHqXaGMfg5qX-TDKX7Qn9UeDv5c?feature=shared",
+                "https://youtube.com/clip/UgkxhANZ5PHqXaGMfg5qX-TDKX7Qn9UeDv5c",
+            ),
+            (
+                "https://m.youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM",
+                "https://youtube.com/clip/UgkxFyeXQtfPRff43kUWbsAeuBND6Lb4ysEM",
+            ),
         ];
 
         for (input_url, expected_url) in test_cases {
@@ -534,11 +599,26 @@ mod tests {
     #[test]
     fn test_twitch_vod_standardized_url() {
         let test_cases = [
-            ("https://www.twitch.tv/videos/1234567890", "https://twitch.tv/videos/1234567890"),
-            ("https://twitch.tv/videos/1234567890", "https://twitch.tv/videos/1234567890"),
-            ("https://www.twitch.tv/videos/3338399115?t=01h09m43s", "https://twitch.tv/videos/3338399115"),
-            ("https://m.twitch.tv/videos/3338399115?t=01h09m43s&test=123", "https://twitch.tv/videos/3338399115"),
-            ("https://m.twitch.tv/videos/3338399115", "https://twitch.tv/videos/3338399115"),
+            (
+                "https://www.twitch.tv/videos/1234567890",
+                "https://twitch.tv/videos/1234567890",
+            ),
+            (
+                "https://twitch.tv/videos/1234567890",
+                "https://twitch.tv/videos/1234567890",
+            ),
+            (
+                "https://www.twitch.tv/videos/3338399115?t=01h09m43s",
+                "https://twitch.tv/videos/3338399115",
+            ),
+            (
+                "https://m.twitch.tv/videos/3338399115?t=01h09m43s&test=123",
+                "https://twitch.tv/videos/3338399115",
+            ),
+            (
+                "https://m.twitch.tv/videos/3338399115",
+                "https://twitch.tv/videos/3338399115",
+            ),
         ];
 
         for (input_url, expected_url) in test_cases {
@@ -557,12 +637,34 @@ mod tests {
     #[test]
     fn test_twitch_clip_standardized_url() {
         let test_cases = [
-            ("https://clips.twitch.tv/CleverClipName", "https://clips.twitch.tv/CleverClipName"),
-            ("https://twitch.tv/broadcaster/clip/CleverClipName", "https://clips.twitch.tv/CleverClipName"),
-            ("https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
-            ("https://www.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR?filter=clips&range=all&sort=time", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
-            ("https://www.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
-            ("https://m.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR", "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR"),
+            (
+                "https://clips.twitch.tv/CleverClipName",
+                "https://clips.twitch.tv/CleverClipName",
+            ),
+            (
+                "https://clips.twitch.tv/CleverClipName?test=123",
+                "https://clips.twitch.tv/CleverClipName",
+            ),
+            (
+                "https://twitch.tv/broadcaster/clip/CleverClipName",
+                "https://clips.twitch.tv/CleverClipName",
+            ),
+            (
+                "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+                "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+            ),
+            (
+                "https://www.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR?filter=clips&range=all&sort=time",
+                "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+            ),
+            (
+                "https://www.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+                "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+            ),
+            (
+                "https://m.twitch.tv/brittt/clip/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+                "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+            ),
         ];
 
         for (input_url, expected_url) in test_cases {

@@ -25,3 +25,4 @@ pub mod user_channel_roles;
 pub mod user_weights;
 pub mod users;
 pub mod video;
+pub mod platforms;

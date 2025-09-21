@@ -1,3 +1,5 @@
+use std::time::Duration;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -43,6 +45,71 @@ impl Platform {
         match self {
             Platform::YouTube => "#FF0000",
             Platform::Twitch => "#9146FF",
+        }
+    }
+
+    fn parse_duration(input: &str) -> Result<Duration, Box<dyn std::error::Error>> {
+        let re = Regex::new(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?")?;
+        let caps = re.captures(input).ok_or("Invalid format")?;
+
+        let hours: u64 = caps.get(1).map_or(0, |m| m.as_str().parse().unwrap_or(0));
+        let minutes: u64 = caps.get(2).map_or(0, |m| m.as_str().parse().unwrap_or(0));
+        let seconds: u64 = caps.get(3).map_or(0, |m| m.as_str().parse().unwrap_or(0));
+
+        Ok(Duration::from_secs(hours * 3600 + minutes * 60 + seconds))
+    }
+    fn format_timestamp_hms(seconds: u64) -> String {
+        let hours = seconds / 3600;
+        let minutes = (seconds % 3600) / 60;
+        let secs = seconds % 60;
+
+        format!("{:02}h{:02}m{:02}s", hours, minutes, secs)
+    }
+
+    pub fn extract_timestamp(&self, url: &str) -> Option<u64> {
+        let parsed_url = Url::parse(url).unwrap();
+        match self {
+            Platform::YouTube => {
+                if let Some(query) = parsed_url.query() {
+                    for pair in query.split('&') {
+                        if let Some((key, value)) = pair.split_once('=')
+                            && key == "t"
+                        {
+                            return Some(Duration::from_secs(value.parse().unwrap()).as_secs());
+                        }
+                    }
+                }
+                None
+            }
+            Platform::Twitch => {
+                if let Some(query) = parsed_url.query() {
+                    for pair in query.split('&') {
+                        if let Some((key, value)) = pair.split_once('=')
+                            && key == "t"
+                        {
+                            return Some(Self::parse_duration(value).unwrap().as_secs());
+                        }
+                    }
+                }
+                None
+            }
+        }
+    }
+
+    pub fn timestamp_url(&self, video_id: &str, seconds_offset: u64) -> String {
+        match self {
+            Platform::YouTube => self
+                .base_url()
+                .join(&format!("/watch?v={}&t={}", video_id, seconds_offset))
+                .unwrap()
+                .to_string(),
+            Platform::Twitch => {
+                let timestamp = Self::format_timestamp_hms(seconds_offset);
+                self.base_url()
+                    .join(&format!("/videos/{}?t={}", video_id, timestamp))
+                    .unwrap()
+                    .to_string()
+            }
         }
     }
 }
@@ -127,12 +194,12 @@ impl PlatformVariant {
         }
         None
     }
+
     pub fn standardized_url(&self, url: &str) -> Url {
         let mut base_url = self.base_content_url();
+        let parsed_url = Url::parse(url).unwrap();
         match self {
             PlatformVariant::YouTubeVideo => {
-                let parsed_url = Url::parse(url).unwrap();
-
                 // First, try to extract from query parameter 'v='
                 if let Some(query) = parsed_url.query() {
                     for pair in query.split('&') {
@@ -163,7 +230,6 @@ impl PlatformVariant {
                 panic!("Could not extract video ID from URL: {}", url);
             }
             PlatformVariant::YouTubeShort => {
-                let parsed_url = Url::parse(url).unwrap();
                 let path = parsed_url.path();
 
                 if path.contains("/shorts/") {
@@ -178,7 +244,6 @@ impl PlatformVariant {
                 );
             }
             PlatformVariant::YouTubeClip => {
-                let parsed_url = Url::parse(url).unwrap();
                 let path = parsed_url.path();
 
                 if path.contains("/clip/") {
@@ -190,12 +255,10 @@ impl PlatformVariant {
                 panic!("Could not extract video ID from YouTube Clip URL: {}", url);
             }
             PlatformVariant::TwitchVOD => {
-                let parsed_url = Url::parse(url).unwrap();
                 let video_id = parsed_url.path().split('/').next_back().unwrap();
                 base_url.join(&format!("/videos/{}", video_id)).unwrap()
             }
             PlatformVariant::TwitchClip => {
-                let parsed_url = Url::parse(url).unwrap();
                 let path = parsed_url.path();
 
                 let clip_id = path.split('/').next_back().unwrap();
@@ -225,6 +288,60 @@ mod tests {
         assert_eq!(Platform::get_from_str(""), None);
     }
 
+    #[test]
+    fn test_platform_extract_timestamp() {
+        assert_eq!(
+            Platform::YouTube
+                .extract_timestamp("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=456"),
+            Some(456)
+        );
+        assert_eq!(
+            Platform::Twitch
+                .extract_timestamp("https://www.twitch.tv/videos/1234567890?t=06h10m54s"),
+            Some(22254)
+        );
+        assert_eq!(
+            Platform::Twitch
+                .extract_timestamp("https://www.twitch.tv/videos/1234567890?t=32h24m31s"),
+            Some(116671)
+        );
+        assert_eq!(
+            Platform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=10m54s"),
+            Some(654)
+        );
+        assert_eq!(
+            Platform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=00h10m54s"),
+            Some(654)
+        );
+        assert_eq!(
+            Platform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=54s"),
+            Some(54)
+        );
+    }
+
+    #[test]
+    fn test_platform_timestamp_url() {
+        assert_eq!(
+            Platform::YouTube.timestamp_url("dQw4w9WgXcQ", 456),
+            "https://youtube.com/watch?v=dQw4w9WgXcQ&t=456"
+        );
+        assert_eq!(
+            Platform::Twitch.timestamp_url("1234567890", 22254),
+            "https://twitch.tv/videos/1234567890?t=06h10m54s"
+        );
+        assert_eq!(
+            Platform::Twitch.timestamp_url("1234567890", 116671),
+            "https://twitch.tv/videos/1234567890?t=32h24m31s"
+        );
+        assert_eq!(
+            Platform::Twitch.timestamp_url("1234567890", 654),
+            "https://twitch.tv/videos/1234567890?t=00h10m54s"
+        );
+        assert_eq!(
+            Platform::Twitch.timestamp_url("1234567890", 54),
+            "https://twitch.tv/videos/1234567890?t=00h00m54s"
+        );
+    }
     #[test]
     fn test_youtube_video_variant_matches_url() {
         let valid_urls = [

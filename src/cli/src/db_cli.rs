@@ -1,5 +1,6 @@
 use clap::Parser;
 use sea_orm::*;
+use yappr_shared::models::platforms::Platform;
 use yappr_shared::services::broadcaster::BroadcasterService;
 use yappr_shared::services::user::UserService;
 use yappr_shared::chatlog_parser;
@@ -53,10 +54,10 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let db = database::get_database_connection().await?;
 
     match args.action.as_str() {
         "users" => {
+            let db = database::get_database_connection().await?;
             let users = Users::find().limit(10).all(&db).await?;
             println!("Found {} users:", users.len());
             for user in users {
@@ -64,6 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         "broadcasters" => {
+            let db = database::get_database_connection().await?;
             let broadcaster_service = BroadcasterService::new(db);
             let broadcasters = broadcaster_service.get_all(None).await?;
             println!("Found {} broadcasters:", broadcasters.len());
@@ -75,12 +77,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         "bot-user" => {
+            let db = database::get_database_connection().await?;
             let user_service = UserService::new(db);
             let bot_user = user_service.get_bot_user().await?;
             let bot_oauth = user_service.get_user_oauth_token(bot_user.id).await?;
             println!("Bot user: {} , Oauth access token: {} , Oauth refresh token: {}", bot_user.name, bot_oauth.as_ref().unwrap().access_token, bot_oauth.as_ref().unwrap().refresh_token);
         }
         "channels" => {
+            let db = database::get_database_connection().await?;
             let channels = Channels::find().limit(10).all(&db).await?;
             println!("Found {} channels:", channels.len());
             for channel in channels {
@@ -91,6 +95,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         "count" => {
+            let db = database::get_database_connection().await?;
             let table = args.table.ok_or("--table is required for count action")?;
             let count = match table.as_str() {
                 "users" => Users::find().count(&db).await?,
@@ -110,6 +115,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("Table '{}' has {} records", table, count);
         }
         "parse-chatlogs" => {
+            let db = database::get_database_connection().await?;
             let path = args.path.ok_or("--path is required for parse-chatlogs action")?;
             let channel_id = args.channel_id.ok_or("--channel-id is required for parse-chatlogs action")?;
             
@@ -124,6 +130,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 args.dry_run,
             )
             .await?;
+        }
+        "test" => {
+            let platform = Platform::Twitch;
+            let api_client = platform.create_api_client().await?;
+            let video = api_client.get_video("2568399115").await?;
+            println!("Video: {}", video.title);
         }
         _ => {
             println!("Unknown action: {}", args.action);

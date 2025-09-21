@@ -1,7 +1,8 @@
 use std::time::Duration;
-use regex::Regex;
 use serde::{Deserialize, Serialize};
 use url::Url;
+use eyre::Result;
+use crate::{external::{twitch::TwitchApiClient, PlatformApiClient}, utils};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Platform {
@@ -48,24 +49,6 @@ impl Platform {
         }
     }
 
-    fn parse_duration(input: &str) -> Result<Duration, Box<dyn std::error::Error>> {
-        let re = Regex::new(r"(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?")?;
-        let caps = re.captures(input).ok_or("Invalid format")?;
-
-        let hours: u64 = caps.get(1).map_or(0, |m| m.as_str().parse().unwrap_or(0));
-        let minutes: u64 = caps.get(2).map_or(0, |m| m.as_str().parse().unwrap_or(0));
-        let seconds: u64 = caps.get(3).map_or(0, |m| m.as_str().parse().unwrap_or(0));
-
-        Ok(Duration::from_secs(hours * 3600 + minutes * 60 + seconds))
-    }
-    fn format_timestamp_hms(seconds: u64) -> String {
-        let hours = seconds / 3600;
-        let minutes = (seconds % 3600) / 60;
-        let secs = seconds % 60;
-
-        format!("{:02}h{:02}m{:02}s", hours, minutes, secs)
-    }
-
     pub fn extract_timestamp(&self, url: &str) -> Option<u64> {
         let parsed_url = Url::parse(url).unwrap();
         match self {
@@ -87,7 +70,7 @@ impl Platform {
                         if let Some((key, value)) = pair.split_once('=')
                             && key == "t"
                         {
-                            return Some(Self::parse_duration(value).unwrap().as_secs());
+                            return Some(utils::parse_duration(value).unwrap().as_secs());
                         }
                     }
                 }
@@ -104,11 +87,25 @@ impl Platform {
                 .unwrap()
                 .to_string(),
             Platform::Twitch => {
-                let timestamp = Self::format_timestamp_hms(seconds_offset);
+                let timestamp = utils::format_timestamp_hms(seconds_offset);
                 self.base_url()
                     .join(&format!("/videos/{}?t={}", video_id, timestamp))
                     .unwrap()
                     .to_string()
+            }
+        }
+    }
+
+    /// Create an API client for this platform (server/bot authentication)
+    pub async fn create_api_client(&self) -> Result<PlatformApiClient> {
+        match self {
+            Platform::Twitch => {
+                let client = TwitchApiClient::server_client().await?;
+                Ok(PlatformApiClient::Twitch(client))
+            }
+            Platform::YouTube => {
+                // TODO: Implement YouTube API client when needed
+                Err(eyre::eyre!("YouTube API client not yet implemented"))
             }
         }
     }

@@ -13,6 +13,11 @@ sea-orm = { workspace = true, optional = true }
 chrono = { workspace = true }
 regex.workspace = true
 chrono-tz.workspace = true
+url.workspace = true
+twitch_oauth2.workspace = true
+twitch_api.workspace = true
+eyre.workspace = true
+reqwest.workspace = true
 
 [features]
 default = ["dep:sea-orm"]

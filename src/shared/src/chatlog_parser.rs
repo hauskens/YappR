@@ -390,6 +390,7 @@ impl DuplicateChecker {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub async fn parse_chatlogs_command(
     db: &DatabaseConnection,
     path: PathBuf,

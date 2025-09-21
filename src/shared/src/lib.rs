@@ -3,6 +3,7 @@ pub mod services;
 pub mod database;
 pub mod types;
 pub mod chatlog_parser;
+pub mod models;
 
 
 pub use services::*;

@@ -25,7 +25,7 @@ COPY . .
 # Set working directory to web package
 WORKDIR /app/src/web
 
-RUN cargo build
+# RUN cargo build
 
 EXPOSE 3000
 

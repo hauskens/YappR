@@ -15,6 +15,7 @@ pub struct Model {
     #[sea_orm(column_type = "Double")]
     pub score: f64,
     pub content_timestamp: Option<i32>,
+    pub disabled: bool,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

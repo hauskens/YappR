@@ -1,8 +1,7 @@
 from collections.abc import Sequence
 from sqlalchemy import select, func, or_
 from .models import db
-from .models.auth import Permissions, OAuth
-from .models.platform import Platforms
+from .models.auth import OAuth
 from .models.video import Video
 from .models.transcription import Transcription, Segments
 from .models.content_queue import ContentQueue

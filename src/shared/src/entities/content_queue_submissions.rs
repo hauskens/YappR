@@ -17,6 +17,7 @@ pub struct Model {
     #[sea_orm(column_type = "Double")]
     pub weight: f64,
     pub user_comment: Option<String>,
+    pub submission_source_ref: Option<String>,
 }
 
 #[derive(Copy, Clone, Debug, EnumIter, DeriveRelation)]

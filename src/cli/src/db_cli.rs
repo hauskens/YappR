@@ -1,10 +1,10 @@
 use clap::Parser;
 use sea_orm::*;
-use yappr_shared::entities::prelude::*;
 use yappr_shared::services::broadcaster::BroadcasterService;
 use yappr_shared::services::user::UserService;
 use yappr_shared::chatlog_parser;
 use yappr_shared::database;
+use yappr_shared::entities::prelude::*;
 use std::path::PathBuf;
 
 #[derive(Parser, Debug)]

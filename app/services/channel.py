@@ -10,7 +10,7 @@ from sqlalchemy.orm import aliased
 from datetime import datetime
 from app.models import db
 from app.models import (
-    Video, Platforms, Broadcaster, Channels, Transcription,
+    Video, Broadcaster, Channels, Transcription,
     ChannelSettings, ContentQueue, ContentQueueSubmission, ChatLog, ChannelCreate,
     TranscriptionSource, Users, TimestampMapping
 )

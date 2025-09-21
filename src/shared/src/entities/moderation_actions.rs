@@ -15,7 +15,7 @@ pub struct Model {
     pub reason: String,
     pub duration_seconds: Option<i32>,
     pub expires_at: Option<DateTime>,
-    pub issued_by: i32,
+    pub issued_by: Option<i32>,
     pub issued_at: DateTime,
     pub active: bool,
     pub revoked_at: Option<DateTime>,

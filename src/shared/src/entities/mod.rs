@@ -17,7 +17,6 @@ pub mod content_queue_submissions;
 pub mod flask_dance_oauth;
 pub mod moderation_actions;
 pub mod permissions;
-pub mod platforms;
 pub mod sea_orm_active_enums;
 pub mod segments;
 pub mod timestamp_mapping;

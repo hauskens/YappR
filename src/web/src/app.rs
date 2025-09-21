@@ -1,4 +1,4 @@
-use leptos::prelude::*;
+use leptos::{prelude::*, reactive::signal};
 use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
@@ -52,10 +52,21 @@ pub fn App() -> impl IntoView {
 fn HomePage() -> impl IntoView {
     // Creates a reactive value to update the button
     let count = RwSignal::new(0);
+    let (count2, set_count2) = signal(0);
     let on_click = move |_| *count.write() += 1;
 
     view! {
         <h1>"Welcome to Lepts!"</h1>
         <button on:click=on_click>"Click Me: " {count}</button>
+        <button 
+            class:red=move || {count2.get() > 5}
+            on:click=move |_| {set_count2.set(count2.get() + 1)}
+        >"Click Me Double: " {count2}</button>
+        <progress
+            max="50"
+            // signals are functions, so `value=count` and `value=move || count.get()`
+            // are interchangeable.
+            value=move || count2.get() * 2
+        />
     }
 }

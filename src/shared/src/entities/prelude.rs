@@ -15,7 +15,6 @@ pub use super::content_queue_submissions::Entity as ContentQueueSubmissions;
 pub use super::flask_dance_oauth::Entity as FlaskDanceOauth;
 pub use super::moderation_actions::Entity as ModerationActions;
 pub use super::permissions::Entity as Permissions;
-pub use super::platforms::Entity as Platforms;
 pub use super::segments::Entity as Segments;
 pub use super::timestamp_mapping::Entity as TimestampMapping;
 pub use super::transcriptions::Entity as Transcriptions;

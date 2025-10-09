@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [lib]
-crate-type = ["rlib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 serde = { workspace = true }
@@ -14,11 +14,16 @@ chrono = { workspace = true }
 regex.workspace = true
 chrono-tz.workspace = true
 url.workspace = true
-twitch_oauth2.workspace = true
-twitch_api.workspace = true
-eyre.workspace = true
-reqwest.workspace = true
+twitch_oauth2 = { workspace = true, optional = true }
+twitch_api = { workspace = true, optional = true }
+eyre = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true, default-features = false }
+hex_color = "3.0.0"
 
 [features]
-default = ["dep:sea-orm"]
+default = ["database", "twitch", "http"]
 database = ["dep:sea-orm"]
+twitch = ["dep:twitch_oauth2", "dep:twitch_api"]
+http = ["dep:reqwest", "dep:eyre"]
+http-wasm = ["dep:reqwest", "reqwest/json", "dep:eyre"]
+http-server = ["dep:reqwest", "reqwest/json", "reqwest/rustls-tls", "dep:eyre"]

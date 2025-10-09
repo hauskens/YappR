@@ -1,4 +1,6 @@
+#[cfg(feature = "database")]
 use crate::entities::broadcaster;
+#[cfg(feature = "database")]
 use sea_orm::*;
 
 pub struct BroadcasterService {

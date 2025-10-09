@@ -13,7 +13,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 yappr-shared = { path = "../shared", default-features = false }
-leptos = { version = "0.8", features = ["ssr"] }
+leptos = { version = "0.8" }
 leptos_router = { version = "0.8" }
 leptos_axum = { version = "0.8", optional = true }
 leptos_meta = "0.8"
@@ -25,28 +25,37 @@ tracing-subscriber = { workspace = true, optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 getrandom = { workspace = true, optional = true }
+twitch_oauth2 = { workspace = true, optional = true }
+twitch_api = { workspace = true, optional = true }
+eyre = { workspace = true, optional = true }
+reqwest = { workspace = true, optional = true }
+sea-orm = { workspace = true, optional = true }
+
 
 [features]
 hydrate = [
     "leptos/hydrate",
     "dep:console_error_panic_hook",
     "dep:wasm-bindgen",
+    "dep:getrandom",
+    "yappr-shared/http-wasm",
 ]
 ssr = [
     "dep:axum",
     "dep:tokio",
     "dep:leptos_axum",
+    "dep:sea-orm",
+    "dep:twitch_oauth2",
+    "dep:twitch_api",
+    "dep:eyre",
+    "dep:reqwest",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
+    "yappr-shared/database",
+    "yappr-shared/twitch",
+    "yappr-shared/http-server",
 ]
-# Defines a size-optimized profile for the WASM bundle in release mode
-[profile.wasm-release]
-inherits = "release"
-opt-level = 'z'
-lto = true
-codegen-units = 1
-panic = "abort"
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name

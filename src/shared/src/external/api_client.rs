@@ -1,5 +1,6 @@
 use eyre::Result;
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "database")]
 use crate::{entities::sea_orm_active_enums::Videotype, external::twitch::TwitchApiClient, models::platforms::Platform};
 
 /// Platform-agnostic API client enum
@@ -7,7 +8,7 @@ pub enum PlatformApiClient {
     Twitch(TwitchApiClient),
     // YouTube(YouTubeApiClient), // Future implementation
 }
-
+#[cfg(feature = "database")]
 impl PlatformApiClient {
     pub fn platform(&self) -> Platform {
         match self {
@@ -26,7 +27,7 @@ impl PlatformApiClient {
     
 
 }
-
+#[cfg(feature = "database")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformUser {
     pub id: String,
@@ -34,6 +35,7 @@ pub struct PlatformUser {
     pub profile_image_url: Option<String>,
 }
 
+#[cfg(feature = "database")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformVideo {
     pub id: String,

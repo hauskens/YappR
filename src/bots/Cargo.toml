@@ -19,3 +19,8 @@ reqwest = { workspace = true }
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots", "native-tls", "url"] }
 url = { workspace = true }
 futures.workspace = true
+
+[features]
+default = ["http"]
+http = []
+

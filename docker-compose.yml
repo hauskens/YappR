@@ -19,7 +19,8 @@ services:
       - POSTGRES_PASSWORD=secret
     volumes:
       # - db:/var/lib/postgresql/data
-      - ./test_db/data:/var/lib/postgresql/data
+      - ./test_db/data3:/var/lib/postgresql/data
+      - ./test_db/restore:/restore
   cache:
     image: redis:6.2-alpine
     restart: always
@@ -160,6 +161,11 @@ services:
       - "3001:3001"
     networks:
       - internal
+    depends_on:
+      cache:
+        condition: service_healthy
+      db:
+        condition: service_healthy
     develop:
       watch:
         - action: sync
@@ -173,6 +179,9 @@ services:
           target: /app/src/shared/
         - action: rebuild
           path: ./src/web/Cargo.toml
+        - action: sync
+          path: ./src/web/style/
+          target: /app/src/web/style/
     
 volumes:
   # db:

@@ -4,6 +4,8 @@ use leptos_router::{
     components::{Route, Router, Routes},
     StaticSegment,
 };
+use leptos::server_fn::ServerFnError;
+use leptos::task::spawn_local;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -21,6 +23,13 @@ pub fn shell(options: LeptosOptions) -> impl IntoView {
             </body>
         </html>
     }
+}
+
+#[server]
+pub async fn get_platform_video_by_ids(id: String) -> Result<String, ServerFnError> {
+    let mut id = id;
+    id.insert(0, 't');
+    Ok(id)
 }
 
 #[component]
@@ -68,5 +77,20 @@ fn HomePage() -> impl IntoView {
             // are interchangeable.
             value=move || count2.get() * 2
         />
+        <button on:click=move |_| {
+            spawn_local(async move {
+                match get_platform_video_by_ids("test".to_string()).await {
+                    Ok(result) => {
+                        leptos::logging::log!("Server function result: {}", result);
+                    }
+                    Err(e) => {
+                        leptos::logging::error!("Server function error: {:?}", e);
+                    }
+                }
+            });
+        }>
+            "Clickius: " {count2}
+        </button>
+        
     }
 }

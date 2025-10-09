@@ -1,4 +1,5 @@
 use eyre::{eyre, Context, Result};
+#[cfg(feature = "twitch")]
 use twitch_api::{
     helix::{
         clips::GetClipsRequest,
@@ -21,6 +22,7 @@ pub struct TwitchApiClient {
     token: AppAccessToken,
 }
 
+#[cfg(feature = "twitch")]
 impl TwitchApiClient {
     /// Create a new client with the provided token
     pub fn new(client: HelixClient<'static, reqwest::Client>, token: AppAccessToken) -> Self {

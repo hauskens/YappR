@@ -1,3 +1,4 @@
+#[cfg(feature = "database")]
 use crate::entities::channels;
 use crate::models::platforms::Platform;
 

@@ -1,11 +1,14 @@
 use eyre::{Context, OptionExt};
+#[cfg(feature = "twitch")]
 use twitch_oauth2::{UserToken, AccessToken, RefreshToken, ClientSecret, ClientId, AppAccessToken};
 use std::env;
+#[cfg(feature = "database")]
 use crate::database::get_database_connection;
 use crate::services::user::UserService;
-use twitch_api::HelixClient;
-use twitch_api::client::ClientDefault;
+#[cfg(feature = "twitch")]
+use twitch_api::{HelixClient, client::ClientDefault};
 
+#[cfg(feature = "twitch")]
 pub async fn make_token(
     client: &impl twitch_oauth2::client::Client,
     token: impl Into<twitch_oauth2::AccessToken>,
@@ -14,6 +17,7 @@ pub async fn make_token(
         .await
         .context("could not get/make access token")}
 
+#[cfg(feature = "twitch")]
 pub async fn get_server_token() -> Result<AppAccessToken, eyre::Report> {
     let client_id = ClientId::new(env::var("TWITCH_CLIENT_ID").unwrap());
     let client_secret = ClientSecret::new(env::var("TWITCH_CLIENT_SECRET").unwrap());
@@ -29,6 +33,7 @@ pub async fn get_server_token() -> Result<AppAccessToken, eyre::Report> {
     .await?;
     Ok(token)
 }
+#[cfg(feature = "twitch")]
 pub async fn get_user_token() -> Result<UserToken, eyre::Report> {
     let db = get_database_connection().await?;
     let user_service = UserService::new(db);

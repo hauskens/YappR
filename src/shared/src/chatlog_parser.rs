@@ -1,12 +1,16 @@
 use chrono::{Duration, NaiveDateTime, NaiveTime, TimeZone, Utc};
 use chrono_tz::Tz;
 use regex::Regex;
+#[cfg(feature = "database")]
 use sea_orm::*;
 use std::fs;
 use std::path::PathBuf;
 
+#[cfg(feature = "database")]
 use crate::entities::prelude::*;
+#[cfg(feature = "database")]
 use crate::entities::sea_orm_active_enums::Channeleventtype;
+#[cfg(feature = "database")]
 use crate::entities::{channel_events, chatlog_imports, chatlogs};
 
 #[derive(Debug, Clone)]
@@ -52,7 +56,7 @@ impl Default for ChatLogParser {
         }
     }
 }
-
+#[cfg(feature = "database")]
 impl ChatLogParser {
     pub fn new() -> Self {
         Self::default()
@@ -273,7 +277,7 @@ impl ChatLogParser {
 pub struct DuplicateChecker {
     margin_ms: i64,
 }
-
+#[cfg(feature = "database")]
 impl DuplicateChecker {
     pub fn new(margin_ms: i64) -> Self {
         Self {

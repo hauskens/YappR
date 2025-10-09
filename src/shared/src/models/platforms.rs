@@ -1,8 +1,13 @@
 use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use url::Url;
+use hex_color::HexColor;
+use crate::utils;
+
+#[cfg(feature = "database")]
 use eyre::Result;
-use crate::{external::{twitch::TwitchApiClient, PlatformApiClient}, utils};
+#[cfg(feature = "twitch")]
+use crate::external::{twitch::TwitchApiClient, PlatformApiClient};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Platform {
@@ -42,10 +47,16 @@ impl Platform {
         }
     }
 
-    pub fn primary_color(&self) -> &'static str {
+    pub fn primary_color(&self) -> HexColor {
         match self {
-            Platform::YouTube => "#FF0000",
-            Platform::Twitch => "#9146FF",
+            Platform::YouTube => HexColor::parse("#FF0000").unwrap(),
+            Platform::Twitch => HexColor::parse("#9146FF").unwrap(),
+        }
+    }
+    pub fn secondary_color(&self) -> HexColor {
+        match self {
+            Platform::YouTube => HexColor::parse("#FFFFFF").unwrap(),
+            Platform::Twitch => HexColor::parse("#FFFFFF").unwrap(),
         }
     }
 
@@ -97,6 +108,7 @@ impl Platform {
     }
 
     /// Create an API client for this platform (server/bot authentication)
+    #[cfg(all(feature = "twitch", feature = "http"))]
     pub async fn create_api_client(&self) -> Result<PlatformApiClient> {
         match self {
             Platform::Twitch => {

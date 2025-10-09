@@ -1,5 +1,10 @@
+
+#[cfg(feature = "database")]
 use crate::entities::{users, flask_dance_oauth};
+#[cfg(feature = "database")]
 use crate::types::OAuthToken;
+
+#[cfg(feature = "database")]
 use sea_orm::*;
 
 #[derive(Debug)]

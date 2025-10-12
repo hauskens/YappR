@@ -21,12 +21,15 @@ reqwest = { workspace = true, optional = true, default-features = false }
 hex_color = "3.0.0"
 dotenv.workspace = true
 semver.workspace = true
+google-youtube3 = { version = "*", optional = true }
+async-trait = "0.1"
 
 [features]
-default = ["database", "twitch", "http", "discord"]
+default = ["database", "twitch", "youtube", "http", "discord"]
 database = ["dep:sea-orm"]
 discord = []
 twitch = ["dep:twitch_oauth2", "dep:twitch_api"]
+youtube = ["dep:google-youtube3"]
 http = ["dep:reqwest", "dep:eyre"]
 http-wasm = ["dep:reqwest", "reqwest/json", "dep:eyre"]
 http-server = ["dep:reqwest", "reqwest/json", "reqwest/rustls-tls", "dep:eyre"]

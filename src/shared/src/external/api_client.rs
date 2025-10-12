@@ -1,29 +1,31 @@
 use serde::{Deserialize, Serialize};
 use crate::{entities::sea_orm_active_enums::Videotype, external::twitch::TwitchApiClient};
+use crate::external::youtube::YouTubeApiClient;
 use std::error::Error;
+use async_trait::async_trait;
 
 pub enum PlatformApiClient {
     Twitch(TwitchApiClient),
+    YouTube(YouTubeApiClient),
 }
+#[async_trait]
 pub trait ApiClient {
-    fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> impl std::future::Future<Output = Result<Vec<PlatformVideo>, Box<dyn Error>>> + Send;
-    fn get_platform_users_by_ids(&self, user_ids: &[String]) -> impl std::future::Future<Output = Result<Vec<PlatformUser>, Box<dyn Error>>> + Send;
+    async fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> Result<Vec<PlatformVideo>, Box<dyn Error>>;
+    async fn get_platform_users_by_ids(&self, user_ids: &[String]) -> Result<Vec<PlatformUser>, Box<dyn Error>>;
 }
+#[async_trait]
 impl ApiClient for PlatformApiClient {
-    fn get_platform_videos_by_ids(
-        &self,
-        video_ids: &[String],
-    ) -> impl std::future::Future<Output = Result<Vec<PlatformVideo>, Box<dyn Error>>> + Send {
+    async fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
         match self {
-            PlatformApiClient::Twitch(client) => client.get_platform_videos_by_ids(video_ids),
+            PlatformApiClient::Twitch(client) => client.get_platform_videos_by_ids(video_ids).await,
+            PlatformApiClient::YouTube(client) => client.get_platform_videos_by_ids(video_ids).await,
         }
     }
-    fn get_platform_users_by_ids(
-        &self,
-        user_ids: &[String],
-    ) -> impl std::future::Future<Output = Result<Vec<PlatformUser>, Box<dyn Error>>> + Send {
+
+    async fn get_platform_users_by_ids(&self, user_ids: &[String]) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
         match self {
-            PlatformApiClient::Twitch(client) => client.get_platform_users_by_ids(user_ids),
+            PlatformApiClient::Twitch(client) => client.get_platform_users_by_ids(user_ids).await,
+            PlatformApiClient::YouTube(client) => client.get_platform_users_by_ids(user_ids).await,
         }
     }
 }

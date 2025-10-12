@@ -1,3 +1,3 @@
 pub mod platforms;
-// pub mod channel;
+pub mod channel;
 pub mod shared;

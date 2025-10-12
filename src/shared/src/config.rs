@@ -40,6 +40,10 @@ pub struct Config {
 
     #[cfg(feature = "twitch")]
     pub twitch: TwitchConfig,
+
+    #[cfg(feature = "youtube")]
+    pub youtube: YouTubeConfig,
+
     #[cfg(feature = "discord")]
     pub discord: DiscordConfig,
 
@@ -49,6 +53,11 @@ pub struct Config {
 pub struct TwitchConfig {
     pub client_id: twitch_oauth2::ClientId,
     pub client_secret: twitch_oauth2::ClientSecret,
+}
+
+#[derive(Debug, Clone)]
+pub struct YouTubeConfig {
+    pub api_key: String,
 }
 
 #[derive(Debug, Clone)]
@@ -79,6 +88,8 @@ impl Config {
             database: DatabaseConfig::load(),
             #[cfg(feature = "twitch")]
             twitch: TwitchConfig::load(),
+            #[cfg(feature = "youtube")]
+            youtube: YouTubeConfig::load(),
             #[cfg(feature = "discord")]
             discord: DiscordConfig::load(),
         }
@@ -102,6 +113,14 @@ impl TwitchConfig {
         TwitchConfig {
             client_id: env_required("TWITCH_CLIENT_ID").parse::<twitch_oauth2::ClientId>().expect("Invalid client id"),
             client_secret: env_required("TWITCH_CLIENT_SECRET").parse::<twitch_oauth2::ClientSecret>().expect("Invalid client secret"),
+        }
+    }
+}
+
+impl YouTubeConfig {
+    pub fn load() -> Self {
+        YouTubeConfig {
+            api_key: env_required("YOUTUBE_API_KEY"),
         }
     }
 }

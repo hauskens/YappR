@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use url::Url;
 use hex_color::HexColor;
 #[cfg(all(feature = "twitch", feature = "http"))]
-use crate::external::{ApiClient, PlatformApiClient};
+use crate::external::{PlatformApiClient};
 use crate::utils;
 use std::error::Error;
 
@@ -108,7 +108,7 @@ impl Platform {
     }
 
     /// Create an API client for this platform (server/bot authentication)
-    #[cfg(all(feature = "twitch", feature = "http"))]
+    #[cfg(all(feature = "twitch", feature = "youtube"))]
     pub async fn create_api_client(&self) -> Result<PlatformApiClient, Box<dyn Error>> {
         match self {
             Platform::Twitch => {
@@ -117,8 +117,10 @@ impl Platform {
                 Ok(PlatformApiClient::Twitch(client))
             }
             Platform::YouTube => {
-                // TODO: Implement YouTube API client when needed
-                todo!()
+                use crate::external::{youtube::YouTubeApiClient, PlatformApiClient};
+                let client = YouTubeApiClient::new().await?;
+                Ok(PlatformApiClient::YouTube(client))
+                
             }
         }
     }

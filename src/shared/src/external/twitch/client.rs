@@ -1,24 +1,20 @@
 #[cfg(feature = "twitch")]
 use twitch_api::{
     helix::{
-        clips::GetClipsRequest,
-        moderation::GetModeratorsRequest,
-        streams::GetStreamsRequest,
         users::GetUsersRequest,
         videos::GetVideosRequest,
     },
-    types::{UserId, VideoId, ClipId},
+    types::{UserId, VideoId},
     HelixClient,
-    client::ClientDefault,
 };
 #[cfg(feature = "twitch")]
 use twitch_oauth2::AppAccessToken;
 #[cfg(feature = "database")]
-
 use crate::{entities::sea_orm_active_enums::Videotype};
 use crate::config::Config;
 use crate::external::api_client::{ApiClient, PlatformVideo, PlatformUser};
 use std::error::Error;
+use async_trait::async_trait;
 
 /// Twitch API client wrapper with different authentication contexts
 pub struct TwitchApiClient {
@@ -121,9 +117,8 @@ impl TwitchApiClient {
 
 }
 
+#[async_trait]
 impl ApiClient for TwitchApiClient {
-
-
     async fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
         let ids: Vec<VideoId> = video_ids.iter().map(|id| VideoId::new(id.clone())).collect();
         let request = GetVideosRequest::ids(ids.as_slice());

@@ -5,40 +5,19 @@ let
     stdenv.cc.cc
     libuv
     zlib
-  ];
-  cargo-leptos-custom = pkgs.rustPlatform.buildRustPackage rec {
-    pname = "cargo-leptos";
-    version = "0.2.44";
-    src = pkgs.fetchFromGitHub {
-    owner = "leptos-rs";
-    repo = "cargo-leptos";
-    rev = "v${version}";
-    hash = "sha256-SjpfM963Zux+H5QhK8prvDLuI56fP5PqX5gcVbthRx5=";
-  };
-  checkFlags = [
-    # requires network access, thanks nixpkgs for figuring this out
-    "--skip=server::web::proxy::test::add_proxy"
-    "--skip=server::web::proxy::test::add_proxy_trailing_slash"
+
+
+    clang
+    libclang.lib
+    llvmPackages.libclang
+    llvmPackages.libclang.lib
+    llvmPackages.bintools
+    gcc
+    glibc.dev
+    cmake
+    pkg-config
   ];
 
-  cargoHash = "sha256-Da9ei4yAOfhSQmQgrUDZCmMeJXTfGnYhI1+L0JT/ECs=";
-
-  # https://github.com/leptos-rs/cargo-leptos#dependencies
-  buildFeatures = [ "no_downloads" ]; # cargo-leptos will try to install missing dependencies on its own otherwise
-  doCheck = false; 
-  };
-  # wasm-bindgen-cli-custom = pkgs.rustPlatform.buildRustPackage rec {
-  #   pname = "wasm-bindgen-cli";
-  #   version = "0.2.102";
-  #   src = pkgs.fetchCrate {
-  #     inherit pname version;
-  #     sha256 = "sha256-onynh0cGDko4RhNHfhvV9xlnyj+H7aPrwcBRIQm24so=";
-  #   };
-  #   cargoHash = "sha256-zNK9ihmX2TaHyXY8KuVXHPFGnCp8VouvLiZs7mBvbtM=";
-  #   nativeBuildInputs = [ pkgs.pkg-config ];
-  #   buildInputs = [ pkgs.openssl ];
-  #   OPENSSL_NO_VENDOR = 1;
-  # };
 in
 {
 
@@ -49,20 +28,15 @@ in
     python3Packages.psycopg2
     psqlodbc
     wasm-pack
-    #wasm-bindgen-cli-custom
-    cargo-leptos-custom
     cargo-watch
     cargo-edit
     cargo-machete
-    # cargo-leptos
     lld
     trunk
     pkg-config
     openssl
     sea-orm-cli
-    # (import ./scripts/cargo.nix {pkgs = pkgs;})
-    # dioxus-cli
-    ];
+    ] ++ buildInputs;
 
   languages = {
     python = {
@@ -76,7 +50,7 @@ in
     rust = {
       enable = true;
       channel = "stable";
-      targets = [ "wasm32-unknown-unknown" ];
+      # targets = [ "wasm32-unknown-unknown" ];
       components = [ "rustc" "cargo" "clippy" "rustfmt" "rust-analyzer" ];
     };
     javascript = {
@@ -91,6 +65,14 @@ in
 
   env = {
     LD_LIBRARY_PATH = "${lib.makeLibraryPath buildInputs}";
+    LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
+    BINDGEN_EXTRA_CLANG_ARGS = with pkgs; ''
+          -isystem ${llvmPackages.libclang.lib}/lib/clang/${lib.getVersion clang}/include
+          -isystem ${llvmPackages.libclang.out}/lib/clang/${lib.getVersion clang}/include
+          -isystem ${glibc.dev}/include
+        '';
+    
+    NIX_CFLAGS_COMPILE = "-isystem ${pkgs.glibc.dev}/include";
   };
 
   dotenv.enable = true;

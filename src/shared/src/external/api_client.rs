@@ -1,33 +1,49 @@
-use eyre::Result;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "database")]
-use crate::{entities::sea_orm_active_enums::Videotype, external::twitch::TwitchApiClient, models::platforms::Platform};
+use crate::{entities::sea_orm_active_enums::Videotype, external::twitch::TwitchApiClient};
+use std::error::Error;
 
-/// Platform-agnostic API client enum
 pub enum PlatformApiClient {
     Twitch(TwitchApiClient),
-    // YouTube(YouTubeApiClient), // Future implementation
 }
-#[cfg(feature = "database")]
-impl PlatformApiClient {
-    pub fn platform(&self) -> Platform {
+pub trait ApiClient {
+    fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> impl std::future::Future<Output = Result<Vec<PlatformVideo>, Box<dyn Error>>> + Send;
+    fn get_platform_users_by_ids(&self, user_ids: &[String]) -> impl std::future::Future<Output = Result<Vec<PlatformUser>, Box<dyn Error>>> + Send;
+}
+impl ApiClient for PlatformApiClient {
+    fn get_platform_videos_by_ids(
+        &self,
+        video_ids: &[String],
+    ) -> impl std::future::Future<Output = Result<Vec<PlatformVideo>, Box<dyn Error>>> + Send {
         match self {
-            PlatformApiClient::Twitch(_) => Platform::Twitch,
-            // PlatformApiClient::YouTube(_) => Platform::YouTube,
+            PlatformApiClient::Twitch(client) => client.get_platform_videos_by_ids(video_ids),
         }
     }
-    pub async fn get_video(&self, video_id: &str) -> Result<PlatformVideo> {
+    fn get_platform_users_by_ids(
+        &self,
+        user_ids: &[String],
+    ) -> impl std::future::Future<Output = Result<Vec<PlatformUser>, Box<dyn Error>>> + Send {
         match self {
-            PlatformApiClient::Twitch(client) => {
-                let videos = client.get_platform_video_by_ids(&[video_id.to_string()]).await?;
-                Ok(videos[0].clone())
-            }
+            PlatformApiClient::Twitch(client) => client.get_platform_users_by_ids(user_ids),
         }
+    }
+}
+
+impl PlatformApiClient {
+    pub async fn get_platform_videos_by_ids(
+        &self,
+        video_ids: &[String],
+    ) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
+        ApiClient::get_platform_videos_by_ids(self, video_ids).await
+    }
+    pub async fn get_platform_users_by_ids(
+        &self,
+        user_ids: &[String],
+    ) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
+        ApiClient::get_platform_users_by_ids(self, user_ids).await
     }
     
-
 }
-#[cfg(feature = "database")]
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformUser {
     pub id: String,
@@ -35,7 +51,6 @@ pub struct PlatformUser {
     pub profile_image_url: Option<String>,
 }
 
-#[cfg(feature = "database")]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformVideo {
     pub id: String,

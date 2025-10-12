@@ -19,10 +19,13 @@ twitch_api = { workspace = true, optional = true }
 eyre = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true, default-features = false }
 hex_color = "3.0.0"
+dotenv.workspace = true
+semver.workspace = true
 
 [features]
-default = ["database", "twitch", "http"]
+default = ["database", "twitch", "http", "discord"]
 database = ["dep:sea-orm"]
+discord = []
 twitch = ["dep:twitch_oauth2", "dep:twitch_api"]
 http = ["dep:reqwest", "dep:eyre"]
 http-wasm = ["dep:reqwest", "reqwest/json", "dep:eyre"]

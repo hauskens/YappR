@@ -11,6 +11,7 @@ pub mod chatlog_parser;
 pub mod models;
 pub mod external;
 pub mod utils;
+pub mod config;
 
 #[cfg(feature = "database")]
 pub use services::*;
@@ -19,4 +20,5 @@ pub use database::*;
 pub use types::*;
 #[cfg(feature = "database")]
 pub use chatlog_parser::*;
+
 

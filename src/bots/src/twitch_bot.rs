@@ -5,6 +5,7 @@ use twitch_oauth2::UserToken;
 use yappr_bot::websocket;
 use yappr_bot::twitch_auth;
 use eyre::WrapErr;
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> Result<(), eyre::Report> {
@@ -13,7 +14,7 @@ async fn main() -> Result<(), eyre::Report> {
         .with_writer(std::io::stderr)
         .init();
         
-    println!("Starting Twitch bot...");
+    info!("Starting Twitch bot...");
 
     let token = if let Ok(token) = twitch_auth::get_user_token().await {
         token

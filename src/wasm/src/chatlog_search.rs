@@ -54,6 +54,8 @@ struct SearchRequest {
     date_from: Option<String>,
     date_to: Option<String>,
     limit: usize,
+    offset: usize,
+    sort_order: String,
 }
 
 #[derive(Clone, PartialEq)]
@@ -64,6 +66,7 @@ pub struct SearchFormData {
     pub date_from: String,
     pub date_to: String,
     pub limit: usize,
+    pub sort_order: String,
 }
 
 #[derive(Clone, PartialEq)]
@@ -102,6 +105,7 @@ impl Default for SearchFormData {
             date_from: String::new(),
             date_to: String::new(),
             limit: 100,
+            sort_order: "desc".to_string(), // Default to newest first
         }
     }
 }
@@ -123,6 +127,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
     let search_results = use_state(|| None::<ChatLogSearchResponse>);
     let loading = use_state(|| false);
     let error_message = use_state(|| None::<String>);
+    let current_page = use_state(|| 1usize);
     let image_generator = use_state(|| {
         // Try to load settings from localStorage
         if let Some(settings_json) = load_image_settings() {
@@ -178,14 +183,16 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
         let search_results = search_results.clone();
         let loading = loading.clone();
         let error_message = error_message.clone();
-        
+        let current_page = current_page.clone();
+
         Callback::from(move |e: SubmitEvent| {
             e.prevent_default();
-            
+
             let form_data = (*search_form).clone();
             let search_results = search_results.clone();
             let loading = loading.clone();
             let error_message = error_message.clone();
+            let current_page = current_page.clone();
             
             if form_data.query.trim().is_empty() && form_data.username.trim().is_empty() {
                 error_message.set(Some("Please enter either a search query or username".to_string()));
@@ -194,7 +201,8 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
             
             loading.set(true);
             error_message.set(None);
-            
+            current_page.set(1); // Reset to page 1 on new search
+
             wasm_bindgen_futures::spawn_local(async move {
                 let request_data = SearchRequest {
                     query: form_data.query.clone(),
@@ -203,6 +211,8 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                     date_from: if form_data.date_from.is_empty() { None } else { Some(form_data.date_from.clone()) },
                     date_to: if form_data.date_to.is_empty() { None } else { Some(form_data.date_to.clone()) },
                     limit: form_data.limit,
+                    offset: 0, // Start from beginning on new search
+                    sort_order: form_data.sort_order.clone(),
                 };
                 
                 // Get CSRF token from window.csrfToken
@@ -227,6 +237,81 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                 
                 match gloo_net::http::Request::from(request).send().await
                 {
+                    Ok(response) => {
+                        if response.ok() {
+                            match response.json::<ChatLogSearchResponse>().await {
+                                Ok(data) => {
+                                    search_results.set(Some(data));
+                                }
+                                Err(_) => {
+                                    error_message.set(Some("Failed to parse search results".to_string()));
+                                }
+                            }
+                        } else {
+                            error_message.set(Some(format!("Search failed: {}", response.status())));
+                        }
+                    }
+                    Err(_) => {
+                        error_message.set(Some("Network error during search".to_string()));
+                    }
+                }
+                loading.set(false);
+            });
+        })
+    };
+
+    let on_page_change = {
+        let search_form = search_form.clone();
+        let search_results = search_results.clone();
+        let loading = loading.clone();
+        let error_message = error_message.clone();
+        let current_page = current_page.clone();
+
+        Callback::from(move |page: usize| {
+            let form_data = (*search_form).clone();
+            let search_results = search_results.clone();
+            let loading = loading.clone();
+            let error_message = error_message.clone();
+            let current_page = current_page.clone();
+
+            current_page.set(page);
+            loading.set(true);
+            error_message.set(None);
+
+            wasm_bindgen_futures::spawn_local(async move {
+                let offset = (page - 1) * form_data.limit;
+                let request_data = SearchRequest {
+                    query: form_data.query.clone(),
+                    channel_id: form_data.channel_id,
+                    username: if form_data.username.is_empty() { None } else { Some(form_data.username.clone()) },
+                    date_from: if form_data.date_from.is_empty() { None } else { Some(form_data.date_from.clone()) },
+                    date_to: if form_data.date_to.is_empty() { None } else { Some(form_data.date_to.clone()) },
+                    limit: form_data.limit,
+                    offset,
+                    sort_order: form_data.sort_order.clone(),
+                };
+
+                // Get CSRF token from window.csrfToken
+                let csrf_token = web_sys::window()
+                    .and_then(|w| js_sys::Reflect::get(&w, &"csrfToken".into()).ok())
+                    .and_then(|token| token.as_string());
+
+                // Prepare headers
+                let headers = web_sys::Headers::new().unwrap();
+                headers.set("Content-Type", "application/json").unwrap();
+                if let Some(token) = csrf_token {
+                    headers.set("X-CSRFToken", &token).unwrap();
+                }
+
+                // Create request with custom headers
+                let opts = RequestInit::new();
+                opts.set_method("POST");
+                opts.set_headers(&headers);
+                opts.set_body(&JsValue::from_str(&serde_json::to_string(&request_data).unwrap()));
+
+                let request = web_sys::Request::new_with_str_and_init("/utils/chatlog_search", &opts).unwrap();
+
+                match gloo_net::http::Request::from(request).send().await {
                     Ok(response) => {
                         if response.ok() {
                             match response.json::<ChatLogSearchResponse>().await {
@@ -316,6 +401,16 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
         })
     };
 
+    let on_sort_order_change = {
+        let search_form = search_form.clone();
+        Callback::from(move |e: Event| {
+            let select: HtmlSelectElement = e.target_unchecked_into();
+            let mut form_data = (*search_form).clone();
+            form_data.sort_order = select.value();
+            search_form.set(form_data);
+        })
+    };
+
     // Image generator callbacks
     let on_open_image_modal = {
         let image_generator = image_generator.clone();
@@ -372,7 +467,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
         })
     };
 
-    let render_search_results = |results: &ChatLogSearchResponse| -> Html {
+    let render_search_results = |results: &ChatLogSearchResponse, current_page_num: usize, limit: usize, on_page_change: &Callback<usize>| -> Html {
         if results.results.is_empty() {
             return html! {
                 <div class="alert alert-info">
@@ -380,6 +475,131 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                     {"No chat messages found matching your search criteria."}
                 </div>
             };
+        }
+
+        // Calculate pagination data
+        let total_pages = ((results.total as f64) / (limit as f64)).ceil() as usize;
+        let mut pagination_items = Vec::new();
+
+        if total_pages > 1 {
+            // Previous button
+            if current_page_num > 1 {
+                let on_prev = {
+                    let on_page_change = on_page_change.clone();
+                    let prev_page = current_page_num - 1;
+                    Callback::from(move |_: MouseEvent| {
+                        on_page_change.emit(prev_page);
+                    })
+                };
+                pagination_items.push(html! {
+                    <li class="page-item">
+                        <button class="page-link" onclick={on_prev}>
+                            {"Previous"}
+                        </button>
+                    </li>
+                });
+            } else {
+                pagination_items.push(html! {
+                    <li class="page-item disabled">
+                        <span class="page-link">{"Previous"}</span>
+                    </li>
+                });
+            }
+
+            // Page numbers (show up to 5 pages around current)
+            let start_page = if current_page_num <= 3 { 1 } else { current_page_num - 2 };
+            let end_page = if start_page + 4 > total_pages { total_pages } else { start_page + 4 };
+
+            // Show first page if we're not starting from it
+            if start_page > 1 {
+                let on_first = {
+                    let on_page_change = on_page_change.clone();
+                    Callback::from(move |_: MouseEvent| {
+                        on_page_change.emit(1);
+                    })
+                };
+                pagination_items.push(html! {
+                    <li class="page-item">
+                        <button class="page-link" onclick={on_first}>{"1"}</button>
+                    </li>
+                });
+                if start_page > 2 {
+                    pagination_items.push(html! {
+                        <li class="page-item disabled">
+                            <span class="page-link">{"..."}</span>
+                        </li>
+                    });
+                }
+            }
+
+            // Page numbers
+            for page in start_page..=end_page {
+                if page == current_page_num {
+                    pagination_items.push(html! {
+                        <li class="page-item active">
+                            <span class="page-link">{page.to_string()}</span>
+                        </li>
+                    });
+                } else {
+                    let on_page = {
+                        let on_page_change = on_page_change.clone();
+                        Callback::from(move |_: MouseEvent| {
+                            on_page_change.emit(page);
+                        })
+                    };
+                    pagination_items.push(html! {
+                        <li class="page-item">
+                            <button class="page-link" onclick={on_page}>{page.to_string()}</button>
+                        </li>
+                    });
+                }
+            }
+
+            // Show last page if we're not ending with it
+            if end_page < total_pages {
+                if end_page < total_pages - 1 {
+                    pagination_items.push(html! {
+                        <li class="page-item disabled">
+                            <span class="page-link">{"..."}</span>
+                        </li>
+                    });
+                }
+                let on_last = {
+                    let on_page_change = on_page_change.clone();
+                    Callback::from(move |_: MouseEvent| {
+                        on_page_change.emit(total_pages);
+                    })
+                };
+                pagination_items.push(html! {
+                    <li class="page-item">
+                        <button class="page-link" onclick={on_last}>{total_pages.to_string()}</button>
+                    </li>
+                });
+            }
+
+            // Next button
+            if current_page_num < total_pages {
+                let on_next = {
+                    let on_page_change = on_page_change.clone();
+                    let next_page = current_page_num + 1;
+                    Callback::from(move |_: MouseEvent| {
+                        on_page_change.emit(next_page);
+                    })
+                };
+                pagination_items.push(html! {
+                    <li class="page-item">
+                        <button class="page-link" onclick={on_next}>
+                            {"Next"}
+                        </button>
+                    </li>
+                });
+            } else {
+                pagination_items.push(html! {
+                    <li class="page-item disabled">
+                        <span class="page-link">{"Next"}</span>
+                    </li>
+                });
+            }
         }
 
         let active_filters = {
@@ -496,10 +716,21 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                     </table>
                 </div>
                 
-                if results.results.len() < results.total {
-                    <div class="alert alert-info mt-3">
-                        <i class="bi bi-info-circle me-2"></i>
-                        {format!("Showing first {} of {} results. Try refining your search or increasing the result limit.", results.results.len(), results.total)}
+                // Pagination controls
+                if total_pages > 1 {
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div class="text-muted small">
+                            {format!("Showing {} - {} of {} results",
+                                (current_page_num - 1) * limit + 1,
+                                std::cmp::min(current_page_num * limit, results.total),
+                                results.total
+                            )}
+                        </div>
+                        <nav aria-label="Search results pagination">
+                            <ul class="pagination pagination-sm mb-0">
+                                {for pagination_items}
+                            </ul>
+                        </nav>
                     </div>
                 }
             </div>
@@ -819,7 +1050,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                             disabled={props.channels.is_empty()}
                         />
                     </div>
-                    <div class="col-md-3 mb-3">
+                    <div class="col-md-2 mb-3">
                         <label for="limit" class="form-label">{"Max Results"}</label>
                         <select class="form-select" id="limit" onchange={on_limit_change} disabled={props.channels.is_empty()}>
                             <option value="50" selected={search_form.limit == 50}>{"50"}</option>
@@ -828,7 +1059,14 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                             <option value="500" selected={search_form.limit == 500}>{"500"}</option>
                         </select>
                     </div>
-                    <div class="col-md-3 mb-3 d-flex align-items-end">
+                    <div class="col-md-2 mb-3">
+                        <label for="sort-order" class="form-label">{"Sort Order"}</label>
+                        <select class="form-select" id="sort-order" onchange={on_sort_order_change} disabled={props.channels.is_empty()}>
+                            <option value="desc" selected={search_form.sort_order == "desc"}>{"Newest First"}</option>
+                            <option value="asc" selected={search_form.sort_order == "asc"}>{"Oldest First"}</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2 mb-3 d-flex align-items-end">
                         <button 
                             type="submit" 
                             class="btn btn-success w-100"
@@ -858,7 +1096,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                         <p class="mt-2">{"Searching chat logs..."}</p>
                     </div>
                 } else if let Some(results) = (*search_results).as_ref() {
-                    {render_search_results(results)}
+                    {render_search_results(results, *current_page, search_form.limit, &on_page_change)}
                 } else {
                     <div class="text-center text-muted py-4">
                         <i class="bi bi-chat-dots fs-1 mb-2"></i>
@@ -918,19 +1156,19 @@ fn format_timestamp(timestamp: &str) -> String {
     // Try to parse the timestamp and format it nicely
     if let Ok(dt) = DateTime::parse_from_rfc3339(timestamp) {
         let local_dt: DateTime<Local> = dt.into();
-        local_dt.format("%m-%d %H:%M:%S").to_string()
+        local_dt.format("%Y-%m-%d %H:%M:%S").to_string()
     } else {
         // If RFC3339 parsing fails, try parsing without timezone info
         if let Ok(naive_dt) = chrono::NaiveDateTime::parse_from_str(timestamp, "%Y-%m-%dT%H:%M:%S%.f") {
             let local_dt = Local.from_local_datetime(&naive_dt).single().unwrap_or_else(|| Local::now());
-            local_dt.format("%m-%d %H:%M:%S").to_string()
+            local_dt.format("%Y-%m-%d %H:%M:%S").to_string()
         } else {
             // Last resort: just truncate the microseconds and show date/time
             if timestamp.len() >= 19 {
                 let truncated = &timestamp[0..16]; // "2025-08-26T16:29"
                 if let Ok(naive_dt) = chrono::NaiveDateTime::parse_from_str(&format!("{}:00", truncated), "%Y-%m-%dT%H:%M:%S") {
                     let local_dt = Local.from_local_datetime(&naive_dt).single().unwrap_or_else(|| Local::now());
-                    local_dt.format("%m-%d %H:%M:%S").to_string()
+                    local_dt.format("%Y-%m-%d %H:%M:%S").to_string()
                 } else {
                     timestamp.to_string()
                 }

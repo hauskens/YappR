@@ -2,12 +2,12 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use url::Url;
 use hex_color::HexColor;
+#[cfg(all(feature = "twitch", feature = "http"))]
+use crate::external::{ApiClient, PlatformApiClient};
 use crate::utils;
+use std::error::Error;
 
-#[cfg(feature = "database")]
-use eyre::Result;
 #[cfg(feature = "twitch")]
-use crate::external::{twitch::TwitchApiClient, PlatformApiClient};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Platform {
@@ -26,14 +26,14 @@ impl Platform {
         }
     }
 
-    pub fn as_str(&self) -> &'static str {
+    pub fn to_str(&self) -> &'static str {
         match self {
             Platform::YouTube => "youtube",
             Platform::Twitch => "twitch",
         }
     }
 
-    pub fn name(&self) -> &'static str {
+    pub fn display_name(&self) -> &'static str {
         match self {
             Platform::YouTube => "YouTube",
             Platform::Twitch => "Twitch",
@@ -109,15 +109,16 @@ impl Platform {
 
     /// Create an API client for this platform (server/bot authentication)
     #[cfg(all(feature = "twitch", feature = "http"))]
-    pub async fn create_api_client(&self) -> Result<PlatformApiClient> {
+    pub async fn create_api_client(&self) -> Result<PlatformApiClient, Box<dyn Error>> {
         match self {
             Platform::Twitch => {
-                let client = TwitchApiClient::server_client().await?;
+                use crate::external::{twitch::TwitchApiClient, PlatformApiClient};
+                let client = TwitchApiClient::new().await?;
                 Ok(PlatformApiClient::Twitch(client))
             }
             Platform::YouTube => {
                 // TODO: Implement YouTube API client when needed
-                Err(eyre::eyre!("YouTube API client not yet implemented"))
+                todo!()
             }
         }
     }

@@ -4,12 +4,14 @@ version = "0.1.0"
 edition = "2024"
 
 [[bin]]
-name = "db-cli"
-path = "src/db_cli.rs"
+name = "cli"
+path = "src/main.rs"
 
 [dependencies]
 yappr-shared = { path = "../shared" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 clap = { workspace = true }
 sea-orm = { workspace = true }
-chrono = { workspace = true }
+
+[features]
+http = []

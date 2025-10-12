@@ -68,6 +68,8 @@ def chatlog_search():
         date_from = data.get("date_from")
         date_to = data.get("date_to")
         limit = min(data.get("limit", 100), 1000)  # Cap at 1000 results
+        offset = max(data.get("offset", 0), 0)  # Ensure offset is not negative
+        sort_order = data.get("sort_order", "desc")  # Default to newest first
         
         logger.info(f"User is searching chatlog for user: '%s', query '%s'", username, query, extra={"user_id": current_user.id})
         # Build the query
@@ -151,9 +153,15 @@ def chatlog_search():
         
         # Get total count
         total_count = search_query.count()
-        
-        # Order by timestamp (newest first) and limit
-        results = search_query.order_by(ChatLog.timestamp.desc()).limit(limit).all()
+
+        # Apply sorting based on sort_order parameter
+        if sort_order.lower() == "asc":
+            ordered_query = search_query.order_by(ChatLog.timestamp.asc())
+        else:
+            ordered_query = search_query.order_by(ChatLog.timestamp.desc())
+
+        # Apply pagination with offset and limit
+        results = ordered_query.offset(offset).limit(limit).all()
         
         # Format results with VOD links
         formatted_results = []

@@ -101,7 +101,7 @@ impl Config {
 impl DatabaseConfig {
     pub fn load() -> Self {
         DatabaseConfig {
-            url: env_or("DB_URI", "postgresql://postgres:mysecretpassword@postgres-db:5432/postgres").replace("+psycopg", ""),
+            url: env_or("DB_URI", "postgresql://postgres:mysecretpassword@localhost:5432/postgres").replace("+psycopg", ""),
             max_connections: env_or_parse("DB_MAX_CONNECTIONS", 100),
             min_connections: env_or_parse("DB_MIN_CONNECTIONS", 5),
         }

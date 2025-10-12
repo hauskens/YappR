@@ -90,7 +90,7 @@ impl Platform {
         }
     }
 
-    pub fn timestamp_url(&self, video_id: &str, seconds_offset: u64) -> String {
+    pub fn timestamp_url(&self, video_id: &str, seconds_offset: &u64) -> String {
         match self {
             Platform::YouTube => self
                 .base_url()
@@ -107,7 +107,6 @@ impl Platform {
         }
     }
 
-    /// Create an API client for this platform (server/bot authentication)
     #[cfg(all(feature = "twitch", feature = "youtube"))]
     pub async fn create_api_client(&self) -> Result<PlatformApiClient, Box<dyn Error>> {
         match self {
@@ -205,6 +204,24 @@ impl PlatformVariant {
             }
         }
         None
+    }
+
+    pub fn id_to_url(&self, id: &str) -> String {
+        match self {
+            PlatformVariant::YouTubeVideo => format!("{}?v={}", self.base_content_url(), id),
+            PlatformVariant::YouTubeShort => format!("{}/{}", self.base_content_url(), id),
+            PlatformVariant::YouTubeClip => format!("{}/{}", self.base_content_url(), id),
+            PlatformVariant::TwitchVOD => format!("{}/{}", self.base_content_url(), id),
+            PlatformVariant::TwitchClip => format!("{}{}", self.base_content_url(), id),
+        }
+    }
+
+    pub fn timestamp_url(&self, id: &str, seconds_offset: &u64) -> Result<String, Box<dyn std::error::Error>> {
+        match self {
+            PlatformVariant::YouTubeVideo => Ok(self.platform().timestamp_url(id, seconds_offset)),
+            PlatformVariant::TwitchVOD => Ok(self.platform().timestamp_url(id, seconds_offset)),
+            _ => Err("Unsupported platform variant".into()),
+        }
     }
 
     pub fn standardized_url(&self, url: &str) -> Url {
@@ -334,23 +351,23 @@ mod tests {
     #[test]
     fn test_platform_timestamp_url() {
         assert_eq!(
-            Platform::YouTube.timestamp_url("dQw4w9WgXcQ", 456),
+            Platform::YouTube.timestamp_url("dQw4w9WgXcQ", &456),
             "https://youtube.com/watch?v=dQw4w9WgXcQ&t=456"
         );
         assert_eq!(
-            Platform::Twitch.timestamp_url("1234567890", 22254),
+            Platform::Twitch.timestamp_url("1234567890", &22254),
             "https://twitch.tv/videos/1234567890?t=06h10m54s"
         );
         assert_eq!(
-            Platform::Twitch.timestamp_url("1234567890", 116671),
+            Platform::Twitch.timestamp_url("1234567890", &116671),
             "https://twitch.tv/videos/1234567890?t=32h24m31s"
         );
         assert_eq!(
-            Platform::Twitch.timestamp_url("1234567890", 654),
+            Platform::Twitch.timestamp_url("1234567890", &654),
             "https://twitch.tv/videos/1234567890?t=00h10m54s"
         );
         assert_eq!(
-            Platform::Twitch.timestamp_url("1234567890", 54),
+            Platform::Twitch.timestamp_url("1234567890", &54),
             "https://twitch.tv/videos/1234567890?t=00h00m54s"
         );
     }
@@ -805,6 +822,80 @@ mod tests {
                 input_url,
                 expected_url,
                 result.as_str()
+            );
+        }
+    }
+    #[test]
+    fn test_platform_variant_id_to_url() {
+        let test_cases = [
+            (
+                "dQw4w9WgXcQ",
+                PlatformVariant::YouTubeVideo,
+                "https://youtube.com/watch?v=dQw4w9WgXcQ",
+            ),
+            (
+                "short123",
+                PlatformVariant::YouTubeShort,
+                "https://youtube.com/shorts/short123",
+            ),
+            (
+                "clip123",
+                PlatformVariant::YouTubeClip,
+                "https://youtube.com/clip/clip123",
+            ),
+            (
+                "1489169293",
+                PlatformVariant::TwitchVOD,
+                "https://twitch.tv/videos/1489169293",
+            ),
+            (
+                "IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+                PlatformVariant::TwitchClip,
+                "https://clips.twitch.tv/IronicArtisticOrcaWTRuck-UecXBrM6ECC-DAZR",
+            ),
+        ];
+
+        for (input_id, variant, expected_url) in test_cases {
+            let result = variant.id_to_url(input_id);
+            assert_eq!(
+                result,
+                expected_url,
+                "Failed to convert {} ID to URL: {} -> expected: {}, got: {}",
+                variant.as_str(),
+                input_id,
+                expected_url,
+                result
+            );
+        }
+    }
+
+    #[test]
+    fn test_platform_variant_timestamp_url() {
+        let test_cases = [
+            (
+                "dQw4w9WgXcQ",
+                PlatformVariant::YouTubeVideo,
+                12345,
+                "https://youtube.com/watch?v=dQw4w9WgXcQ&t=12345",
+            ),
+            (
+                "2489169293",
+                PlatformVariant::TwitchVOD,
+                12345,
+                "https://twitch.tv/videos/2489169293?t=03h25m45s",
+            ),
+        ];
+
+        for (input_id, variant, seconds, expected_url) in test_cases {
+            let result = variant.timestamp_url(input_id, &seconds).unwrap();
+            assert_eq!(
+                result,
+                expected_url,
+                "Failed to convert {} ID to URL: {} -> expected: {}, got: {}",
+                variant.as_str(),
+                input_id,
+                expected_url,
+                result
             );
         }
     }

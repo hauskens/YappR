@@ -3,13 +3,16 @@ use crate::entities::{video, channels};
 #[cfg(feature = "database")]
 use sea_orm::*;
 use crate::database::get_database_connection;
+use tracing::{info, error, instrument};
 
 pub struct VideoService {
     db: DatabaseConnection,
 }
 
 impl VideoService {
+    #[instrument(level = "info")]
     pub async fn new() -> Self {
+        info!("Creating new VideoService instance");
         let db = get_database_connection().await.unwrap();
         Self { db }
     }
@@ -19,11 +22,22 @@ impl VideoService {
     /// # Arguments
     ///
     /// * `id` - The video ID to retrieve.
+    #[instrument(level = "info", skip(self))]
     pub async fn get_by_id(&self, id: i32) -> Result<Option<video::Model>, DbErr> {
-        let video = video::Entity::find_by_id(id)
-            .one(&self.db)
-            .await?;
-        Ok(video)
+        info!(video_id = id, "Fetching video by ID");
+        match video::Entity::find_by_id(id).one(&self.db).await {
+            Ok(video) => {
+                match &video {
+                    Some(_) => info!(video_id = id, "Video found"),
+                    None => info!(video_id = id, "Video not found"),
+                }
+                Ok(video)
+            }
+            Err(e) => {
+                error!(error = %e, video_id = id, "Failed to fetch video by ID");
+                Err(e)
+            }
+        }
     }
 
     /// Retrieves a video by its platform reference.
@@ -31,12 +45,25 @@ impl VideoService {
     /// # Arguments
     ///
     /// * `platform_ref` - The unique platform reference string.
+    #[instrument(level = "info", skip(self))]
     pub async fn get_by_platform_ref(&self, platform_ref: &str) -> Result<Option<video::Model>, DbErr> {
-        let video = video::Entity::find()
+        info!(platform_ref = %platform_ref, "Fetching video by platform reference");
+        match video::Entity::find()
             .filter(video::Column::PlatformRef.eq(platform_ref))
             .one(&self.db)
-            .await?;
-        Ok(video)
+            .await {
+            Ok(video) => {
+                match &video {
+                    Some(_) => info!(platform_ref = %platform_ref, "Video found"),
+                    None => info!(platform_ref = %platform_ref, "Video not found"),
+                }
+                Ok(video)
+            }
+            Err(e) => {
+                error!(error = %e, platform_ref = %platform_ref, "Failed to fetch video by platform reference");
+                Err(e)
+            }
+        }
     }
 
     /// Retrieves all videos from the database.

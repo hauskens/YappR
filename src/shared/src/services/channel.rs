@@ -4,13 +4,16 @@ use crate::entities::channels;
 use sea_orm::*;
 use crate::models::platforms::VideoPlatform;
 use crate::database::get_database_connection;
+use tracing::{info, warn, error, instrument, debug};
 
 pub struct ChannelService {
     db: DatabaseConnection,
 }
 
 impl ChannelService {
+    #[instrument(level = "info")]
     pub async fn new() -> Self {
+        info!("Creating new ChannelService instance");
         let db = get_database_connection().await.unwrap();
         Self { db }
     }
@@ -20,11 +23,22 @@ impl ChannelService {
     /// # Arguments
     ///
     /// * `id` - The channel ID to retrieve.
+    #[instrument(level = "info", skip(self))]
     pub async fn get_by_id(&self, id: i32) -> Result<Option<channels::Model>, DbErr> {
-        let channel = channels::Entity::find_by_id(id)
-            .one(&self.db)
-            .await?;
-        Ok(channel)
+        info!(channel_id = id, "Fetching channel by ID");
+        match channels::Entity::find_by_id(id).one(&self.db).await {
+            Ok(channel) => {
+                match &channel {
+                    Some(_) => info!(channel_id = id, "Channel found"),
+                    None => info!(channel_id = id, "Channel not found"),
+                }
+                Ok(channel)
+            }
+            Err(e) => {
+                error!(error = %e, channel_id = id, "Failed to fetch channel by ID");
+                Err(e)
+            }
+        }
     }
 
     /// Retrieves a channel by its platform reference.
@@ -32,12 +46,25 @@ impl ChannelService {
     /// # Arguments
     ///
     /// * `platform_ref` - The unique platform reference string.
+    #[instrument(level = "info", skip(self))]
     pub async fn get_by_platform_ref(&self, platform_ref: &str) -> Result<Option<channels::Model>, DbErr> {
-        let channel = channels::Entity::find()
+        info!(platform_ref = %platform_ref, "Fetching channel by platform reference");
+        match channels::Entity::find()
             .filter(channels::Column::PlatformRef.eq(platform_ref))
             .one(&self.db)
-            .await?;
-        Ok(channel)
+            .await {
+            Ok(channel) => {
+                match &channel {
+                    Some(_) => info!(platform_ref = %platform_ref, "Channel found"),
+                    None => info!(platform_ref = %platform_ref, "Channel not found"),
+                }
+                Ok(channel)
+            }
+            Err(e) => {
+                error!(error = %e, platform_ref = %platform_ref, "Failed to fetch channel by platform reference");
+                Err(e)
+            }
+        }
     }
 
     /// Retrieves a channel by its platform channel ID.
@@ -58,15 +85,26 @@ impl ChannelService {
     /// # Arguments
     ///
     /// * `platform` - Optional platform filter. If provided, only returns channels for that platform.
+    #[instrument(level = "info", skip(self))]
     pub async fn list(&self, platform: Option<VideoPlatform>) -> Result<Vec<channels::Model>, DbErr> {
+        info!(platform = ?platform, "Fetching all channels");
         let mut query = channels::Entity::find();
 
         if let Some(platform) = platform {
+            debug!(platform = %platform.as_str(), "Filtering by platform");
             query = query.filter(channels::Column::PlatformName.eq(platform.as_str()));
         }
 
-        let channels = query.all(&self.db).await?;
-        Ok(channels)
+        match query.all(&self.db).await {
+            Ok(channels) => {
+                info!(channel_count = channels.len(), platform = ?platform, "Successfully fetched channels");
+                Ok(channels)
+            }
+            Err(e) => {
+                error!(error = %e, platform = ?platform, "Failed to fetch channels");
+                Err(e)
+            }
+        }
     }
 
     /// Retrieves all channels for a specific broadcaster.
@@ -108,6 +146,7 @@ impl ChannelService {
     /// * `platform_channel_id` - Unique platform channel ID.
     /// * `platform_name` - The platform name (e.g., "youtube", "twitch").
     /// * `source_channel_id` - Optional source channel ID.
+    #[instrument(level = "info", skip(self))]
     pub async fn create(
         &self,
         name: String,
@@ -118,6 +157,14 @@ impl ChannelService {
         platform_name: String,
         source_channel_id: Option<i32>,
     ) -> Result<channels::Model, DbErr> {
+        info!(
+            name = %name,
+            broadcaster_id = broadcaster_id,
+            platform_ref = %platform_ref,
+            platform_name = %platform_name,
+            "Creating new channel"
+        );
+
         let channel = channels::ActiveModel {
             name: Set(name),
             broadcaster_id: Set(broadcaster_id),
@@ -130,7 +177,16 @@ impl ChannelService {
             ..Default::default()
         };
 
-        self.insert(channel).await
+        match self.insert(channel).await {
+            Ok(channel) => {
+                info!(channel_id = channel.id, name = %channel.name, "Channel created successfully");
+                Ok(channel)
+            }
+            Err(e) => {
+                error!(error = %e, broadcaster_id = broadcaster_id, "Failed to create channel");
+                Err(e)
+            }
+        }
     }
 
     /// Updates a channel's information.
@@ -151,11 +207,19 @@ impl ChannelService {
     /// # Arguments
     ///
     /// * `id` - The channel ID to delete.
+    #[instrument(level = "warn", skip(self))]
     pub async fn delete(&self, id: i32) -> Result<DeleteResult, DbErr> {
-        let result = channels::Entity::delete_by_id(id)
-            .exec(&self.db)
-            .await?;
-        Ok(result)
+        warn!(channel_id = id, "Deleting channel");
+        match channels::Entity::delete_by_id(id).exec(&self.db).await {
+            Ok(result) => {
+                info!(channel_id = id, rows_affected = result.rows_affected, "Channel deleted successfully");
+                Ok(result)
+            }
+            Err(e) => {
+                error!(error = %e, channel_id = id, "Failed to delete channel");
+                Err(e)
+            }
+        }
     }
 
     /// Updates the last_active timestamp for a channel.

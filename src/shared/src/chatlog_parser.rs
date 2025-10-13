@@ -5,6 +5,7 @@ use regex::Regex;
 use sea_orm::*;
 use std::fs;
 use std::path::PathBuf;
+use tracing::{warn, error, instrument, debug};
 
 #[cfg(feature = "database")]
 use crate::entities::prelude::*;
@@ -45,7 +46,9 @@ pub struct ChatLogParser {
 }
 
 impl Default for ChatLogParser {
+    #[instrument(level = "debug")]
     fn default() -> Self {
+        debug!("Creating new ChatLogParser with default regexes");
         Self {
             message_regex: Regex::new(r"^\[(\d{2}:\d{2}:\d{2})\]\s+(.+): (.+)$").unwrap(),
             start_line_regex: Regex::new(
@@ -62,25 +65,43 @@ impl ChatLogParser {
         Self::default()
     }
 
+    #[instrument(level = "debug", skip(self))]
     pub fn parse_log_start_line(
         &self,
         line: &str,
     ) -> Result<(NaiveDateTime, String), Box<dyn std::error::Error>> {
-        let caps = self
-            .start_line_regex
-            .captures(line)
-            .ok_or("Invalid start line format")?;
+        debug!(line = %line, "Parsing log start line");
+
+        let caps = match self.start_line_regex.captures(line) {
+            Some(caps) => caps,
+            None => {
+                warn!(line = %line, "Invalid start line format");
+                return Err("Invalid start line format".into());
+            }
+        };
 
         let date_str = caps.get(1).unwrap().as_str();
         let time_str = caps.get(2).unwrap().as_str();
         let timezone_str = caps.get(3).map(|m| m.as_str()).unwrap();
 
-        let base_datetime = NaiveDateTime::parse_from_str(
+        match NaiveDateTime::parse_from_str(
             &format!("{} {}", date_str, time_str),
             "%Y-%m-%d %H:%M:%S",
-        )?;
-
-        Ok((base_datetime, timezone_str.to_string()))
+        ) {
+            Ok(base_datetime) => {
+                debug!(
+                    date = %date_str,
+                    time = %time_str,
+                    timezone = %timezone_str,
+                    "Successfully parsed log start line"
+                );
+                Ok((base_datetime, timezone_str.to_string()))
+            }
+            Err(e) => {
+                error!(error = %e, line = %line, "Failed to parse datetime from start line");
+                Err(e.into())
+            }
+        }
     }
 
     pub fn extract_username(&self, full_username_str: &str) -> String {
@@ -117,7 +138,7 @@ impl ChatLogParser {
                     }));
                 }
                 Err(e) => {
-                    println!("    Error combining timestamp: {}", e);
+                    warn!(error = %e, time_part = %time_part, "Error combining timestamp");
                 }
             }
         }
@@ -168,6 +189,7 @@ impl ChatLogParser {
         Ok(converted)
     }
 
+    #[instrument(level = "debug", skip(self))]
     fn convert_to_server_timezone(
         &self,
         naive_dt: NaiveDateTime,

@@ -12,9 +12,10 @@ use twitch_oauth2::AppAccessToken;
 #[cfg(feature = "database")]
 use crate::{entities::sea_orm_active_enums::Videotype};
 use crate::config::Config;
-use crate::external::api_client::{ApiClient, PlatformVideo, PlatformUser, PlatformApiClient};
+use crate::external::api_client::{ApiClient, PlatformVideo, PlatformUser};
 use std::error::Error;
 use async_trait::async_trait;
+use tracing::{info, error, instrument, debug};
 
 /// Twitch API client wrapper with different authentication contexts
 pub struct TwitchApiClient {
@@ -24,25 +25,45 @@ pub struct TwitchApiClient {
 
 #[cfg(feature = "twitch")]
 impl TwitchApiClient {
-
     /// Create a client authenticated as the server/bot user
+    #[instrument(level = "info")]
     pub async fn new() -> Result<Self, Box<dyn Error>> {
+        info!("Initializing Twitch API client");
 
         let config = Config::load();
 
+        debug!("Creating Twitch Helix client");
         let client: HelixClient<reqwest::Client> = twitch_api::HelixClient::default();
-        let token = twitch_oauth2::AppAccessToken::get_app_access_token(
+
+        info!("Obtaining Twitch app access token");
+        let token = match twitch_oauth2::AppAccessToken::get_app_access_token(
             &client,
-            config.twitch.client_id,
-            config.twitch.client_secret,
+            config.twitch.client_id.clone(),
+            config.twitch.client_secret.clone(),
             vec![],
-        ).await?;
-        let client = HelixClient::with_client(
+        ).await {
+            Ok(token) => {
+                info!("Successfully obtained Twitch app access token");
+                token
+            }
+            Err(e) => {
+                error!(error = %e, "Failed to obtain Twitch app access token");
+                return Err(e.into());
+            }
+        };
+
+        let client = match HelixClient::with_client(
             twitch_api::client::ClientDefault::default_client_with_name(
                 Some(config.service_name.parse()?)
             )?
-        );
-        
+        ) {
+            client => {
+                debug!("Twitch Helix client configured successfully");
+                client
+            }
+        };
+
+        info!("Twitch API client initialized successfully");
         Ok(Self { client, token })
     }
 
@@ -119,12 +140,26 @@ impl TwitchApiClient {
 
 #[async_trait]
 impl ApiClient for TwitchApiClient {
+    #[instrument(level = "info", skip(self, video_ids))]
     async fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
+        info!(video_count = video_ids.len(), "Fetching Twitch videos by IDs");
+
         let ids: Vec<VideoId> = video_ids.iter().map(|id| VideoId::new(id.clone())).collect();
         let request = GetVideosRequest::ids(ids.as_slice());
-        let response = self.client.req_get(request, &self.token).await?;
-        
-        Ok(response.data.into_iter().map(|video| PlatformVideo {
+
+        debug!("Making Twitch API request for videos");
+        let response = match self.client.req_get(request, &self.token).await {
+            Ok(response) => {
+                debug!(returned_count = response.data.len(), "Twitch API videos request successful");
+                response
+            }
+            Err(e) => {
+                error!(error = %e, video_count = video_ids.len(), "Twitch API videos request failed");
+                return Err(e.into());
+            }
+        };
+
+        let videos: Vec<PlatformVideo> = response.data.into_iter().map(|video| PlatformVideo {
             id: video.id.to_string(),
             title: video.title.clone(),
             duration: None,
@@ -132,20 +167,49 @@ impl ApiClient for TwitchApiClient {
             thumbnail_url: Some(video.thumbnail_url.clone()),
             view_count: Some(video.view_count as u64),
             video_type: Videotype::Vod,
-        }).collect())
+        }).collect();
+
+        info!(
+            requested_count = video_ids.len(),
+            returned_count = videos.len(),
+            "Successfully processed Twitch videos"
+        );
+
+        Ok(videos)
     }
 
+    #[instrument(level = "info", skip(self, user_ids))]
     async fn get_platform_users_by_ids(&self, user_ids: &[String]) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
+        info!(user_count = user_ids.len(), "Fetching Twitch users by IDs");
+
         let ids: Vec<UserId> = user_ids.iter().map(|id| UserId::new(id.clone())).collect();
-        
         let request = GetUsersRequest::ids(ids.as_slice());
-        let response = self.client.req_get(request, &self.token).await?;
-        
-        Ok(response.data.into_iter().map(|user| PlatformUser {
+
+        debug!("Making Twitch API request for users");
+        let response = match self.client.req_get(request, &self.token).await {
+            Ok(response) => {
+                debug!(returned_count = response.data.len(), "Twitch API users request successful");
+                response
+            }
+            Err(e) => {
+                error!(error = %e, user_count = user_ids.len(), "Twitch API users request failed");
+                return Err(e.into());
+            }
+        };
+
+        let users: Vec<PlatformUser> = response.data.into_iter().map(|user| PlatformUser {
             id: user.id.to_string(),
             display_name: user.display_name.to_string(),
             profile_image_url: user.profile_image_url,
-        }).collect())
+        }).collect();
+
+        info!(
+            requested_count = user_ids.len(),
+            returned_count = users.len(),
+            "Successfully processed Twitch users"
+        );
+
+        Ok(users)
     }
 
 }

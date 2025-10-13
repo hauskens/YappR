@@ -3,6 +3,7 @@ use crate::{entities::sea_orm_active_enums::Videotype, external::twitch::TwitchA
 use crate::external::youtube::YouTubeApiClient;
 use std::error::Error;
 use async_trait::async_trait;
+use tracing::{info, error, instrument};
 
 pub enum PlatformApiClient {
     Twitch(TwitchApiClient),
@@ -15,18 +16,84 @@ pub trait ApiClient {
 }
 #[async_trait]
 impl ApiClient for PlatformApiClient {
+    #[instrument(level = "info", skip(self, video_ids))]
     async fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
-        match self {
+        let platform = match self {
+            PlatformApiClient::Twitch(_) => "twitch",
+            PlatformApiClient::YouTube(_) => "youtube",
+        };
+
+        info!(
+            platform = platform,
+            video_count = video_ids.len(),
+            "Fetching platform videos by IDs"
+        );
+
+        let result = match self {
             PlatformApiClient::Twitch(client) => client.get_platform_videos_by_ids(video_ids).await,
             PlatformApiClient::YouTube(client) => client.get_platform_videos_by_ids(video_ids).await,
+        };
+
+        match &result {
+            Ok(videos) => {
+                info!(
+                    platform = platform,
+                    requested_count = video_ids.len(),
+                    returned_count = videos.len(),
+                    "Successfully fetched platform videos"
+                );
+            }
+            Err(e) => {
+                error!(
+                    platform = platform,
+                    video_count = video_ids.len(),
+                    error = %e,
+                    "Failed to fetch platform videos"
+                );
+            }
         }
+
+        result
     }
 
+    #[instrument(level = "info", skip(self, user_ids))]
     async fn get_platform_users_by_ids(&self, user_ids: &[String]) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
-        match self {
+        let platform = match self {
+            PlatformApiClient::Twitch(_) => "twitch",
+            PlatformApiClient::YouTube(_) => "youtube",
+        };
+
+        info!(
+            platform = platform,
+            user_count = user_ids.len(),
+            "Fetching platform users by IDs"
+        );
+
+        let result = match self {
             PlatformApiClient::Twitch(client) => client.get_platform_users_by_ids(user_ids).await,
             PlatformApiClient::YouTube(client) => client.get_platform_users_by_ids(user_ids).await,
+        };
+
+        match &result {
+            Ok(users) => {
+                info!(
+                    platform = platform,
+                    requested_count = user_ids.len(),
+                    returned_count = users.len(),
+                    "Successfully fetched platform users"
+                );
+            }
+            Err(e) => {
+                error!(
+                    platform = platform,
+                    user_count = user_ids.len(),
+                    error = %e,
+                    "Failed to fetch platform users"
+                );
+            }
         }
+
+        result
     }
 }
 

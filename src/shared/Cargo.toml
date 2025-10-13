@@ -7,22 +7,25 @@ edition = "2024"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+async-trait = "0.1"
+chrono = { workspace = true }
+chrono-tz.workspace = true
+dotenv.workspace = true
+eyre = { workspace = true, optional = true }
+google-youtube3 = { version = "*", optional = true }
+hex_color = "3.0.0"
+regex.workspace = true
+reqwest = { workspace = true, optional = true, default-features = false }
+sea-orm = { workspace = true, optional = true }
+semver.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
-sea-orm = { workspace = true, optional = true }
-chrono = { workspace = true }
-regex.workspace = true
-chrono-tz.workspace = true
-url.workspace = true
-twitch_oauth2 = { workspace = true, optional = true }
+tracing = { workspace = true }
+tracing-loki = { workspace = true }
+tracing-subscriber = { workspace = true }
 twitch_api = { workspace = true, optional = true }
-eyre = { workspace = true, optional = true }
-reqwest = { workspace = true, optional = true, default-features = false }
-hex_color = "3.0.0"
-dotenv.workspace = true
-semver.workspace = true
-google-youtube3 = { version = "*", optional = true }
-async-trait = "0.1"
+twitch_oauth2 = { workspace = true, optional = true }
+url.workspace = true
 
 [features]
 default = ["database", "twitch", "youtube", "http", "discord"]

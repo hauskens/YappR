@@ -6,6 +6,7 @@ use crate::types::OAuthToken;
 
 #[cfg(feature = "database")]
 use sea_orm::*;
+use tracing::{info, warn, error, instrument, debug};
 
 #[derive(Debug)]
 pub struct UserService {
@@ -13,7 +14,9 @@ pub struct UserService {
 }
 
 impl UserService {
+    #[instrument(level = "debug")]
     pub fn new(db: DatabaseConnection) -> Self {
+        debug!("Creating new UserService instance");
         Self { db }
     }
 
@@ -29,34 +32,60 @@ impl UserService {
         Ok(users)
     }
     /// Get the bot user
+    #[instrument(level = "info", skip(self))]
     pub async fn get_bot_user(&self) -> Result<users::Model, DbErr> {
-        let bot_oauth = flask_dance_oauth::Entity::find()
+        info!("Fetching bot user");
+
+        let bot_oauth = match flask_dance_oauth::Entity::find()
             .filter(flask_dance_oauth::Column::Provider.eq("twitch_bot"))
             .one(&self.db)
-            .await?
-            .unwrap();
+            .await? {
+            Some(oauth) => {
+                debug!(user_id = oauth.user_id, "Bot OAuth record found");
+                oauth
+            }
+            None => {
+                error!("Bot OAuth record not found");
+                return Err(DbErr::RecordNotFound("Bot OAuth record not found".to_string()));
+            }
+        };
 
-        let bot_user = users::Entity::find()
+        match users::Entity::find()
             .filter(users::Column::Id.eq(bot_oauth.user_id))
             .one(&self.db)
-            .await?
-            .unwrap();
-        
-        Ok(bot_user)
+            .await? {
+            Some(bot_user) => {
+                info!(user_id = bot_user.id, name = %bot_user.name, "Bot user found");
+                Ok(bot_user)
+            }
+            None => {
+                error!(user_id = bot_oauth.user_id, "Bot user not found");
+                Err(DbErr::RecordNotFound("Bot user not found".to_string()))
+            }
+        }
     }
     /// Get the user by ID
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `user_id` - The ID of the user to get.
+    #[instrument(level = "info", skip(self))]
     pub async fn get_user_by_id(&self, user_id: i32) -> Result<users::Model, DbErr> {
-        let user = users::Entity::find()
+        info!(user_id = user_id, "Fetching user by ID");
+
+        match users::Entity::find()
             .filter(users::Column::Id.eq(user_id))
             .one(&self.db)
-            .await?
-            .unwrap();
-        
-        Ok(user)
+            .await? {
+            Some(user) => {
+                info!(user_id = user.id, name = %user.name, "User found");
+                Ok(user)
+            }
+            None => {
+                error!(user_id = user_id, "User not found");
+                Err(DbErr::RecordNotFound(format!("User with ID {} not found", user_id)))
+            }
+        }
     }
     /// Get the user by external account ID
     /// 

@@ -7,9 +7,10 @@ use std::collections::HashMap;
 
 use crate::{entities::sea_orm_active_enums::Videotype};
 use crate::config::Config;
-use crate::external::api_client::{ApiClient, PlatformVideo, PlatformUser, PlatformApiClient};
+use crate::external::api_client::{ApiClient, PlatformVideo, PlatformUser};
 use std::error::Error;
 use async_trait::async_trait;
+use tracing::{info, warn, error, instrument, debug};
 
 /// YouTube API client wrapper using reqwest
 pub struct YouTubeApiClient {
@@ -99,13 +100,26 @@ struct YouTubeChannelSnippet {
 #[cfg(feature = "youtube")]
 impl YouTubeApiClient {
     /// Create a new YouTube API client
+    #[instrument(level = "info")]
     pub async fn new() -> Result<Self, Box<dyn Error>> {
+        info!("Initializing YouTube API client");
         let config = Config::load();
 
-        let client = Client::builder()
+        debug!("Creating HTTP client for YouTube API");
+        let client = match Client::builder()
             .user_agent(&config.service_name)
-            .build()?;
+            .build() {
+            Ok(client) => {
+                debug!("YouTube HTTP client created successfully");
+                client
+            }
+            Err(e) => {
+                error!(error = %e, "Failed to create YouTube HTTP client");
+                return Err(e.into());
+            }
+        };
 
+        info!("YouTube API client initialized successfully");
         Ok(Self {
             client,
             api_key: config.youtube.api_key,
@@ -114,6 +128,7 @@ impl YouTubeApiClient {
     }
 
     /// Parse ISO 8601 duration string to std::time::Duration
+    #[instrument(level = "debug")]
     fn parse_duration(duration_str: &str) -> Option<std::time::Duration> {
         // YouTube returns durations in ISO 8601 format like "PT4M13S" or "PT1H2M3S"
         if !duration_str.starts_with("PT") {
@@ -156,8 +171,12 @@ impl YouTubeApiClient {
 
 #[async_trait]
 impl ApiClient for YouTubeApiClient {
+    #[instrument(level = "info", skip(self, video_ids))]
     async fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
+        info!(video_count = video_ids.len(), "Fetching YouTube videos by IDs");
+
         if video_ids.is_empty() {
+            debug!("No video IDs provided, returning empty result");
             return Ok(Vec::new());
         }
 
@@ -168,17 +187,38 @@ impl ApiClient for YouTubeApiClient {
         params.insert("id", &ids_param);
 
         let url = format!("{}/videos", self.base_url);
-        let response = self.client
+        debug!(url = %url, params = ?params, "Making YouTube API request for videos");
+
+        let response = match self.client
             .get(&url)
             .query(&params)
             .send()
-            .await?;
+            .await {
+            Ok(response) => {
+                debug!(status = %response.status(), "YouTube API response received");
+                response
+            }
+            Err(e) => {
+                error!(error = %e, video_count = video_ids.len(), "YouTube API request failed");
+                return Err(e.into());
+            }
+        };
 
         if !response.status().is_success() {
+            error!(status = %response.status(), video_count = video_ids.len(), "YouTube API returned error status");
             return Err(format!("YouTube API error: {}", response.status()).into());
         }
 
-        let video_response: YouTubeVideoListResponse = response.json().await?;
+        let video_response: YouTubeVideoListResponse = match response.json::<YouTubeVideoListResponse>().await {
+            Ok(parsed) => {
+                debug!(returned_count = parsed.items.len(), "YouTube API response parsed successfully");
+                parsed
+            }
+            Err(e) => {
+                error!(error = %e, "Failed to parse YouTube API response");
+                return Err(e.into());
+            }
+        };
 
         let platform_videos: Vec<PlatformVideo> = video_response.items.into_iter().map(|video| {
             let view_count = video.statistics
@@ -206,11 +246,21 @@ impl ApiClient for YouTubeApiClient {
             }
         }).collect();
 
+        info!(
+            requested_count = video_ids.len(),
+            returned_count = platform_videos.len(),
+            "Successfully processed YouTube videos"
+        );
+
         Ok(platform_videos)
     }
 
+    #[instrument(level = "info", skip(self, user_ids))]
     async fn get_platform_users_by_ids(&self, user_ids: &[String]) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
+        info!(user_count = user_ids.len(), "Fetching YouTube users by IDs");
+
         if user_ids.is_empty() {
+            debug!("No user IDs provided, returning empty result");
             return Ok(Vec::new());
         }
 
@@ -221,17 +271,38 @@ impl ApiClient for YouTubeApiClient {
         params.insert("id", &ids_param);
 
         let url = format!("{}/channels", self.base_url);
-        let response = self.client
+        debug!(url = %url, "Making YouTube API request for channels");
+
+        let response = match self.client
             .get(&url)
             .query(&params)
             .send()
-            .await?;
+            .await {
+            Ok(response) => {
+                debug!(status = %response.status(), "YouTube API response received");
+                response
+            }
+            Err(e) => {
+                error!(error = %e, user_count = user_ids.len(), "YouTube API request failed");
+                return Err(e.into());
+            }
+        };
 
         if !response.status().is_success() {
+            error!(status = %response.status(), user_count = user_ids.len(), "YouTube API returned error status");
             return Err(format!("YouTube API error: {}", response.status()).into());
         }
 
-        let channel_response: YouTubeChannelListResponse = response.json().await?;
+        let channel_response: YouTubeChannelListResponse = match response.json::<YouTubeChannelListResponse>().await {
+            Ok(parsed) => {
+                debug!(returned_count = parsed.items.len(), "YouTube API response parsed successfully");
+                parsed
+            }
+            Err(e) => {
+                error!(error = %e, "Failed to parse YouTube API response");
+                return Err(e.into());
+            }
+        };
 
         let platform_users: Vec<PlatformUser> = channel_response.items.into_iter().map(|channel| {
             PlatformUser {
@@ -240,6 +311,12 @@ impl ApiClient for YouTubeApiClient {
                 profile_image_url: Self::get_best_thumbnail_url(&channel.snippet.thumbnails),
             }
         }).collect();
+
+        info!(
+            requested_count = user_ids.len(),
+            returned_count = platform_users.len(),
+            "Successfully processed YouTube users"
+        );
 
         Ok(platform_users)
     }

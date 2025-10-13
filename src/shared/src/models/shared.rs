@@ -29,6 +29,10 @@ impl Environment {
             Environment::Staging => "staging",
         }
     }
+
+    pub fn as_string(&self) -> String {
+        self.as_str().to_string()
+    }
     
     // Check if production
     pub fn is_prod(&self) -> bool {

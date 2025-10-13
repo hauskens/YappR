@@ -12,6 +12,9 @@ yappr-shared = { path = "../shared" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 clap = { workspace = true }
 sea-orm = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-loki = { workspace = true }
 
 [features]
 http = []

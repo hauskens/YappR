@@ -30,22 +30,6 @@ impl ApiClient for PlatformApiClient {
     }
 }
 
-impl PlatformApiClient {
-    pub async fn get_platform_videos_by_ids(
-        &self,
-        video_ids: &[String],
-    ) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
-        ApiClient::get_platform_videos_by_ids(self, video_ids).await
-    }
-    pub async fn get_platform_users_by_ids(
-        &self,
-        user_ids: &[String],
-    ) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
-        ApiClient::get_platform_users_by_ids(self, user_ids).await
-    }
-    
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PlatformUser {
     pub id: String,

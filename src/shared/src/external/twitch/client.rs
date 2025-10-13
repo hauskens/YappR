@@ -12,7 +12,7 @@ use twitch_oauth2::AppAccessToken;
 #[cfg(feature = "database")]
 use crate::{entities::sea_orm_active_enums::Videotype};
 use crate::config::Config;
-use crate::external::api_client::{ApiClient, PlatformVideo, PlatformUser};
+use crate::external::api_client::{ApiClient, PlatformVideo, PlatformUser, PlatformApiClient};
 use std::error::Error;
 use async_trait::async_trait;
 

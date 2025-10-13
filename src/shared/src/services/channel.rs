@@ -2,7 +2,7 @@
 use crate::entities::channels;
 #[cfg(feature = "database")]
 use sea_orm::*;
-use crate::models::platforms::Platform;
+use crate::models::platforms::VideoPlatform;
 use crate::database::get_database_connection;
 
 pub struct ChannelService {
@@ -58,11 +58,11 @@ impl ChannelService {
     /// # Arguments
     ///
     /// * `platform` - Optional platform filter. If provided, only returns channels for that platform.
-    pub async fn list(&self, platform: Option<Platform>) -> Result<Vec<channels::Model>, DbErr> {
+    pub async fn list(&self, platform: Option<VideoPlatform>) -> Result<Vec<channels::Model>, DbErr> {
         let mut query = channels::Entity::find();
 
         if let Some(platform) = platform {
-            query = query.filter(channels::Column::PlatformName.eq(platform.to_str()));
+            query = query.filter(channels::Column::PlatformName.eq(platform.as_str()));
         }
 
         let channels = query.all(&self.db).await?;
@@ -75,12 +75,12 @@ impl ChannelService {
     ///
     /// * `broadcaster_id` - The broadcaster ID to filter by.
     /// * `platform` - Optional platform filter.
-    pub async fn list_by_broadcaster(&self, broadcaster_id: i32, platform: Option<Platform>) -> Result<Vec<channels::Model>, DbErr> {
+    pub async fn list_by_broadcaster(&self, broadcaster_id: i32, platform: Option<VideoPlatform>) -> Result<Vec<channels::Model>, DbErr> {
         let mut query = channels::Entity::find()
             .filter(channels::Column::BroadcasterId.eq(broadcaster_id));
 
         if let Some(platform) = platform {
-            query = query.filter(channels::Column::PlatformName.eq(platform.to_str()));
+            query = query.filter(channels::Column::PlatformName.eq(platform.as_str()));
         }
 
         let channels = query.all(&self.db).await?;

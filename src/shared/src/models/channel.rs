@@ -1,22 +1,22 @@
 #[cfg(feature = "database")]
 use crate::entities::channels;
-use crate::models::platforms::Platform;
+use crate::models::platforms::VideoPlatform;
 
 pub trait Channel {
-    fn platform(&self) -> Platform;
+    fn platform(&self) -> VideoPlatform;
     fn channel_url(&self) -> String;
 }
 
 impl Channel for channels::Model {
-    fn platform(&self) -> Platform {
-        Platform::get_from_str(&self.platform_name)
+    fn platform(&self) -> VideoPlatform {
+        VideoPlatform::get_from_str(&self.platform_name)
             .unwrap_or_else(|| panic!("Channel has invalid platform name: {}", self.platform_name))
     }
     
     fn channel_url(&self) -> String {
         match self.platform() {
-            Platform::YouTube => self.platform().base_url().join(&format!("/@{}", self.platform_ref)).unwrap().to_string(),
-            Platform::Twitch => self.platform().base_url().join(&format!("/{}", self.platform_ref)).unwrap().to_string(),
+            VideoPlatform::YouTube => self.platform().base_url().join(&format!("/@{}", self.platform_ref)).unwrap().to_string(),
+            VideoPlatform::Twitch => self.platform().base_url().join(&format!("/{}", self.platform_ref)).unwrap().to_string(),
         }
     }
 }
@@ -45,7 +45,7 @@ mod tests {
     fn test_youtube_channel_ext() {
         let channel = create_test_channel(1, "youtube", "testid", "UCTest123");
         
-        assert_eq!(channel.platform(), Platform::YouTube);
+        assert_eq!(channel.platform(), VideoPlatform::YouTube);
         assert_eq!(channel.channel_url(), "https://youtube.com/@UCTest123".to_string());
     }
     
@@ -53,7 +53,7 @@ mod tests {
     fn test_twitch_channel_ext() {
         let channel = create_test_channel(2, "twitch", "testid", "teststreamer");
         
-        assert_eq!(channel.platform(), Platform::Twitch);
+        assert_eq!(channel.platform(), VideoPlatform::Twitch);
         assert_eq!(channel.channel_url(), "https://twitch.tv/teststreamer".to_string());
     }
     

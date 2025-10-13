@@ -1,69 +1,124 @@
-use std::time::Duration;
-use serde::{Deserialize, Serialize};
-use url::Url;
-use hex_color::HexColor;
 #[cfg(all(feature = "twitch", feature = "http"))]
-use crate::external::{PlatformApiClient};
 use crate::utils;
-use std::error::Error;
+use hex_color::HexColor;
+use serde::{Deserialize, Serialize};
+use std::time::Duration;
+use url::Url;
 
 #[cfg(feature = "twitch")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum BasePlatform {
+    YouTube,
+    Twitch,
+    Discord,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Platform {
+pub enum VideoPlatform {
     YouTube,
     Twitch,
 }
 
-impl Platform {
-    pub const ALL: &'static [Platform] = &[Platform::YouTube, Platform::Twitch];
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PlatformVariant {
+    YouTubeVideo,
+    YouTubeShort,
+    YouTubeClip,
+    TwitchVOD,
+    TwitchClip,
+}
 
+impl BasePlatform {
     pub fn get_from_str(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
-            "youtube" => Some(Platform::YouTube),
-            "twitch" => Some(Platform::Twitch),
+            "youtube" => Some(BasePlatform::YouTube),
+            "twitch" => Some(BasePlatform::Twitch),
+            "discord" => Some(BasePlatform::Discord),
             _ => None,
         }
     }
 
-    pub fn to_str(&self) -> &'static str {
+    pub fn as_str(&self) -> &'static str {
         match self {
-            Platform::YouTube => "youtube",
-            Platform::Twitch => "twitch",
+            BasePlatform::YouTube => "youtube",
+            BasePlatform::Twitch => "twitch",
+            BasePlatform::Discord => "discord",
         }
     }
 
     pub fn display_name(&self) -> &'static str {
         match self {
-            Platform::YouTube => "YouTube",
-            Platform::Twitch => "Twitch",
+            BasePlatform::YouTube => "YouTube",
+            BasePlatform::Twitch => "Twitch",
+            BasePlatform::Discord => "Discord",
         }
     }
 
     pub fn base_url(&self) -> Url {
         match self {
-            Platform::YouTube => Url::parse("https://youtube.com").unwrap(),
-            Platform::Twitch => Url::parse("https://twitch.tv").unwrap(),
+            BasePlatform::YouTube => Url::parse("https://youtube.com").unwrap(),
+            BasePlatform::Twitch => Url::parse("https://twitch.tv").unwrap(),
+            BasePlatform::Discord => Url::parse("https://discord.com").unwrap(),
         }
     }
 
     pub fn primary_color(&self) -> HexColor {
         match self {
-            Platform::YouTube => HexColor::parse("#FF0000").unwrap(),
-            Platform::Twitch => HexColor::parse("#9146FF").unwrap(),
+            BasePlatform::YouTube => HexColor::parse("#FF0000").unwrap(),
+            BasePlatform::Twitch => HexColor::parse("#9146FF").unwrap(),
+            BasePlatform::Discord => HexColor::parse("#7289DA").unwrap(),
         }
     }
     pub fn secondary_color(&self) -> HexColor {
         match self {
-            Platform::YouTube => HexColor::parse("#FFFFFF").unwrap(),
-            Platform::Twitch => HexColor::parse("#FFFFFF").unwrap(),
+            BasePlatform::YouTube => HexColor::parse("#FFFFFF").unwrap(),
+            BasePlatform::Twitch => HexColor::parse("#FFFFFF").unwrap(),
+            BasePlatform::Discord => HexColor::parse("#FFFFFF").unwrap(),
         }
     }
+}
 
+impl From<&VideoPlatform> for BasePlatform {
+    fn from(value: &VideoPlatform) -> Self {
+        match value {
+            VideoPlatform::YouTube => BasePlatform::YouTube,
+            VideoPlatform::Twitch => BasePlatform::Twitch,
+        }
+    }
+}
+
+impl From<&PlatformVariant> for BasePlatform {
+    fn from(value: &PlatformVariant) -> Self {
+        match value {
+            PlatformVariant::YouTubeVideo => BasePlatform::YouTube,
+            PlatformVariant::YouTubeShort => BasePlatform::YouTube,
+            PlatformVariant::YouTubeClip => BasePlatform::YouTube,
+            PlatformVariant::TwitchVOD => BasePlatform::Twitch,
+            PlatformVariant::TwitchClip => BasePlatform::Twitch,
+        }
+    }
+}
+
+impl VideoPlatform {
+    pub fn get_from_str(s: &str) -> Option<Self> {
+        match BasePlatform::get_from_str(s)? {
+            BasePlatform::YouTube => Some(VideoPlatform::YouTube),
+            BasePlatform::Twitch => Some(VideoPlatform::Twitch),
+            _ => None,
+        }
+    }
+    pub fn base_url(&self) -> Url {
+        BasePlatform::from(self).base_url()
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        BasePlatform::from(self).as_str()
+    }
+    
     pub fn extract_timestamp(&self, url: &str) -> Option<u64> {
         let parsed_url = Url::parse(url).unwrap();
         match self {
-            Platform::YouTube => {
+            VideoPlatform::YouTube => {
                 if let Some(query) = parsed_url.query() {
                     for pair in query.split('&') {
                         if let Some((key, value)) = pair.split_once('=')
@@ -75,7 +130,7 @@ impl Platform {
                 }
                 None
             }
-            Platform::Twitch => {
+            VideoPlatform::Twitch => {
                 if let Some(query) = parsed_url.query() {
                     for pair in query.split('&') {
                         if let Some((key, value)) = pair.split_once('=')
@@ -92,46 +147,21 @@ impl Platform {
 
     pub fn timestamp_url(&self, video_id: &str, seconds_offset: &u64) -> String {
         match self {
-            Platform::YouTube => self
+            VideoPlatform::YouTube => BasePlatform::from(self)
                 .base_url()
                 .join(&format!("/watch?v={}&t={}", video_id, seconds_offset))
                 .unwrap()
                 .to_string(),
-            Platform::Twitch => {
+            VideoPlatform::Twitch => {
                 let timestamp = utils::format_timestamp_hms(seconds_offset);
-                self.base_url()
+                BasePlatform::from(self)
+                    .base_url()
                     .join(&format!("/videos/{}?t={}", video_id, timestamp))
                     .unwrap()
                     .to_string()
             }
         }
     }
-
-    #[cfg(all(feature = "twitch", feature = "youtube"))]
-    pub async fn create_api_client(&self) -> Result<PlatformApiClient, Box<dyn Error>> {
-        match self {
-            Platform::Twitch => {
-                use crate::external::{twitch::TwitchApiClient, PlatformApiClient};
-                let client = TwitchApiClient::new().await?;
-                Ok(PlatformApiClient::Twitch(client))
-            }
-            Platform::YouTube => {
-                use crate::external::{youtube::YouTubeApiClient, PlatformApiClient};
-                let client = YouTubeApiClient::new().await?;
-                Ok(PlatformApiClient::YouTube(client))
-                
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum PlatformVariant {
-    YouTubeVideo,
-    YouTubeShort,
-    YouTubeClip,
-    TwitchVOD,
-    TwitchClip,
 }
 
 impl PlatformVariant {
@@ -142,22 +172,17 @@ impl PlatformVariant {
         PlatformVariant::TwitchVOD,
         PlatformVariant::TwitchClip,
     ];
-    pub fn platform(&self) -> Platform {
-        match self {
-            PlatformVariant::YouTubeVideo => Platform::YouTube,
-            PlatformVariant::YouTubeShort => Platform::YouTube,
-            PlatformVariant::YouTubeClip => Platform::YouTube,
-            PlatformVariant::TwitchVOD => Platform::Twitch,
-            PlatformVariant::TwitchClip => Platform::Twitch,
-        }
+
+    pub fn base_platform(&self) -> BasePlatform {
+        BasePlatform::from(self)
     }
 
     pub fn base_content_url(&self) -> Url {
         match self {
-            PlatformVariant::YouTubeVideo => self.platform().base_url().join("/watch").unwrap(),
-            PlatformVariant::YouTubeShort => self.platform().base_url().join("/shorts").unwrap(),
-            PlatformVariant::YouTubeClip => self.platform().base_url().join("/clip").unwrap(),
-            PlatformVariant::TwitchVOD => self.platform().base_url().join("/videos").unwrap(),
+            PlatformVariant::YouTubeVideo => BasePlatform::from(self).base_url().join("/watch").unwrap(),
+            PlatformVariant::YouTubeShort => BasePlatform::from(self).base_url().join("/shorts").unwrap(),
+            PlatformVariant::YouTubeClip => BasePlatform::from(self).base_url().join("/clip").unwrap(),
+            PlatformVariant::TwitchVOD => BasePlatform::from(self).base_url().join("/videos").unwrap(),
             PlatformVariant::TwitchClip => url::Url::parse("https://clips.twitch.tv").unwrap(),
         }
     }
@@ -216,17 +241,9 @@ impl PlatformVariant {
         }
     }
 
-    pub fn timestamp_url(&self, id: &str, seconds_offset: &u64) -> Result<String, Box<dyn std::error::Error>> {
-        match self {
-            PlatformVariant::YouTubeVideo => Ok(self.platform().timestamp_url(id, seconds_offset)),
-            PlatformVariant::TwitchVOD => Ok(self.platform().timestamp_url(id, seconds_offset)),
-            _ => Err("Unsupported platform variant".into()),
-        }
-    }
-
-    pub fn standardized_url(&self, url: &str) -> Url {
+    pub fn standardized_url(&self, url: &str) -> Result<Url, url::ParseError> {
         let mut base_url = self.base_content_url();
-        let parsed_url = Url::parse(url).unwrap();
+        let parsed_url = Url::parse(url)?;
         match self {
             PlatformVariant::YouTubeVideo => {
                 // First, try to extract from query parameter 'v='
@@ -236,7 +253,7 @@ impl PlatformVariant {
                             && key == "v"
                         {
                             base_url.set_query(Some(&format!("v={}", value)));
-                            return base_url;
+                            return Ok(base_url);
                         }
                     }
                 }
@@ -246,17 +263,17 @@ impl PlatformVariant {
                 if path.starts_with("/watch/") {
                     let video_id = path.trim_start_matches("/watch/");
                     base_url.set_query(Some(&format!("v={}", video_id)));
-                    return base_url;
+                    return Ok(base_url);
                 }
 
                 // Handle youtu.be URLs - extract ID from path
                 if parsed_url.host_str() == Some("youtu.be") {
                     let video_id = path.trim_start_matches('/');
                     base_url.set_query(Some(&format!("v={}", video_id)));
-                    return base_url;
+                    return Ok(base_url);
                 }
 
-                panic!("Could not extract video ID from URL: {}", url);
+                Err(url::ParseError::EmptyHost)
             }
             PlatformVariant::YouTubeShort => {
                 let path = parsed_url.path();
@@ -264,13 +281,10 @@ impl PlatformVariant {
                 if path.contains("/shorts/") {
                     let video_id = path.split('/').next_back().unwrap();
                     base_url.set_path(&format!("/shorts/{}", video_id));
-                    return base_url;
+                    return Ok(base_url);
                 }
 
-                panic!(
-                    "Could not extract video ID from YouTube Shorts URL: {}",
-                    url
-                );
+                Err(url::ParseError::EmptyHost)
             }
             PlatformVariant::YouTubeClip => {
                 let path = parsed_url.path();
@@ -278,21 +292,21 @@ impl PlatformVariant {
                 if path.contains("/clip/") {
                     let clip_id = path.split('/').next_back().unwrap();
                     base_url.set_path(&format!("/clip/{}", clip_id));
-                    return base_url;
+                    return Ok(base_url);
                 }
 
-                panic!("Could not extract video ID from YouTube Clip URL: {}", url);
+                Err(url::ParseError::EmptyHost)
             }
             PlatformVariant::TwitchVOD => {
                 let video_id = parsed_url.path().split('/').next_back().unwrap();
-                base_url.join(&format!("/videos/{}", video_id)).unwrap()
+                base_url.join(&format!("/videos/{}", video_id))
             }
             PlatformVariant::TwitchClip => {
                 let path = parsed_url.path();
 
                 let clip_id = path.split('/').next_back().unwrap();
 
-                base_url.join(clip_id).unwrap()
+                base_url.join(clip_id)
             }
         }
     }
@@ -304,46 +318,51 @@ mod tests {
 
     #[test]
     fn test_platform_get_from_str() {
-        assert_eq!(Platform::get_from_str("youtube"), Some(Platform::YouTube));
-        assert_eq!(Platform::get_from_str("YouTube"), Some(Platform::YouTube));
-        assert_eq!(Platform::get_from_str("YOUTUBE"), Some(Platform::YouTube));
+        assert_eq!(BasePlatform::get_from_str("youtube"), Some(BasePlatform::YouTube));
+        assert_eq!(BasePlatform::get_from_str("YouTube"), Some(BasePlatform::YouTube));
+        assert_eq!(BasePlatform::get_from_str("YOUTUBE"), Some(BasePlatform::YouTube));
 
-        assert_eq!(Platform::get_from_str("twitch"), Some(Platform::Twitch));
-        assert_eq!(Platform::get_from_str("Twitch"), Some(Platform::Twitch));
-        assert_eq!(Platform::get_from_str("TWITCH"), Some(Platform::Twitch));
+        assert_eq!(BasePlatform::get_from_str("twitch"), Some(BasePlatform::Twitch));
+        assert_eq!(BasePlatform::get_from_str("Twitch"), Some(BasePlatform::Twitch));
+        assert_eq!(BasePlatform::get_from_str("TWITCH"), Some(BasePlatform::Twitch));
 
-        assert_eq!(Platform::get_from_str("invalid"), None);
-        assert_eq!(Platform::get_from_str("youtube_invalid"), None);
-        assert_eq!(Platform::get_from_str(""), None);
+        assert_eq!(BasePlatform::get_from_str("discord"), Some(BasePlatform::Discord));
+        assert_eq!(BasePlatform::get_from_str("Discord"), Some(BasePlatform::Discord));
+        assert_eq!(BasePlatform::get_from_str("DISCORD"), Some(BasePlatform::Discord));
+
+        assert_eq!(BasePlatform::get_from_str("invalid"), None);
+        assert_eq!(BasePlatform::get_from_str("youtube_invalid"), None);
+        assert_eq!(BasePlatform::get_from_str(""), None);
     }
 
     #[test]
     fn test_platform_extract_timestamp() {
         assert_eq!(
-            Platform::YouTube
+            VideoPlatform::YouTube
                 .extract_timestamp("https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=456"),
             Some(456)
         );
         assert_eq!(
-            Platform::Twitch
+            VideoPlatform::Twitch
                 .extract_timestamp("https://www.twitch.tv/videos/1234567890?t=06h10m54s"),
             Some(22254)
         );
         assert_eq!(
-            Platform::Twitch
+            VideoPlatform::Twitch
                 .extract_timestamp("https://www.twitch.tv/videos/1234567890?t=32h24m31s"),
             Some(116671)
         );
         assert_eq!(
-            Platform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=10m54s"),
+            VideoPlatform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=10m54s"),
             Some(654)
         );
         assert_eq!(
-            Platform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=00h10m54s"),
+            VideoPlatform::Twitch
+                .extract_timestamp("https://www.twitch.tv/videos/1234567890?t=00h10m54s"),
             Some(654)
         );
         assert_eq!(
-            Platform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=54s"),
+            VideoPlatform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=54s"),
             Some(54)
         );
     }
@@ -351,23 +370,23 @@ mod tests {
     #[test]
     fn test_platform_timestamp_url() {
         assert_eq!(
-            Platform::YouTube.timestamp_url("dQw4w9WgXcQ", &456),
+            VideoPlatform::YouTube.timestamp_url("dQw4w9WgXcQ", &456),
             "https://youtube.com/watch?v=dQw4w9WgXcQ&t=456"
         );
         assert_eq!(
-            Platform::Twitch.timestamp_url("1234567890", &22254),
+            VideoPlatform::Twitch.timestamp_url("1234567890", &22254),
             "https://twitch.tv/videos/1234567890?t=06h10m54s"
         );
         assert_eq!(
-            Platform::Twitch.timestamp_url("1234567890", &116671),
+            VideoPlatform::Twitch.timestamp_url("1234567890", &116671),
             "https://twitch.tv/videos/1234567890?t=32h24m31s"
         );
         assert_eq!(
-            Platform::Twitch.timestamp_url("1234567890", &654),
+            VideoPlatform::Twitch.timestamp_url("1234567890", &654),
             "https://twitch.tv/videos/1234567890?t=00h10m54s"
         );
         assert_eq!(
-            Platform::Twitch.timestamp_url("1234567890", &54),
+            VideoPlatform::Twitch.timestamp_url("1234567890", &54),
             "https://twitch.tv/videos/1234567890?t=00h00m54s"
         );
     }
@@ -654,7 +673,7 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::YouTubeVideo.standardized_url(input_url);
+            let result = PlatformVariant::YouTubeVideo.standardized_url(input_url).expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -696,7 +715,7 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::YouTubeShort.standardized_url(input_url);
+            let result = PlatformVariant::YouTubeShort.standardized_url(input_url).expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -730,7 +749,7 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::YouTubeClip.standardized_url(input_url);
+            let result = PlatformVariant::YouTubeClip.standardized_url(input_url).expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -768,7 +787,7 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::TwitchVOD.standardized_url(input_url);
+            let result = PlatformVariant::TwitchVOD.standardized_url(input_url).expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -814,7 +833,7 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::TwitchClip.standardized_url(input_url);
+            let result = PlatformVariant::TwitchClip.standardized_url(input_url).expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -860,8 +879,7 @@ mod tests {
             assert_eq!(
                 result,
                 expected_url,
-                "Failed to convert {} ID to URL: {} -> expected: {}, got: {}",
-                variant.as_str(),
+                "Failed to convert ID to URL: {} -> expected: {}, got: {}",
                 input_id,
                 expected_url,
                 result
@@ -874,25 +892,24 @@ mod tests {
         let test_cases = [
             (
                 "dQw4w9WgXcQ",
-                PlatformVariant::YouTubeVideo,
+                VideoPlatform::YouTube,
                 12345,
                 "https://youtube.com/watch?v=dQw4w9WgXcQ&t=12345",
             ),
             (
                 "2489169293",
-                PlatformVariant::TwitchVOD,
+                VideoPlatform::Twitch,
                 12345,
                 "https://twitch.tv/videos/2489169293?t=03h25m45s",
             ),
         ];
 
         for (input_id, variant, seconds, expected_url) in test_cases {
-            let result = variant.timestamp_url(input_id, &seconds).unwrap();
+            let result = variant.timestamp_url(input_id, &seconds);
             assert_eq!(
                 result,
                 expected_url,
-                "Failed to convert {} ID to URL: {} -> expected: {}, got: {}",
-                variant.as_str(),
+                "Failed to convert ID to URL: {} -> expected: {}, got: {}",
                 input_id,
                 expected_url,
                 result

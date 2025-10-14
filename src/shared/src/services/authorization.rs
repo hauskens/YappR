@@ -146,17 +146,17 @@ impl AuthContext {
     pub fn is_banned(&self) -> bool {
         self.user
             .as_ref()
-            .map_or(false, |u| u.banned || u.globally_banned)
+            .is_some_and(|u| u.banned || u.globally_banned)
     }
 
     /// Check if user is globally banned
     pub fn is_globally_banned(&self) -> bool {
-        self.user.as_ref().map_or(false, |u| u.globally_banned)
+        self.user.as_ref().is_some_and(|u| u.globally_banned)
     }
 
     /// Check if user account is disabled
     pub fn is_disabled(&self) -> bool {
-        self.user.as_ref().map_or(false, |u| u.disabled)
+        self.user.as_ref().is_some_and(|u| u.disabled)
     }
 
     /// Get user's role for a specific channel
@@ -166,14 +166,13 @@ impl AuthContext {
 
     /// Check if user has a specific role in a channel
     pub fn has_channel_role(&self, channel_id: i32, role: &ChannelRole) -> bool {
-        self.get_channel_role(channel_id)
-            .map_or(false, |r| r == role)
+        self.get_channel_role(channel_id) == Some(role)
     }
 
     /// Check if user has at least the minimum role level in a channel
     pub fn has_minimum_channel_role(&self, channel_id: i32, minimum: &ChannelRole) -> bool {
         self.get_channel_role(channel_id)
-            .map_or(false, |r| r.has_minimum_role(minimum))
+            .is_some_and(|r| r.has_minimum_role(minimum))
     }
 
     /// Check if user owns a channel (is broadcaster)

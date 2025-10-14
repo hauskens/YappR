@@ -114,7 +114,7 @@ impl ContentSubmissionService {
             PlatformVariant::YouTubeShort | PlatformVariant::YouTubeClip => {
                 // Extract from path
                 url.split('/')
-                    .last()
+                    .next_back()
                     .and_then(|s| s.split('?').next())
                     .unwrap_or("")
                     .to_string()
@@ -122,7 +122,7 @@ impl ContentSubmissionService {
             PlatformVariant::TwitchVOD => {
                 // Extract from /videos/ID
                 url.split('/')
-                    .last()
+                    .next_back()
                     .and_then(|s| s.split('?').next())
                     .unwrap_or("")
                     .to_string()
@@ -130,7 +130,7 @@ impl ContentSubmissionService {
             PlatformVariant::TwitchClip => {
                 // Extract from clips.twitch.tv/ID or /clip/ID
                 url.split('/')
-                    .last()
+                    .next_back()
                     .and_then(|s| s.split('?').next())
                     .unwrap_or("")
                     .to_string()

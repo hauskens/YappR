@@ -130,17 +130,3 @@ impl ContentQueueService {
         Ok(entries)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    #[ignore] // Requires database connection
-    async fn test_get_all_queue_entries() {
-        // Example test structure
-        // let db = get_test_database_connection().await.unwrap();
-        // let entries = ContentQueueService::get_all(&db).await.unwrap();
-        // assert!(entries.len() >= 0);
-    }
-}

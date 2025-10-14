@@ -1,7 +1,7 @@
+use crate::entities::sea_orm_active_enums::Videotype;
 #[cfg(feature = "database")]
 use crate::entities::video;
-use crate::models::platforms::{VideoPlatform, PlatformVariant};
-use crate::entities::sea_orm_active_enums::Videotype;
+use crate::models::platforms::{PlatformVariant, VideoPlatform};
 
 pub trait Video {
     fn platform_variant(&self, platform: &VideoPlatform) -> PlatformVariant;
@@ -30,4 +30,3 @@ impl Video for video::Model {
             .id_to_url(&self.platform_ref)
     }
 }
-

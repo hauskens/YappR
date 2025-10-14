@@ -114,7 +114,7 @@ impl VideoPlatform {
     pub fn as_str(&self) -> &'static str {
         BasePlatform::from(self).as_str()
     }
-    
+
     pub fn extract_timestamp(&self, url: &str) -> Option<u64> {
         let parsed_url = Url::parse(url).unwrap();
         match self {
@@ -179,10 +179,18 @@ impl PlatformVariant {
 
     pub fn base_content_url(&self) -> Url {
         match self {
-            PlatformVariant::YouTubeVideo => BasePlatform::from(self).base_url().join("/watch").unwrap(),
-            PlatformVariant::YouTubeShort => BasePlatform::from(self).base_url().join("/shorts").unwrap(),
-            PlatformVariant::YouTubeClip => BasePlatform::from(self).base_url().join("/clip").unwrap(),
-            PlatformVariant::TwitchVOD => BasePlatform::from(self).base_url().join("/videos").unwrap(),
+            PlatformVariant::YouTubeVideo => {
+                BasePlatform::from(self).base_url().join("/watch").unwrap()
+            }
+            PlatformVariant::YouTubeShort => {
+                BasePlatform::from(self).base_url().join("/shorts").unwrap()
+            }
+            PlatformVariant::YouTubeClip => {
+                BasePlatform::from(self).base_url().join("/clip").unwrap()
+            }
+            PlatformVariant::TwitchVOD => {
+                BasePlatform::from(self).base_url().join("/videos").unwrap()
+            }
             PlatformVariant::TwitchClip => url::Url::parse("https://clips.twitch.tv").unwrap(),
         }
     }
@@ -318,17 +326,44 @@ mod tests {
 
     #[test]
     fn test_platform_get_from_str() {
-        assert_eq!(BasePlatform::get_from_str("youtube"), Some(BasePlatform::YouTube));
-        assert_eq!(BasePlatform::get_from_str("YouTube"), Some(BasePlatform::YouTube));
-        assert_eq!(BasePlatform::get_from_str("YOUTUBE"), Some(BasePlatform::YouTube));
+        assert_eq!(
+            BasePlatform::get_from_str("youtube"),
+            Some(BasePlatform::YouTube)
+        );
+        assert_eq!(
+            BasePlatform::get_from_str("YouTube"),
+            Some(BasePlatform::YouTube)
+        );
+        assert_eq!(
+            BasePlatform::get_from_str("YOUTUBE"),
+            Some(BasePlatform::YouTube)
+        );
 
-        assert_eq!(BasePlatform::get_from_str("twitch"), Some(BasePlatform::Twitch));
-        assert_eq!(BasePlatform::get_from_str("Twitch"), Some(BasePlatform::Twitch));
-        assert_eq!(BasePlatform::get_from_str("TWITCH"), Some(BasePlatform::Twitch));
+        assert_eq!(
+            BasePlatform::get_from_str("twitch"),
+            Some(BasePlatform::Twitch)
+        );
+        assert_eq!(
+            BasePlatform::get_from_str("Twitch"),
+            Some(BasePlatform::Twitch)
+        );
+        assert_eq!(
+            BasePlatform::get_from_str("TWITCH"),
+            Some(BasePlatform::Twitch)
+        );
 
-        assert_eq!(BasePlatform::get_from_str("discord"), Some(BasePlatform::Discord));
-        assert_eq!(BasePlatform::get_from_str("Discord"), Some(BasePlatform::Discord));
-        assert_eq!(BasePlatform::get_from_str("DISCORD"), Some(BasePlatform::Discord));
+        assert_eq!(
+            BasePlatform::get_from_str("discord"),
+            Some(BasePlatform::Discord)
+        );
+        assert_eq!(
+            BasePlatform::get_from_str("Discord"),
+            Some(BasePlatform::Discord)
+        );
+        assert_eq!(
+            BasePlatform::get_from_str("DISCORD"),
+            Some(BasePlatform::Discord)
+        );
 
         assert_eq!(BasePlatform::get_from_str("invalid"), None);
         assert_eq!(BasePlatform::get_from_str("youtube_invalid"), None);
@@ -353,7 +388,8 @@ mod tests {
             Some(116671)
         );
         assert_eq!(
-            VideoPlatform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=10m54s"),
+            VideoPlatform::Twitch
+                .extract_timestamp("https://www.twitch.tv/videos/1234567890?t=10m54s"),
             Some(654)
         );
         assert_eq!(
@@ -362,7 +398,8 @@ mod tests {
             Some(654)
         );
         assert_eq!(
-            VideoPlatform::Twitch.extract_timestamp("https://www.twitch.tv/videos/1234567890?t=54s"),
+            VideoPlatform::Twitch
+                .extract_timestamp("https://www.twitch.tv/videos/1234567890?t=54s"),
             Some(54)
         );
     }
@@ -673,7 +710,9 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::YouTubeVideo.standardized_url(input_url).expect("Failed to sanitize URL");
+            let result = PlatformVariant::YouTubeVideo
+                .standardized_url(input_url)
+                .expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -715,7 +754,9 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::YouTubeShort.standardized_url(input_url).expect("Failed to sanitize URL");
+            let result = PlatformVariant::YouTubeShort
+                .standardized_url(input_url)
+                .expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -749,7 +790,9 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::YouTubeClip.standardized_url(input_url).expect("Failed to sanitize URL");
+            let result = PlatformVariant::YouTubeClip
+                .standardized_url(input_url)
+                .expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -787,7 +830,9 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::TwitchVOD.standardized_url(input_url).expect("Failed to sanitize URL");
+            let result = PlatformVariant::TwitchVOD
+                .standardized_url(input_url)
+                .expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -833,7 +878,9 @@ mod tests {
         ];
 
         for (input_url, expected_url) in test_cases {
-            let result = PlatformVariant::TwitchClip.standardized_url(input_url).expect("Failed to sanitize URL");
+            let result = PlatformVariant::TwitchClip
+                .standardized_url(input_url)
+                .expect("Failed to sanitize URL");
             assert_eq!(
                 result.as_str(),
                 expected_url,
@@ -877,12 +924,9 @@ mod tests {
         for (input_id, variant, expected_url) in test_cases {
             let result = variant.id_to_url(input_id);
             assert_eq!(
-                result,
-                expected_url,
+                result, expected_url,
                 "Failed to convert ID to URL: {} -> expected: {}, got: {}",
-                input_id,
-                expected_url,
-                result
+                input_id, expected_url, result
             );
         }
     }
@@ -907,12 +951,9 @@ mod tests {
         for (input_id, variant, seconds, expected_url) in test_cases {
             let result = variant.timestamp_url(input_id, &seconds);
             assert_eq!(
-                result,
-                expected_url,
+                result, expected_url,
                 "Failed to convert ID to URL: {} -> expected: {}, got: {}",
-                input_id,
-                expected_url,
-                result
+                input_id, expected_url, result
             );
         }
     }

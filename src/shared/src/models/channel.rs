@@ -1,9 +1,9 @@
 #[cfg(feature = "database")]
 use crate::entities::{channels, video};
-#[cfg(feature = "database")]
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, DbErr};
 use crate::models::platforms::VideoPlatform;
 use async_trait::async_trait;
+#[cfg(feature = "database")]
+use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
 
 pub trait Channel {
     fn platform(&self) -> VideoPlatform;
@@ -22,10 +22,18 @@ pub trait ChannelExt {
     async fn get_active_videos(&self, db: &DatabaseConnection) -> Result<Vec<video::Model>, DbErr>;
 
     /// Get videos by type (e.g., Clip, Vod, Stream)
-    async fn get_videos_by_type(&self, db: &DatabaseConnection, video_type: crate::entities::sea_orm_active_enums::Videotype) -> Result<Vec<video::Model>, DbErr>;
+    async fn get_videos_by_type(
+        &self,
+        db: &DatabaseConnection,
+        video_type: crate::entities::sea_orm_active_enums::Videotype,
+    ) -> Result<Vec<video::Model>, DbErr>;
 
     /// Get the most recent videos (limited by count)
-    async fn get_recent_videos(&self, db: &DatabaseConnection, limit: u64) -> Result<Vec<video::Model>, DbErr>;
+    async fn get_recent_videos(
+        &self,
+        db: &DatabaseConnection,
+        limit: u64,
+    ) -> Result<Vec<video::Model>, DbErr>;
 }
 
 impl Channel for channels::Model {
@@ -33,11 +41,21 @@ impl Channel for channels::Model {
         VideoPlatform::get_from_str(&self.platform_name)
             .unwrap_or_else(|| panic!("Channel has invalid platform name: {}", self.platform_name))
     }
-    
+
     fn channel_url(&self) -> String {
         match self.platform() {
-            VideoPlatform::YouTube => self.platform().base_url().join(&format!("/@{}", self.platform_ref)).unwrap().to_string(),
-            VideoPlatform::Twitch => self.platform().base_url().join(&format!("/{}", self.platform_ref)).unwrap().to_string(),
+            VideoPlatform::YouTube => self
+                .platform()
+                .base_url()
+                .join(&format!("/@{}", self.platform_ref))
+                .unwrap()
+                .to_string(),
+            VideoPlatform::Twitch => self
+                .platform()
+                .base_url()
+                .join(&format!("/{}", self.platform_ref))
+                .unwrap()
+                .to_string(),
         }
     }
 }
@@ -64,7 +82,11 @@ impl ChannelExt for channels::Model {
             .await
     }
 
-    async fn get_videos_by_type(&self, db: &DatabaseConnection, video_type: crate::entities::sea_orm_active_enums::Videotype) -> Result<Vec<video::Model>, DbErr> {
+    async fn get_videos_by_type(
+        &self,
+        db: &DatabaseConnection,
+        video_type: crate::entities::sea_orm_active_enums::Videotype,
+    ) -> Result<Vec<video::Model>, DbErr> {
         use crate::entities::prelude::*;
 
         Video::find()
@@ -74,7 +96,11 @@ impl ChannelExt for channels::Model {
             .await
     }
 
-    async fn get_recent_videos(&self, db: &DatabaseConnection, limit: u64) -> Result<Vec<video::Model>, DbErr> {
+    async fn get_recent_videos(
+        &self,
+        db: &DatabaseConnection,
+        limit: u64,
+    ) -> Result<Vec<video::Model>, DbErr> {
         use crate::entities::prelude::*;
         use sea_orm::{QueryOrder, QuerySelect};
 
@@ -90,10 +116,15 @@ impl ChannelExt for channels::Model {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
     use crate::entities::sea_orm_active_enums::Videotype;
-    
-    fn create_test_channel(id: i32, platform_name: &str, platform_channel_id: &str, platform_ref: &str) -> channels::Model {
+    use chrono::Utc;
+
+    fn create_test_channel(
+        id: i32,
+        platform_name: &str,
+        platform_channel_id: &str,
+        platform_ref: &str,
+    ) -> channels::Model {
         channels::Model {
             id,
             name: format!("Test Channel {}", id),
@@ -106,23 +137,29 @@ mod tests {
             platform_name: platform_name.to_string(),
         }
     }
-    
+
     #[test]
     fn test_youtube_channel_ext() {
         let channel = create_test_channel(1, "youtube", "testid", "UCTest123");
-        
+
         assert_eq!(channel.platform(), VideoPlatform::YouTube);
-        assert_eq!(channel.channel_url(), "https://youtube.com/@UCTest123".to_string());
+        assert_eq!(
+            channel.channel_url(),
+            "https://youtube.com/@UCTest123".to_string()
+        );
     }
-    
+
     #[test]
     fn test_twitch_channel_ext() {
         let channel = create_test_channel(2, "twitch", "testid", "teststreamer");
-        
+
         assert_eq!(channel.platform(), VideoPlatform::Twitch);
-        assert_eq!(channel.channel_url(), "https://twitch.tv/teststreamer".to_string());
+        assert_eq!(
+            channel.channel_url(),
+            "https://twitch.tv/teststreamer".to_string()
+        );
     }
-    
+
     #[test]
     #[should_panic(expected = "Channel has invalid platform name: invalid")]
     fn test_invalid_platform() {

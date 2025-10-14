@@ -1,5 +1,5 @@
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, DbErr};
-use crate::entities::{prelude::*, broadcaster};
+use crate::entities::{broadcaster, prelude::*};
+use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
 use tracing::{info, instrument};
 
 /// Simple broadcaster service for basic CRUD operations (no authorization)
@@ -11,9 +11,7 @@ impl BroadcasterService {
     pub async fn get_all(db: &DatabaseConnection) -> Result<Vec<broadcaster::Model>, DbErr> {
         info!("Fetching all broadcasters");
 
-        let broadcasters = Broadcaster::find()
-            .all(db)
-            .await?;
+        let broadcasters = Broadcaster::find().all(db).await?;
 
         info!(count = broadcasters.len(), "Retrieved broadcasters");
         Ok(broadcasters)
@@ -21,12 +19,13 @@ impl BroadcasterService {
 
     /// Get a broadcaster by its ID
     #[instrument(level = "info", skip(db))]
-    pub async fn get_by_id(db: &DatabaseConnection, id: i32) -> Result<Option<broadcaster::Model>, DbErr> {
+    pub async fn get_by_id(
+        db: &DatabaseConnection,
+        id: i32,
+    ) -> Result<Option<broadcaster::Model>, DbErr> {
         info!(broadcaster_id = id, "Fetching broadcaster by ID");
 
-        let broadcaster = Broadcaster::find_by_id(id)
-            .one(db)
-            .await?;
+        let broadcaster = Broadcaster::find_by_id(id).one(db).await?;
 
         match &broadcaster {
             Some(_) => info!(broadcaster_id = id, "Broadcaster found"),
@@ -38,7 +37,10 @@ impl BroadcasterService {
 
     /// Get a broadcaster by its unique name
     #[instrument(level = "info", skip(db))]
-    pub async fn get_by_name(db: &DatabaseConnection, name: &str) -> Result<Option<broadcaster::Model>, DbErr> {
+    pub async fn get_by_name(
+        db: &DatabaseConnection,
+        name: &str,
+    ) -> Result<Option<broadcaster::Model>, DbErr> {
         info!(broadcaster_name = name, "Fetching broadcaster by name");
 
         let broadcaster = Broadcaster::find()
@@ -47,7 +49,11 @@ impl BroadcasterService {
             .await?;
 
         match &broadcaster {
-            Some(b) => info!(broadcaster_id = b.id, broadcaster_name = name, "Broadcaster found"),
+            Some(b) => info!(
+                broadcaster_id = b.id,
+                broadcaster_name = name,
+                "Broadcaster found"
+            ),
             None => info!(broadcaster_name = name, "Broadcaster not found"),
         }
 
@@ -80,19 +86,5 @@ impl BroadcasterService {
 
         info!(count = broadcasters.len(), "Retrieved hidden broadcasters");
         Ok(broadcasters)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[tokio::test]
-    #[ignore] // Requires database connection
-    async fn test_get_all_broadcasters() {
-        // Example test structure
-        // let db = get_test_database_connection().await.unwrap();
-        // let broadcasters = BroadcasterService::get_all(&db).await.unwrap();
-        // assert!(broadcasters.len() >= 0);
     }
 }

@@ -1,9 +1,11 @@
-use std::collections::HashMap;
-use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, DbErr};
-use crate::entities::{prelude::*, users, permissions, user_channel_roles, channels, broadcaster, video};
 use crate::entities::sea_orm_active_enums::Permissiontype;
+use crate::entities::{
+    broadcaster, channels, permissions, prelude::*, user_channel_roles, users, video,
+};
 use crate::models::enums::ChannelRole;
-use tracing::{info, warn, instrument};
+use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
+use std::collections::HashMap;
+use tracing::{info, instrument, warn};
 
 /// Custom error type for authorization operations
 #[derive(Debug)]
@@ -60,7 +62,11 @@ impl AuthContext {
     pub async fn load(db: &DatabaseConnection, user: users::Model) -> Result<Self, AuthError> {
         let user_id = user.id;
 
-        info!(user_id = user_id, user_name = user.name, "Loading auth context");
+        info!(
+            user_id = user_id,
+            user_name = user.name,
+            "Loading auth context"
+        );
 
         // Load global permissions
         let permissions = Permissions::find()
@@ -68,7 +74,11 @@ impl AuthContext {
             .all(db)
             .await?;
 
-        info!(user_id = user_id, permission_count = permissions.len(), "Loaded permissions");
+        info!(
+            user_id = user_id,
+            permission_count = permissions.len(),
+            "Loaded permissions"
+        );
 
         // Load channel roles
         let roles = UserChannelRoles::find()
@@ -92,7 +102,11 @@ impl AuthContext {
             }
         }
 
-        info!(user_id = user_id, channel_role_count = channel_roles.len(), "Loaded channel roles");
+        info!(
+            user_id = user_id,
+            channel_role_count = channel_roles.len(),
+            "Loaded channel roles"
+        );
 
         Ok(Self {
             user: Some(user),
@@ -108,7 +122,9 @@ impl AuthContext {
 
     /// Check if user has a specific global permission
     pub fn has_permission(&self, permission: Permissiontype) -> bool {
-        self.permissions.iter().any(|p| p.permission_type == permission)
+        self.permissions
+            .iter()
+            .any(|p| p.permission_type == permission)
     }
 
     /// Check if user is a global admin
@@ -128,7 +144,9 @@ impl AuthContext {
 
     /// Check if user is banned (any type of ban)
     pub fn is_banned(&self) -> bool {
-        self.user.as_ref().map_or(false, |u| u.banned || u.globally_banned)
+        self.user
+            .as_ref()
+            .map_or(false, |u| u.banned || u.globally_banned)
     }
 
     /// Check if user is globally banned
@@ -148,7 +166,8 @@ impl AuthContext {
 
     /// Check if user has a specific role in a channel
     pub fn has_channel_role(&self, channel_id: i32, role: &ChannelRole) -> bool {
-        self.get_channel_role(channel_id).map_or(false, |r| r == role)
+        self.get_channel_role(channel_id)
+            .map_or(false, |r| r == role)
     }
 
     /// Check if user has at least the minimum role level in a channel
@@ -240,14 +259,19 @@ impl AuthContext {
 
     /// Filter channels to only those visible to this user
     pub fn filter_visible_channels(&self, channels: Vec<channels::Model>) -> Vec<channels::Model> {
-        channels.into_iter()
+        channels
+            .into_iter()
             .filter(|c| self.can_view_channel(c))
             .collect()
     }
 
     /// Filter broadcasters to only those visible to this user
-    pub fn filter_visible_broadcasters(&self, broadcasters: Vec<broadcaster::Model>) -> Vec<broadcaster::Model> {
-        broadcasters.into_iter()
+    pub fn filter_visible_broadcasters(
+        &self,
+        broadcasters: Vec<broadcaster::Model>,
+    ) -> Vec<broadcaster::Model> {
+        broadcasters
+            .into_iter()
             .filter(|b| self.can_view_broadcaster(b))
             .collect()
     }
@@ -282,7 +306,11 @@ impl AuthContext {
     }
 
     /// Require channel access with minimum role
-    pub fn require_channel_role(&self, channel_id: i32, minimum: &ChannelRole) -> Result<(), AuthError> {
+    pub fn require_channel_role(
+        &self,
+        channel_id: i32,
+        minimum: &ChannelRole,
+    ) -> Result<(), AuthError> {
         if self.is_admin() {
             return Ok(());
         }

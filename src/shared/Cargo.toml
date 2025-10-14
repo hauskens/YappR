@@ -26,9 +26,13 @@ tracing-subscriber = { workspace = true }
 twitch_api = { workspace = true, optional = true }
 twitch_oauth2 = { workspace = true, optional = true }
 url.workspace = true
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "streams"], optional = true }
+rmp-serde = { version = "1.3", optional = true }
+uuid = { version = "1.11", features = ["v4"], optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
 
 [features]
-default = ["database", "twitch", "youtube", "http", "discord"]
+default = ["database", "twitch", "youtube", "http", "discord", "redis-client"]
 database = ["dep:sea-orm"]
 discord = []
 twitch = ["dep:twitch_oauth2", "dep:twitch_api"]
@@ -36,3 +40,4 @@ youtube = ["dep:google-youtube3"]
 http = ["dep:reqwest", "dep:eyre"]
 http-wasm = ["dep:reqwest", "reqwest/json", "dep:eyre"]
 http-server = ["dep:reqwest", "reqwest/json", "reqwest/rustls-tls", "dep:eyre"]
+redis-client = ["dep:redis", "dep:rmp-serde", "dep:uuid", "dep:tokio"]

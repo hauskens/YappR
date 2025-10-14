@@ -12,6 +12,8 @@ pub mod models;
 pub mod external;
 pub mod utils;
 pub mod config;
+#[cfg(feature = "redis-client")]
+pub mod redis_client;
 
 #[cfg(feature = "database")]
 pub use services::*;

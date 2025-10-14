@@ -22,9 +22,11 @@ services:
       - ./test_db/data3:/var/lib/postgresql/data
       - ./test_db/restore:/restore
   cache:
-    image: redis:6.2-alpine
+    image: redis:7-alpine
     restart: always
     hostname: redis-cache
+    ports:
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
       interval: 60s

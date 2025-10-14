@@ -15,6 +15,7 @@ sea-orm = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-loki = { workspace = true }
+serde = { workspace = true }
 
 [features]
 http = []

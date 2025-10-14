@@ -31,30 +31,3 @@ impl Video for video::Model {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use chrono::Utc;
-
-    fn create_test_video(
-        id: i32,
-        platform_ref: &str,
-        video_type: Videotype,
-        channel_id: i32,
-    ) -> video::Model {
-        video::Model {
-            id,
-            title: format!("Test Video {}", id),
-            video_type,
-            duration: 300.0,
-            channel_id,
-            last_updated: Utc::now().naive_utc(),
-            platform_ref: platform_ref.to_string(),
-            thumbnail: None,
-            audio: None,
-            uploaded: Utc::now().naive_utc(),
-            active: true,
-            estimated_upload_time: None,
-        }
-    }
-}

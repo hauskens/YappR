@@ -6,9 +6,14 @@ use tracing_loki;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use yappr_shared::config::Config;
+use yappr_shared::entities::video;
 use yappr_shared::external::ApiClient;
 use yappr_shared::external::{TwitchApiClient, YouTubeApiClient};
 use yappr_shared::redis_client::{Event, RedisClient, StreamType};
+use yappr_shared::database::get_database_connection;
+use yappr_shared::services::channel::ChannelService;
+use yappr_shared::models::channel::ChannelExt;
+use yappr_shared::entities::sea_orm_active_enums::Videotype;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TaskPayload {
@@ -55,8 +60,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // test_twitch().await?;
-    test_redis().await?;
+    // test_redis().await?;
     // test_youtube().await?;
+    test_channel_service().await?;
 
     // Give tracing_loki time to flush logs
     tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
@@ -151,5 +157,35 @@ async fn test_redis() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    Ok(())
+}
+
+async fn test_channel_service() -> Result<(), Box<dyn std::error::Error>> {
+    info!("Testing ChannelService");
+
+    // Get database connection
+    let db = get_database_connection().await?;
+    info!("Database connection established");
+
+    // Example 1: Get all channels
+    let all_channels = ChannelService::get_channels_by_broadcaster(&db, 1).await?;
+    info!("Found {} total channels", all_channels.len());
+
+    // Print first few channels
+    for (i, channel) in all_channels.iter().take(5).enumerate() {
+        let videos = channel.get_videos(&db).await?;
+        info!("Found {} videos for channel {}", videos.len(), channel.id);
+        info!(
+            index = i,
+            channel_id = channel.id,
+            channel_name = channel.name,
+            platform = channel.platform_name,
+            platform_ref = channel.platform_ref,
+            "Channel details"
+        );
+    }
+
+
+    info!("ChannelService test completed");
     Ok(())
 }

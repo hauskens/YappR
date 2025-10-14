@@ -1,10 +1,31 @@
 #[cfg(feature = "database")]
-use crate::entities::channels;
+use crate::entities::{channels, video};
+#[cfg(feature = "database")]
+use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, DbErr};
 use crate::models::platforms::VideoPlatform;
+use async_trait::async_trait;
 
 pub trait Channel {
     fn platform(&self) -> VideoPlatform;
     fn channel_url(&self) -> String;
+}
+
+/// Extension trait for channel database operations
+/// This allows you to call methods like `channel.get_videos(db).await?`
+#[cfg(feature = "database")]
+#[async_trait]
+pub trait ChannelExt {
+    /// Get all videos for this channel
+    async fn get_videos(&self, db: &DatabaseConnection) -> Result<Vec<video::Model>, DbErr>;
+
+    /// Get active videos only for this channel
+    async fn get_active_videos(&self, db: &DatabaseConnection) -> Result<Vec<video::Model>, DbErr>;
+
+    /// Get videos by type (e.g., Clip, Vod, Stream)
+    async fn get_videos_by_type(&self, db: &DatabaseConnection, video_type: crate::entities::sea_orm_active_enums::Videotype) -> Result<Vec<video::Model>, DbErr>;
+
+    /// Get the most recent videos (limited by count)
+    async fn get_recent_videos(&self, db: &DatabaseConnection, limit: u64) -> Result<Vec<video::Model>, DbErr>;
 }
 
 impl Channel for channels::Model {
@@ -18,6 +39,51 @@ impl Channel for channels::Model {
             VideoPlatform::YouTube => self.platform().base_url().join(&format!("/@{}", self.platform_ref)).unwrap().to_string(),
             VideoPlatform::Twitch => self.platform().base_url().join(&format!("/{}", self.platform_ref)).unwrap().to_string(),
         }
+    }
+}
+
+#[cfg(feature = "database")]
+#[async_trait]
+impl ChannelExt for channels::Model {
+    async fn get_videos(&self, db: &DatabaseConnection) -> Result<Vec<video::Model>, DbErr> {
+        use crate::entities::prelude::*;
+
+        Video::find()
+            .filter(video::Column::ChannelId.eq(self.id))
+            .all(db)
+            .await
+    }
+
+    async fn get_active_videos(&self, db: &DatabaseConnection) -> Result<Vec<video::Model>, DbErr> {
+        use crate::entities::prelude::*;
+
+        Video::find()
+            .filter(video::Column::ChannelId.eq(self.id))
+            .filter(video::Column::Active.eq(true))
+            .all(db)
+            .await
+    }
+
+    async fn get_videos_by_type(&self, db: &DatabaseConnection, video_type: crate::entities::sea_orm_active_enums::Videotype) -> Result<Vec<video::Model>, DbErr> {
+        use crate::entities::prelude::*;
+
+        Video::find()
+            .filter(video::Column::ChannelId.eq(self.id))
+            .filter(video::Column::VideoType.eq(video_type))
+            .all(db)
+            .await
+    }
+
+    async fn get_recent_videos(&self, db: &DatabaseConnection, limit: u64) -> Result<Vec<video::Model>, DbErr> {
+        use crate::entities::prelude::*;
+        use sea_orm::{QueryOrder, QuerySelect};
+
+        Video::find()
+            .filter(video::Column::ChannelId.eq(self.id))
+            .order_by_desc(video::Column::Uploaded)
+            .limit(limit)
+            .all(db)
+            .await
     }
 }
 

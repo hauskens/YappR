@@ -1,55 +1,98 @@
-#[cfg(feature = "database")]
-use crate::entities::broadcaster;
-#[cfg(feature = "database")]
-use sea_orm::*;
-use tracing::{info, warn, error, instrument, debug};
+use sea_orm::{DatabaseConnection, EntityTrait, QueryFilter, ColumnTrait, DbErr};
+use crate::entities::{prelude::*, broadcaster};
+use tracing::{info, instrument};
 
-pub struct BroadcasterService {
-    db: DatabaseConnection,
-}
+/// Simple broadcaster service for basic CRUD operations (no authorization)
+pub struct BroadcasterService;
 
 impl BroadcasterService {
-    #[instrument(level = "debug")]
-    pub fn new(db: DatabaseConnection) -> Self {
-        debug!("Creating new BroadcasterService instance");
-        Self { db }
+    /// Get all broadcasters from the database
+    #[instrument(level = "info", skip(db))]
+    pub async fn get_all(db: &DatabaseConnection) -> Result<Vec<broadcaster::Model>, DbErr> {
+        info!("Fetching all broadcasters");
+
+        let broadcasters = Broadcaster::find()
+            .all(db)
+            .await?;
+
+        info!(count = broadcasters.len(), "Retrieved broadcasters");
+        Ok(broadcasters)
     }
 
-    /// Retrieves all broadcasters from the database.
-    ///
-    /// # Arguments
-    ///
-    /// * `include_hidden` - Optional include hidden broadcasters, otherwise excludes hidden broadcasters.
-    #[instrument(level = "info", skip(self))]
-    pub async fn get_all(&self, include_hidden: Option<bool>) -> Result<Vec<broadcaster::Model>, DbErr> {
-        info!(include_hidden = ?include_hidden, "Fetching all broadcasters");
+    /// Get a broadcaster by its ID
+    #[instrument(level = "info", skip(db))]
+    pub async fn get_by_id(db: &DatabaseConnection, id: i32) -> Result<Option<broadcaster::Model>, DbErr> {
+        info!(broadcaster_id = id, "Fetching broadcaster by ID");
 
-        let mut query = broadcaster::Entity::find();
+        let broadcaster = Broadcaster::find_by_id(id)
+            .one(db)
+            .await?;
 
-        query = match include_hidden {
-            Some(true) => {
-                debug!("Including hidden broadcasters");
-                query
-            }
-            Some(false) => {
-                debug!("Excluding hidden broadcasters");
-                query.filter(broadcaster::Column::Hidden.eq(false))
-            }
-            None => {
-                debug!("Excluding hidden broadcasters by default");
-                query.filter(broadcaster::Column::Hidden.eq(false))
-            }
-        };
-
-        match query.all(&self.db).await {
-            Ok(broadcasters) => {
-                info!(broadcaster_count = broadcasters.len(), "Successfully fetched broadcasters");
-                Ok(broadcasters)
-            }
-            Err(e) => {
-                error!(error = %e, include_hidden = ?include_hidden, "Failed to fetch broadcasters");
-                Err(e)
-            }
+        match &broadcaster {
+            Some(_) => info!(broadcaster_id = id, "Broadcaster found"),
+            None => info!(broadcaster_id = id, "Broadcaster not found"),
         }
+
+        Ok(broadcaster)
+    }
+
+    /// Get a broadcaster by its unique name
+    #[instrument(level = "info", skip(db))]
+    pub async fn get_by_name(db: &DatabaseConnection, name: &str) -> Result<Option<broadcaster::Model>, DbErr> {
+        info!(broadcaster_name = name, "Fetching broadcaster by name");
+
+        let broadcaster = Broadcaster::find()
+            .filter(broadcaster::Column::Name.eq(name))
+            .one(db)
+            .await?;
+
+        match &broadcaster {
+            Some(b) => info!(broadcaster_id = b.id, broadcaster_name = name, "Broadcaster found"),
+            None => info!(broadcaster_name = name, "Broadcaster not found"),
+        }
+
+        Ok(broadcaster)
+    }
+
+    /// Get all visible (non-hidden) broadcasters
+    #[instrument(level = "info", skip(db))]
+    pub async fn get_visible(db: &DatabaseConnection) -> Result<Vec<broadcaster::Model>, DbErr> {
+        info!("Fetching visible broadcasters");
+
+        let broadcasters = Broadcaster::find()
+            .filter(broadcaster::Column::Hidden.eq(false))
+            .all(db)
+            .await?;
+
+        info!(count = broadcasters.len(), "Retrieved visible broadcasters");
+        Ok(broadcasters)
+    }
+
+    /// Get all hidden broadcasters
+    #[instrument(level = "info", skip(db))]
+    pub async fn get_hidden(db: &DatabaseConnection) -> Result<Vec<broadcaster::Model>, DbErr> {
+        info!("Fetching hidden broadcasters");
+
+        let broadcasters = Broadcaster::find()
+            .filter(broadcaster::Column::Hidden.eq(true))
+            .all(db)
+            .await?;
+
+        info!(count = broadcasters.len(), "Retrieved hidden broadcasters");
+        Ok(broadcasters)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    #[ignore] // Requires database connection
+    async fn test_get_all_broadcasters() {
+        // Example test structure
+        // let db = get_test_database_connection().await.unwrap();
+        // let broadcasters = BroadcasterService::get_all(&db).await.unwrap();
+        // assert!(broadcasters.len() >= 0);
     }
 }

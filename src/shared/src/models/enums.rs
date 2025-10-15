@@ -1,39 +1,24 @@
-/// Channel-specific user roles
+use strum_macros::{Display, EnumString};
+use crate::models::platforms::BasePlatform;
+
 /// Note: This is stored as String in the database, not an enum type
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Display, EnumString)]
 pub enum ChannelRole {
+    #[strum(to_string = "Owner")]
     Owner,
+    #[strum(to_string = "Mod")]
     Mod,
+    #[strum(to_string = "VIP")]
     Vip,
-    Subscriber,
+    #[strum(to_string = "Subscriber")]
+    Subscriber, 
+    #[strum(to_string = "Follower")]
     Follower,
+    #[strum(to_string = "Basic")]
     Basic,
 }
 
 impl ChannelRole {
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s {
-            "Owner" => Some(Self::Owner),
-            "Mod" => Some(Self::Mod),
-            "VIP" => Some(Self::Vip),
-            "Subscriber" => Some(Self::Subscriber),
-            "Follower" => Some(Self::Follower),
-            "Basic" => Some(Self::Basic),
-            _ => None,
-        }
-    }
-
-    pub fn as_str(&self) -> &'static str {
-        match self {
-            Self::Owner => "Owner",
-            Self::Mod => "Mod",
-            Self::Vip => "VIP",
-            Self::Subscriber => "Subscriber",
-            Self::Follower => "Follower",
-            Self::Basic => "Basic",
-        }
-    }
-
     /// Returns role priority level (higher = more permissions)
     pub fn priority(&self) -> u8 {
         match self {
@@ -43,6 +28,61 @@ impl ChannelRole {
             Self::Subscriber => 40,
             Self::Follower => 20,
             Self::Basic => 10,
+        }
+    }
+    
+    pub fn description(&self) -> &'static str {
+        match self {
+            Self::Owner => "Channel owner with full administrative privileges",
+            Self::Mod => "Channel moderator with moderation privileges",
+            Self::Vip => "VIP member with special privileges",
+            Self::Subscriber => "Subscribed member of the channel",
+            Self::Follower => "Follower of the channel",
+            Self::Basic => "Basic channel member",
+        }
+    }
+
+    pub fn background_color(&self) -> &'static str {
+        match self {
+            Self::Owner => "#ff6b6b", // Red
+            Self::Mod => "#4ecdc4", // Teal
+            Self::Vip => "#ffe66d", // Yellow
+            Self::Subscriber => "#a8e6cf", // Light green
+            Self::Follower => "#dcedc8", // Very light green
+            Self::Basic => "#f5f5f5", // Light gray
+        }
+    }
+
+    pub fn text_color(&self) -> &'static str {
+        match self {
+            Self::Owner => "#ffffff", // White
+            Self::Mod => "#ffffff", // White
+            Self::Vip => "#2c3e50", // Dark gray
+            Self::Subscriber => "#2c3e50", // Dark gray
+            Self::Follower => "#2c3e50", // Dark gray
+            Self::Basic => "#2c3e50", // Dark gray
+        }
+    }
+
+    pub fn from_platform_badge(platform: &BasePlatform, badge: &str) -> Option<Self> {
+        match platform {
+            BasePlatform::YouTube => match badge {
+                "owner" => Some(Self::Owner),
+                "moderator" => Some(Self::Mod),
+                "vip" => Some(Self::Vip),
+                "subscriber" => Some(Self::Subscriber),
+                "follower" => Some(Self::Follower),
+                _ => None,
+            },
+            BasePlatform::Twitch => match badge {
+                "broadcaster" => Some(Self::Owner),
+                "moderator" => Some(Self::Mod),
+                "vip" => Some(Self::Vip),
+                "subscriber" | "founder" => Some(Self::Subscriber),
+                "follower" => Some(Self::Follower),
+                _ => None,
+            },
+            _ => None,
         }
     }
 

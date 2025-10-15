@@ -11,6 +11,10 @@ use twitch_api::{
 };
 use twitch_oauth2::{TwitchToken, UserToken};
 use crate::twitch_auth;
+use crate::channel_manager::ChannelManager;
+use crate::message_handler::MessageHandler;
+use crate::moderation_handler::ModerationHandler;
+use std::sync::Arc;
 
 pub struct WebsocketClient {
     /// The session id of the websocket connection
@@ -21,8 +25,15 @@ pub struct WebsocketClient {
     pub client: HelixClient<'static, reqwest::Client>,
     /// The url to use for websocket
     pub connect_url: url::Url,
-    pub chats: Vec<types::UserId>,
+    /// Channels currently subscribed to
+    pub subscribed_channels: Vec<String>,
     pub bot_user_id: types::UserId,
+    /// Channel manager for settings and subscription management
+    pub channel_manager: Arc<ChannelManager>,
+    /// Message handler for processing chat messages
+    pub message_handler: Arc<MessageHandler>,
+    /// Moderation handler for processing moderation events
+    pub moderation_handler: Arc<ModerationHandler>,
 }
 
 impl WebsocketClient {
@@ -109,11 +120,23 @@ impl WebsocketClient {
                         payload,
                     } => {
                         match payload {
-                            Event::ChannelChatMessageV1(eventsub::Payload { message, .. }) => {
-                                tracing::info!(?message, "got chat message");
+                            Event::ChannelChatMessageV1(ev_payload) => {
+                                // Extract the actual payload from the Message wrapper
+                                match &ev_payload.message {
+                                    twitch_api::eventsub::Message::Notification(notif) => {
+                                        self.handle_chat_message(notif).await?;
+                                    }
+                                    _ => {}
+                                }
                             }
-                            Event::ChannelChatClearUserMessagesV1(eventsub::Payload { message, .. }) => {
-                                tracing::info!(?message, "got chat message delete");
+                            Event::ChannelChatClearUserMessagesV1(ev_payload) => {
+                                // Extract the actual payload from the Message wrapper
+                                match &ev_payload.message {
+                                    twitch_api::eventsub::Message::Notification(notif) => {
+                                        self.handle_moderation_event(notif).await?;
+                                    }
+                                    _ => {}
+                                }
                             }
                             _ => {}
                         }
@@ -145,41 +168,107 @@ impl WebsocketClient {
                 twitch_auth::get_user_token().await?;
         }
         let transport = eventsub::Transport::websocket(data.id.clone());
-        let subscription = eventsub::channel::ChannelChatMessageV1::new(self.chats[0].clone(), self.bot_user_id.clone());
-        let message_delete_subscription = eventsub::channel::ChannelChatClearUserMessagesV1::new(self.chats[0].clone(), self.bot_user_id.clone());
-        tracing::info!("Creating subscription for broadcaster_user_id: {:?}, user_id: {:?}", self.chats[0], self.bot_user_id);
-        tracing::info!("Token scopes: {:?}", self.token.scopes());
-        
-        match self.client
-            .create_eventsub_subscription(
-                subscription,
-                transport.clone(),
-                &self.token,
-            )
-            .await {
-                Ok(sub) => {
-                    tracing::info!("Successfully created subscription: {:?}", sub);
-                },
-                Err(e) => {
-                    tracing::error!("Failed to create subscription: {:?}", e);
-                    return Err(e.into());
+
+        // Get enabled channels from channel manager
+        let enabled_channels = self.channel_manager.get_enabled_channel_ids().await;
+
+        if enabled_channels.is_empty() {
+            tracing::warn!("No enabled channels found, skipping subscriptions");
+            return Ok(());
+        }
+
+        tracing::info!(
+            channel_count = enabled_channels.len(),
+            "Creating subscriptions for enabled channels"
+        );
+
+        // Create subscriptions for each enabled channel
+        for channel_id in &enabled_channels {
+            let broadcaster_id = types::UserId::new(channel_id.clone());
+
+            // Create chat message subscription
+            let chat_subscription = eventsub::channel::ChannelChatMessageV1::new(
+                broadcaster_id.clone(),
+                self.bot_user_id.clone(),
+            );
+
+            match self.client
+                .create_eventsub_subscription(
+                    chat_subscription,
+                    transport.clone(),
+                    &self.token,
+                )
+                .await {
+                    Ok(_) => {
+                        tracing::info!(broadcaster_id = %channel_id, "Created chat message subscription");
+                    },
+                    Err(e) => {
+                        tracing::error!(broadcaster_id = %channel_id, error = %e, "Failed to create chat message subscription");
+                    }
                 }
-            }
-        match self.client
-            .create_eventsub_subscription(
-                message_delete_subscription,
-                transport.clone(),
-                &self.token,
-            )
-            .await {
-                Ok(sub) => {
-                    tracing::info!("Successfully created subscription: {:?}", sub);
-                },
-                Err(e) => {
-                    tracing::error!("Failed to create subscription: {:?}", e);
-                    return Err(e.into());
+
+            // Create moderation event subscription
+            let mod_subscription = eventsub::channel::ChannelChatClearUserMessagesV1::new(
+                broadcaster_id.clone(),
+                self.bot_user_id.clone(),
+            );
+
+            match self.client
+                .create_eventsub_subscription(
+                    mod_subscription,
+                    transport.clone(),
+                    &self.token,
+                )
+                .await {
+                    Ok(_) => {
+                        tracing::info!(broadcaster_id = %channel_id, "Created moderation subscription");
+                    },
+                    Err(e) => {
+                        tracing::error!(broadcaster_id = %channel_id, error = %e, "Failed to create moderation subscription");
+                    }
                 }
-            }
+        }
+
+        self.subscribed_channels = enabled_channels;
+
         Ok(())
+    }
+
+    /// Handle incoming chat message
+    async fn handle_chat_message(
+        &self,
+        payload: &twitch_api::eventsub::channel::chat::ChannelChatMessageV1Payload,
+    ) -> Result<(), eyre::Report> {
+        // Get channel settings
+        let settings = match self.channel_manager.get_settings(payload.broadcaster_user_id.as_str()).await {
+            Some(s) => s,
+            None => {
+                tracing::warn!(broadcaster_id = %payload.broadcaster_user_id, "No settings found for channel");
+                return Ok(());
+            }
+        };
+
+        // Process message
+        self.message_handler.handle_message(payload, &settings).await
+    }
+
+    /// Handle moderation event (timeout/ban)
+    async fn handle_moderation_event(
+        &self,
+        payload: &twitch_api::eventsub::channel::chat::ChannelChatClearUserMessagesV1Payload,
+    ) -> Result<(), eyre::Report> {
+        // Get channel settings
+        let settings = match self.channel_manager.get_settings(payload.broadcaster_user_id.as_str()).await {
+            Some(s) => s,
+            None => {
+                tracing::warn!(broadcaster_id = %payload.broadcaster_user_id, "No settings found for channel");
+                return Ok(());
+            }
+        };
+
+        // Process moderation event
+        self.moderation_handler
+            .handle_moderation_event(payload, settings.channel_id, settings.broadcaster_id)
+            .await
     }
 }

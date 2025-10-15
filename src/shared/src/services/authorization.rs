@@ -5,6 +5,7 @@ use crate::entities::{
 use crate::models::enums::ChannelRole;
 use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
 use std::collections::HashMap;
+use std::str::FromStr;
 use tracing::{info, instrument, warn};
 
 /// Custom error type for authorization operations
@@ -90,7 +91,7 @@ impl AuthContext {
         // Convert to HashMap with parsed roles
         let mut channel_roles = HashMap::new();
         for role in roles {
-            if let Some(channel_role) = ChannelRole::from_str(&role.role) {
+            if let Ok(channel_role) = ChannelRole::from_str(&role.role) {
                 channel_roles.insert(role.channel_id, channel_role);
             } else {
                 warn!(

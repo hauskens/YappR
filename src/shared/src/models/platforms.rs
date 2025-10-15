@@ -4,6 +4,8 @@ use hex_color::HexColor;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use url::Url;
+use strum_macros::{Display, EnumString};
+use crate::models::enums::ChannelRole;
 
 #[cfg(feature = "twitch")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -2,7 +2,8 @@ use eyre::{Context, OptionExt};
 use twitch_oauth2::UserToken;
 use std::env;
 use yappr_shared::database::get_database_connection;
-use yappr_shared::services::user::UserService;
+use yappr_shared::entities::{prelude::*, flask_dance_oauth};
+use sea_orm::{EntityTrait, ColumnTrait, QueryFilter};
 use twitch_api::HelixClient;
 use twitch_oauth2::{AccessToken, RefreshToken, ClientSecret, ClientId};
 use twitch_api::client::ClientDefault;
@@ -18,17 +19,23 @@ pub async fn make_token(
 
 pub async fn get_user_token() -> Result<UserToken, eyre::Report> {
     let db = get_database_connection().await?;
-    let user_service = UserService::new(db);
-    let bot_user = user_service.get_bot_user().await?;
-    let bot_oauth = user_service.get_user_oauth_token(bot_user.clone().id).await?
+
+    // Get bot OAuth token from flask_dance_oauth table
+    let bot_oauth = FlaskDanceOauth::find()
+        .filter(flask_dance_oauth::Column::Provider.eq("twitch_bot"))
+        .one(&db)
+        .await?
         .ok_or_eyre("No OAuth token found for bot user")?;
 
-    
+    // bot_oauth.token is already a serde_json::Value (stored as JSON in Postgres)
+    let token_json = &bot_oauth.token;
+
+
     // Get Twitch app credentials from environment
     let client_id = ClientId::new(env::var("TWITCH_CLIENT_ID").unwrap());
     let client_secret = ClientSecret::new(env::var("TWITCH_CLIENT_SECRET").unwrap());
-    let bot_access_token = AccessToken::new(bot_oauth.access_token.clone());
-    let bot_refresh_token = RefreshToken::new(bot_oauth.refresh_token.clone());
+    let bot_access_token = AccessToken::new(token_json["access_token"].as_str().ok_or_eyre("No access_token in OAuth token")?.to_string());
+    let bot_refresh_token = RefreshToken::new(token_json["refresh_token"].as_str().ok_or_eyre("No refresh_token in OAuth token")?.to_string());
 
     
     let client: HelixClient<reqwest::Client> = twitch_api::HelixClient::with_client(

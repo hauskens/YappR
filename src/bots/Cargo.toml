@@ -8,9 +8,9 @@ name = "bot"
 path = "src/twitch_bot.rs"
 
 [dependencies]
-yappr-shared = { path = "../shared" }
+yappr-shared = { path = "../shared", features = ["database"] }
 twitch_api.workspace = true
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
 twitch_oauth2.workspace = true
 eyre.workspace = true
 tracing.workspace = true
@@ -19,6 +19,11 @@ reqwest.workspace = true
 tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots", "native-tls", "url"] }
 url.workspace = true
 futures.workspace = true
+sea-orm.workspace = true
+regex.workspace = true
+chrono.workspace = true
+serde_json.workspace = true
+moka = { version = "0.12.11", features = ["future"] }
 
 [features]
 default = ["http"]

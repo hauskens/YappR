@@ -12,13 +12,6 @@ struct TwitchLookupResponse {
     error: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
-struct ChannelInfo {
-    id: i32,
-    name: String,
-    platform_name: String,
-}
-
 #[derive(Clone, Debug)]
 pub struct BroadcasterEditManager {
     twitch_platform_id: Option<String>,

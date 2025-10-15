@@ -1,11 +1,14 @@
-use twitch_api::{
-    client::ClientDefault, types::UserId, HelixClient
-};
+use twitch_api::{client::ClientDefault, types::UserId, HelixClient};
 use twitch_oauth2::UserToken;
-use yappr_bot::websocket;
-use yappr_bot::twitch_auth;
-use eyre::WrapErr;
+use yappr_bot::{
+    channel_manager::ChannelManager, message_handler::MessageHandler,
+    moderation_handler::ModerationHandler, services::{ChatlogService, BotUserService},
+    twitch_auth, websocket,
+};
+use std::sync::Arc;
 use tracing::{error, info};
+use yappr_shared::database::get_database_connection;
+use yappr_shared::config::Config;
 
 #[tokio::main]
 async fn main() -> Result<(), eyre::Report> {
@@ -13,55 +16,111 @@ async fn main() -> Result<(), eyre::Report> {
     tracing_subscriber::fmt::fmt()
         .with_writer(std::io::stderr)
         .init();
-        
+
     info!("Starting Twitch bot...");
 
-    let token = if let Ok(token) = twitch_auth::get_user_token().await {
-        token
-    } else {
-        eyre::bail!("Failed to get user token");
-    };
+    // Get database connection
+    let db = get_database_connection().await?;
+    info!("Database connection established");
 
-    let client: HelixClient<'static, reqwest::Client> = twitch_api::HelixClient::with_client(
-        ClientDefault::default_client_with_name(Some("yappr_bot".parse()?))?);
+    // Get bot token
+    let token = twitch_auth::get_user_token().await?;
+    info!("Bot authentication successful");
+
+    // Create Twitch API client
+    let client: HelixClient<'static, reqwest::Client> =
+        twitch_api::HelixClient::with_client(ClientDefault::default_client_with_name(Some(
+            "yappr_bot".parse()?,
+        ))?);
+
     let bot = Bot {
+        db,
         client,
         token,
         bot_user_id: UserId::from("1313494860"),
     };
+
     bot.start().await?;
     Ok(())
 }
 
 pub struct Bot {
+    pub db: sea_orm::DatabaseConnection,
     pub client: HelixClient<'static, reqwest::Client>,
     pub token: UserToken,
     pub bot_user_id: UserId,
 }
 
 impl Bot {
-    pub async fn start(&self) -> Result<(), eyre::Report> {
+    pub async fn start(self) -> Result<(), eyre::Report> {
+        // Initialize services
+        let chatlog_service = Arc::new(ChatlogService::new(self.db.clone()));
+        let user_service = Arc::new(BotUserService::new(self.db.clone()));
+        let channel_manager = Arc::new(ChannelManager::new(self.db.clone()));
+        let message_handler = Arc::new(MessageHandler::new(
+            self.db.clone(),
+            chatlog_service.clone(),
+            user_service.clone(),
+        ));
+        let moderation_handler = Arc::new(ModerationHandler::new(self.db.clone()));
+
+        info!("Services initialized");
+
+        // Start background tasks
+        let chatlog_task = {
+            let service = chatlog_service.clone();
+            tokio::spawn(async move {
+                service.start_periodic_commit().await;
+            })
+        };
+
+        let channel_refresh_task = {
+            let manager = channel_manager.clone();
+            tokio::spawn(async move {
+                if let Err(e) = manager.start_periodic_refresh().await {
+                    error!(error = %e, "Channel refresh task failed");
+                }
+            })
+        };
+
+        info!("Background tasks started");
+
+        // Create websocket client
         let websocket_client = websocket::WebsocketClient {
             session_id: None,
             token: self.token.clone(),
             client: self.client.clone(),
             connect_url: twitch_api::TWITCH_EVENTSUB_WEBSOCKET_URL.clone(),
-            chats: vec![UserId::from("25620302")],
+            subscribed_channels: Vec::new(),
             bot_user_id: self.bot_user_id.clone(),
+            channel_manager,
+            message_handler,
+            moderation_handler,
         };
-        let websocket_client = tokio::spawn(async move { websocket_client.run().await });
 
-        tokio::try_join!(flatten(websocket_client))?;
+        info!("Starting websocket client...");
+
+        // Run websocket client in a select with background tasks
+        tokio::select! {
+            result = websocket_client.run() => {
+                match result {
+                    Ok(_) => info!("Websocket client exited normally"),
+                    Err(e) => error!(error = %e, "Websocket client failed"),
+                }
+            }
+            _ = chatlog_task => {
+                info!("Chatlog task exited");
+            }
+            _ = channel_refresh_task => {
+                info!("Channel refresh task exited");
+            }
+        }
+
+        // Flush any remaining chat messages
+        info!("Flushing pending chat messages...");
+        chatlog_service.flush().await?;
+
+        info!("Bot shut down gracefully");
         Ok(())
-    }
-}
-    
-async fn flatten<T>(
-    handle: tokio::task::JoinHandle<Result<T, eyre::Report>>,
-) -> Result<T, eyre::Report> {
-    match handle.await {
-        Ok(Ok(result)) => Ok(result),
-        Ok(Err(err)) => Err(err),
-        Err(e) => Err(e).wrap_err_with(|| "handling failed"),
     }
 }

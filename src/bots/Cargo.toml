@@ -5,7 +5,7 @@ edition = "2024"
 
 [[bin]]
 name = "bot"
-path = "src/twitch_bot.rs"
+path = "src/main.rs"
 
 [dependencies]
 yappr-shared = { path = "../shared", features = ["database"] }

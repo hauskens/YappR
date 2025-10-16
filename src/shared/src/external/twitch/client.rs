@@ -52,15 +52,14 @@ impl TwitchApiClient {
             }
         };
 
-        let client = match HelixClient::with_client(
+        let client = HelixClient::with_client(
             twitch_api::client::ClientDefault::default_client_with_name(
                 Some(config.service_name.parse()?)
             )?
-        ) {
-            client => {
-                debug!("Twitch Helix client configured successfully");
-                client
-            }
+        );
+        let client = {
+            debug!("Twitch Helix client configured successfully");
+            client
         };
 
         info!("Twitch API client initialized successfully");

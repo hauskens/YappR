@@ -25,8 +25,6 @@ tracing-subscriber = { workspace = true, optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
 getrandom = { workspace = true, optional = true }
-twitch_oauth2 = { workspace = true, optional = true }
-twitch_api = { workspace = true, optional = true }
 eyre = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 sea-orm = { workspace = true, optional = true }
@@ -45,8 +43,6 @@ ssr = [
     "dep:tokio",
     "dep:leptos_axum",
     "dep:sea-orm",
-    "dep:twitch_oauth2",
-    "dep:twitch_api",
     "dep:eyre",
     "dep:reqwest",
     "leptos/ssr",
@@ -55,6 +51,9 @@ ssr = [
     "yappr-shared/database",
     "yappr-shared/twitch",
     "yappr-shared/http-server",
+    "yappr-shared/youtube",
+    "yappr-shared/discord",
+    "yappr-shared/redis-client",
 ]
 
 [package.metadata.leptos]

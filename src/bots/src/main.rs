@@ -1,4 +1,4 @@
-use twitch_api::{client::ClientDefault, types::UserId, HelixClient};
+use twitch_api::{client::ClientDefault, HelixClient};
 use twitch_oauth2::UserToken;
 use yappr_bot::{
     channel_manager::ChannelManager, message_handler::MessageHandler,
@@ -37,7 +37,7 @@ async fn main() -> Result<(), eyre::Report> {
         db,
         client,
         token,
-        bot_user_id: UserId::from("1313494860"),
+        config: Config::load(),
     };
 
     bot.start().await?;
@@ -48,7 +48,7 @@ pub struct Bot {
     pub db: sea_orm::DatabaseConnection,
     pub client: HelixClient<'static, reqwest::Client>,
     pub token: UserToken,
-    pub bot_user_id: UserId,
+    pub config: Config,
 }
 
 impl Bot {
@@ -92,7 +92,7 @@ impl Bot {
             client: self.client.clone(),
             connect_url: twitch_api::TWITCH_EVENTSUB_WEBSOCKET_URL.clone(),
             subscribed_channels: Vec::new(),
-            bot_user_id: self.bot_user_id.clone(),
+            bot_user_id: self.config.bot_user_id.clone().expect("Unable to load bot user id from config"),
             channel_manager,
             message_handler,
             moderation_handler,

@@ -1,11 +1,13 @@
 use dotenv::dotenv;
 use std::{env, str::FromStr, net::IpAddr};
-use crate::models::shared::Environment;
+use crate::types::Environment;
 use semver::Version;
 use url::Url;
 use tracing::{info, warn, error, instrument, debug};
 #[cfg(feature = "twitch")]
 use twitch_oauth2;
+#[cfg(feature = "twitch")]
+use twitch_api;
 
 
 // Helper for strings
@@ -74,6 +76,8 @@ pub struct Config {
     pub service_name: String,
     pub version: Version,
     pub loki_url: Option<Url>,
+    #[cfg(feature = "twitch")]
+    pub bot_user_id: Option<twitch_api::types::UserId>,
     
 
     #[cfg(feature = "database")]
@@ -93,6 +97,7 @@ pub struct Config {
 
 }
 
+#[cfg(feature = "twitch")]
 #[derive(Debug, Clone)]
 pub struct TwitchConfig {
     pub client_id: twitch_oauth2::ClientId,
@@ -158,6 +163,8 @@ impl Config {
             service_name: env_required("SERVICE_NAME"),
             version: env_or("VERSION", "0.0.0").replace(":", "").parse::<Version>().expect("Invalid version format"),
             loki_url: env_or_option("LOKI_URL").map(|url| Url::parse(&url).expect("Invalid loki url format")),
+            #[cfg(feature = "twitch")]
+            bot_user_id: env_or_option("BOT_USER_ID").map(twitch_api::types::UserId::from),
             #[cfg(feature = "database")]
             database: DatabaseConfig::load(),
             #[cfg(feature = "twitch")]
@@ -184,6 +191,7 @@ impl Config {
 
 }
 
+#[cfg(feature = "database")]
 impl DatabaseConfig {
     #[instrument(level = "debug")]
     pub fn load() -> Self {
@@ -202,6 +210,7 @@ impl DatabaseConfig {
     }
 }
 
+#[cfg(feature = "redis-client")]
 impl RedisConfig {
     #[instrument(level = "debug")]
     pub fn connection_string(&self) -> String {
@@ -225,6 +234,7 @@ impl RedisConfig {
     }
 }
 
+#[cfg(feature = "twitch")]
 impl TwitchConfig {
     #[instrument(level = "debug")]
     pub fn load() -> Self {
@@ -238,6 +248,7 @@ impl TwitchConfig {
     }
 }
 
+#[cfg(feature = "youtube")]
 impl YouTubeConfig {
     #[instrument(level = "debug")]
     pub fn load() -> Self {

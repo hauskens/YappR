@@ -1,4 +1,3 @@
-#[cfg(all(feature = "twitch", feature = "http"))]
 use crate::utils;
 use hex_color::HexColor;
 use serde::{Deserialize, Serialize};

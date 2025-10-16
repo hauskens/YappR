@@ -4,8 +4,6 @@ use yappr_shared::models::enums::ChannelRole;
 use yappr_shared::models::user::UserExt;
 use yappr_shared::services::user::UserService;
 use sea_orm::{DatabaseConnection, DbErr};
-use std::collections::HashMap;
-use tracing::instrument;
 use moka::future::Cache;
 use std::time::Duration;
 

@@ -28,6 +28,7 @@ getrandom = { workspace = true, optional = true }
 eyre = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 sea-orm = { workspace = true, optional = true }
+serde = { workspace = true }
 
 
 [features]
@@ -45,6 +46,8 @@ ssr = [
     "dep:sea-orm",
     "dep:eyre",
     "dep:reqwest",
+    "dep:tracing",
+    "dep:tracing-subscriber",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",

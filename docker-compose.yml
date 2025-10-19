@@ -163,6 +163,9 @@ services:
       - "3001:3001"
     networks:
       - internal
+    env_file:
+      - path: .env
+        required: false
     depends_on:
       cache:
         condition: service_healthy

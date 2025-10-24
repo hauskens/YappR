@@ -5,3 +5,5 @@ pub mod shared;
 pub mod video;
 pub mod enums;
 pub mod user;
+pub mod transcription;
+pub mod search;

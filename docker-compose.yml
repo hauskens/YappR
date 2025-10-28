@@ -175,6 +175,11 @@ services:
     env_file:
       - path: .env
         required: false
+    volumes:
+      - cargo-cache:/usr/local/cargo/registry
+      - cargo-git:/usr/local/cargo/git
+      - cargo-target:/app/target
+      - node-modules:/app/node_modules
     depends_on:
       cache:
         condition: service_healthy
@@ -193,6 +198,8 @@ services:
           target: /app/src/shared/
         - action: rebuild
           path: ./src/web/Cargo.toml
+        - action: rebuild
+          path: ./src/web/package.json
         - action: sync
           path: ./src/web/style/
           target: /app/src/web/style/
@@ -202,6 +209,10 @@ volumes:
   app:
   app-cache:
   app-nltk:
+  cargo-cache:
+  cargo-git:
+  cargo-target:
+  node-modules:
 networks:
   internal:
     driver: bridge

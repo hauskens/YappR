@@ -1,4 +1,42 @@
 body {
 	font-family: sans-serif;
-	text-align: center;
+	transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+// Modal transitions
+.modal.fade .modal-dialog {
+	transition: transform 0.1s ease-out, opacity 0.2s ease-out;
+}
+
+.fade {
+	transition: opacity 0.05s ease-in-out;
+}
+
+// Details/summary arrow rotation
+details[open] > summary::after {
+	transform: rotate(180deg);
+}
+
+// Form styling
+.form-check-input {
+	border-radius: 0.5rem !important;
+}
+
+// Icon styling
+.icon {
+	width: 1em;
+	height: 1em;
+	vertical-align: -0.125em;
+	fill: #007bff;
+}
+
+// Fix for list-group-item background in light mode with Pulse theme
+[data-bs-theme=light] .list-group-item {
+	background-color: var(--bs-body-bg);
+	color: var(--bs-body-color);
+}
+
+// Add hover effect for list-group-item in light mode
+[data-bs-theme=light] .list-group-item:hover {
+	background-color: rgba(var(--bs-primary-rgb), 0.05);
 }

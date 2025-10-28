@@ -27,6 +27,7 @@ in
     zsh 
     python3Packages.psycopg2
     psqlodbc
+    pnpm
     wasm-pack
     cargo-watch
     cargo-edit

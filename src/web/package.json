@@ -5,6 +5,10 @@
   "private": true,
   "packageManager": "pnpm@10.18.2",
   "dependencies": {
-    "bootstrap": "^5.3.8"
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
+    "bootswatch": "^5.3.8",
+    "github-buttons": "^2.29.1",
+    "vanilla-cookieconsent": "^3.1.0"
   }
 }

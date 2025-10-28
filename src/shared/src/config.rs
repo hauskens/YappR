@@ -94,6 +94,9 @@ pub struct Config {
 
     #[cfg(feature = "redis-client")]
     pub redis: RedisConfig,
+    
+    #[cfg(feature = "job-queue")]
+    pub nats: NATSConfig,
 
 }
 
@@ -104,17 +107,20 @@ pub struct TwitchConfig {
     pub client_secret: twitch_oauth2::ClientSecret,
 }
 
+#[cfg(feature = "youtube")]
 #[derive(Debug, Clone)]
 pub struct YouTubeConfig {
     pub api_key: String,
 }
 
+#[cfg(feature = "discord")]
 #[derive(Debug, Clone)]
 pub struct DiscordConfig {
     pub client_id: String,
     pub client_secret: String,
 }
 
+#[cfg(feature = "database")]
 #[derive(Debug, Clone)]
 pub struct DatabaseConfig {
     pub url: String,
@@ -122,6 +128,7 @@ pub struct DatabaseConfig {
     pub min_connections: u32,
 }
 
+#[cfg(feature = "redis-client")]
 #[derive(Debug, Clone)]
 pub enum RedisScheme {
     Redis,      // redis://
@@ -129,6 +136,13 @@ pub enum RedisScheme {
     RedisSocket, // redis+unix://
 }
 
+#[cfg(feature = "job-queue")]
+#[derive(Debug, Clone)]
+pub struct NATSConfig {
+    pub url: String,
+}
+
+#[cfg(feature = "redis-client")]
 impl FromStr for RedisScheme {
     type Err = String;
 
@@ -142,6 +156,7 @@ impl FromStr for RedisScheme {
     }
 }
 
+#[cfg(feature = "redis-client")]
 #[derive(Debug, Clone)]
 pub struct RedisConfig {
     pub scheme: RedisScheme,
@@ -175,6 +190,8 @@ impl Config {
             discord: DiscordConfig::load(),
             #[cfg(feature = "redis-client")]
             redis: RedisConfig::load(),
+            #[cfg(feature = "job-queue")]
+            nats: NATSConfig::load(),
         };
 
         info!(
@@ -261,6 +278,7 @@ impl YouTubeConfig {
     }
 }
 
+#[cfg(feature = "discord")]
 impl DiscordConfig {
     #[instrument(level = "debug")]
     pub fn load() -> Self {
@@ -273,3 +291,17 @@ impl DiscordConfig {
         config
     }
 }
+
+#[cfg(feature = "job-queue")]
+impl NATSConfig {
+    #[instrument(level = "debug")]
+    pub fn load() -> Self {
+        debug!("Loading NATS configuration");
+        let config = NATSConfig {
+            url: env_or("NATS_URL", "nats://localhost:4222"),
+        };
+        debug!("NATS configuration loaded: {}", config.url);
+        config
+    }
+}
+

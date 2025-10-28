@@ -14,6 +14,8 @@ pub mod utils;
 pub mod config;
 #[cfg(feature = "redis-client")]
 pub mod redis_client;
+#[cfg(feature = "job-queue")]
+pub mod nats;
 
 #[cfg(feature = "database")]
 pub use services::*;
@@ -22,5 +24,4 @@ pub use database::*;
 pub use types::*;
 #[cfg(feature = "database")]
 pub use chatlog_parser::*;
-
 

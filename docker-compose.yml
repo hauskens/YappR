@@ -153,6 +153,15 @@ services:
           path: ./pyproject.toml
         - action: rebuild
           path: ./uv.lock
+  nats:
+    image: nats
+    ports:
+      - "8222:8222"
+      - "4222:4222"
+    networks:
+      - internal
+    command: "--http_port 8222 --jetstream"
+
   web:
     build:
       context: .

@@ -185,13 +185,11 @@ impl TranscriptionService {
             }
 
             // Skip duplicates if same as previous
-            if let Some(_prev_id) = previous_segment_id {
-                if let Some(prev_seg) = created_segments.last() {
-                    if prev_seg.text == text {
+            if let Some(_prev_id) = previous_segment_id
+                && let Some(prev_seg) = created_segments.last()
+                    && prev_seg.text == text {
                         continue;
                     }
-                }
-            }
 
             // Create new segment
             let new_segment = segments::ActiveModel {
@@ -207,13 +205,12 @@ impl TranscriptionService {
             let inserted = new_segment.insert(db).await?;
 
             // Update previous segment's next_segment_id
-            if let Some(prev_id) = previous_segment_id {
-                if let Some(prev_seg) = Segments::find_by_id(prev_id).one(db).await? {
+            if let Some(prev_id) = previous_segment_id
+                && let Some(prev_seg) = Segments::find_by_id(prev_id).one(db).await? {
                     let mut prev_active: segments::ActiveModel = prev_seg.into();
                     prev_active.next_segment_id = Set(Some(inserted.id));
                     prev_active.update(db).await?;
                 }
-            }
 
             previous_segment_id = Some(inserted.id);
             created_segments.push(inserted);
@@ -295,12 +292,11 @@ impl TranscriptionService {
                                 continue;
                             }
 
-                            if let Some(prev_text) = &previous_text {
-                                if prev_text == &text {
+                            if let Some(prev_text) = &previous_text
+                                && prev_text == &text {
                                     i += 1;
                                     continue;
                                 }
-                            }
 
                             // Create segment
                             let new_segment = segments::ActiveModel {
@@ -316,14 +312,13 @@ impl TranscriptionService {
                             let inserted = new_segment.insert(db).await?;
 
                             // Update previous segment's next_segment_id
-                            if let Some(prev_id) = previous_segment_id {
-                                if let Some(prev_seg) = Segments::find_by_id(prev_id).one(db).await?
+                            if let Some(prev_id) = previous_segment_id
+                                && let Some(prev_seg) = Segments::find_by_id(prev_id).one(db).await?
                                 {
                                     let mut prev_active: segments::ActiveModel = prev_seg.into();
                                     prev_active.next_segment_id = Set(Some(inserted.id));
                                     prev_active.update(db).await?;
                                 }
-                            }
 
                             previous_segment_id = Some(inserted.id);
                             previous_text = Some(text);

@@ -70,16 +70,14 @@ impl SearchService {
 
         // Execute text search query using PostgreSQL's ts_vector matching
         // Note: Using raw SQL here since SeaORM doesn't have direct support for ts_vector matching
-        let sql = format!(
-            r#"
+        let sql = r#"
             SELECT id, text, start, "end", previous_segment_id, next_segment_id, transcription_id
             FROM segments
             WHERE text_tsv @@ to_tsquery('simple', $1)
             AND transcription_id = ANY($2)
             ORDER BY transcription_id, start
             LIMIT 6000
-            "#
-        );
+            "#.to_string();
 
         let segment_results = Segments::find()
             .from_raw_sql(Statement::from_sql_and_values(

@@ -143,15 +143,14 @@ impl ModerationService {
         query.exec(db).await?;
 
         // Update user's global ban status if global scope
-        if matches!(scope, ModerationScope::Global) {
-            if let Some(user) = Users::find_by_id(target_user_id).one(db).await? {
+        if matches!(scope, ModerationScope::Global)
+            && let Some(user) = Users::find_by_id(target_user_id).one(db).await? {
                 let mut user_active: users::ActiveModel = user.into();
                 user_active.globally_banned = Set(false);
                 user_active.global_ban_reason = Set(None);
                 user_active.global_ban_expires_at = Set(None);
                 user_active.update(db).await?;
             }
-        }
 
         info!("User unbanned successfully");
         Ok(())

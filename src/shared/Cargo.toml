@@ -27,7 +27,7 @@ twitch_oauth2 = { workspace = true, optional = true }
 url.workspace = true
 strum_macros.workspace = true
 strum.workspace = true
-redis = { version = "0.27", features = ["tokio-comp", "connection-manager", "streams"], optional = true }
+redis = { version = "0.32", features = ["tokio-comp", "connection-manager", "streams"], optional = true }
 rmp-serde = { version = "1.3", optional = true }
 uuid = { version = "1.18", features = ["v4"], optional = true }
 tokio = { version = "1", features = ["full"], optional = true }

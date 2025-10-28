@@ -1,5 +1,5 @@
 use leptos::prelude::*;
-use leptos_meta::{provide_meta_context, MetaTags, Stylesheet, Title};
+use leptos_meta::{provide_meta_context, MetaTags, Script, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
     StaticSegment,
@@ -39,9 +39,15 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
+        // Bootstrap CSS
+        <Stylesheet id="bootstrap" href="/vendor/bootstrap/bootstrap.min.css"/>
+
         // injects a stylesheet into the document <head>
         // id=leptos means cargo-leptos will hot-reload this stylesheet
         <Stylesheet id="leptos" href="/pkg/yappr-web.css"/>
+
+        // Bootstrap JS bundle (includes Popper)
+        <Script src="/vendor/bootstrap/bootstrap.bundle.min.js"/>
 
         // sets the document title
         <Title text="Welcome to LeptOS"/>

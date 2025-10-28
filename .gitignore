@@ -201,3 +201,6 @@ devenv.local.nix
 /target
 Cargo.lock
 pkg/
+
+# Leptos web frontend
+src/web/public/vendor/

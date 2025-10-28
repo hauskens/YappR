@@ -9,6 +9,14 @@ RUN cp cargo-binstall /usr/local/cargo/bin
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends clang pkg-config libssl-dev curl
 
+# Install Node.js (required for pnpm)
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+  && apt-get install -y nodejs
+
+ENV CI=true
+# Install pnpm
+RUN npm install -g pnpm
+
 # Install cargo-leptos with cargo cache
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \

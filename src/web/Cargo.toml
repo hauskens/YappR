@@ -30,6 +30,7 @@ eyre = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 sea-orm = { workspace = true, optional = true }
 serde = { workspace = true }
+chrono.workspace = true
 
 
 [features]

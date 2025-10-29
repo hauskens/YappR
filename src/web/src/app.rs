@@ -8,6 +8,7 @@ use leptos::server_fn::ServerFnError;
 use leptos::task::spawn_local;
 use crate::components::channel::ChannelsPage;
 use crate::components::dark_mode_toggle::DarkModeToggle;
+use crate::components::search::search_page::SearchPage;
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -47,23 +48,11 @@ pub fn App() -> impl IntoView {
     provide_meta_context();
 
     view! {
-        // Bootstrap CSS
         <Stylesheet id="bootstrap" href="/vendor/bootstrap/bootstrap.min.css"/>
-
-        // Bootstrap Icons
         <Stylesheet id="bootstrap-icons" href="/vendor/bootstrap-icons/bootstrap-icons.min.css"/>
-
-        // injects a stylesheet into the document <head>
-        // id=leptos means cargo-leptos will hot-reload this stylesheet
         <Stylesheet id="leptos" href="/pkg/yappr-web.css"/>
-
-        // Bootstrap JS bundle (includes Popper)
         <Script src="/vendor/bootstrap/bootstrap.bundle.min.js"/>
-
-        // sets the document title
         <Title text="YappR"/>
-
-        // content for this welcome page
         <Router>
             <main class="d-flex flex-column min-vh-100">
                 <nav class="navbar navbar-expand-sm bg-body-tertiary sticky-top py-1">
@@ -145,6 +134,7 @@ pub fn App() -> impl IntoView {
                 <Routes fallback=|| "Page not found.".into_view()>
                     <Route path=StaticSegment("") view=HomePage/>
                     <Route path=StaticSegment("channels") view=ChannelsPage/>
+                    <Route path=StaticSegment("search") view=SearchPage/>
                 </Routes>
 
                 <footer class="footer mt-auto text-center text-white bg-body-tertiary w-100 p-2">

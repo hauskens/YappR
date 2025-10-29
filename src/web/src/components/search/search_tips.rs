@@ -1,0 +1,100 @@
+use leptos::prelude::*;
+
+/// Search tips accordion component
+#[component]
+pub fn SearchTips() -> impl IntoView {
+    view! {
+        <div class="accordion mb-4 shadow" id="searchTipsAccordion">
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button
+                        class="accordion-button collapsed bg-primary text-white"
+                        type="button"
+                        data-bs-toggle="collapse"
+                        data-bs-target="#searchTips"
+                    >
+                        <i class="bi bi-lightbulb-fill me-2"></i>"Search Tips"
+                    </button>
+                </h2>
+                <div
+                    id="searchTips"
+                    class="accordion-collapse collapse"
+                    data-bs-parent="#searchTipsAccordion"
+                >
+                    <div class="accordion-body p-0">
+                        <div class="list-group list-group-flush">
+                            <div class="list-group-item d-flex align-items-start">
+                                <span class="fs-4 me-3 mt-1">"🔍"</span>
+                                <div>
+                                    <h6 class="mb-1">"Flexible Search"</h6>
+                                    <p class="mb-1">
+                                        "Use "
+                                        <strong>"keywords"</strong>
+                                        " that would realistically appear within a short 8–12 second clip."
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="list-group-item d-flex align-items-start">
+                                <span class="fs-4 me-3 mt-1">"🔒"</span>
+                                <div>
+                                    <h6 class="mb-1">"Exact Matching"</h6>
+                                    <p class="mb-1">
+                                        "Use "
+                                        <code>"\"quotes on your search term\""</code>
+                                        " for "
+                                        <strong>"strict search"</strong>
+                                        " (exact match), but this may return fewer results."
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="list-group-item d-flex align-items-start">
+                                <span class="fs-4 me-3 mt-1">"✂️"</span>
+                                <div>
+                                    <h6 class="mb-1">"Keep it Concise"</h6>
+                                    <p class="mb-1">"Long or complex sentences often won't match well."</p>
+                                </div>
+                            </div>
+                            <div class="list-group-item d-flex align-items-start">
+                                <span class="fs-4 me-3 mt-1">"🧠"</span>
+                                <div>
+                                    <h6 class="mb-1">"Consider Transcription Errors"</h6>
+                                    <p class="mb-1">"Transcriptions do contain errors (e.g. typos or misheard words)."</p>
+                                </div>
+                            </div>
+                            <div class="list-group-item d-flex align-items-start">
+                                <span class="fs-4 me-3 mt-1">"❌"</span>
+                                <div>
+                                    <h6 class="mb-1">"Choose Distinctive Words"</h6>
+                                    <p class="mb-1">
+                                        "Avoid common words like "
+                                        <em>"\"the\""</em>
+                                        ", "
+                                        <em>"\"hello\""</em>
+                                        ", or "
+                                        <em>"\"thanks\""</em>
+                                        "."
+                                        <br/>
+                                        "Distinctive words like "
+                                        <em>"\"curry\""</em>
+                                        " or "
+                                        <em>"\"passport\""</em>
+                                        " work much better."
+                                    </p>
+                                </div>
+                            </div>
+                            <div class="list-group-item d-flex align-items-start">
+                                <span class="fs-4 me-3 mt-1">"⏱️"</span>
+                                <div>
+                                    <h6 class="mb-1">"Performance Note"</h6>
+                                    <p class="mb-1">
+                                        "If a search takes too long (usually 10+ seconds), it may time out early and show only partial results."
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+}

@@ -1,9 +1,9 @@
-use crate::entities::{prelude::*, timestamp_mapping};
+use crate::entities::{prelude::*, timestamp_mapping, video};
 use crate::models::search::{SegmentsResult, VideoResult};
 use chrono::{DateTime, Utc};
-use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Statement};
+use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, QueryFilter, Statement};
 use std::collections::{HashMap, HashSet};
-use tracing::{info, instrument};
+use tracing::{info, debug, instrument};
 
 /// Service for search operations
 pub struct SearchService;
@@ -30,148 +30,194 @@ impl SearchService {
     ) -> Result<Vec<VideoResult>, DbErr> {
         let start_time = std::time::Instant::now();
 
-        info!(
-            search_term = search_term,
-            channel_count = channel_ids.len(),
-            "Starting search operation"
-        );
-
-        // Get transcriptions for the channels
-        let transcriptions = if let (Some(start), Some(end)) = (start_date, end_date) {
-            crate::services::transcription::TranscriptionService::get_transcriptions_on_channels_daterange(
-                db,
-                channel_ids,
-                start,
-                end,
-            )
-            .await?
-        } else {
-            crate::services::transcription::TranscriptionService::get_transcriptions_on_channels(
-                db,
-                channel_ids,
-            )
-            .await?
-        };
-
-        if transcriptions.is_empty() {
-            info!("No transcriptions found for channels");
+        if channel_ids.is_empty() {
             return Ok(Vec::new());
         }
 
-        let transcription_ids: Vec<i32> = transcriptions.iter().map(|t| t.id).collect();
+        // Build SQL query - explicitly select segment columns (converting text_tsv to text)
+        // plus video columns for manual parsing
+        let mut sql = r#"
+            SELECT
+                s.id,
+                s.text,
+                s.start,
+                s."end",
+                s.previous_segment_id,
+                s.next_segment_id,
+                s.transcription_id,
+                s.text_tsv::text as text_tsv,
+                v.id as video_id,
+                v.title as video_title,
+                CAST(v.video_type AS TEXT) as video_type,
+                v.duration as video_duration,
+                v.channel_id as video_channel_id,
+                v.last_updated as video_last_updated,
+                v.platform_ref as video_platform_ref,
+                v.thumbnail as video_thumbnail,
+                v.audio as video_audio,
+                v.uploaded as video_uploaded,
+                v.active as video_active,
+                v.estimated_upload_time as video_estimated_upload_time
+            FROM segments s
+            INNER JOIN transcriptions t ON s.transcription_id = t.id
+            INNER JOIN video v ON t.video_id = v.id
+            WHERE s.text_tsv @@ websearch_to_tsquery('simple', $1)
+              AND v.channel_id = ANY($2)
+              AND v.active = true
+        "#
+        .to_string();
 
-        info!(
-            transcription_count = transcriptions.len(),
-            "Found transcriptions"
-        );
+        let mut params: Vec<sea_orm::Value> = vec![search_term.into(), channel_ids.into()];
 
-        // Prepare search term for PostgreSQL text search
-        let db_search_term = search_term.to_string();
+        // Add date range filter if provided
+        if let (Some(start), Some(end)) = (start_date, end_date) {
+            sql.push_str(" AND v.uploaded >= $3 AND v.uploaded <= $4");
+            params.push(start.into());
+            params.push(end.into());
+        }
 
-        // Execute text search query using PostgreSQL's ts_vector matching
-        // Note: Using raw SQL here since SeaORM doesn't have direct support for ts_vector matching
-        let sql = r#"
-            SELECT id, text, start, "end", previous_segment_id, next_segment_id, transcription_id
-            FROM segments
-            WHERE text_tsv @@ to_tsquery('simple', $1)
-            AND transcription_id = ANY($2)
-            ORDER BY transcription_id, start
-            LIMIT 6000
-            "#.to_string();
+        sql.push_str(" ORDER BY t.id, s.start LIMIT 6000");
 
-        let segment_results = Segments::find()
-            .from_raw_sql(Statement::from_sql_and_values(
+        // Execute single query with all data
+        let query_results = db
+            .query_all(Statement::from_sql_and_values(
                 sea_orm::DatabaseBackend::Postgres,
                 &sql,
-                vec![db_search_term.into(), transcription_ids.into()],
+                params,
             ))
-            .all(db)
             .await?;
 
-        info!(
-            segment_count = segment_results.len(),
-            "Found matching segments"
-        );
+        if query_results.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        // Parse results - segments via ORM, videos manually
+        let mut segment_results = Vec::new();
+        let mut video_map: HashMap<i32, video::Model> = HashMap::new();
+        let mut transcription_to_video: HashMap<i32, i32> = HashMap::new();
+
+        for row in query_results {
+            // Let SeaORM parse the segment from the row (s.* columns)
+            let segment = crate::entities::segments::Model::from_query_result(&row, "")?;
+
+            // Manually parse video columns
+            let video_id: i32 = row.try_get("", "video_id")?;
+            let transcription_id = segment.transcription_id;
+
+            transcription_to_video.insert(transcription_id, video_id);
+
+            if let std::collections::hash_map::Entry::Vacant(e) = video_map.entry(video_id) {
+                let video = video::Model {
+                    id: video_id,
+                    title: row.try_get("", "video_title")?,
+                    video_type: row.try_get("", "video_type")?,
+                    duration: row.try_get("", "video_duration")?,
+                    channel_id: row.try_get("", "video_channel_id")?,
+                    last_updated: row.try_get("", "video_last_updated")?,
+                    platform_ref: row.try_get("", "video_platform_ref")?,
+                    thumbnail: row.try_get("", "video_thumbnail")?,
+                    audio: row.try_get("", "video_audio")?,
+                    uploaded: row.try_get("", "video_uploaded")?,
+                    active: row.try_get("", "video_active")?,
+                    estimated_upload_time: row.try_get("", "video_estimated_upload_time")?,
+                };
+                e.insert(video);
+            }
+
+            segment_results.push(segment);
+        }
 
         // Sanitize search term to get individual words
         let search_words: Vec<String> = Self::sanitize_sentence(search_term);
 
-        // Process results and group by video
+        // Extract video IDs for timestamp mapping lookup
+        let video_ids: Vec<i32> = video_map.keys().copied().collect();
+
+        // Batch load timestamp mappings in ONE query
+        let timestamp_mappings = TimestampMapping::find()
+            .filter(timestamp_mapping::Column::SourceVideoId.is_in(video_ids))
+            .filter(timestamp_mapping::Column::Active.eq(true))
+            .all(db)
+            .await?;
+
+        // Group mappings by source_video_id for O(1) lookups
+        let mappings_by_video: HashMap<i32, Vec<_>> = timestamp_mappings
+            .into_iter()
+            .fold(HashMap::new(), |mut acc, mapping| {
+                acc.entry(mapping.source_video_id)
+                    .or_insert_with(Vec::new)
+                    .push(mapping);
+                acc
+            });
+
+        // Process results and group by video using HashMap lookups (no more DB queries!)
         let mut video_results: Vec<VideoResult> = Vec::new();
         let mut video_lookup: HashMap<i32, usize> = HashMap::new();
-        let mut processed_segments: HashSet<(i32, i32, i32, i32)> = HashSet::new();
+        let mut processed_segments: HashSet<(i32, i32)> = HashSet::new();
 
         for segment in segment_results {
-            // Create unique identifier for this segment
-            let segment_key = (segment.id, segment.transcription_id, segment.start, segment.end);
-
+            // Skip duplicates - use (transcription_id, start_time) as key
+            let segment_key = (segment.transcription_id, segment.start);
             if processed_segments.contains(&segment_key) {
-                continue; // Skip already processed segments
+                continue;
             }
-
             processed_segments.insert(segment_key);
 
-            // Get the transcription to access the video
-            let transcription = Transcriptions::find_by_id(segment.transcription_id)
-                .one(db)
-                .await?
-                .ok_or(DbErr::RecordNotFound(format!(
-                    "Transcription {} not found",
-                    segment.transcription_id
-                )))?;
-
-            // Load the source video
-            let source_video = Video::find_by_id(transcription.video_id)
-                .one(db)
-                .await?
-                .ok_or(DbErr::RecordNotFound(format!(
-                    "Video {} not found",
-                    transcription.video_id
-                )))?;
-
-            // Check for timestamp mappings (video linking)
-            let target_video = source_video.clone();
-            let mut translated_segment = segment.clone();
-
-            // Get timestamp mappings where this video is the source
-            let mappings = TimestampMapping::find()
-                .filter(timestamp_mapping::Column::SourceVideoId.eq(source_video.id))
-                .filter(timestamp_mapping::Column::Active.eq(true))
-                .all(db)
-                .await?;
-
-            if !mappings.is_empty() {
-                if let Some(mapping) = mappings.first() {
-                    // Load target video
-                    if let Some(target) = Video::find_by_id(mapping.target_video_id).one(db).await? {
-                        // Try to translate timestamps
-                        // Note: Timestamp translation logic would go here
-                        // For now, we'll use the source video
-                        // TODO: Implement timestamp translation
-                        let _ = target;  // Suppress warning
-                    }
+            // Look up video using the transcription_to_video map
+            let video_id = match transcription_to_video.get(&segment.transcription_id) {
+                Some(id) => *id,
+                None => {
+                    debug!(
+                        transcription_id = segment.transcription_id,
+                        "Transcription mapping not found, skipping segment"
+                    );
+                    continue;
                 }
+            };
+
+            let video = match video_map.get(&video_id) {
+                Some(v) => v,
+                None => {
+                    debug!(
+                        video_id = video_id,
+                        "Video not found in map, skipping segment"
+                    );
+                    continue;
+                }
+            };
+
+            // Skip inactive videos early
+            if !video.active {
+                continue;
             }
+
+            // Check for timestamp mappings (currently not fully implemented)
+            // Note: Timestamp translation logic would go here when implemented
+            let target_video = if let Some(_mappings) = mappings_by_video.get(&video.id) {
+                // TODO: Implement timestamp translation
+                // For now, just use the source video
+                video
+            } else {
+                video
+            };
 
             // Create segment result
             let segment_result = SegmentsResult::new(
-                vec![translated_segment],
+                vec![segment],
                 target_video.clone(),
                 search_words.clone(),
             );
 
             // Add to video results
             if let Some(&index) = video_lookup.get(&target_video.id) {
-                // Check if we already have a segment at this timestamp
-                let existing_timestamps: HashSet<i32> = video_results[index]
+                // Check for duplicate timestamps efficiently
+                let segment_start = segment_result.start_time();
+                let has_duplicate = video_results[index]
                     .segment_results
                     .iter()
-                    .map(|r| r.start_time())
-                    .collect();
+                    .any(|r| r.start_time() == segment_start);
 
-                let segment_start = segment_result.start_time();
-
-                if !existing_timestamps.contains(&segment_start) {
+                if !has_duplicate {
                     video_results[index].segment_results.push(segment_result);
                 }
             } else {
@@ -180,9 +226,6 @@ impl SearchService {
                 video_results.push(new_video_result);
             }
         }
-
-        // Filter out inactive videos
-        video_results.retain(|v| v.video.active);
 
         // Sort segment results within each video by start time
         for video_result in &mut video_results {

@@ -254,6 +254,8 @@ impl TranscriptionService {
         // Parse VTT - simple line-by-line parser
         let lines: Vec<&str> = vtt_content.lines().collect();
         let mut i = 0;
+        // Remove annotations like [music]
+        let re = regex::Regex::new(r"\[.*?\]").unwrap();
 
         // Skip header
         while i < lines.len() && !lines[i].contains("-->") {
@@ -280,11 +282,7 @@ impl TranscriptionService {
                             let mut text = lines[i].trim().to_lowercase();
 
                             // Remove annotations like [music]
-                            text = regex::Regex::new(r"\[.*?\]")
-                                .unwrap()
-                                .replace_all(&text, "")
-                                .trim()
-                                .to_string();
+                            text = re.replace_all(&text, "").trim().to_string();
 
                             // Skip if empty or contains newline or duplicate
                             if text.is_empty() || text.contains('\n') {

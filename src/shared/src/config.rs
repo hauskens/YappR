@@ -76,9 +76,10 @@ pub struct Config {
     pub service_name: String,
     pub version: Version,
     pub loki_url: Option<Url>,
+    pub storage_location: String,
     #[cfg(feature = "twitch")]
     pub bot_user_id: Option<twitch_api::types::UserId>,
-    
+
 
     #[cfg(feature = "database")]
     pub database: DatabaseConfig,
@@ -94,7 +95,7 @@ pub struct Config {
 
     #[cfg(feature = "redis-client")]
     pub redis: RedisConfig,
-    
+
     #[cfg(feature = "job-queue")]
     pub nats: NATSConfig,
 
@@ -178,6 +179,7 @@ impl Config {
             service_name: env_required("SERVICE_NAME"),
             version: env_or("VERSION", "0.0.0").replace(":", "").parse::<Version>().expect("Invalid version format"),
             loki_url: env_or_option("LOKI_URL").map(|url| Url::parse(&url).expect("Invalid loki url format")),
+            storage_location: env_or("STORAGE_LOCATION", "/var/lib/yappr/data"),
             #[cfg(feature = "twitch")]
             bot_user_id: env_or_option("BOT_USER_ID").map(twitch_api::types::UserId::from),
             #[cfg(feature = "database")]

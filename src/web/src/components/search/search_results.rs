@@ -124,19 +124,7 @@ pub fn SearchResults(
                         }
                             .into_any()
                     } else {
-                        let result_count = res.len();
-                        let segment_count: usize = res
-                            .iter()
-                            .map(|r| r.segment_results.len())
-                            .sum();
                         view! {
-                            <div class="alert alert-success mb-4" role="alert">
-                                <strong>
-                                    {format!("Found {} segments in {} videos", segment_count, result_count)}
-                                </strong>
-                            </div>
-
-                            // Video cards grid
                             <div class="row mb-1">
                                 {res.into_iter().map(|video_result| {
                                     view! {
@@ -148,12 +136,11 @@ pub fn SearchResults(
                             .into_any()
                     }
                 } else {
-                    view! {
-                        <div class="text-center text-muted">
-                            <p>"Enter a search term and click Search to begin."</p>
-                        </div>
-                    }
-                        .into_any()
+                    #[allow(clippy::unused_unit)]
+                    let _: () = view! {
+                    };
+                    ()
+                    .into_any()
                 }
             }}
 

@@ -1,5 +1,5 @@
 # Leptos Development Dockerfile
-FROM rust:latest as development
+FROM rust:latest AS development
 
 
 RUN wget https://github.com/cargo-bins/cargo-binstall/releases/latest/download/cargo-binstall-x86_64-unknown-linux-musl.tgz

@@ -15,8 +15,18 @@ pub fn SearchPage() -> impl IntoView {
     view! {
         <div class="container py-4">
             <div class="row justify-content-center">
-                <div class="col-md-8">
-                    <div class="text-center mb-5 shadow">
+                <div class="col-md-10">
+                    // Title - fade out when search is performed
+                    <div
+                        class="text-center shadow"
+                        style=move || {
+                            if search_results.get().is_none() {
+                                "transition: all 0.3s ease-out; opacity: 1; max-height: 500px; transform: translateY(0); margin-bottom: 3rem;"
+                            } else {
+                                "transition: all 0.3s ease-out; opacity: 0; max-height: 0; transform: translateY(-20px); margin-bottom: 0; overflow: hidden;"
+                            }
+                        }
+                    >
                         <h1 class="display-4 mb-3">"Search"</h1>
                         <p class="lead text-muted">
                             "Find exactly when something was said in Streams or VODs"
@@ -75,16 +85,25 @@ pub fn SearchPage() -> impl IntoView {
                 </div>
             </div>
 
-            // Search Tips
-            <div class="row justify-content-center mt-4">
-                <div class="col-md-8">
+            // Search Tips - fade out when search is performed
+            <div
+                class="row justify-content-center"
+                style=move || {
+                    if search_results.get().is_none() {
+                        "transition: all 0.3s ease-out; opacity: 1; max-height: 1000px; transform: translateY(0); margin-top: 1.5rem;"
+                    } else {
+                        "transition: all 0.3s ease-out; opacity: 0; max-height: 0; transform: translateY(-20px); margin-top: 0; overflow: hidden;"
+                    }
+                }
+            >
+                <div class="col-md-10">
                     <SearchTips/>
                 </div>
             </div>
 
             // Search Results
             <div class="row justify-content-center mt-2">
-                <div class="col-md-8">
+                <div class="col-md-10">
                     <SearchResults
                         results=Signal::derive(move || search_results.get())
                         loading=Signal::derive(move || is_loading.get())

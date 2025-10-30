@@ -25,7 +25,3 @@ pub use types::*;
 #[cfg(feature = "database")]
 pub use chatlog_parser::*;
 
-// Re-export chrono for use in other crates
-#[cfg(feature = "database")]
-pub use chrono;
-

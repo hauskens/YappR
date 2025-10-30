@@ -263,7 +263,7 @@ pub async fn search_videos(
     use leptos_axum::extract;
     use sea_orm::DatabaseConnection;
     use std::sync::Arc;
-    use yappr_shared::chrono::{DateTime, NaiveDate, Utc};
+    use chrono::{DateTime, NaiveDate, Utc};
 
     let Extension(db) = extract::<Extension<Arc<DatabaseConnection>>>()
         .await

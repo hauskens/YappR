@@ -19,6 +19,7 @@ pub use super::segments::Entity as Segments;
 pub use super::timestamp_mapping::Entity as TimestampMapping;
 pub use super::transcriptions::Entity as Transcriptions;
 pub use super::user_channel_roles::Entity as UserChannelRoles;
+pub use super::user_sessions::Entity as UserSessions;
 pub use super::user_weights::Entity as UserWeights;
 pub use super::users::Entity as Users;
 pub use super::video::Entity as Video;

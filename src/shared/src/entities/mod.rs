@@ -22,6 +22,7 @@ pub mod segments;
 pub mod timestamp_mapping;
 pub mod transcriptions;
 pub mod user_channel_roles;
+pub mod user_sessions;
 pub mod user_weights;
 pub mod users;
 pub mod video;

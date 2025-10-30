@@ -2,8 +2,9 @@
 
 use super::sea_orm_active_enums::Permissiontype;
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "permissions")]
 pub struct Model {
     #[sea_orm(primary_key)]

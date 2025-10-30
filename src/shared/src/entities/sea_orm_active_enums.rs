@@ -3,7 +3,7 @@
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "accountsource")]
 pub enum Accountsource {
     #[sea_orm(string_value = "Discord")]
@@ -11,7 +11,7 @@ pub enum Accountsource {
     #[sea_orm(string_value = "Twitch")]
     Twitch,
 }
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "channeleventtype")]
 pub enum Channeleventtype {
     #[sea_orm(string_value = "Live")]
@@ -29,7 +29,7 @@ pub enum Channeleventtype {
     #[sea_orm(string_value = "Follow")]
     Follow,
 }
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",
@@ -43,7 +43,7 @@ pub enum Contentqueuesubmissionsource {
     #[sea_orm(string_value = "Web")]
     Web,
 }
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(rs_type = "String", db_type = "Enum", enum_name = "permissiontype")]
 pub enum Permissiontype {
     #[sea_orm(string_value = "Admin")]
@@ -53,7 +53,7 @@ pub enum Permissiontype {
     #[sea_orm(string_value = "Moderator")]
     Moderator,
 }
-#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum)]
+#[derive(Debug, Clone, PartialEq, Eq, EnumIter, DeriveActiveEnum, Serialize, Deserialize)]
 #[sea_orm(
     rs_type = "String",
     db_type = "Enum",

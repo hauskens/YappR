@@ -2,8 +2,9 @@
 
 use super::sea_orm_active_enums::Accountsource;
 use sea_orm::entity::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Serialize, Deserialize)]
 #[sea_orm(table_name = "users")]
 pub struct Model {
     #[sea_orm(primary_key)]
@@ -38,6 +39,8 @@ pub enum Relation {
     FlaskDanceOauth,
     #[sea_orm(has_many = "super::permissions::Entity")]
     Permissions,
+    #[sea_orm(has_many = "super::user_sessions::Entity")]
+    UserSessions,
     #[sea_orm(has_many = "super::user_weights::Entity")]
     UserWeights,
 }
@@ -69,6 +72,12 @@ impl Related<super::flask_dance_oauth::Entity> for Entity {
 impl Related<super::permissions::Entity> for Entity {
     fn to() -> RelationDef {
         Relation::Permissions.def()
+    }
+}
+
+impl Related<super::user_sessions::Entity> for Entity {
+    fn to() -> RelationDef {
+        Relation::UserSessions.def()
     }
 }
 

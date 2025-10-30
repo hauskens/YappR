@@ -25,7 +25,3 @@ chrono.workspace = true
 serde_json.workspace = true
 moka = { version = "0.12.11", features = ["future"] }
 
-[features]
-default = ["http"]
-http = []
-

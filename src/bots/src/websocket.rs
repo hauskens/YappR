@@ -122,20 +122,14 @@ impl WebsocketClient {
                         match payload {
                             Event::ChannelChatMessageV1(ev_payload) => {
                                 // Extract the actual payload from the Message wrapper
-                                match &ev_payload.message {
-                                    twitch_api::eventsub::Message::Notification(notif) => {
-                                        self.handle_chat_message(notif).await?;
-                                    }
-                                    _ => {}
+                                if let twitch_api::eventsub::Message::Notification(notif) = &ev_payload.message {
+                                    self.handle_chat_message(notif).await?;
                                 }
                             }
                             Event::ChannelChatClearUserMessagesV1(ev_payload) => {
                                 // Extract the actual payload from the Message wrapper
-                                match &ev_payload.message {
-                                    twitch_api::eventsub::Message::Notification(notif) => {
-                                        self.handle_moderation_event(notif).await?;
-                                    }
-                                    _ => {}
+                                if let twitch_api::eventsub::Message::Notification(notif) = &ev_payload.message {
+                                    self.handle_moderation_event(notif).await?;
                                 }
                             }
                             _ => {}

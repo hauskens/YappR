@@ -15,7 +15,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 regex = "1.12"
 yew = { version = "0.21", features = ["csr"] }
-wasm-bindgen-futures = "0.4.54"
+wasm-bindgen-futures = "0.4.55"
 gloo-net = "0.6.0"
 charming = { version = "0.6.0", features = ["wasm"] }
 gloo = "0.11.0"

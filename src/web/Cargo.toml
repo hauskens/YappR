@@ -25,7 +25,6 @@ tracing-subscriber = { workspace = true, optional = true }
 wasm-bindgen = { version = "0.2", optional = true }
 web-sys = { version = "0.3", features = ["Window", "Storage", "Document", "HtmlElement"], optional = true }
 console_error_panic_hook = { version = "0.1.7", optional = true }
-getrandom = { workspace = true, optional = true }
 eyre = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 sea-orm = { workspace = true, optional = true }
@@ -40,7 +39,6 @@ hydrate = [
     "dep:console_error_panic_hook",
     "dep:wasm-bindgen",
     "dep:web-sys",
-    "dep:getrandom",
     "yappr-shared/http-wasm",
 ]
 ssr = [

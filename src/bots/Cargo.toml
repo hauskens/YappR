@@ -16,7 +16,7 @@ eyre.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 reqwest.workspace = true
-tokio-tungstenite = { version = "0.24", features = ["rustls-tls-webpki-roots", "native-tls", "url"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots", "native-tls", "url"] }
 url.workspace = true
 futures.workspace = true
 sea-orm.workspace = true

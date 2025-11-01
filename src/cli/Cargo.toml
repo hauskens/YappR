@@ -17,6 +17,3 @@ tracing-subscriber = { workspace = true }
 tracing-loki = { workspace = true }
 serde = { workspace = true }
 uuid = { version = "1.18", features = ["v4"] }
-
-[features]
-http = []

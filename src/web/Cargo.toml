@@ -29,16 +29,28 @@ eyre = { workspace = true, optional = true }
 reqwest = { workspace = true, optional = true }
 sea-orm = { workspace = true, optional = true }
 serde = { workspace = true }
+serde_json = { workspace = true, optional = true }
 chrono.workspace = true
+time = { version = "0.3", optional = true }
+async-trait = { version = "0.1", optional = true }
+axum-login = { version = "0.18.0", optional = true }
+tower-sessions = { version = "0.14.0", optional = true }
+tower-sessions-sqlx-store = { version = "0.15.0", features = ["postgres"], optional = true }
+openidconnect = { version = "3", optional = true }
+url = { version = "2", optional = true }
+rand = { version = "0.8", optional = true }
+base64 = { version = "0.22", optional = true }
 
 
 [features]
-default = ["hydrate", "ssr"]
+default = ["ssr"]
+http = []
 hydrate = [
     "leptos/hydrate",
     "dep:console_error_panic_hook",
     "dep:wasm-bindgen",
     "dep:web-sys",
+    "dep:serde_json",
     "yappr-shared/http-wasm",
 ]
 ssr = [
@@ -50,6 +62,9 @@ ssr = [
     "dep:reqwest",
     "dep:tracing",
     "dep:tracing-subscriber",
+    "dep:serde_json",
+    "dep:time",
+    "dep:async-trait",
     "leptos/ssr",
     "leptos_meta/ssr",
     "leptos_router/ssr",
@@ -59,6 +74,13 @@ ssr = [
     "yappr-shared/youtube",
     "yappr-shared/discord",
     "yappr-shared/redis-client",
+    "dep:axum-login",
+    "dep:tower-sessions",
+    "dep:tower-sessions-sqlx-store",
+    "dep:openidconnect",
+    "dep:url",
+    "dep:rand",
+    "dep:base64",
 ]
 
 [package.metadata.leptos]
@@ -81,7 +103,7 @@ style-file = "style/main.scss"
 assets-dir = "public"
 
 # The IP and port (ex: 127.0.0.1:3000) where the server serves the content. Use it in your server setup.
-site-addr = "0.0.0.0:3000"
+# site-addr = "0.0.0.0:3000"
 
 # The port to use for automatic reload monitoring
 reload-port = 3001

@@ -8,7 +8,6 @@ use twitch_api::HelixClient;
 use twitch_oauth2::{AccessToken, RefreshToken, ClientSecret, ClientId};
 use twitch_api::client::ClientDefault;
 
-#[cfg(feature = "http")]
 pub async fn make_token(
     client: &impl twitch_oauth2::client::Client,
     token: impl Into<twitch_oauth2::AccessToken>,

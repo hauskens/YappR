@@ -1,3 +1,131 @@
+#[cfg(feature = "ssr")]
+use yappr_web::auth::AuthSession;
+#[cfg(feature = "ssr")]
+use axum::http::StatusCode;
+
+#[cfg(feature = "ssr")]
+async fn handle_login(
+    mut auth: AuthSession,
+    axum::Json(creds): axum::Json<yappr_web::auth::Credentials>,
+) -> Result<axum::response::Json<LoginResponse>, StatusCode> {
+
+    let user = match auth.authenticate(creds).await {
+        Ok(Some(user)) => user,
+        Ok(None) => {
+            return Ok(axum::response::Json(LoginResponse {
+                success: false,
+                message: "User not found".to_string(),
+                user: None,
+            }));
+        }
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
+
+    if auth.login(&user).await.is_err() {
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    Ok(axum::response::Json(LoginResponse {
+        success: true,
+        message: "Login successful".to_string(),
+        user: Some(UserInfo {
+            id: user.0.id,
+            name: user.0.name.clone(),
+            avatar_url: user.0.avatar_url.clone(),
+        }),
+    }))
+}
+
+#[cfg(feature = "ssr")]
+async fn handle_logout(
+    mut auth: AuthSession,
+) -> Result<axum::response::Json<LogoutResponse>, StatusCode> {
+    if auth.logout().await.is_err() {
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+
+    Ok(axum::response::Json(LogoutResponse {
+        success: true,
+        message: "Logout successful".to_string(),
+    }))
+}
+
+#[cfg(feature = "ssr")]
+async fn handle_current_user(
+    auth: AuthSession,
+) -> axum::response::Json<Option<UserInfo>> {
+    let user = auth.user;
+    axum::response::Json(user.map(|u| UserInfo {
+        id: u.0.id,
+        name: u.0.name.clone(),
+        avatar_url: u.0.avatar_url.clone(),
+    }))
+}
+
+#[cfg(feature = "ssr")]
+async fn protected_route(
+    auth: AuthSession,
+) -> Result<String, StatusCode> {
+    match auth.user {
+        Some(user) => Ok(format!("Hello, {}! This is a protected route.", user.0.name)),
+        None => Err(StatusCode::UNAUTHORIZED),
+    }
+}
+
+#[cfg(feature = "ssr")]
+#[derive(serde::Serialize)]
+struct LoginResponse {
+    success: bool,
+    message: String,
+    user: Option<UserInfo>,
+}
+
+#[cfg(feature = "ssr")]
+#[derive(serde::Serialize)]
+struct LogoutResponse {
+    success: bool,
+    message: String,
+}
+
+#[cfg(feature = "ssr")]
+#[derive(serde::Serialize, Clone)]
+struct UserInfo {
+    id: i32,
+    name: String,
+    avatar_url: Option<String>,
+}
+
+#[cfg(feature = "ssr")]
+async fn handle_discord_callback(
+    query: axum::extract::Query<yappr_web::oauth_handlers::CallbackParams>,
+    config: axum::Extension<std::sync::Arc<yappr_shared::config::Config>>,
+    oauth_state: axum::Extension<yappr_web::oauth_state::OAuthState>,
+    auth_session: yappr_web::auth::AuthSession,
+) -> Result<impl axum::response::IntoResponse, axum::http::StatusCode> {
+    yappr_web::oauth_handlers::handle_oauth_callback(
+        yappr_web::oauth_clients::OAuthProvider::Discord,
+        query,
+        config,
+        oauth_state,
+        auth_session,
+    ).await
+}
+
+#[cfg(feature = "ssr")]
+async fn handle_twitch_callback(
+    query: axum::extract::Query<yappr_web::oauth_handlers::CallbackParams>,
+    config: axum::Extension<std::sync::Arc<yappr_shared::config::Config>>,
+    oauth_state: axum::Extension<yappr_web::oauth_state::OAuthState>,
+    auth_session: yappr_web::auth::AuthSession,
+) -> Result<impl axum::response::IntoResponse, axum::http::StatusCode> {
+    yappr_web::oauth_handlers::handle_oauth_callback(
+        yappr_web::oauth_clients::OAuthProvider::Twitch,
+        query,
+        config,
+        oauth_state,
+        auth_session,
+    ).await
+}
 
 #[cfg(feature = "ssr")]
 #[tokio::main]
@@ -8,11 +136,18 @@ async fn main() {
     use leptos::serde_json::Value;
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use yappr_web::app::*;
+    use yappr_web::auth::Backend;
+    use yappr_web::oauth_state::OAuthState;
+    use yappr_web::oauth_clients::OAuthProvider;
+    use yappr_web::oauth_handlers::handle_oauth_login;
     use yappr_shared::config::Config;
     use yappr_shared::entities::prelude::*;
     use sea_orm::{Database, DatabaseConnection, EntityTrait};
-    use std::sync::Arc;
+    use std::{net::SocketAddr, sync::Arc};
     use std::path::PathBuf;
+    use tower_sessions::{SessionManagerLayer, Expiry};
+    use tower_sessions_sqlx_store::{PostgresStore, sqlx::PgPool};
+    use axum_login::AuthManagerLayerBuilder;
 
     // Handler for thumbnail endpoint
     async fn serve_thumbnail(
@@ -74,18 +209,54 @@ async fn main() {
         .expect("Failed to connect to database");
     log!("Database connected successfully!");
 
-    let conf = get_configuration(None).unwrap();
-    let addr = conf.leptos_options.site_addr;
+    // Set up session store using PostgreSQL
+    log!("Setting up session store...");
+    let pool = PgPool::connect(&config.database.url)
+        .await
+        .expect("Failed to connect to database for session store");
+    let session_store = PostgresStore::new(pool);
+    session_store
+        .migrate()
+        .await
+        .expect("Failed to run session store migrations");
+
+    // Session layer with 7 day expiry
+    let session_layer = SessionManagerLayer::new(session_store)
+        .with_expiry(Expiry::OnInactivity(time::Duration::days(7)));
+
+    // Create app state with database connection
+    let db = Arc::new(db);
+
+    // Auth backend
+    let backend = Backend::new(db.clone());
+    let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
+
+    // OAuth state manager
+    let oauth_state = OAuthState::new();
+
+    let mut conf = get_configuration(None).unwrap();
+    let addr = SocketAddr::new(config.server_host, config.server_port);
+    conf.leptos_options.site_addr = addr;
     let leptos_options = conf.leptos_options;
 
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(App);
 
-    // Create app state with database connection
-    let db = Arc::new(db);
-
     let app = Router::new()
         .route("/api/thumbnails/{video_id}", axum::routing::get(serve_thumbnail))
+        .route("/api/login", axum::routing::post(handle_login))
+        .route("/api/logout", axum::routing::post(handle_logout))
+        .route("/api/current-user", axum::routing::get(handle_current_user))
+        .route("/api/protected", axum::routing::get(protected_route))
+        // OAuth routes
+        .route("/auth/discord", axum::routing::get(|config: axum::Extension<Arc<Config>>, oauth_state: axum::Extension<OAuthState>| {
+            handle_oauth_login(OAuthProvider::Discord, config, oauth_state)
+        }))
+        .route("/auth/discord/callback", axum::routing::get(handle_discord_callback))
+        .route("/auth/twitch", axum::routing::get(|config: axum::Extension<Arc<Config>>, oauth_state: axum::Extension<OAuthState>| {
+            handle_oauth_login(OAuthProvider::Twitch, config, oauth_state)
+        }))
+        .route("/auth/twitch/callback", axum::routing::get(handle_twitch_callback))
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())
@@ -93,7 +264,9 @@ async fn main() {
         .fallback(leptos_axum::file_and_error_handler(shell))
         .with_state(leptos_options)
         .layer(axum::Extension(db))
-        .layer(axum::Extension(config));
+        .layer(axum::Extension(config))
+        .layer(axum::Extension(oauth_state))
+        .layer(auth_layer);
 
     log!("listening on http://{}", &addr);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();

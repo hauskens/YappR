@@ -9,6 +9,7 @@ use leptos::task::spawn_local;
 use crate::components::channel::ChannelsPage;
 use crate::components::dark_mode_toggle::DarkModeToggle;
 use crate::components::search::search_page::SearchPage;
+use crate::components::login::{LoginPage, ProtectedPage};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -46,6 +47,12 @@ pub async fn get_platform_video_by_ids(id: String) -> Result<String, ServerFnErr
 pub fn App() -> impl IntoView {
     // Provides context that manages stylesheets, titles, meta tags, etc.
     provide_meta_context();
+
+    // Use a local resource to track current user for navbar (loads only on client)
+    let current_user_resource = LocalResource::new(|| async move {
+        use crate::components::login::get_current_user;
+        get_current_user().await.ok().flatten()
+    });
 
     view! {
         <Stylesheet id="bootstrap" href="/vendor/bootstrap/bootstrap.min.css"/>
@@ -122,10 +129,25 @@ pub fn App() -> impl IntoView {
                                 </div>
                                 <div class="vr"></div>
                                 <div class="ms-2">
-                                    <a href="/login" class="btn btn-primary btn-sm">
-                                        <i class="bi bi-box-arrow-in-right me-1"></i>
-                                        "Login"
-                                    </a>
+                                    {move || match current_user_resource.get().flatten() {
+                                        Some(user) => view! {
+                                            <div class="d-flex align-items-center gap-2">
+                                                {user.avatar_url.clone().map(|avatar| view! {
+                                                    <img src={avatar} alt="Avatar" class="rounded-circle" width="32" height="32"/>
+                                                })}
+                                                <span class="text-body">{user.name.clone()}</span>
+                                                <a href="/login" class="btn btn-secondary btn-sm">
+                                                    "Manage"
+                                                </a>
+                                            </div>
+                                        }.into_any(),
+                                        None => view! {
+                                            <a href="/login" class="btn btn-primary btn-sm">
+                                                <i class="bi bi-box-arrow-in-right me-1"></i>
+                                                "Login"
+                                            </a>
+                                        }.into_any()
+                                    }}
                                 </div>
                             </div>
                         </div>
@@ -135,6 +157,8 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("") view=HomePage/>
                     <Route path=StaticSegment("channels") view=ChannelsPage/>
                     <Route path=StaticSegment("search") view=SearchPage/>
+                    <Route path=StaticSegment("login") view=LoginPage/>
+                    <Route path=StaticSegment("protected") view=ProtectedPage/>
                 </Routes>
 
                 <footer class="footer mt-auto text-center text-white bg-body-tertiary w-100 p-2">
@@ -198,4 +222,3 @@ fn HomePage() -> impl IntoView {
 
     }
 }
-

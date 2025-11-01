@@ -4,14 +4,6 @@ pub mod components;
 
 #[cfg(feature = "ssr")]
 pub mod auth;
-#[cfg(feature = "ssr")]
-pub mod oauth_clients;
-#[cfg(feature = "ssr")]
-pub mod oauth_state;
-#[cfg(feature = "ssr")]
-pub mod oauth_profile;
-#[cfg(feature = "ssr")]
-pub mod oauth_handlers;
 
 #[cfg(feature = "hydrate")]
 #[wasm_bindgen::prelude::wasm_bindgen]

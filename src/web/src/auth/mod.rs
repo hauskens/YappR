@@ -1,19 +1,18 @@
-#[cfg(feature = "ssr")]
+pub mod oauth_clients;
+pub mod oauth_profile;
+pub mod oauth_state;
+pub mod oauth_handlers;
+
 use axum_login::{AuthUser, AuthnBackend, UserId};
-#[cfg(feature = "ssr")]
 use sea_orm::{DatabaseConnection, EntityTrait};
-#[cfg(feature = "ssr")]
 use std::sync::Arc;
-#[cfg(feature = "ssr")]
 use yappr_shared::entities::prelude::*;
 
 // Wrapper type to avoid orphan rule
-#[cfg(feature = "ssr")]
 #[derive(Debug, Clone)]
-pub struct User(pub yappr_shared::entities::users::Model);
+pub struct User(pub yappr_shared::entities::users::Model, pub Vec<u8>);
 
 // Implement AuthUser for our wrapper type
-#[cfg(feature = "ssr")]
 impl AuthUser for User {
     type Id = i32;
 
@@ -22,94 +21,83 @@ impl AuthUser for User {
     }
 
     fn session_auth_hash(&self) -> &[u8] {
-        // For demo purposes, we'll use the external_account_id as the session auth hash
-        // In production, this would typically be a password hash or token
-        // Since we're planning to use OAuth, this is just a placeholder
-        self.0.external_account_id.as_bytes()
+        // Use HMAC-SHA256 hash of user_id for session validation
+        &self.1
     }
 }
 
-// Simple credentials struct for demo login
-#[cfg(feature = "ssr")]
-#[derive(Debug, Clone, serde::Deserialize)]
-pub struct Credentials {
-    pub username: String,
+impl User {
+    /// Create a new User with computed session hash
+    pub fn new(model: yappr_shared::entities::users::Model, secret: &str) -> Self {
+        use hmac::{Hmac, Mac};
+        use sha2::Sha256;
+
+        type HmacSha256 = Hmac<Sha256>;
+
+        // Create HMAC-SHA256 of user ID with session secret
+        let mut mac =
+            HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC can take key of any size");
+        mac.update(model.id.to_string().as_bytes());
+        let session_hash = mac.finalize().into_bytes().to_vec();
+
+        User(model, session_hash)
+    }
 }
 
 // Authentication backend
-#[cfg(feature = "ssr")]
 #[derive(Debug, Clone)]
 pub struct Backend {
     pub db: Arc<DatabaseConnection>,
+    pub session_secret: String,
 }
 
-#[cfg(feature = "ssr")]
 impl Backend {
-    pub fn new(db: Arc<DatabaseConnection>) -> Self {
-        Self { db }
+    pub fn new(db: Arc<DatabaseConnection>, session_secret: String) -> Self {
+        Self { db, session_secret }
     }
 }
 
-#[cfg(feature = "ssr")]
 impl AuthnBackend for Backend {
     type User = User;
-    type Credentials = Credentials;
+    type Credentials = ();
     type Error = sea_orm::DbErr;
 
-    fn authenticate(
+    async fn authenticate(
         &self,
-        creds: Self::Credentials,
-    ) -> impl std::future::Future<Output = Result<Option<Self::User>, Self::Error>> + Send {
-        use sea_orm::QueryFilter;
-        use sea_orm::ColumnTrait;
-
-        let db = self.db.clone();
-
-        async move {
-            // For demo: find user by username (name field)
-            // In production with OAuth, this would validate OAuth tokens
-            let user = Users::find()
-                .filter(yappr_shared::entities::users::Column::Name.eq(&creds.username))
-                .one(db.as_ref())
-                .await?;
-
-            Ok(user.map(User))
-        }
-    }
+        _creds: Self::Credentials,
+    ) -> Result<Option<Self::User>, Self::Error> { Ok(None) }
 
     fn get_user(
         &self,
         user_id: &UserId<Self>,
     ) -> impl std::future::Future<Output = Result<Option<Self::User>, Self::Error>> + Send {
         let db = self.db.clone();
+        let session_secret = self.session_secret.clone();
         let user_id = *user_id;
 
         async move {
-            let user = Users::find_by_id(user_id)
-                .one(db.as_ref())
-                .await?;
+            let user = Users::find_by_id(user_id).one(db.as_ref()).await?;
 
-            Ok(user.map(User))
+            Ok(user.map(|u| User::new(u, &session_secret)))
         }
     }
 }
 
 // Type alias for our auth session
-#[cfg(feature = "ssr")]
 pub type AuthSession = axum_login::AuthSession<Backend>;
 
 // OAuth user creation and management
-#[cfg(feature = "ssr")]
 pub async fn find_or_create_oauth_user(
     db: Arc<DatabaseConnection>,
-    provider: crate::oauth_clients::OAuthProvider,
-    profile: &crate::oauth_profile::OAuthUserProfile,
+    provider: crate::auth::oauth_clients::OAuthProvider,
+    profile: &crate::auth::oauth_profile::OAuthUserProfile,
     access_token: &str,
     refresh_token: Option<&str>,
     expires_in: Option<std::time::Duration>,
+    session_secret: &str,
 ) -> Result<User, sea_orm::DbErr> {
-    use sea_orm::{QueryFilter, ColumnTrait, Set, ActiveModelTrait, EntityTrait};
-    use yappr_shared::entities::{flask_dance_oauth, users, sea_orm_active_enums::Accountsource};
+    use sea_orm::{ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Set};
+    use yappr_shared::entities::{flask_dance_oauth, sea_orm_active_enums::Accountsource, users};
 
     // First, check if we have an OAuth record for this provider/provider_user_id
     let oauth_record = flask_dance_oauth::Entity::find()
@@ -142,8 +130,8 @@ pub async fn find_or_create_oauth_user(
     } else {
         // No OAuth record exists, check if user exists by external_account_id
         let account_type = match provider {
-            crate::oauth_clients::OAuthProvider::Discord => Accountsource::Discord,
-            crate::oauth_clients::OAuthProvider::Twitch => Accountsource::Twitch,
+            crate::auth::oauth_clients::OAuthProvider::Discord => Accountsource::Discord,
+            crate::auth::oauth_clients::OAuthProvider::Twitch => Accountsource::Twitch,
         };
 
         let existing_user = Users::find()
@@ -208,7 +196,9 @@ pub async fn find_or_create_oauth_user(
     let user = Users::find_by_id(user_id)
         .one(db.as_ref())
         .await?
-        .ok_or_else(|| sea_orm::DbErr::RecordNotFound("User not found after creation".to_string()))?;
+        .ok_or_else(|| {
+            sea_orm::DbErr::RecordNotFound("User not found after creation".to_string())
+        })?;
 
-    Ok(User(user))
+    Ok(User::new(user, session_secret))
 }

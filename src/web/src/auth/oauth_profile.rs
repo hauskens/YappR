@@ -1,9 +1,5 @@
-#[cfg(feature = "ssr")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "ssr")]
-use crate::oauth_clients::OAuthProvider;
-
-#[cfg(feature = "ssr")]
+use crate::auth::oauth_clients::OAuthProvider;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OAuthUserProfile {
     pub provider_user_id: String,
@@ -36,7 +32,6 @@ struct TwitchUser {
     profile_image_url: Option<String>,
 }
 
-#[cfg(feature = "ssr")]
 pub async fn fetch_user_profile(
     provider: OAuthProvider,
     access_token: &str,
@@ -48,7 +43,6 @@ pub async fn fetch_user_profile(
     }
 }
 
-#[cfg(feature = "ssr")]
 async fn fetch_discord_profile(
     access_token: &str,
 ) -> Result<OAuthUserProfile, Box<dyn std::error::Error>> {
@@ -80,7 +74,6 @@ async fn fetch_discord_profile(
     })
 }
 
-#[cfg(feature = "ssr")]
 async fn fetch_twitch_profile(
     access_token: &str,
     client_id: &str,

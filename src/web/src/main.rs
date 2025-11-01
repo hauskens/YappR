@@ -4,39 +4,6 @@ use yappr_web::auth::AuthSession;
 use axum::http::StatusCode;
 
 #[cfg(feature = "ssr")]
-async fn handle_login(
-    mut auth: AuthSession,
-    axum::Json(creds): axum::Json<yappr_web::auth::Credentials>,
-) -> Result<axum::response::Json<LoginResponse>, StatusCode> {
-
-    let user = match auth.authenticate(creds).await {
-        Ok(Some(user)) => user,
-        Ok(None) => {
-            return Ok(axum::response::Json(LoginResponse {
-                success: false,
-                message: "User not found".to_string(),
-                user: None,
-            }));
-        }
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
-    };
-
-    if auth.login(&user).await.is_err() {
-        return Err(StatusCode::INTERNAL_SERVER_ERROR);
-    }
-
-    Ok(axum::response::Json(LoginResponse {
-        success: true,
-        message: "Login successful".to_string(),
-        user: Some(UserInfo {
-            id: user.0.id,
-            name: user.0.name.clone(),
-            avatar_url: user.0.avatar_url.clone(),
-        }),
-    }))
-}
-
-#[cfg(feature = "ssr")]
 async fn handle_logout(
     mut auth: AuthSession,
 ) -> Result<axum::response::Json<LogoutResponse>, StatusCode> {
@@ -74,14 +41,6 @@ async fn protected_route(
 
 #[cfg(feature = "ssr")]
 #[derive(serde::Serialize)]
-struct LoginResponse {
-    success: bool,
-    message: String,
-    user: Option<UserInfo>,
-}
-
-#[cfg(feature = "ssr")]
-#[derive(serde::Serialize)]
 struct LogoutResponse {
     success: bool,
     message: String,
@@ -97,13 +56,13 @@ struct UserInfo {
 
 #[cfg(feature = "ssr")]
 async fn handle_discord_callback(
-    query: axum::extract::Query<yappr_web::oauth_handlers::CallbackParams>,
+    query: axum::extract::Query<yappr_web::auth::oauth_handlers::CallbackParams>,
     config: axum::Extension<std::sync::Arc<yappr_shared::config::Config>>,
-    oauth_state: axum::Extension<yappr_web::oauth_state::OAuthState>,
+    oauth_state: axum::Extension<yappr_web::auth::oauth_state::OAuthState>,
     auth_session: yappr_web::auth::AuthSession,
 ) -> Result<impl axum::response::IntoResponse, axum::http::StatusCode> {
-    yappr_web::oauth_handlers::handle_oauth_callback(
-        yappr_web::oauth_clients::OAuthProvider::Discord,
+    yappr_web::auth::oauth_handlers::handle_oauth_callback(
+        yappr_web::auth::oauth_clients::OAuthProvider::Discord,
         query,
         config,
         oauth_state,
@@ -113,13 +72,13 @@ async fn handle_discord_callback(
 
 #[cfg(feature = "ssr")]
 async fn handle_twitch_callback(
-    query: axum::extract::Query<yappr_web::oauth_handlers::CallbackParams>,
+    query: axum::extract::Query<yappr_web::auth::oauth_handlers::CallbackParams>,
     config: axum::Extension<std::sync::Arc<yappr_shared::config::Config>>,
-    oauth_state: axum::Extension<yappr_web::oauth_state::OAuthState>,
+    oauth_state: axum::Extension<yappr_web::auth::oauth_state::OAuthState>,
     auth_session: yappr_web::auth::AuthSession,
 ) -> Result<impl axum::response::IntoResponse, axum::http::StatusCode> {
-    yappr_web::oauth_handlers::handle_oauth_callback(
-        yappr_web::oauth_clients::OAuthProvider::Twitch,
+    yappr_web::auth::oauth_handlers::handle_oauth_callback(
+        yappr_web::auth::oauth_clients::OAuthProvider::Twitch,
         query,
         config,
         oauth_state,
@@ -137,9 +96,9 @@ async fn main() {
     use leptos_axum::{generate_route_list, LeptosRoutes};
     use yappr_web::app::*;
     use yappr_web::auth::Backend;
-    use yappr_web::oauth_state::OAuthState;
-    use yappr_web::oauth_clients::OAuthProvider;
-    use yappr_web::oauth_handlers::handle_oauth_login;
+    use yappr_web::auth::oauth_state::OAuthState;
+    use yappr_web::auth::oauth_clients::OAuthProvider;
+    use yappr_web::auth::oauth_handlers::handle_oauth_login;
     use yappr_shared::config::Config;
     use yappr_shared::entities::prelude::*;
     use sea_orm::{Database, DatabaseConnection, EntityTrait};
@@ -148,6 +107,12 @@ async fn main() {
     use tower_sessions::{SessionManagerLayer, Expiry};
     use tower_sessions_sqlx_store::{PostgresStore, sqlx::PgPool};
     use axum_login::AuthManagerLayerBuilder;
+    use tower_http::set_header::SetResponseHeaderLayer;
+
+    // CSRF Protection is provided by:
+    // 1. OAuth state parameter for authentication flow (see oauth_handlers.rs)
+    // 2. SameSite=Lax session cookies (prevents cross-site requests)
+    // 3. HTTPS-only cookies in production (prevents MITM)
 
     // Handler for thumbnail endpoint
     async fn serve_thumbnail(
@@ -220,15 +185,18 @@ async fn main() {
         .await
         .expect("Failed to run session store migrations");
 
-    // Session layer with 7 day expiry
+    // Session layer with 7 day expiry and secure cookie settings
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_expiry(Expiry::OnInactivity(time::Duration::days(7)));
+        .with_expiry(Expiry::OnInactivity(time::Duration::days(7)))
+        .with_http_only(true)
+        .with_same_site(tower_sessions::cookie::SameSite::Lax)
+        .with_secure(!config.debug); // Use secure cookies in production only
 
     // Create app state with database connection
     let db = Arc::new(db);
 
     // Auth backend
-    let backend = Backend::new(db.clone());
+    let backend = Backend::new(db.clone(), config.session_secret.clone());
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     // OAuth state manager
@@ -242,9 +210,8 @@ async fn main() {
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(App);
 
-    let app = Router::new()
+    let mut app = Router::new()
         .route("/api/thumbnails/{video_id}", axum::routing::get(serve_thumbnail))
-        .route("/api/login", axum::routing::post(handle_login))
         .route("/api/logout", axum::routing::post(handle_logout))
         .route("/api/current-user", axum::routing::get(handle_current_user))
         .route("/api/protected", axum::routing::get(protected_route))
@@ -264,9 +231,19 @@ async fn main() {
         .fallback(leptos_axum::file_and_error_handler(shell))
         .with_state(leptos_options)
         .layer(axum::Extension(db))
-        .layer(axum::Extension(config))
         .layer(axum::Extension(oauth_state))
         .layer(auth_layer);
+
+    // Add HSTS header in production only
+    if !config.debug {
+        app = app.layer(SetResponseHeaderLayer::if_not_present(
+            header::STRICT_TRANSPORT_SECURITY,
+            header::HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        ));
+    }
+
+    // Add config extension after HSTS middleware
+    let app = app.layer(axum::Extension(config));
 
     log!("listening on http://{}", &addr);
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();

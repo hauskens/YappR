@@ -1,4 +1,4 @@
-#[cfg(feature = "ssr")]
+use std::str::FromStr;
 use openidconnect::{
     AuthUrl,
     ClientId,
@@ -10,7 +10,6 @@ use openidconnect::{
     ResponseTypes,
     TokenUrl,
 };
-#[cfg(feature = "ssr")]
 use openidconnect::core::{
     CoreClient,
     CoreProviderMetadata,
@@ -19,14 +18,12 @@ use openidconnect::core::{
     CoreJwsSigningAlgorithm,
 };
 
-#[cfg(feature = "ssr")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OAuthProvider {
     Discord,
     Twitch,
 }
 
-#[cfg(feature = "ssr")]
 impl OAuthProvider {
     pub fn as_str(&self) -> &'static str {
         match self {
@@ -34,17 +31,20 @@ impl OAuthProvider {
             OAuthProvider::Twitch => "twitch",
         }
     }
+}
 
-    pub fn from_str(s: &str) -> Option<Self> {
+impl FromStr for OAuthProvider {
+    type Err = &'static str;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "discord" => Some(OAuthProvider::Discord),
-            "twitch" => Some(OAuthProvider::Twitch),
-            _ => None,
+            "discord" => Ok(OAuthProvider::Discord),
+            "twitch" => Ok(OAuthProvider::Twitch),
+            _ => Err("Invalid OAuth provider"),
         }
     }
 }
 
-#[cfg(feature = "ssr")]
 pub fn create_oauth_client(
     provider: OAuthProvider,
     client_id: String,
@@ -91,7 +91,6 @@ pub fn create_oauth_client(
     Ok(client)
 }
 
-#[cfg(feature = "ssr")]
 pub fn get_oauth_scopes(provider: OAuthProvider) -> Vec<String> {
     match provider {
         OAuthProvider::Discord => vec![

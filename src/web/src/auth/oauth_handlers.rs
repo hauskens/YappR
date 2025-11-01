@@ -1,10 +1,8 @@
-#[cfg(feature = "ssr")]
 use axum::{
     extract::{Query, Extension},
     response::{Redirect, IntoResponse},
     http::StatusCode,
 };
-#[cfg(feature = "ssr")]
 use openidconnect::{
     AuthorizationCode,
     CsrfToken,
@@ -13,34 +11,24 @@ use openidconnect::{
     PkceCodeChallenge,
     Scope,
 };
-#[cfg(feature = "ssr")]
 use openidconnect::core::{
     CoreAuthenticationFlow,
 };
-#[cfg(feature = "ssr")]
 use serde::Deserialize;
-#[cfg(feature = "ssr")]
 use std::sync::Arc;
 
-#[cfg(feature = "ssr")]
-use crate::oauth_clients::{OAuthProvider, create_oauth_client, get_oauth_scopes};
-#[cfg(feature = "ssr")]
-use crate::oauth_state::OAuthState;
-#[cfg(feature = "ssr")]
-use crate::oauth_profile::fetch_user_profile;
-#[cfg(feature = "ssr")]
+use crate::auth::oauth_clients::{OAuthProvider, create_oauth_client, get_oauth_scopes};
+use crate::auth::oauth_state::OAuthState;
+use crate::auth::oauth_profile::fetch_user_profile;
 use crate::auth::{AuthSession, find_or_create_oauth_user};
-#[cfg(feature = "ssr")]
 use yappr_shared::config::Config;
 
-#[cfg(feature = "ssr")]
 #[derive(Deserialize)]
 pub struct CallbackParams {
     code: String,
     state: String,
 }
 
-#[cfg(feature = "ssr")]
 pub async fn handle_oauth_login(
     provider: OAuthProvider,
     Extension(config): Extension<Arc<Config>>,
@@ -72,8 +60,8 @@ pub async fn handle_oauth_login(
         client_id,
         client_secret,
         redirect_uri,
-    ).map_err(|e| {
-        tracing::error!("Failed to create OAuth client: {:?}", e);
+    ).map_err(|_| {
+        tracing::error!("Failed to create OAuth client");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -108,7 +96,6 @@ pub async fn handle_oauth_login(
 }
 
 
-#[cfg(feature = "ssr")]
 pub async fn handle_oauth_callback(
     provider: OAuthProvider,
     Query(params): Query<CallbackParams>,
@@ -156,8 +143,8 @@ pub async fn handle_oauth_callback(
         client_id.clone(),
         client_secret.clone(),
         redirect_uri,
-    ).map_err(|e| {
-        tracing::error!("Failed to create OAuth client: {:?}", e);
+    ).map_err(|_| {
+        tracing::error!("Failed to create OAuth client");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -214,8 +201,8 @@ pub async fn handle_oauth_callback(
                     })
             })
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to exchange authorization code: {:?}", e);
+            .map_err(|_| {
+                tracing::error!("Failed to exchange authorization code");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?
     } else {
@@ -223,8 +210,8 @@ pub async fn handle_oauth_callback(
         token_request
             .request_async(async_http_client)
             .await
-            .map_err(|e| {
-                tracing::error!("Failed to exchange authorization code: {:?}", e);
+            .map_err(|_| {
+                tracing::error!("Failed to exchange authorization code");
                 StatusCode::INTERNAL_SERVER_ERROR
             })?
     };
@@ -239,8 +226,8 @@ pub async fn handle_oauth_callback(
     // Fetch user profile from provider
     let profile = fetch_user_profile(provider, access_token, &client_id)
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to fetch user profile: {:?}", e);
+        .map_err(|_| {
+            tracing::error!("Failed to fetch user profile");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 
@@ -252,10 +239,11 @@ pub async fn handle_oauth_callback(
         access_token,
         refresh_token.as_deref(),
         expires_in,
+        &auth_session.backend.session_secret,
     )
     .await
-    .map_err(|e| {
-        tracing::error!("Failed to find or create user: {:?}", e);
+    .map_err(|_| {
+        tracing::error!("Failed to find or create user");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
@@ -263,8 +251,8 @@ pub async fn handle_oauth_callback(
     auth_session
         .login(&user)
         .await
-        .map_err(|e| {
-            tracing::error!("Failed to create session: {:?}", e);
+        .map_err(|_| {
+            tracing::error!("Failed to create session");
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
 

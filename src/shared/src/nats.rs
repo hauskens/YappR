@@ -1,5 +1,4 @@
-use async_nats::jetstream::{self, stream};
-use futures::{StreamExt, TryStreamExt};
+use async_nats::jetstream::{self};
 use crate::config::Config;
 
 

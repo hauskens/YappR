@@ -1,13 +1,8 @@
-#[cfg(feature = "ssr")]
 use std::collections::HashMap;
-#[cfg(feature = "ssr")]
 use std::sync::Arc;
-#[cfg(feature = "ssr")]
 use tokio::sync::RwLock;
-#[cfg(feature = "ssr")]
 use openidconnect::{Nonce, PkceCodeVerifier};
 
-#[cfg(feature = "ssr")]
 #[derive(Clone)]
 pub struct OAuthState {
     // In-memory storage for OAuth flow state
@@ -15,14 +10,12 @@ pub struct OAuthState {
     states: Arc<RwLock<HashMap<String, (String, Nonce, PkceCodeVerifier, std::time::Instant)>>>,
 }
 
-#[cfg(feature = "ssr")]
 pub struct OAuthFlowState {
     pub provider: String,
     pub nonce: Nonce,
     pub pkce_verifier: PkceCodeVerifier,
 }
 
-#[cfg(feature = "ssr")]
 impl OAuthState {
     pub fn new() -> Self {
         Self {
@@ -71,7 +64,6 @@ impl OAuthState {
     }
 }
 
-#[cfg(feature = "ssr")]
 impl Default for OAuthState {
     fn default() -> Self {
         Self::new()

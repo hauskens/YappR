@@ -4,7 +4,7 @@ use crate::server_fns::BroadcasterData;
 #[component]
 pub fn BroadcasterCard(broadcaster: BroadcasterData) -> impl IntoView {
     // Generate URL for viewing broadcaster details
-    let broadcaster_url = format!("/broadcaster/edit/{}", broadcaster.id);
+    let broadcaster_url = format!("/broadcasters/{}", broadcaster.id);
 
     view! {
         <div class="col-xl-3 col-lg-4 col-md-6 mb-4 broadcaster-card" data-name={broadcaster.name.to_lowercase()}>

@@ -69,6 +69,89 @@ pub struct VideoResultData {
     pub video: VideoData,
 }
 
+/// Serializable DTO for channel settings
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChannelSettingsData {
+    pub chat_collection_enabled: bool,
+    pub content_queue_enabled: bool,
+}
+
+/// Serializable DTO for broadcaster settings
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BroadcasterSettingsData {
+    pub linked_discord_channel_id: Option<i64>,
+    pub linked_discord_channel_verified: bool,
+    pub linked_discord_disable_voting: bool,
+    pub linked_discord_threads_enabled: bool,
+}
+
+/// Serializable DTO for channel link info
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChannelLinkData {
+    pub id: i32,
+    pub name: String,
+}
+
+/// Serializable DTO for detailed channel data (used in edit page)
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChannelDetailData {
+    pub id: i32,
+    pub name: String,
+    pub platform_name: String,
+    pub platform_ref: String,
+    pub platform_channel_id: String,
+    pub main_video_type: String,
+    pub last_active: Option<String>,
+    pub settings: Option<ChannelSettingsData>,
+    pub source_channel: Option<ChannelLinkData>,
+}
+
+/// Serializable DTO for broadcaster stats
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BroadcasterStatsData {
+    pub total_channels: usize,
+    pub total_videos: i64,
+    pub total_transcriptions: i64,
+    pub storage_used_gb: f64,
+}
+
+/// Serializable DTO for broadcaster edit page data
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BroadcasterEditData {
+    pub broadcaster: BroadcasterData,
+    pub channels: Vec<ChannelDetailData>,
+    pub settings: Option<BroadcasterSettingsData>,
+    pub stats: BroadcasterStatsData,
+    pub available_platforms: Vec<String>,
+    pub available_video_types: Vec<String>,
+}
+
+/// Request DTO for updating broadcaster settings
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UpdateBroadcasterSettingsRequest {
+    pub profile_image_url: Option<String>,
+    pub hidden: Option<bool>,
+    pub linked_discord_channel_id: Option<i64>,
+}
+
+/// Request DTO for updating channel settings
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct UpdateChannelSettingsRequest {
+    pub chat_collection_enabled: Option<bool>,
+    pub content_queue_enabled: Option<bool>,
+    pub main_video_type: Option<String>,
+}
+
+/// Request DTO for creating a new channel
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CreateChannelRequest {
+    pub name: String,
+    pub platform_name: String,
+    pub platform_ref: String,
+    pub platform_channel_id: String,
+    pub main_video_type: String,
+}
+
 #[cfg(feature = "ssr")]
 impl From<yappr_shared::entities::channels::Model> for ChannelData {
     fn from(model: yappr_shared::entities::channels::Model) -> Self {
@@ -182,6 +265,28 @@ impl VideoResultData {
             segment_results,
             video: video_data,
         })
+    }
+}
+
+#[cfg(feature = "ssr")]
+impl From<yappr_shared::entities::channel_settings::Model> for ChannelSettingsData {
+    fn from(model: yappr_shared::entities::channel_settings::Model) -> Self {
+        Self {
+            chat_collection_enabled: model.chat_collection_enabled,
+            content_queue_enabled: model.content_queue_enabled,
+        }
+    }
+}
+
+#[cfg(feature = "ssr")]
+impl From<yappr_shared::entities::broadcaster_settings::Model> for BroadcasterSettingsData {
+    fn from(model: yappr_shared::entities::broadcaster_settings::Model) -> Self {
+        Self {
+            linked_discord_channel_id: model.linked_discord_channel_id,
+            linked_discord_channel_verified: model.linked_discord_channel_verified,
+            linked_discord_disable_voting: model.linked_discord_disable_voting,
+            linked_discord_threads_enabled: model.linked_discord_threads_enabled,
+        }
     }
 }
 

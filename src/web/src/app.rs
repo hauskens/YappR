@@ -2,11 +2,12 @@ use leptos::prelude::*;
 use leptos_meta::{provide_meta_context, MetaTags, Script, Stylesheet, Title};
 use leptos_router::{
     components::{Route, Router, Routes},
-    StaticSegment,
+    StaticSegment, ParamSegment,
+    hooks::use_params_map,
 };
 use leptos::server_fn::ServerFnError;
 use leptos::task::spawn_local;
-use crate::components::broadcaster::BroadcasterPage;
+use crate::components::broadcaster::{BroadcasterPage, BroadcasterEditPage};
 use crate::components::channel::ChannelsPage;
 use crate::components::dark_mode_toggle::DarkModeToggle;
 use crate::components::search::search_page::SearchPage;
@@ -154,6 +155,7 @@ pub fn App() -> impl IntoView {
                 <Routes fallback=|| "Page not found.".into_view()>
                     <Route path=StaticSegment("") view=HomePage/>
                     <Route path=StaticSegment("broadcasters") view=BroadcasterPage/>
+                    <Route path=(StaticSegment("broadcasters"), ParamSegment("id")) view=BroadcasterEditPageWrapper/>
                     <Route path=StaticSegment("channels") view=ChannelsPage/>
                     <Route path=StaticSegment("search") view=SearchPage/>
                     <Route path=StaticSegment("login") view=LoginPage/>
@@ -219,5 +221,33 @@ fn HomePage() -> impl IntoView {
             "Clickius: " {count2}
         </button>
 
+    }
+}
+
+/// Wrapper component to extract the broadcaster ID from URL params
+#[component]
+fn BroadcasterEditPageWrapper() -> impl IntoView {
+    let params = use_params_map();
+
+    view! {
+        {move || {
+            let id_str = params.read().get("id").unwrap_or_default();
+            match id_str.parse::<i32>() {
+                Ok(broadcaster_id) => {
+                    view! { <BroadcasterEditPage broadcaster_id=broadcaster_id/> }
+                        .into_any()
+                }
+                Err(_) => {
+                    view! {
+                        <div class="container mt-4">
+                            <div class="alert alert-danger">
+                                "Invalid broadcaster ID: " {id_str}
+                            </div>
+                        </div>
+                    }
+                        .into_any()
+                }
+            }
+        }}
     }
 }

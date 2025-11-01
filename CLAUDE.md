@@ -119,6 +119,281 @@ The application features a modern, responsive design using:
 
 Template structure follows standard Bootstrap patterns with semantic HTML and accessibility considerations.
 
+## Rust/Leptos Web Application
+
+The application is being migrated from Flask/Python to Leptos/Rust for improved performance and type safety. The Rust codebase is organized in `src/` with the following structure:
+
+### Rust Project Structure
+```
+src/
+├── shared/          # Shared library (business logic, services, entities)
+│   ├── entities/    # SeaORM database entities (auto-generated from DB schema)
+│   ├── services/    # Business logic services (broadcaster, channel, user, etc.)
+│   ├── models/      # Domain models and DTOs
+│   ├── external/    # External API clients (YouTube, Twitch, Discord)
+│   └── config.rs    # Configuration management
+├── web/             # Leptos web application
+│   ├── src/
+│   │   ├── components/     # UI components
+│   │   ├── auth/          # Authentication and OAuth
+│   │   ├── server_fns.rs  # Server functions (API endpoints)
+│   │   ├── app.rs         # Main app with routes
+│   │   └── main.rs        # Server entry point (Axum)
+│   └── public/      # Static assets
+└── wasm/            # WebAssembly modules
+```
+
+### Leptos Web Framework (`src/web/`)
+
+**Technology Stack:**
+- **Leptos 0.8**: Reactive web framework with server-side rendering
+- **Axum**: HTTP server (backend)
+- **SeaORM**: Database ORM with PostgreSQL
+- **Tower Sessions**: Session management with PostgreSQL store
+- **Axum-Login**: Authentication system
+- **OpenID Connect**: OAuth2 authentication (Discord, Twitch)
+
+**Development Commands:**
+- Build web app: `cargo leptos build`
+- Run dev server: `cargo leptos watch`
+- Check compilation: `cargo check --features ssr`
+- Working directory: `cd src/web`
+
+### Component Organization Pattern
+
+**Simple Features** (single component):
+```rust
+// src/web/src/components/feature_name.rs
+#[component]
+pub fn FeaturePage() -> impl IntoView { ... }
+```
+
+**Complex Features** (multiple components):
+```
+src/web/src/components/feature_name/
+├── mod.rs              # Exports: pub use feature_page::FeaturePage;
+├── feature_page.rs     # Main page component
+├── feature_card.rs     # Card/list item component
+└── feature_form.rs     # Form component (if needed)
+```
+
+**Component Best Practices:**
+- Use signals for reactive state: `let (state, set_state) = signal(initial);`
+- Use Resources for server data: `Resource::new(deps, async_fn)`
+- Use Suspense for loading states
+- Use `.into_any()` when branching view types
+- Keep components focused and composable
+- Match Bootstrap grid classes from original templates
+
+**Example Component Structure:**
+```rust
+#[component]
+pub fn BroadcasterPage() -> impl IntoView {
+    let (search_term, set_search_term) = signal(String::new());
+
+    let broadcasters = Resource::new(
+        || (),
+        |_| async move { get_broadcasters_with_auth().await },
+    );
+
+    view! {
+        <div class="container py-4">
+            <Suspense fallback=move || view! { /* loading spinner */ }>
+                {move || Suspend::new(async move {
+                    broadcasters.await.map(|data| {
+                        // Render data
+                    })
+                })}
+            </Suspense>
+        </div>
+    }
+}
+```
+
+### Server Functions (`src/web/src/server_fns.rs`)
+
+Server functions are the API layer between client and server, defined with the `#[server]` macro.
+
+**Structure:**
+1. **DTOs at top**: Serializable data transfer objects
+2. **From implementations**: Convert entities to DTOs
+3. **Server functions**: Annotated with `#[server(Name, "/api")]`
+
+**Pattern for Server Functions:**
+```rust
+/// Serializable DTO
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct FeatureData {
+    pub id: i32,
+    pub name: String,
+}
+
+#[cfg(feature = "ssr")]
+impl From<entity::Model> for FeatureData {
+    fn from(model: entity::Model) -> Self { ... }
+}
+
+/// Server function with authentication
+#[server(GetFeatures, "/api")]
+pub async fn get_features_with_auth() -> Result<Vec<FeatureData>, ServerFnError> {
+    use axum::Extension;
+    use leptos_axum::extract;
+
+    // Extract database connection
+    let Extension(db) = extract::<Extension<Arc<DatabaseConnection>>>()
+        .await?;
+
+    // Extract authentication session
+    let auth_session = extract::<crate::auth::AuthSession>().await?;
+
+    // Load authorization context
+    let auth_context = if let Some(user) = auth_session.user {
+        AuthContext::load(&db, user.0.clone()).await?
+    } else {
+        AuthContext::anonymous()
+    };
+
+    // Call service layer
+    let data = FeatureService::get_all(&db).await?;
+
+    // Filter based on permissions
+    let filtered = auth_context.filter_visible_features(data);
+
+    Ok(filtered.into_iter().map(FeatureData::from).collect())
+}
+```
+
+**Key Principles:**
+- Always extract DB from `Extension<Arc<DatabaseConnection>>`
+- Use `AuthSession` for authenticated endpoints
+- Load `AuthContext` for permission checks
+- Call service layer (from `yappr_shared::services`)
+- Return serializable DTOs, never database entities
+- Filter sensitive data server-side, not client-side
+
+### Authorization Pattern
+
+**Authorization System** (`yappr_shared::services::authorization`):
+```rust
+// Load user's authorization context
+let auth_context = AuthContext::load(&db, user).await?;
+
+// Check permissions
+if auth_context.is_admin() { ... }
+if auth_context.is_moderator() { ... }
+if auth_context.has_channel_role(channel_id, &ChannelRole::Mod) { ... }
+
+// Filter data based on visibility
+let visible = auth_context.filter_visible_broadcasters(all_broadcasters);
+
+// Require specific permissions
+auth_context.require_admin()?;
+auth_context.require_channel_role(channel_id, &ChannelRole::Owner)?;
+```
+
+**Security Rules:**
+1. **Never trust client-side filtering** - always filter on server
+2. **Check permissions in server functions** - not in components
+3. **Use AuthContext** - provides consistent authorization logic
+4. **Filter by ban status** - exclude content from banned channels
+5. **Verify active status** - check user is not banned/disabled
+
+### Flask to Leptos Migration Pattern
+
+When migrating a Flask page to Leptos, follow this workflow:
+
+**1. Analyze Flask Route** (`app/routes/*.py`)
+- Identify the route handler
+- Note authentication/permission requirements
+- Identify data fetching logic
+- Review template structure
+
+**2. Check Service Layer** (`src/shared/src/services/*.rs`)
+- Verify service exists in Rust (or port from Python)
+- Ensure all needed queries are available
+- Add new service methods if needed
+
+**3. Create Components** (`src/web/src/components/`)
+- Create directory structure (simple vs complex)
+- Implement page component with Resource
+- Implement sub-components (cards, forms)
+- Match Bootstrap classes from original template
+- Preserve responsive grid layouts
+
+**4. Add Server Function** (`src/web/src/server_fns.rs`)
+- Define DTO for data transfer
+- Implement From trait to convert entities
+- Create server function with `#[server]` macro
+- Extract database and auth session
+- Call service layer
+- Filter based on permissions
+- Return DTOs
+
+**5. Register Component** (`src/web/src/components/mod.rs`)
+```rust
+pub mod feature_name;  // or pub mod feature_name { ... }
+```
+
+**6. Add Route** (`src/web/src/app.rs`)
+```rust
+use crate::components::feature::FeaturePage;
+
+// In Routes:
+<Route path=StaticSegment("feature") view=FeaturePage/>
+```
+
+**7. Test Compilation**
+```bash
+cd src/web
+cargo check --features ssr
+cargo leptos watch  # For full dev server
+```
+
+**Migration Checklist:**
+- [ ] Service layer methods ported to Rust
+- [ ] DTOs defined in server_fns.rs
+- [ ] Server function with authentication
+- [ ] Permission filtering implemented
+- [ ] Ban status filtering (if applicable)
+- [ ] Component structure matches original
+- [ ] Bootstrap classes preserved
+- [ ] Responsive grid layout maintained
+- [ ] Loading states with Suspense
+- [ ] Empty states handled
+- [ ] Error states handled
+- [ ] Route registered in app.rs
+- [ ] Compilation successful
+
+**Completed Migrations:**
+- `/channels` - Channel listing with platform filtering
+- `/search` - Video search with transcription results
+- `/broadcasters` - Broadcaster listing with search and permission filtering
+- `/login` - OAuth authentication (Discord, Twitch)
+
+### Shared Services (`src/shared/src/services/`)
+
+The service layer contains all business logic and is shared between web app and other components:
+
+- **authorization.rs**: AuthContext, permission checking, role-based access control
+- **broadcaster.rs**: Broadcaster CRUD operations (simple, no auth)
+- **channel.rs**: Channel operations, video fetching, platform integration
+- **content.rs**: Content management
+- **content_queue.rs**: Clip queue management
+- **content_submission.rs**: Submission handling
+- **moderation.rs**: Ban/timeout operations, moderation actions
+- **search.rs**: Transcription search (ported from Python)
+- **segment.rs**: Segment operations
+- **transcription.rs**: Transcription processing
+- **user.rs**: User management
+- **video.rs**: Video operations
+
+**Service Conventions:**
+- Services are stateless structs with associated functions
+- All methods take `&DatabaseConnection` as first parameter
+- Use `#[instrument]` for tracing
+- Return `Result<T, DbErr>` for database operations
+- Use custom error types when needed (e.g., `AuthError`)
+
 ### Development Notes
 - Multi-worker architecture supports distributed transcription processing  
 - Docker Compose setup includes all necessary services (PostgreSQL, Redis, GPU workers)

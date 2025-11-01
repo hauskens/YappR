@@ -6,6 +6,7 @@ use leptos_router::{
 };
 use leptos::server_fn::ServerFnError;
 use leptos::task::spawn_local;
+use crate::components::broadcaster::BroadcasterPage;
 use crate::components::channel::ChannelsPage;
 use crate::components::dark_mode_toggle::DarkModeToggle;
 use crate::components::search::search_page::SearchPage;
@@ -131,15 +132,12 @@ pub fn App() -> impl IntoView {
                                 <div class="ms-2">
                                     {move || match current_user_resource.get().flatten() {
                                         Some(user) => view! {
-                                            <div class="d-flex align-items-center gap-2">
+                                            <a href="/login" class="d-flex align-items-center gap-2 text-decoration-none">
                                                 {user.avatar_url.clone().map(|avatar| view! {
                                                     <img src={avatar} alt="Avatar" class="rounded-circle" width="32" height="32"/>
                                                 })}
                                                 <span class="text-body">{user.name.clone()}</span>
-                                                <a href="/login" class="btn btn-secondary btn-sm">
-                                                    "Manage"
-                                                </a>
-                                            </div>
+                                            </a>
                                         }.into_any(),
                                         None => view! {
                                             <a href="/login" class="btn btn-primary btn-sm">
@@ -155,6 +153,7 @@ pub fn App() -> impl IntoView {
                 </nav>
                 <Routes fallback=|| "Page not found.".into_view()>
                     <Route path=StaticSegment("") view=HomePage/>
+                    <Route path=StaticSegment("broadcasters") view=BroadcasterPage/>
                     <Route path=StaticSegment("channels") view=ChannelsPage/>
                     <Route path=StaticSegment("search") view=SearchPage/>
                     <Route path=StaticSegment("login") view=LoginPage/>

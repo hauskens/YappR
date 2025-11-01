@@ -250,6 +250,84 @@ pub async fn get_broadcasters(show_hidden: bool) -> Result<Vec<BroadcasterData>,
     Ok(broadcasters.into_iter().map(BroadcasterData::from).collect())
 }
 
+/// Server function to get broadcasters with authentication and permission filtering
+#[server(GetBroadcastersWithAuth, "/api")]
+pub async fn get_broadcasters_with_auth() -> Result<Vec<BroadcasterData>, ServerFnError> {
+    use axum::Extension;
+    use leptos_axum::extract;
+    use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, QueryFilter};
+    use std::sync::Arc;
+    use std::collections::HashSet;
+    use yappr_shared::services::authorization::AuthContext;
+    use yappr_shared::services::moderation::ModerationService;
+    use yappr_shared::entities::prelude::*;
+
+    let Extension(db) = extract::<Extension<Arc<DatabaseConnection>>>()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to get DB connection: {}", e)))?;
+
+    // Extract auth session to check user permissions
+    let auth_session = extract::<crate::auth::AuthSession>()
+        .await
+        .map_err(|e| ServerFnError::new(format!("Failed to get auth session: {}", e)))?;
+
+    // Load authorization context
+    let auth_context = if let Some(user) = auth_session.user {
+        AuthContext::load(&db, user.0.clone()).await
+            .map_err(|e| ServerFnError::new(format!("Failed to load auth context: {}", e)))?
+    } else {
+        AuthContext::anonymous()
+    };
+
+    // Determine which broadcasters to show based on permissions
+    let all_broadcasters = if auth_context.is_admin() || auth_context.is_moderator() {
+        // Admins and moderators can see all broadcasters (including hidden)
+        BroadcasterService::get_all(&db).await
+    } else {
+        // Regular users only see visible broadcasters
+        BroadcasterService::get_visible(&db).await
+    }
+    .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?;
+
+    // Get banned channel IDs for the current user (if authenticated)
+    let banned_broadcaster_ids: HashSet<i32> = if let Some(user) = auth_context.user.as_ref() {
+        // Get all active moderation actions for this user
+        let actions = ModerationService::get_active_actions_for_user(&db, user.id)
+            .await
+            .map_err(|e| ServerFnError::new(format!("Failed to get moderation actions: {}", e)))?;
+
+        // Extract channel IDs from moderation actions
+        let banned_channel_ids: Vec<i32> = actions
+            .into_iter()
+            .filter_map(|action| action.channel_id)
+            .collect();
+
+        if !banned_channel_ids.is_empty() {
+            // Load channels to get their broadcaster IDs
+            let channels = Channels::find()
+                .filter(yappr_shared::entities::channels::Column::Id.is_in(banned_channel_ids))
+                .all(&*db)
+                .await
+                .map_err(|e| ServerFnError::new(format!("Failed to load channels: {}", e)))?;
+
+            channels.into_iter().map(|ch| ch.broadcaster_id).collect()
+        } else {
+            HashSet::new()
+        }
+    } else {
+        HashSet::new()
+    };
+
+    // Filter out broadcasters that the user is banned from
+    let filtered_broadcasters: Vec<BroadcasterData> = all_broadcasters
+        .into_iter()
+        .filter(|b| !banned_broadcaster_ids.contains(&b.id))
+        .map(BroadcasterData::from)
+        .collect();
+
+    Ok(filtered_broadcasters)
+}
+
 /// Server function to search videos
 #[server(SearchVideos, "/api")]
 pub async fn search_videos(

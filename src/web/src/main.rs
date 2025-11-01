@@ -187,8 +187,8 @@ async fn main() {
 
     // Session layer with 7 day expiry and secure cookie settings
     let session_layer = SessionManagerLayer::new(session_store)
-        .with_expiry(Expiry::OnInactivity(time::Duration::days(7)))
-        .with_http_only(true)
+        .with_expiry(Expiry::OnInactivity(time::Duration::days(30)))
+        .with_http_only(config.debug)
         .with_same_site(tower_sessions::cookie::SameSite::Lax)
         .with_secure(!config.debug); // Use secure cookies in production only
 

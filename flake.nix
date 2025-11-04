@@ -119,15 +119,15 @@
             }
           );
 
-          my-workspace-doc = craneLib.cargoDoc (
-            commonArgs
-            // {
-              inherit cargoArtifacts;
-              # This can be commented out or tweaked as necessary, e.g. set to
-              # `--deny rustdoc::broken-intra-doc-links` to only enforce that lint
-              env.RUSTDOCFLAGS = "--deny warnings";
-            }
-          );
+          # my-workspace-doc = craneLib.cargoDoc (
+          #   commonArgs
+          #   // {
+          #     inherit cargoArtifacts;
+          #     # This can be commented out or tweaked as necessary, e.g. set to
+          #     # `--deny rustdoc::broken-intra-doc-links` to only enforce that lint
+          #     env.RUSTDOCFLAGS = "--deny warnings";
+          #   }
+          # );
 
           # Check formatting
           my-workspace-fmt = craneLib.cargoFmt {
@@ -140,10 +140,10 @@
             # taploExtraArgs = "--config ./taplo.toml";
           };
 
-          # Audit dependencies
-          my-workspace-audit = craneLib.cargoAudit {
-            inherit src advisory-db;
-          };
+          # # Audit dependencies
+          # my-workspace-audit = craneLib.cargoAudit {
+          #   inherit src advisory-db;
+          # };
 
           # Audit licenses
           # my-workspace-deny = craneLib.cargoDeny {

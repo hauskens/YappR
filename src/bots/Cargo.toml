@@ -8,20 +8,29 @@ name = "bot"
 path = "src/main.rs"
 
 [dependencies]
-yappr-shared = { path = "../shared", features = ["database"] }
-twitch_api.workspace = true
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "time"] }
-twitch_oauth2.workspace = true
+chrono.workspace = true
 eyre.workspace = true
+futures.workspace = true
+moka = { version = "0.12.11", features = ["future"] }
+regex.workspace = true
+reqwest.workspace = true
+sea-orm.workspace = true
+serde_json.workspace = true
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "macros",
+  "sync",
+  "time",
+] }
+tokio-tungstenite = { version = "0.28", features = [
+  "rustls-tls-webpki-roots",
+  "native-tls",
+  "url",
+] }
+
 tracing.workspace = true
 tracing-subscriber.workspace = true
-reqwest.workspace = true
-tokio-tungstenite = { version = "0.28", features = ["rustls-tls-webpki-roots", "native-tls", "url"] }
+twitch_api.workspace = true
+twitch_oauth2.workspace = true
 url.workspace = true
-futures.workspace = true
-sea-orm.workspace = true
-regex.workspace = true
-chrono.workspace = true
-serde_json.workspace = true
-moka = { version = "0.12.11", features = ["future"] }
-
+yappr-shared = { path = "../shared", features = ["database"] }

@@ -1,6 +1,6 @@
-use leptos::prelude::*;
 use crate::components::broadcaster::BroadcasterCard;
 use crate::server_fns::get_broadcasters_with_auth;
+use leptos::prelude::*;
 
 #[component]
 pub fn BroadcasterPage() -> impl IntoView {
@@ -8,12 +8,7 @@ pub fn BroadcasterPage() -> impl IntoView {
     let (search_term, set_search_term) = signal(String::new());
 
     // Resource that fetches broadcasters from the server
-    let broadcasters = Resource::new(
-        || (),
-        |_| async move {
-            get_broadcasters_with_auth().await
-        },
-    );
+    let broadcasters = Resource::new(|| (), |_| async move { get_broadcasters_with_auth().await });
 
     view! {
         <div class="container py-4">

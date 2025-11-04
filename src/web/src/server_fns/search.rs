@@ -1,7 +1,7 @@
 //! Server functions for search operations
 
-use leptos::prelude::*;
 use crate::server_fns::types::*;
+use leptos::prelude::*;
 
 #[cfg(feature = "ssr")]
 use yappr_shared::services::{channel::ChannelService, search::SearchService};
@@ -16,10 +16,10 @@ pub async fn search_videos(
     channel_type: String,
 ) -> Result<Vec<VideoResultData>, ServerFnError> {
     use axum::Extension;
+    use chrono::{DateTime, NaiveDate, Utc};
     use leptos_axum::extract;
     use sea_orm::DatabaseConnection;
     use std::sync::Arc;
-    use chrono::{DateTime, NaiveDate, Utc};
 
     let Extension(db) = extract::<Extension<Arc<DatabaseConnection>>>()
         .await
@@ -70,8 +70,8 @@ pub async fn search_videos(
     }
 
     // Batch load channels
-    use std::collections::{HashMap, HashSet};
     use sea_orm::{ColumnTrait, EntityTrait, QueryFilter};
+    use std::collections::{HashMap, HashSet};
     use yappr_shared::entities::prelude::*;
 
     let channel_ids_needed: Vec<i32> = results
@@ -87,10 +87,7 @@ pub async fn search_videos(
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to load channels: {}", e)))?;
 
-    let channel_map: HashMap<i32, _> = channels
-        .into_iter()
-        .map(|c| (c.id, c))
-        .collect();
+    let channel_map: HashMap<i32, _> = channels.into_iter().map(|c| (c.id, c)).collect();
 
     let mut video_results = Vec::new();
     for result in results {

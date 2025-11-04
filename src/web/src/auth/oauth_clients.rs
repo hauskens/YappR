@@ -1,22 +1,12 @@
-use std::str::FromStr;
-use openidconnect::{
-    AuthUrl,
-    ClientId,
-    ClientSecret,
-    EmptyAdditionalProviderMetadata,
-    IssuerUrl,
-    JsonWebKeySetUrl,
-    RedirectUrl,
-    ResponseTypes,
-    TokenUrl,
-};
 use openidconnect::core::{
-    CoreClient,
-    CoreProviderMetadata,
-    CoreResponseType,
+    CoreClient, CoreJwsSigningAlgorithm, CoreProviderMetadata, CoreResponseType,
     CoreSubjectIdentifierType,
-    CoreJwsSigningAlgorithm,
 };
+use openidconnect::{
+    AuthUrl, ClientId, ClientSecret, EmptyAdditionalProviderMetadata, IssuerUrl, JsonWebKeySetUrl,
+    RedirectUrl, ResponseTypes, TokenUrl,
+};
+use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum OAuthProvider {
@@ -72,9 +62,7 @@ pub fn create_oauth_client(
         IssuerUrl::new(issuer_url.to_string())?,
         AuthUrl::new(auth_url.to_string())?,
         JsonWebKeySetUrl::new(jwks_url.to_string())?,
-        vec![
-            ResponseTypes::new(vec![CoreResponseType::Code]),
-        ],
+        vec![ResponseTypes::new(vec![CoreResponseType::Code])],
         vec![CoreSubjectIdentifierType::Public],
         vec![CoreJwsSigningAlgorithm::RsaSsaPkcs1V15Sha256],
         EmptyAdditionalProviderMetadata {},
@@ -93,12 +81,7 @@ pub fn create_oauth_client(
 
 pub fn get_oauth_scopes(provider: OAuthProvider) -> Vec<String> {
     match provider {
-        OAuthProvider::Discord => vec![
-            "identify".to_string(),
-            "email".to_string(),
-        ],
-        OAuthProvider::Twitch => vec![
-            "user:read:email".to_string(),
-        ],
+        OAuthProvider::Discord => vec!["identify".to_string(), "email".to_string()],
+        OAuthProvider::Twitch => vec!["user:read:email".to_string()],
     }
 }

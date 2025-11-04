@@ -1,9 +1,9 @@
-use yappr_shared::entities::chatlogs;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, DbErr, Set};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 use tracing::{error, info, instrument};
+use yappr_shared::entities::chatlogs;
 
 /// Batched chatlog service for efficient database writes
 pub struct ChatlogService {

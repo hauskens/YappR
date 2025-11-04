@@ -9,7 +9,11 @@ pub struct SegmentsResult {
 }
 
 impl SegmentsResult {
-    pub fn new(segments: Vec<segments::Model>, video: video::Model, search_words: Vec<String>) -> Self {
+    pub fn new(
+        segments: Vec<segments::Model>,
+        video: video::Model,
+        search_words: Vec<String>,
+    ) -> Self {
         Self {
             segments,
             video,
@@ -37,20 +41,12 @@ impl SegmentsResult {
 
     /// Get the start time of the earliest segment
     pub fn start_time(&self) -> i32 {
-        self.segments
-            .iter()
-            .map(|s| s.start)
-            .min()
-            .unwrap_or(0)
+        self.segments.iter().map(|s| s.start).min().unwrap_or(0)
     }
 
     /// Get the end time of the latest segment
     pub fn end_time(&self) -> i32 {
-        self.segments
-            .iter()
-            .map(|s| s.end)
-            .max()
-            .unwrap_or(0)
+        self.segments.iter().map(|s| s.end).max().unwrap_or(0)
     }
 
     /// Get the duration in seconds
@@ -64,7 +60,7 @@ impl SegmentsResult {
         self.segments.first().map(|segment| {
             // This will be implemented by SegmentService
             // For now, return a placeholder
-            format!("video/{}/{}",  self.video.id, segment.start)
+            format!("video/{}/{}", self.video.id, segment.start)
         })
     }
 }

@@ -72,7 +72,8 @@ impl ModerationService {
         );
 
         // Calculate expiration time if duration provided
-        let expires_at = duration_seconds.map(|dur| (Utc::now() + Duration::seconds(dur as i64)).naive_utc());
+        let expires_at =
+            duration_seconds.map(|dur| (Utc::now() + Duration::seconds(dur as i64)).naive_utc());
 
         // Create moderation action
         let action = moderation_actions::ActiveModel {
@@ -93,13 +94,14 @@ impl ModerationService {
 
         // Update user's global ban status if global scope
         if matches!(scope, ModerationScope::Global) {
-            let user = Users::find_by_id(target_user_id)
-                .one(db)
-                .await?
-                .ok_or(DbErr::RecordNotFound(format!(
-                    "User {} not found",
-                    target_user_id
-                )))?;
+            let user =
+                Users::find_by_id(target_user_id)
+                    .one(db)
+                    .await?
+                    .ok_or(DbErr::RecordNotFound(format!(
+                        "User {} not found",
+                        target_user_id
+                    )))?;
 
             let mut user_active: users::ActiveModel = user.into();
             user_active.globally_banned = Set(true);
@@ -108,10 +110,7 @@ impl ModerationService {
             user_active.update(db).await?;
         }
 
-        info!(
-            action_id = inserted_action.id,
-            "User banned successfully"
-        );
+        info!(action_id = inserted_action.id, "User banned successfully");
 
         Ok(inserted_action)
     }
@@ -144,13 +143,14 @@ impl ModerationService {
 
         // Update user's global ban status if global scope
         if matches!(scope, ModerationScope::Global)
-            && let Some(user) = Users::find_by_id(target_user_id).one(db).await? {
-                let mut user_active: users::ActiveModel = user.into();
-                user_active.globally_banned = Set(false);
-                user_active.global_ban_reason = Set(None);
-                user_active.global_ban_expires_at = Set(None);
-                user_active.update(db).await?;
-            }
+            && let Some(user) = Users::find_by_id(target_user_id).one(db).await?
+        {
+            let mut user_active: users::ActiveModel = user.into();
+            user_active.globally_banned = Set(false);
+            user_active.global_ban_reason = Set(None);
+            user_active.global_ban_expires_at = Set(None);
+            user_active.update(db).await?;
+        }
 
         info!("User unbanned successfully");
         Ok(())

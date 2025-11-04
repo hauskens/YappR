@@ -27,8 +27,7 @@ fn main() {
     let icons_dest = Path::new("public/vendor/bootstrap-icons");
 
     // Create destination directories
-    fs::create_dir_all(bootstrap_dest)
-        .expect("Failed to create public/vendor/bootstrap directory");
+    fs::create_dir_all(bootstrap_dest).expect("Failed to create public/vendor/bootstrap directory");
     fs::create_dir_all(icons_dest)
         .expect("Failed to create public/vendor/bootstrap-icons directory");
 
@@ -41,13 +40,18 @@ fn main() {
             .unwrap_or_else(|e| panic!("Failed to copy Bootswatch Pulse theme: {}", e));
         println!("cargo:warning=Copied Bootswatch Pulse theme");
     } else {
-        println!("cargo:warning=Bootswatch Pulse theme not found, falling back to default Bootstrap");
+        println!(
+            "cargo:warning=Bootswatch Pulse theme not found, falling back to default Bootstrap"
+        );
     }
 
     // Bootstrap JS files to copy with their source maps
     let bootstrap_files = [
         ("js/bootstrap.bundle.min.js", "bootstrap.bundle.min.js"),
-        ("js/bootstrap.bundle.min.js.map", "bootstrap.bundle.min.js.map"),
+        (
+            "js/bootstrap.bundle.min.js.map",
+            "bootstrap.bundle.min.js.map",
+        ),
     ];
 
     for (src_path, dest_name) in &bootstrap_files {
@@ -59,14 +63,15 @@ fn main() {
                 .unwrap_or_else(|e| panic!("Failed to copy {:?} to {:?}: {}", src, dest, e));
             println!("cargo:warning=Copied Bootstrap file: {}", dest_name);
         } else {
-            println!("cargo:warning=Bootstrap file not found (skipping): {:?}", src);
+            println!(
+                "cargo:warning=Bootstrap file not found (skipping): {:?}",
+                src
+            );
         }
     }
 
     // Bootstrap Icons CSS file
-    let icons_css_files = [
-        ("bootstrap-icons.min.css", "bootstrap-icons.min.css"),
-    ];
+    let icons_css_files = [("bootstrap-icons.min.css", "bootstrap-icons.min.css")];
 
     for (src_name, dest_name) in &icons_css_files {
         let src = icons_src.join(src_name);
@@ -77,7 +82,10 @@ fn main() {
                 .unwrap_or_else(|e| panic!("Failed to copy {:?} to {:?}: {}", src, dest, e));
             println!("cargo:warning=Copied Bootstrap Icons file: {}", dest_name);
         } else {
-            println!("cargo:warning=Bootstrap Icons file not found (skipping): {:?}", src);
+            println!(
+                "cargo:warning=Bootstrap Icons file not found (skipping): {:?}",
+                src
+            );
         }
     }
 
@@ -86,8 +94,7 @@ fn main() {
     let fonts_dest = icons_dest.join("fonts");
 
     if fonts_src.exists() {
-        fs::create_dir_all(&fonts_dest)
-            .expect("Failed to create fonts directory");
+        fs::create_dir_all(&fonts_dest).expect("Failed to create fonts directory");
 
         if let Ok(entries) = fs::read_dir(&fonts_src) {
             for entry in entries.flatten() {

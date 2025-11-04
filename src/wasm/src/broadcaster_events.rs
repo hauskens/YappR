@@ -1,6 +1,8 @@
-use yew::prelude::*;
-use crate::generic_table::{GenericTable, TableColumn, ColumnRenderType, SortOrder, CustomFilter, FilterOption};
+use crate::generic_table::{
+    ColumnRenderType, CustomFilter, FilterOption, GenericTable, SortOrder, TableColumn,
+};
 use std::collections::HashMap;
+use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct BroadcasterEventsTableProps {
@@ -17,7 +19,7 @@ pub fn broadcaster_events_table(props: &BroadcasterEventsTableProps) -> Html {
     event_type_colors.insert("Raid".to_string(), "info".to_string());
     event_type_colors.insert("Follow".to_string(), "danger".to_string());
     event_type_colors.insert("Cheer".to_string(), "purple".to_string());
-    
+
     let columns = vec![
         TableColumn {
             key: "event_type".to_string(),
@@ -25,7 +27,9 @@ pub fn broadcaster_events_table(props: &BroadcasterEventsTableProps) -> Html {
             width: Some("120px".to_string()),
             sortable: true,
             searchable: true,
-            render_type: ColumnRenderType::Badge { color_map: Some(event_type_colors) },
+            render_type: ColumnRenderType::Badge {
+                color_map: Some(event_type_colors),
+            },
         },
         TableColumn {
             key: "channel_name".to_string(),
@@ -69,22 +73,35 @@ pub fn broadcaster_events_table(props: &BroadcasterEventsTableProps) -> Html {
         },
     ];
 
-    let custom_filters = vec![
-        CustomFilter {
-            key: "event_type".to_string(),
-            label: "Types".to_string(),
-            options: vec![
-                FilterOption { value: "live".to_string(), label: "Live".to_string() },
-                FilterOption { value: "offline".to_string(), label: "Offline".to_string() },
-                FilterOption { value: "subscription".to_string(), label: "Subscription".to_string() },
-                FilterOption { value: "gift".to_string(), label: "Gift".to_string() },
-                FilterOption { value: "raid".to_string(), label: "Raid".to_string() },
-            ],
-        },
-    ];
+    let custom_filters = vec![CustomFilter {
+        key: "event_type".to_string(),
+        label: "Types".to_string(),
+        options: vec![
+            FilterOption {
+                value: "live".to_string(),
+                label: "Live".to_string(),
+            },
+            FilterOption {
+                value: "offline".to_string(),
+                label: "Offline".to_string(),
+            },
+            FilterOption {
+                value: "subscription".to_string(),
+                label: "Subscription".to_string(),
+            },
+            FilterOption {
+                value: "gift".to_string(),
+                label: "Gift".to_string(),
+            },
+            FilterOption {
+                value: "raid".to_string(),
+                label: "Raid".to_string(),
+            },
+        ],
+    }];
 
     html! {
-        <GenericTable 
+        <GenericTable
             data_endpoint={format!("/broadcaster/{}/events_data", props.broadcaster_id)}
             columns={columns}
             title={"Broadcaster Events".to_string()}
@@ -97,14 +114,19 @@ pub fn broadcaster_events_table(props: &BroadcasterEventsTableProps) -> Html {
     }
 }
 
-pub fn render_broadcaster_events_table(broadcaster_id: i32, element_id: &str) -> Result<(), String> {
+pub fn render_broadcaster_events_table(
+    broadcaster_id: i32,
+    element_id: &str,
+) -> Result<(), String> {
     let document = web_sys::window().unwrap().document().unwrap();
-    let element = document.get_element_by_id(element_id)
+    let element = document
+        .get_element_by_id(element_id)
         .ok_or(format!("Element with id '{}' not found", element_id))?;
-    
+
     yew::Renderer::<BroadcasterEventsTable>::with_root_and_props(
-        element, 
-        BroadcasterEventsTableProps { broadcaster_id }
-    ).render();
+        element,
+        BroadcasterEventsTableProps { broadcaster_id },
+    )
+    .render();
     Ok(())
 }

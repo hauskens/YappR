@@ -3,7 +3,7 @@ use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use tokio::time::{interval, Duration};
+use tokio::time::{Duration, interval};
 use tracing::{info, instrument};
 use yappr_shared::entities::{channels, prelude::*};
 
@@ -35,7 +35,9 @@ impl ChannelManager {
         let cache = self.settings_cache.read().await;
         cache
             .iter()
-            .filter(|(_, settings)| settings.chat_collection_enabled || settings.content_queue_enabled)
+            .filter(|(_, settings)| {
+                settings.chat_collection_enabled || settings.content_queue_enabled
+            })
             .map(|(channel_id, _)| channel_id.clone())
             .collect()
     }
@@ -97,11 +99,16 @@ impl ChannelManager {
     }
 
     /// Get list of channel IDs that changed (new channels to subscribe, old channels to unsubscribe)
-    pub async fn get_channel_changes(&self, current_subscriptions: &[String]) -> (Vec<String>, Vec<String>) {
+    pub async fn get_channel_changes(
+        &self,
+        current_subscriptions: &[String],
+    ) -> (Vec<String>, Vec<String>) {
         let cache = self.settings_cache.read().await;
         let enabled_channels: Vec<String> = cache
             .iter()
-            .filter(|(_, settings)| settings.chat_collection_enabled || settings.content_queue_enabled)
+            .filter(|(_, settings)| {
+                settings.chat_collection_enabled || settings.content_queue_enabled
+            })
             .map(|(channel_id, _)| channel_id.clone())
             .collect();
 

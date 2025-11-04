@@ -16,7 +16,8 @@ pub async fn logout_user() -> Result<(), ServerFnError> {
 
     let mut auth: AuthSession = extract().await?;
 
-    auth.logout().await
+    auth.logout()
+        .await
         .map_err(|e| ServerFnError::new(format!("Logout error: {:?}", e)))?;
 
     Ok(())
@@ -44,7 +45,10 @@ pub async fn get_protected_content() -> Result<String, ServerFnError> {
     let auth: AuthSession = extract().await?;
 
     match auth.user {
-        Some(user) => Ok(format!("Hello, {}! This is a protected route.", user.0.name)),
+        Some(user) => Ok(format!(
+            "Hello, {}! This is a protected route.",
+            user.0.name
+        )),
         None => Err(ServerFnError::new("Unauthorized")),
     }
 }
@@ -57,9 +61,7 @@ pub fn LoginPage() -> impl IntoView {
     // Use a resource to fetch current user (handles SSR properly)
     let current_user_resource = Resource::new(
         move || trigger_reload.get(),
-        |_| async move {
-            get_current_user().await.ok().flatten()
-        }
+        |_| async move { get_current_user().await.ok().flatten() },
     );
 
     // Action for logout (handle async properly without spawn_local)
@@ -159,9 +161,7 @@ pub fn LoginPage() -> impl IntoView {
 #[component]
 pub fn ProtectedPage() -> impl IntoView {
     // Use a resource to fetch protected content (handles SSR properly)
-    let protected_resource = Resource::new(|| (), |_| async move {
-        get_protected_content().await
-    });
+    let protected_resource = Resource::new(|| (), |_| async move { get_protected_content().await });
 
     view! {
         <div class="container mt-5">

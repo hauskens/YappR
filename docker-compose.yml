@@ -163,10 +163,11 @@ services:
     command: "--http_port 8222 --jetstream"
 
   web:
+    image: ${REGISTRY-}yappr-web${VERSION-}
     build:
       context: .
       dockerfile: src/web/Dockerfile
-      target: development
+      # target: development
     ports:
       - "3000:3000"
       - "3001:3001"

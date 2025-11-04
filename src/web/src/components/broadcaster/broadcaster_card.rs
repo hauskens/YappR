@@ -1,9 +1,8 @@
-use leptos::prelude::*;
 use crate::server_fns::BroadcasterData;
+use leptos::prelude::*;
 
 #[component]
 pub fn BroadcasterCard(broadcaster: BroadcasterData) -> impl IntoView {
-    // Generate URL for viewing broadcaster details
     let broadcaster_url = format!("/broadcasters/{}", broadcaster.id);
 
     view! {
@@ -36,7 +35,8 @@ pub fn BroadcasterCard(broadcaster: BroadcasterData) -> impl IntoView {
                                 </span>
                             }.into_any()
                         } else {
-                            view! { <></> }.into_any()
+                            let _: () = view! { <></> };
+                            ().into_any()
                         }}
                     </div>
                     <div class="mt-auto">

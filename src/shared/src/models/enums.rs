@@ -1,5 +1,5 @@
-use strum_macros::{Display, EnumString};
 use crate::models::platforms::BasePlatform;
+use strum_macros::{Display, EnumString};
 
 /// Note: This is stored as String in the database, not an enum type
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Display, EnumString)]
@@ -11,7 +11,7 @@ pub enum ChannelRole {
     #[strum(to_string = "VIP")]
     Vip,
     #[strum(to_string = "Subscriber")]
-    Subscriber, 
+    Subscriber,
     #[strum(to_string = "Follower")]
     Follower,
     #[strum(to_string = "Basic")]
@@ -30,7 +30,7 @@ impl ChannelRole {
             Self::Basic => 10,
         }
     }
-    
+
     pub fn description(&self) -> &'static str {
         match self {
             Self::Owner => "Channel owner with full administrative privileges",
@@ -44,23 +44,23 @@ impl ChannelRole {
 
     pub fn background_color(&self) -> &'static str {
         match self {
-            Self::Owner => "#ff6b6b", // Red
-            Self::Mod => "#4ecdc4", // Teal
-            Self::Vip => "#ffe66d", // Yellow
+            Self::Owner => "#ff6b6b",      // Red
+            Self::Mod => "#4ecdc4",        // Teal
+            Self::Vip => "#ffe66d",        // Yellow
             Self::Subscriber => "#a8e6cf", // Light green
-            Self::Follower => "#dcedc8", // Very light green
-            Self::Basic => "#f5f5f5", // Light gray
+            Self::Follower => "#dcedc8",   // Very light green
+            Self::Basic => "#f5f5f5",      // Light gray
         }
     }
 
     pub fn text_color(&self) -> &'static str {
         match self {
-            Self::Owner => "#ffffff", // White
-            Self::Mod => "#ffffff", // White
-            Self::Vip => "#2c3e50", // Dark gray
+            Self::Owner => "#ffffff",      // White
+            Self::Mod => "#ffffff",        // White
+            Self::Vip => "#2c3e50",        // Dark gray
             Self::Subscriber => "#2c3e50", // Dark gray
-            Self::Follower => "#2c3e50", // Dark gray
-            Self::Basic => "#2c3e50", // Dark gray
+            Self::Follower => "#2c3e50",   // Dark gray
+            Self::Basic => "#2c3e50",      // Dark gray
         }
     }
 

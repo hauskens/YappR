@@ -1,20 +1,23 @@
-use dotenv::dotenv;
-use std::{env, str::FromStr, net::IpAddr};
 use crate::types::Environment;
+use dotenv::dotenv;
 use semver::Version;
-use url::Url;
-use tracing::{info, warn, error, instrument, debug};
-#[cfg(feature = "twitch")]
-use twitch_oauth2;
+use std::{env, net::IpAddr, str::FromStr};
+use tracing::{debug, error, info, instrument, warn};
 #[cfg(feature = "twitch")]
 use twitch_api;
-
+#[cfg(feature = "twitch")]
+use twitch_oauth2;
+use url::Url;
 
 // Helper for strings
 #[instrument(level = "debug")]
 fn env_or(key: &str, default: &str) -> String {
     let value = env::var(key).unwrap_or_else(|_| {
-        debug!(key = key, default_value = default, "Using default environment value");
+        debug!(
+            key = key,
+            default_value = default,
+            "Using default environment value"
+        );
         default.to_string()
     });
     debug!(key = key, value = %value, "Environment variable loaded");
@@ -44,7 +47,7 @@ fn env_or_parse<T: FromStr>(key: &str, default: T) -> T {
                 warn!(key = key, raw_value = %s, "Failed to parse environment variable, using default");
                 default
             }
-        }
+        },
         Err(_) => {
             debug!(key = key, "Environment variable not set, using default");
             default
@@ -82,7 +85,6 @@ pub struct Config {
     #[cfg(feature = "twitch")]
     pub bot_user_id: Option<twitch_api::types::UserId>,
 
-
     #[cfg(feature = "database")]
     pub database: DatabaseConfig,
 
@@ -100,7 +102,6 @@ pub struct Config {
 
     #[cfg(feature = "job-queue")]
     pub nats: NATSConfig,
-
 }
 
 #[cfg(feature = "twitch")]
@@ -134,8 +135,8 @@ pub struct DatabaseConfig {
 #[cfg(feature = "redis-client")]
 #[derive(Debug, Clone)]
 pub enum RedisScheme {
-    Redis,      // redis://
-    RedisTls,   // rediss://
+    Redis,       // redis://
+    RedisTls,    // rediss://
     RedisSocket, // redis+unix://
 }
 
@@ -154,7 +155,10 @@ impl FromStr for RedisScheme {
             "redis" => Ok(RedisScheme::Redis),
             "rediss" => Ok(RedisScheme::RedisTls),
             "redis+unix" => Ok(RedisScheme::RedisSocket),
-            _ => Err(format!("Invalid Redis scheme: '{}'. Valid options are: redis, rediss, redis+unix", s)),
+            _ => Err(format!(
+                "Invalid Redis scheme: '{}'. Valid options are: redis, rediss, redis+unix",
+                s
+            )),
         }
     }
 }
@@ -176,14 +180,27 @@ impl Config {
         let config = Config {
             debug: env_or_parse("DEBUG", false),
             server_port: env_or_parse("PORT", 5000),
-            server_host: env_or("HOST", "0.0.0.0").parse::<IpAddr>().expect("Invalid ip address format"),
-            server_url: env_or("SERVER_URL", "http://localhost:3000").parse::<Url>().expect("Invalid server url format"),
-            environment: env_or("ENVIRONMENT", "dev").parse::<Environment>().expect("Invalid environment name"),
+            server_host: env_or("HOST", "0.0.0.0")
+                .parse::<IpAddr>()
+                .expect("Invalid ip address format"),
+            server_url: env_or("SERVER_URL", "http://localhost:3000")
+                .parse::<Url>()
+                .expect("Invalid server url format"),
+            environment: env_or("ENVIRONMENT", "dev")
+                .parse::<Environment>()
+                .expect("Invalid environment name"),
             service_name: env_required("SERVICE_NAME"),
-            version: env_or("VERSION", "0.0.0").replace(":", "").parse::<Version>().expect("Invalid version format"),
-            loki_url: env_or_option("LOKI_URL").map(|url| Url::parse(&url).expect("Invalid loki url format")),
+            version: env_or("VERSION", "0.0.0")
+                .replace(":", "")
+                .parse::<Version>()
+                .expect("Invalid version format"),
+            loki_url: env_or_option("LOKI_URL")
+                .map(|url| Url::parse(&url).expect("Invalid loki url format")),
             storage_location: env_or("STORAGE_LOCATION", "/var/lib/yappr/data"),
-            session_secret: env_or("SESSION_SECRET", "dev-secret-change-in-production-min-32-chars"),
+            session_secret: env_or(
+                "SESSION_SECRET",
+                "dev-secret-change-in-production-min-32-chars",
+            ),
             #[cfg(feature = "twitch")]
             bot_user_id: env_or_option("BOT_USER_ID").map(twitch_api::types::UserId::from),
             #[cfg(feature = "database")]
@@ -210,8 +227,6 @@ impl Config {
 
         config
     }
-
-
 }
 
 #[cfg(feature = "database")]
@@ -220,7 +235,11 @@ impl DatabaseConfig {
     pub fn load() -> Self {
         debug!("Loading database configuration");
         let config = DatabaseConfig {
-            url: env_or("DB_URI", "postgresql://postgres:mysecretpassword@localhost:5432/postgres").replace("+psycopg", ""),
+            url: env_or(
+                "DB_URI",
+                "postgresql://postgres:mysecretpassword@localhost:5432/postgres",
+            )
+            .replace("+psycopg", ""),
             max_connections: env_or_parse("DB_MAX_CONNECTIONS", 100),
             min_connections: env_or_parse("DB_MIN_CONNECTIONS", 5),
         };
@@ -248,11 +267,16 @@ impl RedisConfig {
     pub fn load() -> Self {
         debug!("Loading Redis configuration");
         let config = RedisConfig {
-            scheme: env_or("REDIS_SCHEME", "redis").parse::<RedisScheme>().expect("Invalid Redis scheme"),
+            scheme: env_or("REDIS_SCHEME", "redis")
+                .parse::<RedisScheme>()
+                .expect("Invalid Redis scheme"),
             host: env_or("REDIS_HOST", "localhost"),
             port: env_or_parse("REDIS_PORT", 6379),
         };
-        debug!("Redis configuration loaded: {:?}://{}:{}", config.scheme, config.host, config.port);
+        debug!(
+            "Redis configuration loaded: {:?}://{}:{}",
+            config.scheme, config.host, config.port
+        );
         config
     }
 }
@@ -263,8 +287,12 @@ impl TwitchConfig {
     pub fn load() -> Self {
         debug!("Loading Twitch API configuration");
         let config = TwitchConfig {
-            client_id: env_required("TWITCH_CLIENT_ID").parse::<twitch_oauth2::ClientId>().expect("Invalid client id"),
-            client_secret: env_required("TWITCH_CLIENT_SECRET").parse::<twitch_oauth2::ClientSecret>().expect("Invalid client secret"),
+            client_id: env_required("TWITCH_CLIENT_ID")
+                .parse::<twitch_oauth2::ClientId>()
+                .expect("Invalid client id"),
+            client_secret: env_required("TWITCH_CLIENT_SECRET")
+                .parse::<twitch_oauth2::ClientSecret>()
+                .expect("Invalid client secret"),
         };
         debug!("Twitch API configuration loaded successfully");
         config
@@ -310,4 +338,3 @@ impl NATSConfig {
         config
     }
 }
-

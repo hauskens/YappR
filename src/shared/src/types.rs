@@ -14,9 +14,9 @@ impl FromStr for Environment {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "dev" => Ok(Environment::Dev),
-            "staging" => Ok(Environment::Staging),
-            "prod" => Ok(Environment::Prod),
+            "dev" | "development" => Ok(Environment::Dev),
+            "stage" | "staging" => Ok(Environment::Staging),
+            "prod" | "production" => Ok(Environment::Prod),
             _ => Err(format!("Invalid environment: {}", s)),
         }
     }

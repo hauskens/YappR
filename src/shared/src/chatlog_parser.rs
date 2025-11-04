@@ -5,7 +5,7 @@ use regex::Regex;
 use sea_orm::*;
 use std::fs;
 use std::path::PathBuf;
-use tracing::{warn, error, instrument, debug};
+use tracing::{debug, error, instrument, warn};
 
 #[cfg(feature = "database")]
 use crate::entities::prelude::*;
@@ -302,11 +302,8 @@ pub struct DuplicateChecker {
 #[cfg(feature = "database")]
 impl DuplicateChecker {
     pub fn new(margin_ms: i64) -> Self {
-        Self {
-            margin_ms,
-        }
+        Self { margin_ms }
     }
-
 
     pub async fn find_gaps_and_fill(
         &self,
@@ -400,7 +397,11 @@ impl DuplicateChecker {
                 // Check for duplicates based on timestamp, event type, and raw message
                 if time_diff <= margin_duration
                     && new_event.event_type == existing_event.event_type
-                    && new_event.raw_message == *existing_event.raw_message.as_ref().unwrap_or(&String::new())
+                    && new_event.raw_message
+                        == *existing_event
+                            .raw_message
+                            .as_ref()
+                            .unwrap_or(&String::new())
                 {
                     is_duplicate = true;
                     break;
@@ -521,7 +522,6 @@ pub async fn parse_chatlogs_command(
 
         // Handle chat messages (duplicate detection and gap filling)
         if !events_only && !chat_messages.is_empty() {
-
             let messages_to_insert = duplicate_checker
                 .find_gaps_and_fill(db, channel_id, &chat_messages)
                 .await?;
@@ -576,7 +576,9 @@ pub async fn parse_chatlogs_command(
                 println!("  Would perform event gap filling analysis");
                 channel_events // Just use all events for dry run
             } else {
-                duplicate_checker.find_event_gaps_and_fill(db, channel_id, &channel_events).await?
+                duplicate_checker
+                    .find_event_gaps_and_fill(db, channel_id, &channel_events)
+                    .await?
             };
 
             if dry_run {
@@ -904,7 +906,6 @@ mod tests {
         assert!(result.is_none());
     }
 
-
     #[test]
     fn test_parse_multiple_message_types() {
         let parser = ChatLogParser::new();
@@ -926,8 +927,7 @@ mod tests {
         let mut event_count = 0;
 
         for line in lines {
-            let result =
-                parser.parse_line(line, &mut base_date, &mut last_timestamp, 1, "UTC", 1);
+            let result = parser.parse_line(line, &mut base_date, &mut last_timestamp, 1, "UTC", 1);
             match result {
                 Some(ParsedItem::ChatLog(_)) => chat_count += 1,
                 Some(ParsedItem::ChannelEvent(_)) => event_count += 1,

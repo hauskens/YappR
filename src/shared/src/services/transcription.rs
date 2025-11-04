@@ -2,8 +2,8 @@ use crate::entities::{prelude::*, segments, transcriptions, video};
 use crate::models::transcription::{SingleSegment, TranscriptionResult};
 use chrono::{DateTime, Utc};
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait,
-    PaginatorTrait, QueryFilter, QueryOrder, Set,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, PaginatorTrait,
+    QueryFilter, QueryOrder, Set,
 };
 use serde_json;
 use tracing::{info, instrument};
@@ -65,8 +65,8 @@ impl TranscriptionService {
             "Fetching sorted segments for transcription"
         );
 
-        let mut query = Segments::find()
-            .filter(segments::Column::TranscriptionId.eq(transcription.id));
+        let mut query =
+            Segments::find().filter(segments::Column::TranscriptionId.eq(transcription.id));
 
         query = if descending {
             query.order_by_desc(segments::Column::Start)
@@ -144,10 +144,7 @@ impl TranscriptionService {
         let active_model: transcriptions::ActiveModel = transcription.into();
         active_model.delete(db).await?;
 
-        info!(
-            transcription_id = transcription_id,
-            "Transcription deleted"
-        );
+        info!(transcription_id = transcription_id, "Transcription deleted");
 
         Ok(())
     }
@@ -187,9 +184,10 @@ impl TranscriptionService {
             // Skip duplicates if same as previous
             if let Some(_prev_id) = previous_segment_id
                 && let Some(prev_seg) = created_segments.last()
-                    && prev_seg.text == text {
-                        continue;
-                    }
+                && prev_seg.text == text
+            {
+                continue;
+            }
 
             // Create new segment
             let new_segment = segments::ActiveModel {
@@ -206,11 +204,12 @@ impl TranscriptionService {
 
             // Update previous segment's next_segment_id
             if let Some(prev_id) = previous_segment_id
-                && let Some(prev_seg) = Segments::find_by_id(prev_id).one(db).await? {
-                    let mut prev_active: segments::ActiveModel = prev_seg.into();
-                    prev_active.next_segment_id = Set(Some(inserted.id));
-                    prev_active.update(db).await?;
-                }
+                && let Some(prev_seg) = Segments::find_by_id(prev_id).one(db).await?
+            {
+                let mut prev_active: segments::ActiveModel = prev_seg.into();
+                prev_active.next_segment_id = Set(Some(inserted.id));
+                prev_active.update(db).await?;
+            }
 
             previous_segment_id = Some(inserted.id);
             created_segments.push(inserted);
@@ -273,9 +272,10 @@ impl TranscriptionService {
                     let end_str = parts[1].trim();
 
                     // Parse timestamps
-                    if let (Ok(start), Ok(end)) =
-                        (Self::parse_vtt_timestamp(start_str), Self::parse_vtt_timestamp(end_str))
-                    {
+                    if let (Ok(start), Ok(end)) = (
+                        Self::parse_vtt_timestamp(start_str),
+                        Self::parse_vtt_timestamp(end_str),
+                    ) {
                         // Get text from next line
                         i += 1;
                         if i < lines.len() {
@@ -291,10 +291,11 @@ impl TranscriptionService {
                             }
 
                             if let Some(prev_text) = &previous_text
-                                && prev_text == &text {
-                                    i += 1;
-                                    continue;
-                                }
+                                && prev_text == &text
+                            {
+                                i += 1;
+                                continue;
+                            }
 
                             // Create segment
                             let new_segment = segments::ActiveModel {
@@ -311,12 +312,13 @@ impl TranscriptionService {
 
                             // Update previous segment's next_segment_id
                             if let Some(prev_id) = previous_segment_id
-                                && let Some(prev_seg) = Segments::find_by_id(prev_id).one(db).await?
-                                {
-                                    let mut prev_active: segments::ActiveModel = prev_seg.into();
-                                    prev_active.next_segment_id = Set(Some(inserted.id));
-                                    prev_active.update(db).await?;
-                                }
+                                && let Some(prev_seg) =
+                                    Segments::find_by_id(prev_id).one(db).await?
+                            {
+                                let mut prev_active: segments::ActiveModel = prev_seg.into();
+                                prev_active.next_segment_id = Set(Some(inserted.id));
+                                prev_active.update(db).await?;
+                            }
 
                             previous_segment_id = Some(inserted.id);
                             previous_text = Some(text);
@@ -350,8 +352,12 @@ impl TranscriptionService {
 
         if parts.len() == 3 {
             // HH:MM:SS.mmm
-            let hours: i32 = parts[0].parse().map_err(|e| format!("Invalid hours: {}", e))?;
-            let minutes: i32 = parts[1].parse().map_err(|e| format!("Invalid minutes: {}", e))?;
+            let hours: i32 = parts[0]
+                .parse()
+                .map_err(|e| format!("Invalid hours: {}", e))?;
+            let minutes: i32 = parts[1]
+                .parse()
+                .map_err(|e| format!("Invalid minutes: {}", e))?;
             let secs_parts: Vec<&str> = parts[2].split('.').collect();
             let secs: i32 = secs_parts[0]
                 .parse()
@@ -360,7 +366,9 @@ impl TranscriptionService {
             seconds = hours * 3600 + minutes * 60 + secs;
         } else if parts.len() == 2 {
             // MM:SS.mmm
-            let minutes: i32 = parts[0].parse().map_err(|e| format!("Invalid minutes: {}", e))?;
+            let minutes: i32 = parts[0]
+                .parse()
+                .map_err(|e| format!("Invalid minutes: {}", e))?;
             let secs_parts: Vec<&str> = parts[1].split('.').collect();
             let secs: i32 = secs_parts[0]
                 .parse()

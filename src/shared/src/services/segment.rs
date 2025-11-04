@@ -9,13 +9,19 @@ pub struct SegmentService;
 impl SegmentService {
     /// Get a segment by its ID
     #[instrument(level = "info", skip(db))]
-    pub async fn get_by_id(db: &DatabaseConnection, segment_id: i32) -> Result<segments::Model, DbErr> {
+    pub async fn get_by_id(
+        db: &DatabaseConnection,
+        segment_id: i32,
+    ) -> Result<segments::Model, DbErr> {
         info!(segment_id = segment_id, "Fetching segment by ID");
 
         Segments::find_by_id(segment_id)
             .one(db)
             .await?
-            .ok_or(DbErr::RecordNotFound(format!("Segment {} not found", segment_id)))
+            .ok_or(DbErr::RecordNotFound(format!(
+                "Segment {} not found",
+                segment_id
+            )))
     }
 
     /// Get URL with timestamp for a segment
@@ -80,11 +86,9 @@ impl SegmentService {
             )))?;
 
         // Determine platform from channel
-        let platform = VideoPlatform::get_from_str(&channel.platform_name)
-            .ok_or(DbErr::Custom(format!(
-                "Invalid platform: {}",
-                channel.platform_name
-            )))?;
+        let platform = VideoPlatform::get_from_str(&channel.platform_name).ok_or(DbErr::Custom(
+            format!("Invalid platform: {}", channel.platform_name),
+        ))?;
 
         Ok(Self::get_url_timestamped(
             &video.platform_ref,
@@ -130,10 +134,7 @@ impl SegmentService {
         db: &DatabaseConnection,
         segment: &segments::Model,
     ) -> Result<(Option<segments::Model>, Option<segments::Model>), DbErr> {
-        info!(
-            segment_id = segment.id,
-            "Fetching adjacent segments"
-        );
+        info!(segment_id = segment.id, "Fetching adjacent segments");
 
         let previous = if let Some(prev_id) = segment.previous_segment_id {
             Segments::find_by_id(prev_id).one(db).await?
@@ -162,34 +163,20 @@ mod tests {
 
     #[test]
     fn test_get_url_timestamped_youtube() {
-        let url = SegmentService::get_url_timestamped(
-            "dQw4w9WgXcQ",
-            VideoPlatform::YouTube,
-            100,
-            5,
-        );
+        let url =
+            SegmentService::get_url_timestamped("dQw4w9WgXcQ", VideoPlatform::YouTube, 100, 5);
         assert_eq!(url, "https://youtube.com/watch?v=dQw4w9WgXcQ&t=95");
     }
 
     #[test]
     fn test_get_url_timestamped_youtube_no_negative() {
-        let url = SegmentService::get_url_timestamped(
-            "dQw4w9WgXcQ",
-            VideoPlatform::YouTube,
-            3,
-            5,
-        );
+        let url = SegmentService::get_url_timestamped("dQw4w9WgXcQ", VideoPlatform::YouTube, 3, 5);
         assert_eq!(url, "https://youtube.com/watch?v=dQw4w9WgXcQ&t=0");
     }
 
     #[test]
     fn test_get_url_timestamped_twitch() {
-        let url = SegmentService::get_url_timestamped(
-            "1234567890",
-            VideoPlatform::Twitch,
-            100,
-            5,
-        );
+        let url = SegmentService::get_url_timestamped("1234567890", VideoPlatform::Twitch, 100, 5);
         assert_eq!(url, "https://twitch.tv/videos/1234567890?t=00h01m35s");
     }
 }

@@ -1,20 +1,19 @@
-use eyre::Context;
-use tokio_tungstenite::tungstenite;
-use twitch_api::{
-    eventsub::{
-        self,
-        event::websocket::{EventsubWebsocketData, ReconnectPayload, SessionData, WelcomePayload},
-        Event,
-    },
-    types::{self},
-    HelixClient,
-};
-use twitch_oauth2::{TwitchToken, UserToken};
-use crate::twitch_auth;
 use crate::channel_manager::ChannelManager;
 use crate::message_handler::MessageHandler;
 use crate::moderation_handler::ModerationHandler;
+use crate::twitch_auth;
+use eyre::Context;
 use std::sync::Arc;
+use tokio_tungstenite::tungstenite;
+use twitch_api::{
+    HelixClient,
+    eventsub::{
+        self, Event,
+        event::websocket::{EventsubWebsocketData, ReconnectPayload, SessionData, WelcomePayload},
+    },
+    types::{self},
+};
+use twitch_oauth2::{TwitchToken, UserToken};
 
 pub struct WebsocketClient {
     /// The session id of the websocket connection
@@ -49,7 +48,7 @@ impl WebsocketClient {
         tracing::info!("connecting to twitch");
         let mut config = tungstenite::protocol::WebSocketConfig::default();
         config.max_message_size = Some(64 << 20); // 64 MiB
-        config.max_frame_size = Some(16 << 20);   // 16 MiB
+        config.max_frame_size = Some(16 << 20); // 16 MiB
         config.accept_unmasked_frames = false;
         let (socket, _) =
             tokio_tungstenite::connect_async_with_config(&self.connect_url, Some(config), false)
@@ -120,13 +119,17 @@ impl WebsocketClient {
                         match payload {
                             Event::ChannelChatMessageV1(ev_payload) => {
                                 // Extract the actual payload from the Message wrapper
-                                if let twitch_api::eventsub::Message::Notification(notif) = &ev_payload.message {
+                                if let twitch_api::eventsub::Message::Notification(notif) =
+                                    &ev_payload.message
+                                {
                                     self.handle_chat_message(notif).await?;
                                 }
                             }
                             Event::ChannelChatClearUserMessagesV1(ev_payload) => {
                                 // Extract the actual payload from the Message wrapper
-                                if let twitch_api::eventsub::Message::Notification(notif) = &ev_payload.message {
+                                if let twitch_api::eventsub::Message::Notification(notif) =
+                                    &ev_payload.message
+                                {
                                     self.handle_moderation_event(notif).await?;
                                 }
                             }
@@ -156,8 +159,7 @@ impl WebsocketClient {
         }
         // check if the token is expired, if it is, request a new token. This only works if using a oauth service for getting a token
         if self.token.is_elapsed() {
-            self.token =
-                twitch_auth::get_user_token().await?;
+            self.token = twitch_auth::get_user_token().await?;
         }
         let transport = eventsub::Transport::websocket(data.id.clone());
 
@@ -184,20 +186,18 @@ impl WebsocketClient {
                 self.bot_user_id.clone(),
             );
 
-            match self.client
-                .create_eventsub_subscription(
-                    chat_subscription,
-                    transport.clone(),
-                    &self.token,
-                )
-                .await {
-                    Ok(_) => {
-                        tracing::info!(broadcaster_id = %channel_id, "Created chat message subscription");
-                    },
-                    Err(e) => {
-                        tracing::error!(broadcaster_id = %channel_id, error = %e, "Failed to create chat message subscription");
-                    }
+            match self
+                .client
+                .create_eventsub_subscription(chat_subscription, transport.clone(), &self.token)
+                .await
+            {
+                Ok(_) => {
+                    tracing::info!(broadcaster_id = %channel_id, "Created chat message subscription");
                 }
+                Err(e) => {
+                    tracing::error!(broadcaster_id = %channel_id, error = %e, "Failed to create chat message subscription");
+                }
+            }
 
             // Create moderation event subscription
             let mod_subscription = eventsub::channel::ChannelChatClearUserMessagesV1::new(
@@ -205,20 +205,18 @@ impl WebsocketClient {
                 self.bot_user_id.clone(),
             );
 
-            match self.client
-                .create_eventsub_subscription(
-                    mod_subscription,
-                    transport.clone(),
-                    &self.token,
-                )
-                .await {
-                    Ok(_) => {
-                        tracing::info!(broadcaster_id = %channel_id, "Created moderation subscription");
-                    },
-                    Err(e) => {
-                        tracing::error!(broadcaster_id = %channel_id, error = %e, "Failed to create moderation subscription");
-                    }
+            match self
+                .client
+                .create_eventsub_subscription(mod_subscription, transport.clone(), &self.token)
+                .await
+            {
+                Ok(_) => {
+                    tracing::info!(broadcaster_id = %channel_id, "Created moderation subscription");
                 }
+                Err(e) => {
+                    tracing::error!(broadcaster_id = %channel_id, error = %e, "Failed to create moderation subscription");
+                }
+            }
         }
 
         self.subscribed_channels = enabled_channels;
@@ -232,7 +230,11 @@ impl WebsocketClient {
         payload: &twitch_api::eventsub::channel::chat::ChannelChatMessageV1Payload,
     ) -> Result<(), eyre::Report> {
         // Get channel settings
-        let settings = match self.channel_manager.get_settings(payload.broadcaster_user_id.as_str()).await {
+        let settings = match self
+            .channel_manager
+            .get_settings(payload.broadcaster_user_id.as_str())
+            .await
+        {
             Some(s) => s,
             None => {
                 tracing::warn!(broadcaster_id = %payload.broadcaster_user_id, "No settings found for channel");
@@ -241,7 +243,9 @@ impl WebsocketClient {
         };
 
         // Process message
-        self.message_handler.handle_message(payload, &settings).await
+        self.message_handler
+            .handle_message(payload, &settings)
+            .await
     }
 
     /// Handle moderation event (timeout/ban)
@@ -250,7 +254,11 @@ impl WebsocketClient {
         payload: &twitch_api::eventsub::channel::chat::ChannelChatClearUserMessagesV1Payload,
     ) -> Result<(), eyre::Report> {
         // Get channel settings
-        let settings = match self.channel_manager.get_settings(payload.broadcaster_user_id.as_str()).await {
+        let settings = match self
+            .channel_manager
+            .get_settings(payload.broadcaster_user_id.as_str())
+            .await
+        {
             Some(s) => s,
             None => {
                 tracing::warn!(broadcaster_id = %payload.broadcaster_user_id, "No settings found for channel");

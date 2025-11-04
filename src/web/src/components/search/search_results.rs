@@ -1,6 +1,6 @@
-use leptos::prelude::*;
-use crate::server_fns::{VideoResultData, SegmentResultData};
+use crate::server_fns::{SegmentResultData, VideoResultData};
 use chrono::DateTime;
+use leptos::prelude::*;
 
 fn format_date(timestamp: i64) -> String {
     DateTime::from_timestamp(timestamp, 0)
@@ -12,8 +12,8 @@ fn format_date(timestamp: i64) -> String {
 /// Helper function to get platform badge HTML
 fn get_platform_badge(platform_name: &str) -> (String, &'static str) {
     match platform_name.to_lowercase().as_str() {
-        "youtube" => ("YouTube".to_string(), "danger"),  // Bootstrap red
-        "twitch" => ("Twitch".to_string(), "primary"),   // Bootstrap blue/purple
+        "youtube" => ("YouTube".to_string(), "danger"), // Bootstrap red
+        "twitch" => ("Twitch".to_string(), "primary"),  // Bootstrap blue/purple
         _ => (platform_name.to_string(), "secondary"),
     }
 }
@@ -49,12 +49,13 @@ fn VideoCard(video_result: VideoResultData) -> impl IntoView {
     view! {
         <div class="col">
             <div class="card mb-3 shadow" style="width: 325px;">
-                // Thumbnail
+                // Thumbnail with error handling
                 <img
                     src={format!("/api/thumbnails/{}", video_id)}
                     alt="Video thumbnail"
                     style="max-width:100%; max-height:250px;"
                     loading="lazy"
+                    onerror="this.style.display='none'"
                 />
 
                 <div class="card-body">

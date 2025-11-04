@@ -1,25 +1,18 @@
 use axum::{
-    extract::{Query, Extension},
-    response::{Redirect, IntoResponse},
+    extract::{Extension, Query},
     http::StatusCode,
+    response::{IntoResponse, Redirect},
 };
+use openidconnect::core::CoreAuthenticationFlow;
 use openidconnect::{
-    AuthorizationCode,
-    CsrfToken,
-    Nonce,
-    OAuth2TokenResponse,
-    PkceCodeChallenge,
-    Scope,
-};
-use openidconnect::core::{
-    CoreAuthenticationFlow,
+    AuthorizationCode, CsrfToken, Nonce, OAuth2TokenResponse, PkceCodeChallenge, Scope,
 };
 use serde::Deserialize;
 use std::sync::Arc;
 
 use crate::auth::oauth_clients::{OAuthProvider, create_oauth_client, get_oauth_scopes};
-use crate::auth::oauth_state::OAuthState;
 use crate::auth::oauth_profile::fetch_user_profile;
+use crate::auth::oauth_state::OAuthState;
 use crate::auth::{AuthSession, find_or_create_oauth_user};
 use yappr_shared::config::Config;
 
@@ -48,22 +41,14 @@ pub async fn handle_oauth_login(
 
     // Construct redirect URI (strip trailing slash from server_url)
     let base_url = config.server_url.as_str().trim_end_matches('/');
-    let redirect_uri = format!(
-        "{}/auth/{}/callback",
-        base_url,
-        provider.as_str()
-    );
+    let redirect_uri = format!("{}/auth/{}/callback", base_url, provider.as_str());
 
     // Create OAuth client
-    let client = create_oauth_client(
-        provider,
-        client_id,
-        client_secret,
-        redirect_uri,
-    ).map_err(|_| {
-        tracing::error!("Failed to create OAuth client");
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
+    let client =
+        create_oauth_client(provider, client_id, client_secret, redirect_uri).map_err(|_| {
+            tracing::error!("Failed to create OAuth client");
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
 
     // Generate PKCE challenge
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
@@ -85,16 +70,17 @@ pub async fn handle_oauth_login(
     let (auth_url, csrf_token, nonce) = auth_request.url();
 
     // Store the state, nonce, and PKCE verifier
-    oauth_state.store_state(
-        csrf_token.secret().clone(),
-        provider.as_str(),
-        nonce,
-        pkce_verifier,
-    ).await;
+    oauth_state
+        .store_state(
+            csrf_token.secret().clone(),
+            provider.as_str(),
+            nonce,
+            pkce_verifier,
+        )
+        .await;
 
     Ok(Redirect::to(auth_url.as_str()))
 }
-
 
 pub async fn handle_oauth_callback(
     provider: OAuthProvider,
@@ -131,11 +117,7 @@ pub async fn handle_oauth_callback(
 
     // Construct redirect URI (must match exactly the one used in authorization)
     let base_url = config.server_url.as_str().trim_end_matches('/');
-    let redirect_uri = format!(
-        "{}/auth/{}/callback",
-        base_url,
-        provider.as_str()
-    );
+    let redirect_uri = format!("{}/auth/{}/callback", base_url, provider.as_str());
 
     // Create OAuth client
     let client = create_oauth_client(
@@ -143,7 +125,8 @@ pub async fn handle_oauth_callback(
         client_id.clone(),
         client_secret.clone(),
         redirect_uri,
-    ).map_err(|_| {
+    )
+    .map_err(|_| {
         tracing::error!("Failed to create OAuth client");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -164,41 +147,39 @@ pub async fn handle_oauth_callback(
 
     let token_response = if provider == OAuthProvider::Twitch {
         // Use custom HTTP client for Twitch to fix their non-standard scope array
-        use openidconnect::reqwest::async_http_client;
         use openidconnect::HttpResponse;
+        use openidconnect::reqwest::async_http_client;
 
         token_request
             .request_async(|request| async move {
                 // Make the request using the standard client
-                async_http_client(request)
-                    .await
-                    .map(|response| {
-                        // Parse the response body as JSON
-                        let body = response.body.clone();
-                        if let Ok(mut json) = serde_json::from_slice::<serde_json::Value>(&body) {
-                            // If scope is an array, convert it to a space-separated string
-                            if let Some(scope_array) = json.get("scope").and_then(|s| s.as_array()) {
-                                let scope_string = scope_array
-                                    .iter()
-                                    .filter_map(|v| v.as_str())
-                                    .collect::<Vec<_>>()
-                                    .join(" ");
-                                json["scope"] = serde_json::Value::String(scope_string);
+                async_http_client(request).await.map(|response| {
+                    // Parse the response body as JSON
+                    let body = response.body.clone();
+                    if let Ok(mut json) = serde_json::from_slice::<serde_json::Value>(&body) {
+                        // If scope is an array, convert it to a space-separated string
+                        if let Some(scope_array) = json.get("scope").and_then(|s| s.as_array()) {
+                            let scope_string = scope_array
+                                .iter()
+                                .filter_map(|v| v.as_str())
+                                .collect::<Vec<_>>()
+                                .join(" ");
+                            json["scope"] = serde_json::Value::String(scope_string);
 
-                                // Serialize back to bytes
-                                if let Ok(fixed_body) = serde_json::to_vec(&json) {
-                                    return HttpResponse {
-                                        status_code: response.status_code,
-                                        headers: response.headers,
-                                        body: fixed_body,
-                                    };
-                                }
+                            // Serialize back to bytes
+                            if let Ok(fixed_body) = serde_json::to_vec(&json) {
+                                return HttpResponse {
+                                    status_code: response.status_code,
+                                    headers: response.headers,
+                                    body: fixed_body,
+                                };
                             }
                         }
+                    }
 
-                        // If we couldn't parse/fix it, return the original response
-                        response
-                    })
+                    // If we couldn't parse/fix it, return the original response
+                    response
+                })
             })
             .await
             .map_err(|_| {
@@ -217,7 +198,9 @@ pub async fn handle_oauth_callback(
     };
 
     let access_token = token_response.access_token().secret();
-    let refresh_token = token_response.refresh_token().map(|t| t.secret().to_string());
+    let refresh_token = token_response
+        .refresh_token()
+        .map(|t| t.secret().to_string());
     let expires_in = token_response.expires_in();
 
     // Note: Discord and Twitch don't provide ID tokens (they're OAuth 2.0, not OIDC)
@@ -248,13 +231,10 @@ pub async fn handle_oauth_callback(
     })?;
 
     // Log the user in
-    auth_session
-        .login(&user)
-        .await
-        .map_err(|_| {
-            tracing::error!("Failed to create session");
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    auth_session.login(&user).await.map_err(|_| {
+        tracing::error!("Failed to create session");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Redirect to home page
     Ok(Redirect::to("/"))

@@ -1,5 +1,5 @@
-use crate::entities::{prelude::*, users};
 use crate::entities::sea_orm_active_enums::Accountsource;
+use crate::entities::{prelude::*, users};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set,
 };
@@ -49,11 +49,7 @@ impl UserService {
             .await?;
 
         match &user {
-            Some(u) => info!(
-                user_id = u.id,
-                username = u.name,
-                "User found"
-            ),
+            Some(u) => info!(user_id = u.id, username = u.name, "User found"),
             None => info!(
                 external_account_id = external_account_id,
                 account_type = account_type_str,
@@ -87,7 +83,9 @@ impl UserService {
 
         // Try to find existing user
         // Clone account_type for the call since it will be consumed
-        if let Some(user) = Self::get_user_by_external_id(db, external_account_id, account_type.clone()).await? {
+        if let Some(user) =
+            Self::get_user_by_external_id(db, external_account_id, account_type.clone()).await?
+        {
             // Check if we need to update name, color, or avatar
             let needs_update = user.name != username
                 || user.color.as_deref() != color

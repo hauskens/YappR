@@ -1,7 +1,7 @@
 pub mod oauth_clients;
+pub mod oauth_handlers;
 pub mod oauth_profile;
 pub mod oauth_state;
-pub mod oauth_handlers;
 
 use axum_login::{AuthUser, AuthnBackend, UserId};
 use sea_orm::{DatabaseConnection, EntityTrait};
@@ -65,7 +65,9 @@ impl AuthnBackend for Backend {
     async fn authenticate(
         &self,
         _creds: Self::Credentials,
-    ) -> Result<Option<Self::User>, Self::Error> { Ok(None) }
+    ) -> Result<Option<Self::User>, Self::Error> {
+        Ok(None)
+    }
 
     fn get_user(
         &self,

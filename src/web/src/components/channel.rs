@@ -1,5 +1,5 @@
+use crate::server_fns::{ChannelData, get_channels, get_channels_by_platform};
 use leptos::prelude::*;
-use crate::server_fns::{get_channels, get_channels_by_platform, ChannelData};
 
 #[component]
 pub fn ChannelsPage() -> impl IntoView {

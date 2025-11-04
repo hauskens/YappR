@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use crate::auth::oauth_clients::OAuthProvider;
+use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OAuthUserProfile {
     pub provider_user_id: String,

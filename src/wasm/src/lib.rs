@@ -1,20 +1,19 @@
-use yew::prelude::*;
-use wasm_bindgen::prelude::*;
 use gloo_net::http::Request;
+use serde::Deserialize;
+use wasm_bindgen::prelude::*;
 use web_sys::Event;
 use yew::html::TargetCast;
-use serde::{Deserialize};
+use yew::prelude::*;
 
-mod utils;
 mod platforms;
-
+mod utils;
 
 mod broadcaster_add;
 mod broadcaster_edit;
 mod broadcaster_events;
+mod chat_image_generator;
 mod chat_tag_manager;
 mod chat_timeline_chart;
-mod chat_image_generator;
 mod chatlog_search;
 mod generic_table;
 mod transcription_table;
@@ -78,10 +77,13 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                                 log.timestamp = utils::to_local_time(&log.timestamp);
                             }
                             chat_logs.set(data.chat_logs);
-                            
+
                             // Store platform information
-                            if let Some(platform_type) = platforms::PlatformType::from_string(&data.video_platform_type) {
-                                platform_info.set(Some((platform_type, data.video_platform_ref.clone())));
+                            if let Some(platform_type) =
+                                platforms::PlatformType::from_string(&data.video_platform_type)
+                            {
+                                platform_info
+                                    .set(Some((platform_type, data.video_platform_ref.clone())));
                             }
                         }
                     }
@@ -97,22 +99,23 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
         let username_filter = (*username_filter).clone();
         let sort_field = (*sort_field).clone();
         let sort_order = (*sort_order).clone();
-        
-        let mut filtered: Vec<ChatLog> = (*chat_logs).iter()
+
+        let mut filtered: Vec<ChatLog> = (*chat_logs)
+            .iter()
             .filter(|log| {
                 let search_match = if search.is_empty() {
                     true
                 } else {
-                    log.message.to_lowercase().contains(&search.to_lowercase()) ||
-                    log.username.to_lowercase().contains(&search.to_lowercase())
+                    log.message.to_lowercase().contains(&search.to_lowercase())
+                        || log.username.to_lowercase().contains(&search.to_lowercase())
                 };
-                
+
                 let username_match = if username_filter.is_empty() {
                     true
                 } else {
                     log.username == username_filter
                 };
-                
+
                 search_match && username_match
             })
             .cloned()
@@ -120,22 +123,26 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
 
         filtered.sort_by(|a, b| {
             let comparison = match sort_field {
-                SortField::Timestamp => a.offset_seconds.partial_cmp(&b.offset_seconds).unwrap_or(std::cmp::Ordering::Equal),
+                SortField::Timestamp => a
+                    .offset_seconds
+                    .partial_cmp(&b.offset_seconds)
+                    .unwrap_or(std::cmp::Ordering::Equal),
                 SortField::Username => a.username.cmp(&b.username),
                 SortField::Message => a.message.cmp(&b.message),
             };
-            
+
             match sort_order {
                 SortOrder::Asc => comparison,
                 SortOrder::Desc => comparison.reverse(),
             }
         });
-        
+
         filtered
     };
 
     let unique_usernames = {
-        let mut usernames: Vec<String> = (*chat_logs).iter()
+        let mut usernames: Vec<String> = (*chat_logs)
+            .iter()
             .map(|log| log.username.clone())
             .collect::<std::collections::HashSet<_>>()
             .into_iter()
@@ -148,7 +155,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
     let total_pages = (total_filtered + *page_size - 1) / *page_size;
     let start_idx = (*current_page - 1) * *page_size;
     let end_idx = std::cmp::min(start_idx + *page_size, total_filtered);
-    
+
     let paginated_logs = if start_idx < total_filtered {
         filtered_and_sorted_logs[start_idx..end_idx].to_vec()
     } else {
@@ -249,7 +256,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
         let current = *current_page;
         let max_visible = 7; // Show 7 page numbers max
         let half_visible = max_visible / 2;
-        
+
         let start_page = if current <= half_visible {
             1
         } else if current + half_visible >= total_pages {
@@ -257,11 +264,11 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
         } else {
             current - half_visible
         };
-        
+
         let end_page = std::cmp::min(total_pages, start_page + max_visible - 1);
-        
+
         let mut pages = Vec::new();
-        
+
         // First page + ellipsis if needed
         if start_page > 1 {
             pages.push(html! {
@@ -274,7 +281,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                     </button>
                 </li>
             });
-            
+
             if start_page > 2 {
                 pages.push(html! {
                     <li key={"ellipsis-start"} class="page-item disabled">
@@ -283,7 +290,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                 });
             }
         }
-        
+
         // Main page range
         for page in start_page..=end_page {
             let is_current = page == current;
@@ -298,7 +305,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                 </li>
             });
         }
-        
+
         // Last page + ellipsis if needed
         if end_page < total_pages {
             if end_page < total_pages - 1 {
@@ -308,7 +315,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                     </li>
                 });
             }
-            
+
             pages.push(html! {
                 <li key={total_pages} class="page-item">
                     <button class="page-link" onclick={
@@ -320,7 +327,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                 </li>
             });
         }
-        
+
         pages
     } else {
         Vec::new()
@@ -333,7 +340,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                 {
                     if let Some((platform_type, platform_ref)) = (*platform_info).as_ref() {
                         html! {
-                            <chat_timeline_chart::ChatTimelineChart 
+                            <chat_timeline_chart::ChatTimelineChart
                                 chat_logs={(*chat_logs).clone()}
                                 platform_info={platform_type.clone()}
                                 platform_ref={platform_ref.clone()}
@@ -341,7 +348,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                         }
                     } else {
                         html! {
-                            <chat_timeline_chart::ChatTimelineChart 
+                            <chat_timeline_chart::ChatTimelineChart
                                 chat_logs={(*chat_logs).clone()}
                                 platform_info={platforms::PlatformType::YouTube}
                                 platform_ref={"".to_string()}
@@ -350,7 +357,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                     }
                 }
             </div>
-            
+
             <div class="row mb-3">
                 <div class="col-md-4">
                     <div class="input-group">
@@ -362,8 +369,8 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                             oninput={on_search_input}
                         />
                         if has_active_filters {
-                            <button 
-                                class="btn btn-outline-secondary" 
+                            <button
+                                class="btn btn-outline-secondary"
                                 type="button"
                                 onclick={on_clear_filters}
                                 title="Clear all filters"
@@ -395,7 +402,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                 </div>
                 <div class="col-md-3">
                     <div class="text-muted small mt-2">
-                        {format!("Showing {} - {} of {} messages", 
+                        {format!("Showing {} - {} of {} messages",
                             if total_filtered > 0 { start_idx + 1 } else { 0 },
                             end_idx,
                             total_filtered
@@ -406,7 +413,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                     </div>
                 </div>
             </div>
-            
+
             <div class="table-responsive">
                 <table class="table table-striped">
                     <thead>
@@ -455,7 +462,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                     </tbody>
                 </table>
             </div>
-            
+
             if total_pages > 1 {
                 <nav>
                     <ul class="pagination justify-content-center">
@@ -472,9 +479,9 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
                                 {"Previous"}
                             </button>
                         </li>
-                        
+
                         {for pagination_buttons}
-                        
+
                         <li class={classes!("page-item", (*current_page == total_pages).then_some("disabled"))}>
                             <button class="page-link" onclick={
                                 let callback = on_page_change.clone();
@@ -503,31 +510,29 @@ pub struct ChatLogsProps {
 #[wasm_bindgen]
 pub fn render_chat_logs(video_id: i32, element_id: &str) -> Result<(), String> {
     let document = web_sys::window().unwrap().document().unwrap();
-    let element = document.get_element_by_id(element_id)
+    let element = document
+        .get_element_by_id(element_id)
         .ok_or(format!("Element with id '{}' not found", element_id))?;
-    
-    yew::Renderer::<ChatLogsTable>::with_root_and_props(
-        element, 
-        ChatLogsProps { video_id }
-    ).render();
+
+    yew::Renderer::<ChatLogsTable>::with_root_and_props(element, ChatLogsProps { video_id })
+        .render();
     Ok(())
 }
 
 #[wasm_bindgen]
 pub fn render_component_by_name(component_name: &str, element_id: &str) -> Result<(), String> {
-    let window = web_sys::window()
-        .ok_or("Failed to get window")?;
-    let document = window.document()
-        .ok_or("Failed to get document")?;
-    let element = document.get_element_by_id(element_id)
+    let window = web_sys::window().ok_or("Failed to get window")?;
+    let document = window.document().ok_or("Failed to get document")?;
+    let element = document
+        .get_element_by_id(element_id)
         .ok_or(format!("Element with id '{}' not found", element_id))?;
-    
+
     match component_name {
         "tag-categories" => {
             yew::Renderer::<chat_tag_manager::TagCategoryManager>::with_root(element).render();
             Ok(())
-        },
-        _ => Err(format!("Unknown component: '{}'", component_name))
+        }
+        _ => Err(format!("Unknown component: '{}'", component_name)),
     }
 }
 
@@ -535,16 +540,17 @@ pub fn render_component_by_name(component_name: &str, element_id: &str) -> Resul
 pub fn render_chat_timeline_chart(
     element_id: &str,
     platform_type: &str,
-    platform_ref: &str
+    platform_ref: &str,
 ) -> Result<(), String> {
     let document = web_sys::window().unwrap().document().unwrap();
-    let element = document.get_element_by_id(element_id)
+    let element = document
+        .get_element_by_id(element_id)
         .ok_or(format!("Element with id '{}' not found", element_id))?;
-    
+
     // Parse platform type
     let platform_type_enum = platforms::PlatformType::from_string(platform_type)
         .unwrap_or(platforms::PlatformType::YouTube);
-    
+
     // For now, render with empty data - in real usage, you'd pass the chat logs
     yew::Renderer::<chat_timeline_chart::ChatTimelineChart>::with_root_and_props(
         element,
@@ -552,18 +558,20 @@ pub fn render_chat_timeline_chart(
             chat_logs: Vec::new(),
             platform_info: platform_type_enum,
             platform_ref: platform_ref.to_string(),
-        }
-    ).render();
-    
+        },
+    )
+    .render();
+
     Ok(())
 }
 
 #[wasm_bindgen]
 pub fn render_tag_category_manager(element_id: &str) -> Result<(), String> {
     let document = web_sys::window().unwrap().document().unwrap();
-    let element = document.get_element_by_id(element_id)
+    let element = document
+        .get_element_by_id(element_id)
         .ok_or(format!("Element with id '{}' not found", element_id))?;
-    
+
     yew::Renderer::<chat_tag_manager::TagCategoryManager>::with_root(element).render();
     Ok(())
 }
@@ -578,9 +586,7 @@ pub fn init_broadcaster_add_form() {
     broadcaster_add::broadcaster_init_form();
 }
 
-
-
-#[wasm_bindgen] 
+#[wasm_bindgen]
 pub fn update_broadcaster_name() {
     broadcaster_add::broadcaster_update_name();
 }
@@ -612,17 +618,34 @@ pub fn lookup_twitch_id() {
 }
 
 #[wasm_bindgen]
-pub fn show_channel_link_modal(channel_id: i32, channel_name: String, current_source_channel_id: Option<i32>, current_source_channel_name: String) {
-    broadcaster_edit::show_channel_link_modal(channel_id, channel_name, current_source_channel_id, current_source_channel_name);
+pub fn show_channel_link_modal(
+    channel_id: i32,
+    channel_name: String,
+    current_source_channel_id: Option<i32>,
+    current_source_channel_name: String,
+) {
+    broadcaster_edit::show_channel_link_modal(
+        channel_id,
+        channel_name,
+        current_source_channel_id,
+        current_source_channel_name,
+    );
 }
 
 #[wasm_bindgen]
-pub fn show_enhanced_linking_modal(channel_id: i32, channel_name: String, source_channel_name: String) {
+pub fn show_enhanced_linking_modal(
+    channel_id: i32,
+    channel_name: String,
+    source_channel_name: String,
+) {
     broadcaster_edit::show_enhanced_linking_modal(channel_id, channel_name, source_channel_name);
 }
 
 // Broadcaster events functionality
 #[wasm_bindgen]
-pub fn render_broadcaster_events_table(broadcaster_id: i32, element_id: &str) -> Result<(), String> {
+pub fn render_broadcaster_events_table(
+    broadcaster_id: i32,
+    element_id: &str,
+) -> Result<(), String> {
     broadcaster_events::render_broadcaster_events_table(broadcaster_id, element_id)
 }

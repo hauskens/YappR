@@ -1,3 +1,5 @@
+use crate::entities::transcriptions;
+use crate::models::{FileStorage, FileStorageTrait};
 use serde::{Deserialize, Serialize};
 
 /// A single segment (up to multiple sentences) of a speech.
@@ -36,5 +38,11 @@ impl TranscriptionResult {
 
     pub fn segment_count(&self) -> usize {
         self.segments.len()
+    }
+}
+
+impl FileStorageTrait for transcriptions::Model {
+    fn get_file_storage(&self) -> Result<FileStorage, serde_json::Error> {
+        serde_json::from_value(self.file.clone())
     }
 }

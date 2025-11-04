@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
-use crate::{entities::sea_orm_active_enums::Videotype, external::twitch::TwitchApiClient};
 use crate::external::youtube::YouTubeApiClient;
-use std::error::Error;
+use crate::{entities::sea_orm_active_enums::Videotype, external::twitch::TwitchApiClient};
 use async_trait::async_trait;
-use tracing::{info, error, instrument};
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use tracing::{error, info, instrument};
 
 pub enum PlatformApiClient {
     Twitch(TwitchApiClient),
@@ -11,13 +11,22 @@ pub enum PlatformApiClient {
 }
 #[async_trait]
 pub trait ApiClient {
-    async fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> Result<Vec<PlatformVideo>, Box<dyn Error>>;
-    async fn get_platform_users_by_ids(&self, user_ids: &[String]) -> Result<Vec<PlatformUser>, Box<dyn Error>>;
+    async fn get_platform_videos_by_ids(
+        &self,
+        video_ids: &[String],
+    ) -> Result<Vec<PlatformVideo>, Box<dyn Error>>;
+    async fn get_platform_users_by_ids(
+        &self,
+        user_ids: &[String],
+    ) -> Result<Vec<PlatformUser>, Box<dyn Error>>;
 }
 #[async_trait]
 impl ApiClient for PlatformApiClient {
     #[instrument(level = "info", skip(self, video_ids))]
-    async fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
+    async fn get_platform_videos_by_ids(
+        &self,
+        video_ids: &[String],
+    ) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
         let platform = match self {
             PlatformApiClient::Twitch(_) => "twitch",
             PlatformApiClient::YouTube(_) => "youtube",
@@ -31,7 +40,9 @@ impl ApiClient for PlatformApiClient {
 
         let result = match self {
             PlatformApiClient::Twitch(client) => client.get_platform_videos_by_ids(video_ids).await,
-            PlatformApiClient::YouTube(client) => client.get_platform_videos_by_ids(video_ids).await,
+            PlatformApiClient::YouTube(client) => {
+                client.get_platform_videos_by_ids(video_ids).await
+            }
         };
 
         match &result {
@@ -57,7 +68,10 @@ impl ApiClient for PlatformApiClient {
     }
 
     #[instrument(level = "info", skip(self, user_ids))]
-    async fn get_platform_users_by_ids(&self, user_ids: &[String]) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
+    async fn get_platform_users_by_ids(
+        &self,
+        user_ids: &[String],
+    ) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
         let platform = match self {
             PlatformApiClient::Twitch(_) => "twitch",
             PlatformApiClient::YouTube(_) => "youtube",

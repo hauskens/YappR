@@ -1,20 +1,17 @@
-use leptos::prelude::*;
+use crate::server_fns::{BroadcasterData, SearchVideos, VideoResultData};
 use leptos::ev;
-use crate::server_fns::{BroadcasterData, VideoResultData, SearchVideos};
+use leptos::prelude::*;
 
 /// Search form component
 #[component]
 pub fn SearchForm(
     broadcasters: Vec<BroadcasterData>,
-    #[prop(into)]
-    on_results: Callback<Vec<VideoResultData>>,
-    #[prop(into)]
-    on_loading: Callback<bool>,
+    #[prop(into)] on_results: Callback<Vec<VideoResultData>>,
+    #[prop(into)] on_loading: Callback<bool>,
 ) -> impl IntoView {
     let (search_term, set_search_term) = signal(String::new());
-    let (selected_broadcaster, set_selected_broadcaster) = signal(
-        broadcasters.first().map(|b| b.id).unwrap_or(0)
-    );
+    let (selected_broadcaster, set_selected_broadcaster) =
+        signal(broadcasters.first().map(|b| b.id).unwrap_or(0));
     let (start_date, set_start_date) = signal(String::new());
     let (end_date, set_end_date) = signal(String::new());
     let (channel_type, set_channel_type) = signal(String::from("all"));

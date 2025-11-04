@@ -1,21 +1,18 @@
+use crate::config::Config;
+#[cfg(feature = "database")]
+use crate::entities::sea_orm_active_enums::Videotype;
+use crate::external::api_client::{ApiClient, PlatformUser, PlatformVideo};
+use async_trait::async_trait;
+use std::error::Error;
+use tracing::{debug, error, info, instrument};
 #[cfg(feature = "twitch")]
 use twitch_api::{
-    helix::{
-        users::GetUsersRequest,
-        videos::GetVideosRequest,
-    },
-    types::{UserId, VideoId},
     HelixClient,
+    helix::{users::GetUsersRequest, videos::GetVideosRequest},
+    types::{UserId, VideoId},
 };
 #[cfg(feature = "twitch")]
 use twitch_oauth2::AppAccessToken;
-#[cfg(feature = "database")]
-use crate::{entities::sea_orm_active_enums::Videotype};
-use crate::config::Config;
-use crate::external::api_client::{ApiClient, PlatformVideo, PlatformUser};
-use std::error::Error;
-use async_trait::async_trait;
-use tracing::{info, error, instrument, debug};
 
 /// Twitch API client wrapper with different authentication contexts
 pub struct TwitchApiClient {
@@ -41,7 +38,9 @@ impl TwitchApiClient {
             config.twitch.client_id.clone(),
             config.twitch.client_secret.clone(),
             vec![],
-        ).await {
+        )
+        .await
+        {
             Ok(token) => {
                 info!("Successfully obtained Twitch app access token");
                 token
@@ -52,11 +51,10 @@ impl TwitchApiClient {
             }
         };
 
-        let client = HelixClient::with_client(
-            twitch_api::client::ClientDefault::default_client_with_name(
-                Some(config.service_name.parse()?)
-            )?
-        );
+        let client =
+            HelixClient::with_client(twitch_api::client::ClientDefault::default_client_with_name(
+                Some(config.service_name.parse()?),
+            )?);
         let client = {
             debug!("Twitch Helix client configured successfully");
             client
@@ -71,7 +69,7 @@ impl TwitchApiClient {
     //     let logins = vec![username];
     //     let request = GetUsersRequest::logins(&logins);
     //     let response = self.client.req_get(request, &self.token).await?;
-        
+
     //     response.data.into_iter().next()
     //         .ok_or_else(|| eyre!("User not found: {}", username))
     // }
@@ -81,7 +79,7 @@ impl TwitchApiClient {
     //     let ids = vec![UserId::new(user_id.to_string())];
     //     let request = GetUsersRequest::ids(ids.as_slice());
     //     let response = self.client.req_get(request, &self.token).await?;
-        
+
     //     response.data.into_iter().next()
     //         .ok_or_else(|| eyre!("User not found: {}", user_id))
     // }
@@ -91,7 +89,7 @@ impl TwitchApiClient {
     //     let ids: Vec<UserId> = user_ids.iter().map(|id| UserId::new(id.clone())).collect();
     //     let request = GetUsersRequest::ids(ids.as_slice());
     //     let response = self.client.req_get(request, &self.token).await?;
-        
+
     //     Ok(response.data)
     // }
 
@@ -100,7 +98,7 @@ impl TwitchApiClient {
     //     let ids: Vec<UserId> = user_ids.iter().map(|id| UserId::new(id.clone())).collect();
     //     let request = GetStreamsRequest::user_ids(ids.as_slice());
     //     let response = self.client.req_get(request, &self.token).await?;
-        
+
     //     Ok(response.data)
     // }
 
@@ -112,13 +110,12 @@ impl TwitchApiClient {
     //     Ok(response.data)
     // }
 
-
     // /// Get clips by IDs
     // pub async fn get_clips(&self, clip_ids: &[String]) -> Result<Vec<twitch_api::helix::clips::Clip>> {
     //     let ids: Vec<ClipId> = clip_ids.iter().map(|id| ClipId::new(id.clone())).collect();
     //     let request = GetClipsRequest::clip_ids(ids.as_slice());
     //     let response = self.client.req_get(request, &self.token).await?;
-        
+
     //     Ok(response.data)
     // }
 
@@ -126,7 +123,7 @@ impl TwitchApiClient {
     // pub async fn get_channel_moderators(&self, broadcaster_id: &str) -> Result<Vec<twitch_api::helix::moderation::Moderator>> {
     //     let request = GetModeratorsRequest::broadcaster_id(UserId::new(broadcaster_id.to_string()));
     //     let response = self.client.req_get(request, &self.token).await?;
-        
+
     //     Ok(response.data)
     // }
 
@@ -134,22 +131,33 @@ impl TwitchApiClient {
     //     let videos = self.get_videos_by_ids(video_ids).await?;
     //     Ok(videos.into_iter().map(|video| TwitchApiClient::convert_video(&video)).collect())
     // }
-
 }
 
 #[async_trait]
 impl ApiClient for TwitchApiClient {
     #[instrument(level = "info", skip(self, video_ids))]
-    async fn get_platform_videos_by_ids(&self, video_ids: &[String]) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
-        info!(video_count = video_ids.len(), "Fetching Twitch videos by IDs");
+    async fn get_platform_videos_by_ids(
+        &self,
+        video_ids: &[String],
+    ) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
+        info!(
+            video_count = video_ids.len(),
+            "Fetching Twitch videos by IDs"
+        );
 
-        let ids: Vec<VideoId> = video_ids.iter().map(|id| VideoId::new(id.clone())).collect();
+        let ids: Vec<VideoId> = video_ids
+            .iter()
+            .map(|id| VideoId::new(id.clone()))
+            .collect();
         let request = GetVideosRequest::ids(ids.as_slice());
 
         debug!("Making Twitch API request for videos");
         let response = match self.client.req_get(request, &self.token).await {
             Ok(response) => {
-                debug!(returned_count = response.data.len(), "Twitch API videos request successful");
+                debug!(
+                    returned_count = response.data.len(),
+                    "Twitch API videos request successful"
+                );
                 response
             }
             Err(e) => {
@@ -158,15 +166,19 @@ impl ApiClient for TwitchApiClient {
             }
         };
 
-        let videos: Vec<PlatformVideo> = response.data.into_iter().map(|video| PlatformVideo {
-            id: video.id.to_string(),
-            title: video.title.clone(),
-            duration: None,
-            created_at: video.created_at.to_string().parse().unwrap(),
-            thumbnail_url: Some(video.thumbnail_url.clone()),
-            view_count: Some(video.view_count as u64),
-            video_type: Videotype::Vod,
-        }).collect();
+        let videos: Vec<PlatformVideo> = response
+            .data
+            .into_iter()
+            .map(|video| PlatformVideo {
+                id: video.id.to_string(),
+                title: video.title.clone(),
+                duration: None,
+                created_at: video.created_at.to_string().parse().unwrap(),
+                thumbnail_url: Some(video.thumbnail_url.clone()),
+                view_count: Some(video.view_count as u64),
+                video_type: Videotype::Vod,
+            })
+            .collect();
 
         info!(
             requested_count = video_ids.len(),
@@ -178,7 +190,10 @@ impl ApiClient for TwitchApiClient {
     }
 
     #[instrument(level = "info", skip(self, user_ids))]
-    async fn get_platform_users_by_ids(&self, user_ids: &[String]) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
+    async fn get_platform_users_by_ids(
+        &self,
+        user_ids: &[String],
+    ) -> Result<Vec<PlatformUser>, Box<dyn Error>> {
         info!(user_count = user_ids.len(), "Fetching Twitch users by IDs");
 
         let ids: Vec<UserId> = user_ids.iter().map(|id| UserId::new(id.clone())).collect();
@@ -187,7 +202,10 @@ impl ApiClient for TwitchApiClient {
         debug!("Making Twitch API request for users");
         let response = match self.client.req_get(request, &self.token).await {
             Ok(response) => {
-                debug!(returned_count = response.data.len(), "Twitch API users request successful");
+                debug!(
+                    returned_count = response.data.len(),
+                    "Twitch API users request successful"
+                );
                 response
             }
             Err(e) => {
@@ -196,11 +214,15 @@ impl ApiClient for TwitchApiClient {
             }
         };
 
-        let users: Vec<PlatformUser> = response.data.into_iter().map(|user| PlatformUser {
-            id: user.id.to_string(),
-            display_name: user.display_name.to_string(),
-            profile_image_url: user.profile_image_url,
-        }).collect();
+        let users: Vec<PlatformUser> = response
+            .data
+            .into_iter()
+            .map(|user| PlatformUser {
+                id: user.id.to_string(),
+                display_name: user.display_name.to_string(),
+                profile_image_url: user.profile_image_url,
+            })
+            .collect();
 
         info!(
             requested_count = user_ids.len(),
@@ -210,5 +232,4 @@ impl ApiClient for TwitchApiClient {
 
         Ok(users)
     }
-
 }

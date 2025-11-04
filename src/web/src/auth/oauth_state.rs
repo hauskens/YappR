@@ -1,7 +1,7 @@
+use openidconnect::{Nonce, PkceCodeVerifier};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use openidconnect::{Nonce, PkceCodeVerifier};
 
 #[derive(Clone)]
 pub struct OAuthState {
@@ -34,14 +34,17 @@ impl OAuthState {
         let mut states = self.states.write().await;
         states.insert(
             state,
-            (provider.to_string(), nonce, pkce_verifier, std::time::Instant::now())
+            (
+                provider.to_string(),
+                nonce,
+                pkce_verifier,
+                std::time::Instant::now(),
+            ),
         );
 
         // Clean up old states (older than 10 minutes)
         let now = std::time::Instant::now();
-        states.retain(|_, (_, _, _, timestamp)| {
-            now.duration_since(*timestamp).as_secs() < 600
-        });
+        states.retain(|_, (_, _, _, timestamp)| now.duration_since(*timestamp).as_secs() < 600);
     }
 
     /// Verify and consume a state token, returning all stored OAuth flow data

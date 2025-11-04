@@ -1,17 +1,19 @@
+use crate::components::broadcaster::{BroadcasterEditPage, BroadcasterPage};
+use crate::components::channel::ChannelsPage;
+use crate::components::channel_videos::ChannelVideosPage;
+use crate::components::dark_mode_toggle::DarkModeToggle;
+use crate::components::login::{LoginPage, ProtectedPage};
+use crate::components::search::search_page::SearchPage;
+use crate::components::video::VideoPage;
 use leptos::prelude::*;
-use leptos_meta::{provide_meta_context, MetaTags, Script, Stylesheet, Title};
-use leptos_router::{
-    components::{Route, Router, Routes},
-    StaticSegment, ParamSegment,
-    hooks::use_params_map,
-};
 use leptos::server_fn::ServerFnError;
 use leptos::task::spawn_local;
-use crate::components::broadcaster::{BroadcasterPage, BroadcasterEditPage};
-use crate::components::channel::ChannelsPage;
-use crate::components::dark_mode_toggle::DarkModeToggle;
-use crate::components::search::search_page::SearchPage;
-use crate::components::login::{LoginPage, ProtectedPage};
+use leptos_meta::{MetaTags, Script, Stylesheet, Title, provide_meta_context};
+use leptos_router::{
+    ParamSegment, StaticSegment,
+    components::{Route, Router, Routes},
+    hooks::use_params_map,
+};
 
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
@@ -157,9 +159,11 @@ pub fn App() -> impl IntoView {
                     <Route path=StaticSegment("broadcasters") view=BroadcasterPage/>
                     <Route path=(StaticSegment("broadcasters"), ParamSegment("id")) view=BroadcasterEditPageWrapper/>
                     <Route path=StaticSegment("channels") view=ChannelsPage/>
+                    <Route path=(StaticSegment("channels"), ParamSegment("id"), StaticSegment("videos")) view=ChannelVideosPage/>
                     <Route path=StaticSegment("search") view=SearchPage/>
                     <Route path=StaticSegment("login") view=LoginPage/>
                     <Route path=StaticSegment("protected") view=ProtectedPage/>
+                    <Route path=(StaticSegment("videos"), ParamSegment("id")) view=VideoPage/>
                 </Routes>
 
                 <footer class="footer mt-auto text-center text-white bg-body-tertiary w-100 p-2">
@@ -188,39 +192,10 @@ pub fn App() -> impl IntoView {
 /// Renders the home page of your application.
 #[component]
 fn HomePage() -> impl IntoView {
-    // Creates a reactive value to update the button
-    let count = RwSignal::new(0);
-    let (count2, set_count2) = signal(0);
-    let on_click = move |_| *count.write() += 1;
-
     view! {
-        <h1>"Welcome to Lepts!"</h1>
-        <button on:click=on_click>"Click Me: " {count}</button>
-        <button 
-            class:red=move || {count2.get() > 5}
-            on:click=move |_| {set_count2.set(count2.get() + 1)}
-        >"Click Me Double: " {count2}</button>
-        <progress
-            max="50"
-            // signals are functions, so `value=count` and `value=move || count.get()`
-            // are interchangeable.
-            value=move || count2.get() * 2
-        />
-        <button on:click=move |_| {
-            spawn_local(async move {
-                match get_platform_video_by_ids("test".to_string()).await {
-                    Ok(result) => {
-                        leptos::logging::log!("Server function result: {}", result);
-                    }
-                    Err(e) => {
-                        leptos::logging::error!("Server function error: {:?}", e);
-                    }
-                }
-            });
-        }>
-            "Clickius: " {count2}
-        </button>
-
+        <div>
+            <h3>"Rust rewrite"</h3>
+        </div>
     }
 }
 

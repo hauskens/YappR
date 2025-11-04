@@ -1,13 +1,13 @@
-pub mod websocket;
-pub mod twitch_auth;
-pub mod services;
+pub mod channel_manager;
 pub mod message_handler;
 pub mod moderation_handler;
-pub mod channel_manager;
+pub mod services;
+pub mod twitch_auth;
+pub mod websocket;
 
-pub use websocket::*;
-pub use twitch_auth::*;
-pub use services::*;
+pub use channel_manager::*;
 pub use message_handler::*;
 pub use moderation_handler::*;
-pub use channel_manager::*;
+pub use services::*;
+pub use twitch_auth::*;
+pub use websocket::*;

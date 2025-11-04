@@ -1,7 +1,7 @@
 #[cfg(feature = "ssr")]
-use yappr_web::auth::AuthSession;
-#[cfg(feature = "ssr")]
 use axum::http::StatusCode;
+#[cfg(feature = "ssr")]
+use yappr_web::auth::AuthSession;
 
 #[cfg(feature = "ssr")]
 async fn handle_logout(
@@ -18,9 +18,7 @@ async fn handle_logout(
 }
 
 #[cfg(feature = "ssr")]
-async fn handle_current_user(
-    auth: AuthSession,
-) -> axum::response::Json<Option<UserInfo>> {
+async fn handle_current_user(auth: AuthSession) -> axum::response::Json<Option<UserInfo>> {
     let user = auth.user;
     axum::response::Json(user.map(|u| UserInfo {
         id: u.0.id,
@@ -30,11 +28,12 @@ async fn handle_current_user(
 }
 
 #[cfg(feature = "ssr")]
-async fn protected_route(
-    auth: AuthSession,
-) -> Result<String, StatusCode> {
+async fn protected_route(auth: AuthSession) -> Result<String, StatusCode> {
     match auth.user {
-        Some(user) => Ok(format!("Hello, {}! This is a protected route.", user.0.name)),
+        Some(user) => Ok(format!(
+            "Hello, {}! This is a protected route.",
+            user.0.name
+        )),
         None => Err(StatusCode::UNAUTHORIZED),
     }
 }
@@ -67,7 +66,8 @@ async fn handle_discord_callback(
         config,
         oauth_state,
         auth_session,
-    ).await
+    )
+    .await
 }
 
 #[cfg(feature = "ssr")]
@@ -83,82 +83,35 @@ async fn handle_twitch_callback(
         config,
         oauth_state,
         auth_session,
-    ).await
+    )
+    .await
 }
 
 #[cfg(feature = "ssr")]
 #[tokio::main]
 async fn main() {
-    use axum::{Router, extract::{Path, Extension}, response::Response, http::{StatusCode, header}};
+    use axum::{Router, http::header};
+    use axum_login::AuthManagerLayerBuilder;
     use leptos::logging::log;
     use leptos::prelude::*;
-    use leptos::serde_json::Value;
-    use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_axum::{LeptosRoutes, generate_route_list};
+    use sea_orm::{Database, DatabaseConnection};
+    use std::{net::SocketAddr, sync::Arc};
+    use tower_http::set_header::SetResponseHeaderLayer;
+    use tower_sessions::{Expiry, SessionManagerLayer};
+    use tower_sessions_sqlx_store::{PostgresStore, sqlx::PgPool};
+    use yappr_shared::config::Config;
     use yappr_web::app::*;
     use yappr_web::auth::Backend;
-    use yappr_web::auth::oauth_state::OAuthState;
     use yappr_web::auth::oauth_clients::OAuthProvider;
     use yappr_web::auth::oauth_handlers::handle_oauth_login;
-    use yappr_shared::config::Config;
-    use yappr_shared::entities::prelude::*;
-    use sea_orm::{Database, DatabaseConnection, EntityTrait};
-    use std::{net::SocketAddr, sync::Arc};
-    use std::path::PathBuf;
-    use tower_sessions::{SessionManagerLayer, Expiry};
-    use tower_sessions_sqlx_store::{PostgresStore, sqlx::PgPool};
-    use axum_login::AuthManagerLayerBuilder;
-    use tower_http::set_header::SetResponseHeaderLayer;
+    use yappr_web::auth::oauth_state::OAuthState;
+    use yappr_web::routes;
 
     // CSRF Protection is provided by:
     // 1. OAuth state parameter for authentication flow (see oauth_handlers.rs)
     // 2. SameSite=Lax session cookies (prevents cross-site requests)
     // 3. HTTPS-only cookies in production (prevents MITM)
-
-    // Handler for thumbnail endpoint
-    async fn serve_thumbnail(
-        Path(video_id): Path<i32>,
-        Extension(db): Extension<Arc<DatabaseConnection>>,
-        Extension(config): Extension<Arc<Config>>,
-    ) -> Result<Response, StatusCode> {
-        // Get video from database
-        let video = Video::find_by_id(video_id)
-            .one(db.as_ref())
-            .await
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
-            .ok_or(StatusCode::NOT_FOUND)?;
-
-        // Check if thumbnail exists
-        let thumbnail_json = video.thumbnail.ok_or(StatusCode::NOT_FOUND)?;
-
-        // Parse thumbnail JSON to get filename
-        let thumbnail_data: Value = leptos::serde_json::from_value(thumbnail_json.clone())
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-
-        // sqlalchemy_file stores the filename in the "filename" or "name" field
-        let filename = thumbnail_data
-            .get("filename")
-            .or_else(|| thumbnail_data.get("name"))
-            .and_then(|v| v.as_str())
-            .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-
-        // Build full path to thumbnail
-        let thumbnail_path = PathBuf::from(&config.storage_location)
-            .join("thumbnails")
-            .join(filename);
-
-        // Read thumbnail file
-        let content = tokio::fs::read(&thumbnail_path)
-            .await
-            .map_err(|_| StatusCode::NOT_FOUND)?;
-
-        // Build response with caching headers
-        Response::builder()
-            .status(StatusCode::OK)
-            .header(header::CONTENT_TYPE, "image/jpeg")
-            .header(header::CACHE_CONTROL, "public, max-age=31536000, immutable")
-            .body(axum::body::Body::from(content))
-            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
-    }
 
     // Initialize tracing
     tracing_subscriber::fmt::init();
@@ -210,20 +163,41 @@ async fn main() {
     // Generate the list of routes in your Leptos App
     let routes = generate_route_list(App);
 
+    log!("Registering thumbnail route: /api/thumbnails/{{video_id}}");
+
     let mut app = Router::new()
-        .route("/api/thumbnails/{video_id}", axum::routing::get(serve_thumbnail))
+        .route(
+            "/api/thumbnails/{video_id}",
+            axum::routing::get(routes::serve_thumbnail),
+        )
         .route("/api/logout", axum::routing::post(handle_logout))
         .route("/api/current-user", axum::routing::get(handle_current_user))
         .route("/api/protected", axum::routing::get(protected_route))
         // OAuth routes
-        .route("/auth/discord", axum::routing::get(|config: axum::Extension<Arc<Config>>, oauth_state: axum::Extension<OAuthState>| {
-            handle_oauth_login(OAuthProvider::Discord, config, oauth_state)
-        }))
-        .route("/auth/discord/callback", axum::routing::get(handle_discord_callback))
-        .route("/auth/twitch", axum::routing::get(|config: axum::Extension<Arc<Config>>, oauth_state: axum::Extension<OAuthState>| {
-            handle_oauth_login(OAuthProvider::Twitch, config, oauth_state)
-        }))
-        .route("/auth/twitch/callback", axum::routing::get(handle_twitch_callback))
+        .route(
+            "/auth/discord",
+            axum::routing::get(
+                |config: axum::Extension<Arc<Config>>, oauth_state: axum::Extension<OAuthState>| {
+                    handle_oauth_login(OAuthProvider::Discord, config, oauth_state)
+                },
+            ),
+        )
+        .route(
+            "/auth/discord/callback",
+            axum::routing::get(handle_discord_callback),
+        )
+        .route(
+            "/auth/twitch",
+            axum::routing::get(
+                |config: axum::Extension<Arc<Config>>, oauth_state: axum::Extension<OAuthState>| {
+                    handle_oauth_login(OAuthProvider::Twitch, config, oauth_state)
+                },
+            ),
+        )
+        .route(
+            "/auth/twitch/callback",
+            axum::routing::get(handle_twitch_callback),
+        )
         .leptos_routes(&leptos_options, routes, {
             let leptos_options = leptos_options.clone();
             move || shell(leptos_options.clone())

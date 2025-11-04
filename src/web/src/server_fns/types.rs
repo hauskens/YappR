@@ -29,7 +29,7 @@ pub struct VideoData {
     pub title: String,
     pub platform_ref: String,
     pub platform_name: String,
-    pub uploaded: i64,  // Unix timestamp
+    pub uploaded: i64, // Unix timestamp
     pub duration: f64,
     pub active: bool,
 }
@@ -52,7 +52,7 @@ pub struct SegmentResultData {
     pub formatted_text: String,
     pub start_time: i32,
     pub end_time: i32,
-    pub url: String,  // Pre-generated URL for this segment
+    pub url: String, // Pre-generated URL for this segment
 }
 
 /// Serializable DTO for video search result
@@ -143,6 +143,174 @@ pub struct CreateChannelRequest {
     pub platform_ref: String,
     pub platform_channel_id: String,
     pub main_video_type: String,
+}
+
+// ============================================================================
+// Video Detail Page DTOs
+// ============================================================================
+
+/// Basic channel info for video detail page
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChannelBasicData {
+    pub id: i32,
+    pub name: String,
+    pub platform_name: String,
+}
+
+/// Detailed video data for video detail page
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VideoDetailData {
+    pub id: i32,
+    pub title: String,
+    pub uploaded: String,
+    pub duration: i32,
+    pub active: bool,
+    pub platform_name: String,
+    pub platform_url: String,
+    pub estimated_upload_time: Option<String>,
+    pub channel: ChannelBasicData,
+    pub source_video: Option<Box<VideoDetailData>>,
+    pub has_audio: bool,
+    pub transcriptions: Vec<TranscriptionData>,
+    pub segment_count: i32,
+    pub has_target_mappings: bool,
+}
+
+/// Transcription file data
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TranscriptionData {
+    pub id: i32,
+    pub file_extension: String,
+    pub source_name: String,
+    pub last_updated: String,
+    pub processed: bool,
+    pub segment_count: i32,
+}
+
+/// Chat log entry
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChatLogData {
+    pub id: i32,
+    pub username: String,
+    pub message: String,
+    pub timestamp: String,
+    pub offset_seconds: f64,
+}
+
+/// Transcription segment with timestamp URL
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TranscriptionSegmentData {
+    pub id: String,
+    pub start: i32,
+    pub end: i32,
+    pub text: String,
+    pub timestamp_url: String,
+}
+
+/// Video linking match result
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VideoLinkMatchData {
+    pub video_id: i32,
+    pub video_title: String,
+    pub video_uploaded: String,
+    pub video_duration: i32,
+    pub video_platform: String,
+    pub video_url: String,
+    pub match_reasons: Vec<String>,
+    pub duration_diff: i32,
+    pub time_diff_hours: Option<f64>,
+}
+
+/// Video link preview response
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VideoLinkPreviewData {
+    pub video: VideoLinkPreviewVideoData,
+    pub potential_matches: Vec<VideoLinkMatchData>,
+    pub existing_mappings: Vec<TimestampMappingData>,
+}
+
+/// Video info for link preview
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VideoLinkPreviewVideoData {
+    pub id: i32,
+    pub title: String,
+    pub duration: i32,
+    pub estimated_date: Option<String>,
+    pub title_parsing_enabled: bool,
+}
+
+/// Timestamp mapping info
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TimestampMappingData {
+    pub id: i32,
+    pub source_video: VideoBasicData,
+    pub source_start: i32,
+    pub source_end: i32,
+    pub target_start: i32,
+    pub target_end: i32,
+    pub time_offset: f64,
+}
+
+/// Basic video info
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VideoBasicData {
+    pub id: i32,
+    pub title: String,
+    pub url: String,
+}
+
+// ============================================================================
+// Channel Videos Page DTOs
+// ============================================================================
+
+/// Channel videos page data
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChannelVideosPageData {
+    pub channel: ChannelDetailData,
+    pub videos: Vec<VideoListItemData>,
+    pub total_videos: usize,
+    pub transcription_count: String,
+    pub permissions: ChannelVideosPermissions,
+}
+
+/// Permissions for channel videos page actions
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct ChannelVideosPermissions {
+    pub can_fetch_videos: bool,     // admin, mod, or broadcaster
+    pub can_fetch_all_videos: bool, // admin or broadcaster
+    pub can_bulk_link: bool,        // admin or mod
+    pub can_edit_videos: bool,      // admin, mod, or broadcaster
+    pub can_process_videos: bool,   // admin, mod, or broadcaster
+}
+
+/// Video list item for channel videos table
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct VideoListItemData {
+    pub id: i32,
+    pub title: String,
+    pub duration: i32,
+    pub uploaded: String,
+    pub estimated_upload_time: Option<String>,
+    pub active: bool,
+    pub has_audio: bool,
+    pub transcriptions: Vec<TranscriptionBasicData>,
+    pub source_video: Option<VideoBasicData>,
+    pub segment_count: i32,
+}
+
+/// Basic transcription info
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct TranscriptionBasicData {
+    pub id: i32,
+    pub processed: bool,
+}
+
+/// Bulk link parameters
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BulkLinkParams {
+    pub margin_sec: i32,
+    pub min_duration: i32,
+    pub date_margin_hours: i32,
 }
 
 // ============================================================================

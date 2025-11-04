@@ -199,8 +199,11 @@ devenv.local.nix
 
 # Rust
 /target
-Cargo.lock
 pkg/
 
 # Leptos web frontend
 src/web/public/vendor/
+src/wasm/target
+src/wasm/pkg
+
+src/web/node_modules

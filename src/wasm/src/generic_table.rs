@@ -1,9 +1,9 @@
-use yew::prelude::*;
 use gloo_net::http::Request;
-use web_sys::Event;
-use yew::html::TargetCast;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use web_sys::Event;
+use yew::html::TargetCast;
+use yew::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct TableColumn {
@@ -18,10 +18,14 @@ pub struct TableColumn {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum ColumnRenderType {
     Text,
-    Link { url_key: Option<String> },
+    Link {
+        url_key: Option<String>,
+    },
     Number,
     Duration, // For displaying time in seconds as mm:ss format
-    Badge { color_map: Option<HashMap<String, String>> },
+    Badge {
+        color_map: Option<HashMap<String, String>>,
+    },
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -75,9 +79,19 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
     let current_page = use_state(|| 1usize);
     let page_size = use_state(|| props.page_size.unwrap_or(50));
     let sort_field = use_state(|| {
-        props.default_sort_column.as_ref()
+        props
+            .default_sort_column
+            .as_ref()
             .map(|col| SortField::Column(col.clone()))
-            .unwrap_or_else(|| SortField::Column(props.columns.first().map(|c| c.key.clone()).unwrap_or_default()))
+            .unwrap_or_else(|| {
+                SortField::Column(
+                    props
+                        .columns
+                        .first()
+                        .map(|c| c.key.clone())
+                        .unwrap_or_default(),
+                )
+            })
     });
     let sort_order = use_state(|| props.default_sort_order.clone().unwrap_or(SortOrder::Asc));
     let error_message = use_state(|| None::<String>);
@@ -104,12 +118,14 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                                     loading.set(false);
                                 }
                                 Err(e) => {
-                                    error_message.set(Some(format!("Failed to parse response: {}", e)));
+                                    error_message
+                                        .set(Some(format!("Failed to parse response: {}", e)));
                                     loading.set(false);
                                 }
                             }
                         } else {
-                            error_message.set(Some(format!("Request failed: {}", response.status())));
+                            error_message
+                                .set(Some(format!("Request failed: {}", response.status())));
                             loading.set(false);
                         }
                     }
@@ -133,12 +149,20 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
         let columns = props.columns.clone();
         let custom_filters = props.custom_filters.clone().unwrap_or_default();
 
-        use_effect_with(((*search_term).clone(), (*sort_field).clone(), (*sort_order).clone(), (*custom_filter_values).clone()), move |(search, sort_field, sort_order, filter_values)| {
-            let mut filtered = filter_rows(&*rows, search, &columns);
-            filtered = apply_custom_filters(filtered, filter_values, &custom_filters);
-            sort_rows(&mut filtered, sort_field, sort_order);
-            filtered_rows.set(filtered);
-        });
+        use_effect_with(
+            (
+                (*search_term).clone(),
+                (*sort_field).clone(),
+                (*sort_order).clone(),
+                (*custom_filter_values).clone(),
+            ),
+            move |(search, sort_field, sort_order, filter_values)| {
+                let mut filtered = filter_rows(&*rows, search, &columns);
+                filtered = apply_custom_filters(filtered, filter_values, &custom_filters);
+                sort_rows(&mut filtered, sort_field, sort_order);
+                filtered_rows.set(filtered);
+            },
+        );
     }
 
     let on_search_input = {
@@ -205,7 +229,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
             let select: web_sys::HtmlSelectElement = e.target_unchecked_into();
             let filter_key = select.get_attribute("data-filter-key").unwrap_or_default();
             let value = select.value();
-            
+
             let mut new_values = (*custom_filter_values).clone();
             if value.is_empty() || value == "all" {
                 new_values.remove(&filter_key);
@@ -239,7 +263,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
     let total_pages = (total_filtered + *page_size - 1) / *page_size;
     let start_idx = (*current_page - 1) * *page_size;
     let end_idx = std::cmp::min(start_idx + *page_size, total_filtered);
-    
+
     let paginated_rows = if start_idx < total_filtered {
         filtered_rows[start_idx..end_idx].to_vec()
     } else {
@@ -263,7 +287,8 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
     let has_active_filters = has_active_search || !custom_filter_values.is_empty();
 
     // Generate pagination buttons
-    let pagination_buttons = generate_pagination_buttons(*current_page, total_pages, on_page_change.clone());
+    let pagination_buttons =
+        generate_pagination_buttons(*current_page, total_pages, on_page_change.clone());
 
     html! {
         <div class="generic-table">
@@ -280,8 +305,8 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                                 oninput={on_search_input}
                             />
                             if has_active_search {
-                                <button 
-                                    class="btn btn-outline-secondary" 
+                                <button
+                                    class="btn btn-outline-secondary"
                                     type="button"
                                     onclick={on_clear_search}
                                     title="Clear search"
@@ -291,15 +316,15 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                             }
                         </div>
                     }
-                    
+
                     // Custom filter dropdowns
                     {
                         if let Some(custom_filters) = &props.custom_filters {
                             custom_filters.iter().map(|filter| {
                                 html! {
-                                    <select 
-                                        class="form-select form-select-sm me-2" 
-                                        style="width: auto;" 
+                                    <select
+                                        class="form-select form-select-sm me-2"
+                                        style="width: auto;"
                                         onchange={on_custom_filter_change.clone()}
                                         data-filter-key={filter.key.clone()}
                                         value={custom_filter_values.get(&filter.key).cloned().unwrap_or_default()}
@@ -322,7 +347,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                             html! {}
                         }
                     }
-                    
+
                     <select class="form-select form-select-sm" style="width: auto;" onchange={on_page_size_change} value={page_size.to_string()}>
                         <option value="25">{"25 per page"}</option>
                         <option value="50" selected={*page_size == 50}>{"50 per page"}</option>
@@ -333,7 +358,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
             </div>
 
             <div class="text-muted small mb-2">
-                {format!("Showing {} - {} of {} items", 
+                {format!("Showing {} - {} of {} items",
                     if total_filtered > 0 { start_idx + 1 } else { 0 },
                     end_idx,
                     total_filtered
@@ -342,7 +367,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                     <span class="badge bg-primary ms-2">{"Filtered"}</span>
                 }
             </div>
-            
+
             <div class="table-responsive">
                 <table class="table table-striped">
                     <thead>
@@ -357,7 +382,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                                 };
 
                                 html! {
-                                    <th 
+                                    <th
                                         style={if column.sortable { "cursor: pointer;" } else { "" }}
                                         width={column.width.clone()}
                                         onclick={onclick}
@@ -378,7 +403,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                                     {for props.columns.iter().map(|column| {
                                         let cell_value = row.data.get(&column.key).cloned().unwrap_or_default();
                                         let cell_content = render_cell_content(&column.render_type, &cell_value, &row.data);
-                                        
+
                                         html! {
                                             <td>{cell_content}</td>
                                         }
@@ -389,7 +414,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                     </tbody>
                 </table>
             </div>
-            
+
             if total_pages > 1 {
                 <nav>
                     <ul class="pagination justify-content-center">
@@ -406,9 +431,9 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                                 {"Previous"}
                             </button>
                         </li>
-                        
+
                         {for pagination_buttons}
-                        
+
                         <li class={classes!("page-item", (*current_page == total_pages).then_some("disabled"))}>
                             <button class="page-link" onclick={
                                 let callback = on_page_change.clone();
@@ -431,7 +456,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
 
 fn parse_response_data(data: serde_json::Value) -> Vec<TableRow> {
     let mut rows = Vec::new();
-    
+
     // Handle different response formats
     if let Some(segments) = data.get("segments").and_then(|s| s.as_array()) {
         // Transcription segments format
@@ -439,9 +464,12 @@ fn parse_response_data(data: serde_json::Value) -> Vec<TableRow> {
             if let Some(obj) = segment.as_object() {
                 let mut row_data = HashMap::new();
                 for (key, value) in obj {
-                    row_data.insert(key.clone(), format!("{}", value).trim_matches('"').to_string());
+                    row_data.insert(
+                        key.clone(),
+                        format!("{}", value).trim_matches('"').to_string(),
+                    );
                 }
-                
+
                 let id = row_data.get("id").cloned().unwrap_or_default();
                 rows.push(TableRow { id, data: row_data });
             }
@@ -452,9 +480,12 @@ fn parse_response_data(data: serde_json::Value) -> Vec<TableRow> {
             if let Some(obj) = log.as_object() {
                 let mut row_data = HashMap::new();
                 for (key, value) in obj {
-                    row_data.insert(key.clone(), format!("{}", value).trim_matches('"').to_string());
+                    row_data.insert(
+                        key.clone(),
+                        format!("{}", value).trim_matches('"').to_string(),
+                    );
                 }
-                
+
                 let id = row_data.get("id").cloned().unwrap_or_default();
                 rows.push(TableRow { id, data: row_data });
             }
@@ -465,15 +496,18 @@ fn parse_response_data(data: serde_json::Value) -> Vec<TableRow> {
             if let Some(obj) = event.as_object() {
                 let mut row_data = HashMap::new();
                 for (key, value) in obj {
-                    row_data.insert(key.clone(), format!("{}", value).trim_matches('"').to_string());
+                    row_data.insert(
+                        key.clone(),
+                        format!("{}", value).trim_matches('"').to_string(),
+                    );
                 }
-                
+
                 let id = row_data.get("id").cloned().unwrap_or_default();
                 rows.push(TableRow { id, data: row_data });
             }
         }
     }
-    
+
     rows
 }
 
@@ -485,19 +519,22 @@ fn filter_rows(rows: &[TableRow], search_term: &str, columns: &[TableColumn]) ->
     let search_lower = search_term.to_lowercase();
     rows.iter()
         .filter(|row| {
-            columns.iter()
-                .filter(|col| col.searchable)
-                .any(|col| {
-                    row.data.get(&col.key)
-                        .map(|value| value.to_lowercase().contains(&search_lower))
-                        .unwrap_or(false)
-                })
+            columns.iter().filter(|col| col.searchable).any(|col| {
+                row.data
+                    .get(&col.key)
+                    .map(|value| value.to_lowercase().contains(&search_lower))
+                    .unwrap_or(false)
+            })
         })
         .cloned()
         .collect()
 }
 
-fn apply_custom_filters(rows: Vec<TableRow>, filter_values: &HashMap<String, String>, _filters: &[CustomFilter]) -> Vec<TableRow> {
+fn apply_custom_filters(
+    rows: Vec<TableRow>,
+    filter_values: &HashMap<String, String>,
+    _filters: &[CustomFilter],
+) -> Vec<TableRow> {
     if filter_values.is_empty() {
         return rows;
     }
@@ -505,7 +542,8 @@ fn apply_custom_filters(rows: Vec<TableRow>, filter_values: &HashMap<String, Str
     rows.into_iter()
         .filter(|row| {
             filter_values.iter().all(|(filter_key, filter_value)| {
-                row.data.get(filter_key)
+                row.data
+                    .get(filter_key)
                     .map(|value| value == filter_value)
                     .unwrap_or(false)
             })
@@ -518,19 +556,23 @@ fn sort_rows(rows: &mut [TableRow], sort_field: &SortField, sort_order: &SortOrd
     rows.sort_by(|a, b| {
         let a_val = a.data.get(column_key).cloned().unwrap_or_default();
         let b_val = b.data.get(column_key).cloned().unwrap_or_default();
-        
+
         // Try to parse as numbers first for proper numeric sorting
         // Skip numeric parsing for values that contain letters (like timestamps with 's')
-        let comparison = if !a_val.chars().any(|c| c.is_alphabetic()) && !b_val.chars().any(|c| c.is_alphabetic()) {
+        let comparison = if !a_val.chars().any(|c| c.is_alphabetic())
+            && !b_val.chars().any(|c| c.is_alphabetic())
+        {
             if let (Ok(a_num), Ok(b_num)) = (a_val.parse::<f64>(), b_val.parse::<f64>()) {
-                a_num.partial_cmp(&b_num).unwrap_or(std::cmp::Ordering::Equal)
+                a_num
+                    .partial_cmp(&b_num)
+                    .unwrap_or(std::cmp::Ordering::Equal)
             } else {
                 a_val.cmp(&b_val)
             }
         } else {
             a_val.cmp(&b_val)
         };
-        
+
         match sort_order {
             SortOrder::Asc => comparison,
             SortOrder::Desc => comparison.reverse(),
@@ -538,7 +580,11 @@ fn sort_rows(rows: &mut [TableRow], sort_field: &SortField, sort_order: &SortOrd
     });
 }
 
-fn render_cell_content(render_type: &ColumnRenderType, value: &str, row_data: &HashMap<String, String>) -> Html {
+fn render_cell_content(
+    render_type: &ColumnRenderType,
+    value: &str,
+    row_data: &HashMap<String, String>,
+) -> Html {
     match render_type {
         ColumnRenderType::Text => html! { {value} },
         ColumnRenderType::Number => html! { {value} },
@@ -550,25 +596,27 @@ fn render_cell_content(render_type: &ColumnRenderType, value: &str, row_data: &H
             } else {
                 html! { {value} }
             }
-        },
+        }
         ColumnRenderType::Link { url_key } => {
-            let url = url_key.as_ref()
+            let url = url_key
+                .as_ref()
                 .and_then(|key| row_data.get(key))
                 .cloned()
                 .unwrap_or_else(|| value.to_string());
-            
+
             html! {
                 <a href={url} target="_blank" class="text-decoration-none">
                     {value}
                 </a>
             }
-        },
+        }
         ColumnRenderType::Badge { color_map } => {
-            let color = color_map.as_ref()
+            let color = color_map
+                .as_ref()
                 .and_then(|map| map.get(value))
                 .cloned()
                 .unwrap_or_else(|| "secondary".to_string());
-            
+
             html! {
                 <span class={format!("badge bg-{}", color)}>
                     {value}
@@ -578,14 +626,18 @@ fn render_cell_content(render_type: &ColumnRenderType, value: &str, row_data: &H
     }
 }
 
-fn generate_pagination_buttons(current_page: usize, total_pages: usize, on_page_change: Callback<usize>) -> Vec<Html> {
+fn generate_pagination_buttons(
+    current_page: usize,
+    total_pages: usize,
+    on_page_change: Callback<usize>,
+) -> Vec<Html> {
     if total_pages <= 1 {
         return Vec::new();
     }
 
     let max_visible = 7;
     let half_visible = max_visible / 2;
-    
+
     let start_page = if current_page <= half_visible {
         1
     } else if current_page + half_visible >= total_pages {
@@ -593,11 +645,11 @@ fn generate_pagination_buttons(current_page: usize, total_pages: usize, on_page_
     } else {
         current_page - half_visible
     };
-    
+
     let end_page = std::cmp::min(total_pages, start_page + max_visible - 1);
-    
+
     let mut pages = Vec::new();
-    
+
     // First page + ellipsis if needed
     if start_page > 1 {
         pages.push(html! {
@@ -610,7 +662,7 @@ fn generate_pagination_buttons(current_page: usize, total_pages: usize, on_page_
                 </button>
             </li>
         });
-        
+
         if start_page > 2 {
             pages.push(html! {
                 <li key={"ellipsis-start"} class="page-item disabled">
@@ -619,7 +671,7 @@ fn generate_pagination_buttons(current_page: usize, total_pages: usize, on_page_
             });
         }
     }
-    
+
     // Main page range
     for page in start_page..=end_page {
         let is_current = page == current_page;
@@ -634,7 +686,7 @@ fn generate_pagination_buttons(current_page: usize, total_pages: usize, on_page_
             </li>
         });
     }
-    
+
     // Last page + ellipsis if needed
     if end_page < total_pages {
         if end_page < total_pages - 1 {
@@ -644,7 +696,7 @@ fn generate_pagination_buttons(current_page: usize, total_pages: usize, on_page_
                 </li>
             });
         }
-        
+
         pages.push(html! {
             <li key={total_pages} class="page-item">
                 <button class="page-link" onclick={
@@ -656,6 +708,6 @@ fn generate_pagination_buttons(current_page: usize, total_pages: usize, on_page_
             </li>
         });
     }
-    
+
     pages
 }

@@ -1,7 +1,7 @@
 //! Server functions for broadcaster operations
 
-use leptos::prelude::*;
 use crate::server_fns::types::*;
+use leptos::prelude::*;
 
 #[cfg(feature = "ssr")]
 use yappr_shared::services::broadcaster::BroadcasterService;
@@ -25,7 +25,10 @@ pub async fn get_broadcasters(show_hidden: bool) -> Result<Vec<BroadcasterData>,
     }
     .map_err(|e| ServerFnError::new(format!("Database error: {}", e)))?;
 
-    Ok(broadcasters.into_iter().map(BroadcasterData::from).collect())
+    Ok(broadcasters
+        .into_iter()
+        .map(BroadcasterData::from)
+        .collect())
 }
 
 /// Server function to get broadcasters with authentication and permission filtering
@@ -33,12 +36,12 @@ pub async fn get_broadcasters(show_hidden: bool) -> Result<Vec<BroadcasterData>,
 pub async fn get_broadcasters_with_auth() -> Result<Vec<BroadcasterData>, ServerFnError> {
     use axum::Extension;
     use leptos_axum::extract;
-    use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, QueryFilter};
-    use std::sync::Arc;
+    use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
     use std::collections::HashSet;
+    use std::sync::Arc;
+    use yappr_shared::entities::prelude::*;
     use yappr_shared::services::authorization::AuthContext;
     use yappr_shared::services::moderation::ModerationService;
-    use yappr_shared::entities::prelude::*;
 
     let Extension(db) = extract::<Extension<Arc<DatabaseConnection>>>()
         .await
@@ -49,7 +52,8 @@ pub async fn get_broadcasters_with_auth() -> Result<Vec<BroadcasterData>, Server
         .map_err(|e| ServerFnError::new(format!("Failed to get auth session: {}", e)))?;
 
     let auth_context = if let Some(user) = auth_session.user {
-        AuthContext::load(&db, user.0.clone()).await
+        AuthContext::load(&db, user.0.clone())
+            .await
             .map_err(|e| ServerFnError::new(format!("Failed to load auth context: {}", e)))?
     } else {
         AuthContext::anonymous()
@@ -103,10 +107,10 @@ pub async fn get_broadcaster_edit_data(
 ) -> Result<BroadcasterEditData, ServerFnError> {
     use axum::Extension;
     use leptos_axum::extract;
-    use sea_orm::{DatabaseConnection, EntityTrait, ColumnTrait, QueryFilter, PaginatorTrait};
+    use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter};
     use std::sync::Arc;
-    use yappr_shared::services::authorization::AuthContext;
     use yappr_shared::entities::prelude::*;
+    use yappr_shared::services::authorization::AuthContext;
 
     let Extension(db) = extract::<Extension<Arc<DatabaseConnection>>>()
         .await
@@ -117,7 +121,8 @@ pub async fn get_broadcaster_edit_data(
         .map_err(|e| ServerFnError::new(format!("Failed to get auth session: {}", e)))?;
 
     let auth_context = if let Some(user) = auth_session.user {
-        AuthContext::load(&db, user.0.clone()).await
+        AuthContext::load(&db, user.0.clone())
+            .await
             .map_err(|e| ServerFnError::new(format!("Failed to load auth context: {}", e)))?
     } else {
         AuthContext::anonymous()
@@ -158,7 +163,10 @@ pub async fn get_broadcaster_edit_data(
     let channel_ids: Vec<i32> = all_channels.iter().map(|c| c.id).collect();
     let channel_settings = if !channel_ids.is_empty() {
         ChannelSettings::find()
-            .filter(yappr_shared::entities::channel_settings::Column::ChannelId.is_in(channel_ids.clone()))
+            .filter(
+                yappr_shared::entities::channel_settings::Column::ChannelId
+                    .is_in(channel_ids.clone()),
+            )
             .all(&*db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to load channel settings: {}", e)))?
@@ -166,8 +174,13 @@ pub async fn get_broadcaster_edit_data(
         vec![]
     };
 
-    let settings_map: std::collections::HashMap<i32, yappr_shared::entities::channel_settings::Model> =
-        channel_settings.into_iter().map(|s| (s.channel_id, s)).collect();
+    let settings_map: std::collections::HashMap<
+        i32,
+        yappr_shared::entities::channel_settings::Model,
+    > = channel_settings
+        .into_iter()
+        .map(|s| (s.channel_id, s))
+        .collect();
 
     let mut channel_details = Vec::new();
     for channel in all_channels.iter() {
@@ -190,7 +203,9 @@ pub async fn get_broadcaster_edit_data(
             None
         };
 
-        let last_active = channel.last_active.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string());
+        let last_active = channel
+            .last_active
+            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string());
 
         // Convert Videotype enum to string
         let video_type_str = match channel.main_video_type {
@@ -199,7 +214,8 @@ pub async fn get_broadcaster_edit_data(
             yappr_shared::entities::sea_orm_active_enums::Videotype::Clip => "Clip",
             yappr_shared::entities::sea_orm_active_enums::Videotype::Edit => "Edit",
             yappr_shared::entities::sea_orm_active_enums::Videotype::Live => "Live",
-        }.to_string();
+        }
+        .to_string();
 
         channel_details.push(ChannelDetailData {
             id: channel.id,
@@ -215,7 +231,9 @@ pub async fn get_broadcaster_edit_data(
     }
 
     let broadcaster_settings = BroadcasterSettings::find()
-        .filter(yappr_shared::entities::broadcaster_settings::Column::BroadcasterId.eq(broadcaster_id))
+        .filter(
+            yappr_shared::entities::broadcaster_settings::Column::BroadcasterId.eq(broadcaster_id),
+        )
         .one(&*db)
         .await
         .map_err(|e| ServerFnError::new(format!("Failed to load broadcaster settings: {}", e)))?
@@ -278,10 +296,12 @@ pub async fn update_broadcaster_settings(
 ) -> Result<(), ServerFnError> {
     use axum::Extension;
     use leptos_axum::extract;
-    use sea_orm::{DatabaseConnection, EntityTrait, ActiveModelTrait, Set, ColumnTrait, QueryFilter};
+    use sea_orm::{
+        ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set,
+    };
     use std::sync::Arc;
-    use yappr_shared::services::authorization::AuthContext;
     use yappr_shared::entities::prelude::*;
+    use yappr_shared::services::authorization::AuthContext;
 
     let Extension(db) = extract::<Extension<Arc<DatabaseConnection>>>()
         .await
@@ -292,7 +312,8 @@ pub async fn update_broadcaster_settings(
         .map_err(|e| ServerFnError::new(format!("Failed to get auth session: {}", e)))?;
 
     let auth_context = if let Some(user) = auth_session.user {
-        AuthContext::load(&db, user.0.clone()).await
+        AuthContext::load(&db, user.0.clone())
+            .await
             .map_err(|e| ServerFnError::new(format!("Failed to load auth context: {}", e)))?
     } else {
         return Err(ServerFnError::new("Authentication required"));
@@ -308,7 +329,9 @@ pub async fn update_broadcaster_settings(
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to load channels: {}", e)))?;
 
-        can_edit = broadcaster_channels.iter().any(|ch| auth_context.is_channel_owner(ch.id));
+        can_edit = broadcaster_channels
+            .iter()
+            .any(|ch| auth_context.is_channel_owner(ch.id));
     }
 
     if !can_edit {
@@ -332,21 +355,29 @@ pub async fn update_broadcaster_settings(
             active_model.hidden = Set(hidden);
         }
 
-        active_model.update(&*db).await
+        active_model
+            .update(&*db)
+            .await
             .map_err(|e| ServerFnError::new(format!("Failed to update broadcaster: {}", e)))?;
     }
 
     if let Some(discord_id) = request.linked_discord_channel_id {
         let existing_settings = BroadcasterSettings::find()
-            .filter(yappr_shared::entities::broadcaster_settings::Column::BroadcasterId.eq(broadcaster_id))
+            .filter(
+                yappr_shared::entities::broadcaster_settings::Column::BroadcasterId
+                    .eq(broadcaster_id),
+            )
             .one(&*db)
             .await
             .map_err(|e| ServerFnError::new(format!("Failed to load settings: {}", e)))?;
 
         if let Some(settings) = existing_settings {
-            let mut active: yappr_shared::entities::broadcaster_settings::ActiveModel = settings.into();
+            let mut active: yappr_shared::entities::broadcaster_settings::ActiveModel =
+                settings.into();
             active.linked_discord_channel_id = Set(Some(discord_id));
-            active.update(&*db).await
+            active
+                .update(&*db)
+                .await
                 .map_err(|e| ServerFnError::new(format!("Failed to update settings: {}", e)))?;
         } else {
             let new_settings = yappr_shared::entities::broadcaster_settings::ActiveModel {
@@ -354,7 +385,9 @@ pub async fn update_broadcaster_settings(
                 linked_discord_channel_id: Set(Some(discord_id)),
                 ..Default::default()
             };
-            new_settings.insert(&*db).await
+            new_settings
+                .insert(&*db)
+                .await
                 .map_err(|e| ServerFnError::new(format!("Failed to create settings: {}", e)))?;
         }
     }
@@ -369,8 +402,8 @@ pub async fn delete_broadcaster(broadcaster_id: i32) -> Result<(), ServerFnError
     use leptos_axum::extract;
     use sea_orm::{DatabaseConnection, EntityTrait};
     use std::sync::Arc;
-    use yappr_shared::services::authorization::AuthContext;
     use yappr_shared::entities::prelude::*;
+    use yappr_shared::services::authorization::AuthContext;
 
     let Extension(db) = extract::<Extension<Arc<DatabaseConnection>>>()
         .await
@@ -381,7 +414,8 @@ pub async fn delete_broadcaster(broadcaster_id: i32) -> Result<(), ServerFnError
         .map_err(|e| ServerFnError::new(format!("Failed to get auth session: {}", e)))?;
 
     let auth_context = if let Some(user) = auth_session.user {
-        AuthContext::load(&db, user.0.clone()).await
+        AuthContext::load(&db, user.0.clone())
+            .await
             .map_err(|e| ServerFnError::new(format!("Failed to load auth context: {}", e)))?
     } else {
         return Err(ServerFnError::new("Authentication required"));

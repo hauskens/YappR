@@ -3,8 +3,8 @@
 //! Main page for editing broadcaster settings, managing channels, and viewing stats.
 //! Features a modern tabbed interface with Overview, Channels, Settings, and Events tabs.
 
+use crate::server_fns::{BroadcasterEditData, get_broadcaster_edit_data};
 use leptos::prelude::*;
-use crate::server_fns::{get_broadcaster_edit_data, BroadcasterEditData};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 enum Tab {
@@ -345,9 +345,9 @@ fn ChannelsTab(data: BroadcasterEditData) -> impl IntoView {
                                                         <span class="badge bg-secondary">{channel.platform_name.clone()}</span>
                                                     </div>
                                                     <div class="btn-group btn-group-sm">
-                                                        <button class="btn btn-outline-secondary" title="Edit">
-                                                            <i class="bi bi-pencil"></i>
-                                                        </button>
+                                                        <a href={format!("/channels/{}/videos", channel.id)} class="btn btn-outline-secondary" title="View Videos">
+                                                            <i class="bi bi-film"></i>
+                                                        </a>
                                                         <button class="btn btn-outline-danger" title="Delete">
                                                             <i class="bi bi-trash"></i>
                                                         </button>
@@ -411,8 +411,9 @@ fn ChannelsTab(data: BroadcasterEditData) -> impl IntoView {
                                                             }
                                                                 .into_any()
                                                         } else {
-                                                            view! { <></> }
-                                                                .into_any()
+                                                            let _: () = view! { <></> };
+                                                            ()
+                                                            .into_any()
                                                         }
                                                     }}
 
@@ -435,7 +436,11 @@ fn ChannelsTab(data: BroadcasterEditData) -> impl IntoView {
 
 #[component]
 fn SettingsTab(data: BroadcasterEditData, broadcaster_id: i32) -> impl IntoView {
-    let profile_image_url = data.broadcaster.profile_image_url.clone().unwrap_or_default();
+    let profile_image_url = data
+        .broadcaster
+        .profile_image_url
+        .clone()
+        .unwrap_or_default();
     let broadcaster_hidden = data.broadcaster.hidden;
     let settings = data.settings.clone();
 

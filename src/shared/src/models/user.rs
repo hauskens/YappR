@@ -1,12 +1,14 @@
 #[cfg(feature = "database")]
 use crate::entities::{
-    channels, permissions, prelude::*, user_channel_roles, user_weights, users,
-    content_queue_submissions, moderation_actions,
+    channels, content_queue_submissions, moderation_actions, permissions, prelude::*,
+    user_channel_roles, user_weights, users,
 };
 use crate::models::enums::ChannelRole;
 use async_trait::async_trait;
 #[cfg(feature = "database")]
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set,
+};
 use std::str::FromStr;
 
 /// Extension trait for user business logic
@@ -41,10 +43,8 @@ pub trait UserExt {
     ) -> Result<Vec<user_channel_roles::Model>, DbErr>;
 
     /// Get all weights for this user across all broadcasters
-    async fn get_weights(
-        &self,
-        db: &DatabaseConnection,
-    ) -> Result<Vec<user_weights::Model>, DbErr>;
+    async fn get_weights(&self, db: &DatabaseConnection)
+    -> Result<Vec<user_weights::Model>, DbErr>;
 
     /// Get weight for a specific broadcaster (returns 1.0 if not set)
     async fn get_weight_for_broadcaster(
@@ -73,10 +73,7 @@ pub trait UserExt {
 
     /// Get the broadcaster_id if this user owns any channels
     /// Mimics the Python property from app/models/user.py:85-100
-    async fn get_broadcaster_id(
-        &self,
-        db: &DatabaseConnection,
-    ) -> Result<Option<i32>, DbErr>;
+    async fn get_broadcaster_id(&self, db: &DatabaseConnection) -> Result<Option<i32>, DbErr>;
 
     /// Get user's role for a specific channel
     async fn get_role_for_channel(
@@ -91,7 +88,12 @@ pub trait UserExt {
         db: &DatabaseConnection,
         broadcaster_id: i32,
     ) -> Result<bool, DbErr>;
-    async fn update_role(&self, db: &DatabaseConnection, channel_id: i32, role: &ChannelRole) -> Result<(), DbErr>;
+    async fn update_role(
+        &self,
+        db: &DatabaseConnection,
+        channel_id: i32,
+        role: &ChannelRole,
+    ) -> Result<(), DbErr>;
 }
 
 impl User for users::Model {
@@ -192,10 +194,7 @@ impl UserExt for users::Model {
             .await
     }
 
-    async fn get_broadcaster_id(
-        &self,
-        db: &DatabaseConnection,
-    ) -> Result<Option<i32>, DbErr> {
+    async fn get_broadcaster_id(&self, db: &DatabaseConnection) -> Result<Option<i32>, DbErr> {
         // Check if user's external_account_id matches any channel's platform_channel_id
         let result = Channels::find()
             .filter(channels::Column::PlatformChannelId.eq(&self.external_account_id))
@@ -226,7 +225,6 @@ impl UserExt for users::Model {
         }
     }
 
-
     async fn is_banned_by_broadcaster(
         &self,
         db: &DatabaseConnection,
@@ -241,7 +239,12 @@ impl UserExt for users::Model {
         Ok(weight.map(|w| w.banned).unwrap_or(false))
     }
 
-    async fn update_role(&self, db: &DatabaseConnection, channel_id: i32, role: &ChannelRole) -> Result<(), DbErr> {
+    async fn update_role(
+        &self,
+        db: &DatabaseConnection,
+        channel_id: i32,
+        role: &ChannelRole,
+    ) -> Result<(), DbErr> {
         let user_channel_role = UserChannelRoles::find()
             .filter(user_channel_roles::Column::UserId.eq(self.id))
             .filter(user_channel_roles::Column::ChannelId.eq(channel_id))

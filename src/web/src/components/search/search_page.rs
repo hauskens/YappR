@@ -1,6 +1,8 @@
+use crate::components::search::{
+    search_form::SearchForm, search_results::SearchResults, search_tips::SearchTips,
+};
+use crate::server_fns::{VideoResultData, get_broadcasters};
 use leptos::prelude::*;
-use crate::server_fns::{get_broadcasters, VideoResultData};
-use crate::components::search::{search_form::SearchForm, search_tips::SearchTips, search_results::SearchResults};
 
 /// Main search page component
 #[component]

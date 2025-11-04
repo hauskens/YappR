@@ -1,6 +1,6 @@
-use sea_orm::{Database, DatabaseConnection, ConnectOptions};
 use crate::config::Config;
-use tracing::{info, error, instrument, debug};
+use sea_orm::{ConnectOptions, Database, DatabaseConnection};
+use tracing::{debug, error, info, instrument};
 
 #[instrument(level = "info")]
 pub async fn get_database_connection() -> Result<DatabaseConnection, sea_orm::DbErr> {

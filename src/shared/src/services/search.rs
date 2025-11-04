@@ -1,9 +1,12 @@
 use crate::entities::{prelude::*, timestamp_mapping, video};
 use crate::models::search::{SegmentsResult, VideoResult};
 use chrono::{DateTime, Utc};
-use sea_orm::{ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, FromQueryResult, QueryFilter, Statement};
+use sea_orm::{
+    ColumnTrait, ConnectionTrait, DatabaseConnection, DbErr, EntityTrait, FromQueryResult,
+    QueryFilter, Statement,
+};
 use std::collections::{HashMap, HashSet};
-use tracing::{info, debug, instrument};
+use tracing::{debug, info, instrument};
 
 /// Service for search operations
 pub struct SearchService;
@@ -141,14 +144,15 @@ impl SearchService {
             .await?;
 
         // Group mappings by source_video_id for O(1) lookups
-        let mappings_by_video: HashMap<i32, Vec<_>> = timestamp_mappings
-            .into_iter()
-            .fold(HashMap::new(), |mut acc, mapping| {
-                acc.entry(mapping.source_video_id)
-                    .or_insert_with(Vec::new)
-                    .push(mapping);
-                acc
-            });
+        let mappings_by_video: HashMap<i32, Vec<_>> =
+            timestamp_mappings
+                .into_iter()
+                .fold(HashMap::new(), |mut acc, mapping| {
+                    acc.entry(mapping.source_video_id)
+                        .or_insert_with(Vec::new)
+                        .push(mapping);
+                    acc
+                });
 
         // Process results and group by video using HashMap lookups (no more DB queries!)
         let mut video_results: Vec<VideoResult> = Vec::new();
@@ -202,11 +206,8 @@ impl SearchService {
             };
 
             // Create segment result
-            let segment_result = SegmentsResult::new(
-                vec![segment],
-                target_video.clone(),
-                search_words.clone(),
-            );
+            let segment_result =
+                SegmentsResult::new(vec![segment], target_video.clone(), search_words.clone());
 
             // Add to video results
             if let Some(&index) = video_lookup.get(&target_video.id) {

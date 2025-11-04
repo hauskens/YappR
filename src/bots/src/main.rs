@@ -1,14 +1,16 @@
-use twitch_api::{client::ClientDefault, HelixClient};
-use twitch_oauth2::UserToken;
-use yappr_bot::{
-    channel_manager::ChannelManager, message_handler::MessageHandler,
-    moderation_handler::ModerationHandler, services::{ChatlogService, BotUserService},
-    twitch_auth, websocket,
-};
 use std::sync::Arc;
 use tracing::{error, info};
-use yappr_shared::database::get_database_connection;
+use twitch_api::{HelixClient, client::ClientDefault};
+use twitch_oauth2::UserToken;
+use yappr_bot::{
+    channel_manager::ChannelManager,
+    message_handler::MessageHandler,
+    moderation_handler::ModerationHandler,
+    services::{BotUserService, ChatlogService},
+    twitch_auth, websocket,
+};
 use yappr_shared::config::Config;
+use yappr_shared::database::get_database_connection;
 
 #[tokio::main]
 async fn main() -> Result<(), eyre::Report> {
@@ -28,10 +30,9 @@ async fn main() -> Result<(), eyre::Report> {
     info!("Bot authentication successful");
 
     // Create Twitch API client
-    let client: HelixClient<'static, reqwest::Client> =
-        twitch_api::HelixClient::with_client(ClientDefault::default_client_with_name(Some(
-            "yappr_bot".parse()?,
-        ))?);
+    let client: HelixClient<'static, reqwest::Client> = twitch_api::HelixClient::with_client(
+        ClientDefault::default_client_with_name(Some("yappr_bot".parse()?))?,
+    );
 
     let bot = Bot {
         db,
@@ -92,7 +93,11 @@ impl Bot {
             client: self.client.clone(),
             connect_url: twitch_api::TWITCH_EVENTSUB_WEBSOCKET_URL.clone(),
             subscribed_channels: Vec::new(),
-            bot_user_id: self.config.bot_user_id.clone().expect("Unable to load bot user id from config"),
+            bot_user_id: self
+                .config
+                .bot_user_id
+                .clone()
+                .expect("Unable to load bot user id from config"),
             channel_manager,
             message_handler,
             moderation_handler,

@@ -1,19 +1,19 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::process;
-use serde::{Deserialize, Serialize};
 use tracing::info;
 use tracing_loki;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use yappr_shared::config::Config;
+use yappr_shared::database::get_database_connection;
+use yappr_shared::entities::sea_orm_active_enums::Videotype;
 use yappr_shared::entities::video;
 use yappr_shared::external::ApiClient;
 use yappr_shared::external::{TwitchApiClient, YouTubeApiClient};
-use yappr_shared::redis_client::{Event, RedisClient, StreamType};
-use yappr_shared::database::get_database_connection;
-use yappr_shared::services::channel::ChannelService;
 use yappr_shared::models::channel::ChannelExt;
-use yappr_shared::entities::sea_orm_active_enums::Videotype;
+use yappr_shared::redis_client::{Event, RedisClient, StreamType};
+use yappr_shared::services::channel::ChannelService;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct TaskPayload {
@@ -29,9 +29,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(loki_url) = config.loki_url {
         println!("Setting up Loki logging with URL: {}", loki_url);
         let (layer, task) = tracing_loki::builder()
-            .label("service", config.service_name).unwrap()
-            .label("version", config.version.to_string()).unwrap()
-            .label("environment", config.environment.as_string()).unwrap()
+            .label("service", config.service_name)
+            .unwrap()
+            .label("version", config.version.to_string())
+            .unwrap()
+            .label("environment", config.environment.as_string())
+            .unwrap()
             .build_url(loki_url)
             .unwrap();
 
@@ -89,11 +92,7 @@ async fn test_youtube() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn test_redis() -> Result<(), Box<dyn std::error::Error>> {
     // Create a Redis client for publishing
-    let mut publisher = RedisClient::new(
-        "task-processors",
-        "publisher-1",
-    )
-    .await?;
+    let mut publisher = RedisClient::new("task-processors", "publisher-1").await?;
 
     info!("Created publisher");
 
@@ -116,11 +115,7 @@ async fn test_redis() -> Result<(), Box<dyn std::error::Error>> {
     info!("Published event with ID: {}", message_id);
 
     // Create a Redis client for consuming
-    let mut consumer = RedisClient::new(
-        "task-processors",
-        "worker-1",
-    )
-    .await?;
+    let mut consumer = RedisClient::new("task-processors", "worker-1").await?;
 
     // Consume events (blocking for up to 5 seconds)
     info!("Waiting for events...");
@@ -136,7 +131,10 @@ async fn test_redis() -> Result<(), Box<dyn std::error::Error>> {
         // Simulate processing
         match consumed.event.payload.task_type.as_str() {
             "transcription" => {
-                info!("Processing transcription task: {}", consumed.event.payload.task_id);
+                info!(
+                    "Processing transcription task: {}",
+                    consumed.event.payload.task_id
+                );
 
                 // Success - acknowledge the event
                 consumer.ack(&consumed.stream, &consumed.message_id).await?;
@@ -146,13 +144,17 @@ async fn test_redis() -> Result<(), Box<dyn std::error::Error>> {
                 info!("Unknown task type, rejecting without retry");
 
                 // Permanent failure - nack without retry
-                consumer.nack(&consumed.stream, &consumed.message_id, false).await?;
+                consumer
+                    .nack(&consumed.stream, &consumed.message_id, false)
+                    .await?;
             }
             _ => {
                 info!("Temporary failure, allowing retry");
 
                 // Temporary failure - nack with retry
-                consumer.nack(&consumed.stream, &consumed.message_id, true).await?;
+                consumer
+                    .nack(&consumed.stream, &consumed.message_id, true)
+                    .await?;
             }
         }
     }
@@ -184,7 +186,6 @@ async fn test_channel_service() -> Result<(), Box<dyn std::error::Error>> {
             "Channel details"
         );
     }
-
 
     info!("ChannelService test completed");
     Ok(())

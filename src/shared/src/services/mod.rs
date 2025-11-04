@@ -8,5 +8,5 @@ pub mod moderation;
 pub mod search;
 pub mod segment;
 pub mod transcription;
-pub mod video;
 pub mod user;
+pub mod video;

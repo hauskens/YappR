@@ -1,6 +1,6 @@
-use std::time::Duration;
 use regex::Regex;
-use tracing::{warn, instrument, debug};
+use std::time::Duration;
+use tracing::{debug, instrument, warn};
 
 /// Parse a duration string in the format "XhYmZs" into a Duration
 /// For example: "1h30m" or "45m" or "1h2m3s" -> Duration in seconds

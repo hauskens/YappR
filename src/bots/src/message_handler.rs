@@ -1,12 +1,15 @@
-use crate::services::{ChatlogService, BotUserService};
+use crate::services::{BotUserService, ChatlogService};
 use regex::Regex;
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 use tracing::{error, info, instrument, warn};
 use twitch_api::eventsub::channel::chat::ChannelChatMessageV1Payload;
-use yappr_shared::models::{platforms::{BasePlatform, PlatformVariant}, enums::ChannelRole};
-use yappr_shared::services::{content_submission::ContentSubmissionService};
+use yappr_shared::models::{
+    enums::ChannelRole,
+    platforms::{BasePlatform, PlatformVariant},
+};
+use yappr_shared::services::content_submission::ContentSubmissionService;
 
 /// Regex to extract URLs from chat messages
 static URL_REGEX: LazyLock<Regex> =
@@ -60,15 +63,17 @@ impl MessageHandler {
 
         // Handle content queue submissions if enabled
         if settings.content_queue_enabled
-            && let Err(e) = self.handle_content_queue(message, settings).await {
-                error!(error = %e, "Failed to handle content queue");
-            }
+            && let Err(e) = self.handle_content_queue(message, settings).await
+        {
+            error!(error = %e, "Failed to handle content queue");
+        }
 
         // Store chat message if collection enabled
         if settings.chat_collection_enabled
-            && let Err(e) = self.store_chat_message(message, settings).await {
-                error!(error = %e, "Failed to store chat message");
-            }
+            && let Err(e) = self.store_chat_message(message, settings).await
+        {
+            error!(error = %e, "Failed to store chat message");
+        }
 
         Ok(())
     }
@@ -104,7 +109,11 @@ impl MessageHandler {
         for key in badges.keys() {
             if let Some(role) = ChannelRole::from_platform_badge(&BasePlatform::Twitch, key) {
                 // Update role in database
-                info!(user_id = user.id, role = role.clone().to_string(), "Updating user role");
+                info!(
+                    user_id = user.id,
+                    role = role.clone().to_string(),
+                    "Updating user role"
+                );
                 self.user_service
                     .update_user_role(user, settings.channel_id, &role)
                     .await?;
@@ -153,7 +162,7 @@ impl MessageHandler {
                 &self.db,
                 url,
                 settings.broadcaster_id,
-                0, // TODO: Get actual user_id from database lookup
+                0,   // TODO: Get actual user_id from database lookup
                 1.0, // Default submission weight
             )
             .await

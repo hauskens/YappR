@@ -56,9 +56,10 @@ pub fn DarkModeToggle() -> impl IntoView {
 fn get_stored_theme() -> Theme {
     if let Some(window) = web_sys::window()
         && let Ok(Some(storage)) = window.local_storage()
-            && let Ok(Some(theme)) = storage.get_item("theme") {
-                return Theme::from_str(&theme).unwrap_or(Theme::default());
-            }
+        && let Ok(Some(theme)) = storage.get_item("theme")
+    {
+        return Theme::from_str(&theme).unwrap_or(Theme::default());
+    }
     Theme::default()
 }
 
@@ -70,10 +71,11 @@ fn get_stored_theme() -> Theme {
 #[cfg(feature = "hydrate")]
 fn store_theme(is_dark: bool) {
     if let Some(window) = web_sys::window()
-        && let Ok(Some(storage)) = window.local_storage() {
-            let theme = if is_dark { "dark" } else { "light" };
-            let _ = storage.set_item("theme", theme);
-        }
+        && let Ok(Some(storage)) = window.local_storage()
+    {
+        let theme = if is_dark { "dark" } else { "light" };
+        let _ = storage.set_item("theme", theme);
+    }
 }
 
 #[cfg(not(feature = "hydrate"))]
@@ -85,10 +87,11 @@ fn store_theme(_is_dark: bool) {
 fn apply_theme(is_dark: bool) {
     if let Some(window) = web_sys::window()
         && let Some(document) = window.document()
-            && let Some(html) = document.document_element() {
-                let theme = if is_dark { "dark" } else { "light" };
-                let _ = html.set_attribute("data-bs-theme", theme);
-            }
+        && let Some(html) = document.document_element()
+    {
+        let theme = if is_dark { "dark" } else { "light" };
+        let _ = html.set_attribute("data-bs-theme", theme);
+    }
 }
 
 #[cfg(not(feature = "hydrate"))]

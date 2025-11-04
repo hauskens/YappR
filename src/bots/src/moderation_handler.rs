@@ -1,10 +1,13 @@
-use sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, Set, PaginatorTrait};
+use sea_orm::{
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, EntityTrait, PaginatorTrait, QueryFilter,
+    Set,
+};
 use tracing::{info, instrument};
 use twitch_api::eventsub::channel::chat::ChannelChatClearUserMessagesV1Payload;
+use yappr_shared::entities::sea_orm_active_enums::Accountsource;
 use yappr_shared::entities::{
     content_queue, content_queue_submissions, moderation_actions, prelude::*,
 };
-use yappr_shared::entities::sea_orm_active_enums::Accountsource;
 use yappr_shared::models::content_queue::ContentQueueExt;
 use yappr_shared::services::user::UserService;
 
@@ -43,7 +46,10 @@ impl ModerationHandler {
 
         // Get or create user
         let user = self
-            .get_or_create_user(event.target_user_id.as_str(), event.target_user_name.as_str())
+            .get_or_create_user(
+                event.target_user_id.as_str(),
+                event.target_user_name.as_str(),
+            )
             .await?;
 
         // Create moderation action record
@@ -105,7 +111,8 @@ impl ModerationHandler {
             "timeout" => {
                 // For timeouts, remove submissions from past X seconds (minimum 60s)
                 let duration = duration_seconds.unwrap_or(60).max(60);
-                self.cleanup_timeout(user_id, broadcaster_id, duration).await?;
+                self.cleanup_timeout(user_id, broadcaster_id, duration)
+                    .await?;
             }
             _ => {}
         }

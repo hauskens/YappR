@@ -38,8 +38,15 @@
           inherit src;
           strictDeps = true;
 
-          buildInputs = [
+          nativeBuildInputs = with pkgs; [
+            pkg-config
+            pnpm
+            nodejs
+          ];
+
+          buildInputs = with pkgs; [
             # Add additional build inputs here
+            openssl
           ]
           ++ lib.optionals pkgs.stdenv.isDarwin [
             # Additional darwin specific inputs can be set here
@@ -70,7 +77,7 @@
             fileset = lib.fileset.unions [
               ./Cargo.toml
               ./Cargo.lock
-              (craneLib.fileset.commonCargoSources ./src/shared)
+              (craneLib.fileset.commonCargoSources ./shared)
               (craneLib.fileset.commonCargoSources crate)
             ];
           };
@@ -83,12 +90,12 @@
         # Note that the cargo workspace must define `workspace.members` using wildcards,
         # otherwise, omitting a crate (like we do below) will result in errors since
         # cargo won't be able to find the sources for all members.
-        my-cli = craneLib.buildPackage (
+        cli = craneLib.buildPackage (
           individualCrateArgs
           // {
-            pname = "my-cli";
-            cargoExtraArgs = "-p my-cli";
-            src = fileSetForCrate ./src/cli;
+            pname = "yappr-cli";
+            cargoExtraArgs = "-p yappr-cli";
+            src = fileSetForCrate ./cli;
           }
         );
         # my-server = craneLib.buildPackage (
@@ -103,7 +110,7 @@
       {
         checks = {
           # Build the crates as part of `nix flake check` for convenience
-          inherit my-cli;
+          inherit cli;
 
           # Run clippy (and deny all warnings) on the workspace source,
           # again, reusing the dependency artifacts from above.
@@ -183,25 +190,29 @@
         };
 
         packages = {
-          inherit my-cli;
+          inherit cli;
         };
 
         apps = {
-          my-cli = flake-utils.lib.mkApp {
-            drv = my-cli;
+          cli = flake-utils.lib.mkApp {
+            drv = cli;
           };
         };
 
         devShells.default = craneLib.devShell {
-          # Inherit inputs from checks.
           checks = self.checks.${system};
-
-          # Additional dev-shell environment variables can be set directly
-          # MY_CUSTOM_DEVELOPMENT_VAR = "something else";
-
-          # Extra inputs can be added here; cargo and rustc are provided by default.
-          packages = [
-            pkgs.cargo-hakari
+          # LD_LIBRARY_PATH = "${lib.makeLibraryPath}";
+          # LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
+          # BINDGEN_EXTRA_CLANG_ARGS = with pkgs; ''
+          #       -isystem ${llvmPackages.libclang.lib}/lib/clang/${lib.getVersion clang}/include
+          #       -isystem ${llvmPackages.libclang.out}/lib/clang/${lib.getVersion clang}/include
+          #       -isystem ${glibc.dev}/include
+          #     '';
+          
+          # NIX_CFLAGS_COMPILE = "-isystem ${pkgs.glibc.dev}/include";
+          packages = with pkgs; [
+            taplo
+            cargo-hakari
           ];
         };
       }

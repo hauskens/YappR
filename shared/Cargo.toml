@@ -1,7 +1,7 @@
 [package]
 name = "yappr-shared"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -43,17 +43,13 @@ default = [
   "database",
   "twitch",
   "youtube",
-  "http",
   "discord",
   "redis-client",
   "job-queue",
 ]
 database = ["dep:sea-orm"]
 discord = []
-twitch = ["dep:twitch_oauth2", "dep:twitch_api"]
+twitch = ["dep:twitch_oauth2", "dep:twitch_api", "dep:reqwest"]
 youtube = ["dep:google-youtube3"]
-http = ["dep:reqwest", "dep:eyre"]
-http-wasm = ["dep:reqwest", "reqwest/json", "dep:eyre"]
-http-server = ["dep:reqwest", "reqwest/json", "reqwest/rustls-tls", "dep:eyre"]
 redis-client = ["dep:redis", "dep:rmp-serde", "dep:uuid", "dep:tokio"]
 job-queue = ["dep:async-nats", "dep:futures", "dep:tokio"]

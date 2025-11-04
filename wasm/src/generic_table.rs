@@ -72,9 +72,9 @@ pub struct GenericTableProps {
 
 #[function_component(GenericTable)]
 pub fn generic_table(props: &GenericTableProps) -> Html {
-    let rows = use_state(|| Vec::<TableRow>::new());
-    let filtered_rows = use_state(|| Vec::<TableRow>::new());
-    let search_term = use_state(|| String::new());
+    let rows = use_state(Vec::<TableRow>::new);
+    let filtered_rows = use_state(Vec::<TableRow>::new);
+    let search_term = use_state(String::new);
     let loading = use_state(|| true);
     let current_page = use_state(|| 1usize);
     let page_size = use_state(|| props.page_size.unwrap_or(50));
@@ -95,7 +95,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
     });
     let sort_order = use_state(|| props.default_sort_order.clone().unwrap_or(SortOrder::Asc));
     let error_message = use_state(|| None::<String>);
-    let custom_filter_values = use_state(|| HashMap::<String, String>::new());
+    let custom_filter_values = use_state(HashMap::<String, String>::new);
 
     // Load data from endpoint
     {
@@ -157,7 +157,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
                 (*custom_filter_values).clone(),
             ),
             move |(search, sort_field, sort_order, filter_values)| {
-                let mut filtered = filter_rows(&*rows, search, &columns);
+                let mut filtered = filter_rows(&rows, search, &columns);
                 filtered = apply_custom_filters(filtered, filter_values, &custom_filters);
                 sort_rows(&mut filtered, sort_field, sort_order);
                 filtered_rows.set(filtered);
@@ -260,7 +260,7 @@ pub fn generic_table(props: &GenericTableProps) -> Html {
     }
 
     let total_filtered = filtered_rows.len();
-    let total_pages = (total_filtered + *page_size - 1) / *page_size;
+    let total_pages = total_filtered.div_ceil(*page_size);
     let start_idx = (*current_page - 1) * *page_size;
     let end_idx = std::cmp::min(start_idx + *page_size, total_filtered);
 

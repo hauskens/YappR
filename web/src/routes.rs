@@ -4,7 +4,7 @@ use axum::{
     response::Response,
 };
 use sea_orm::{DatabaseConnection, EntityTrait};
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 use yappr_shared::config::Config;
 use yappr_shared::entities::prelude::*;
 use yappr_shared::models::{FileStorageTrait, get_file};

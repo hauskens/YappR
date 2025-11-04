@@ -191,7 +191,7 @@ pub fn create_timeline_chart(
                 .collect();
 
             let line_series = Line::new()
-                .name(&category.name())
+                .name(category.name())
                 .data(data)
                 .item_style(charming::element::ItemStyle::new().color(category.color()))
                 .line_style(
@@ -260,23 +260,19 @@ fn add_chart_click_handler(
     // Create the click handler closure
     let closure = Closure::wrap(Box::new(move |params: JsValue| {
         // Extract dataIndex from the click event parameters
-        if let Ok(data_index_val) = Reflect::get(&params, &"dataIndex".into()) {
-            if let Some(data_index) = data_index_val.as_f64() {
-                let index = data_index as usize;
+        if let Ok(data_index_val) = Reflect::get(&params, &"dataIndex".into())
+            && let Some(data_index) = data_index_val.as_f64()
+        {
+            let index = data_index as usize;
 
-                if let Some(bucket) = timeline_buckets.get(index) {
-                    if let Some(offset) = bucket.first_message_offset {
-                        let url = get_url_with_timestamp(
-                            &platform_type_clone,
-                            &platform_ref_clone,
-                            offset,
-                        );
+            if let Some(bucket) = timeline_buckets.get(index)
+                && let Some(offset) = bucket.first_message_offset
+            {
+                let url = get_url_with_timestamp(&platform_type_clone, &platform_ref_clone, offset);
 
-                        // Open the URL in a new tab
-                        if let Some(window) = web_sys::window() {
-                            let _ = window.open_with_url_and_target(&url, "_blank");
-                        }
-                    }
+                // Open the URL in a new tab
+                if let Some(window) = web_sys::window() {
+                    let _ = window.open_with_url_and_target(&url, "_blank");
                 }
             }
         }
@@ -309,7 +305,7 @@ pub struct ChatTimelineChartProps {
 
 #[function_component(ChatTimelineChart)]
 pub fn chat_timeline_chart(props: &ChatTimelineChartProps) -> Html {
-    let categories = use_state(|| Vec::<TagCategory>::new());
+    let categories = use_state(Vec::<TagCategory>::new);
     let error_message = use_state(|| None::<String>);
     let selected_interval = use_state(|| TimeInterval::Minutes5);
 
@@ -369,7 +365,7 @@ pub fn chat_timeline_chart(props: &ChatTimelineChartProps) -> Html {
                     let timeline_data = process_timeline_data(
                         &chat_logs,
                         (*selected_interval).clone(),
-                        &*categories,
+                        &categories,
                     );
                     let platform_info = Some((platform_type, platform_ref));
 

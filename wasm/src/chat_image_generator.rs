@@ -18,20 +18,18 @@ fn wrap_text(text: &str, max_chars_per_line: usize) -> Vec<String> {
 
         if test_line.len() <= max_chars_per_line {
             current_line = test_line;
+        } else if !current_line.is_empty() {
+            lines.push(current_line);
+            current_line = word.to_string();
         } else {
-            if !current_line.is_empty() {
-                lines.push(current_line);
-                current_line = word.to_string();
-            } else {
-                // Word is longer than max line length, break it
-                let mut remaining = word;
-                while remaining.len() > max_chars_per_line {
-                    lines.push(remaining[..max_chars_per_line].to_string());
-                    remaining = &remaining[max_chars_per_line..];
-                }
-                if !remaining.is_empty() {
-                    current_line = remaining.to_string();
-                }
+            // Word is longer than max line length, break it
+            let mut remaining = word;
+            while remaining.len() > max_chars_per_line {
+                lines.push(remaining[..max_chars_per_line].to_string());
+                remaining = &remaining[max_chars_per_line..];
+            }
+            if !remaining.is_empty() {
+                current_line = remaining.to_string();
             }
         }
     }
@@ -305,7 +303,7 @@ pub fn download_canvas_as_image(
     link.set_download(filename);
 
     // Trigger download
-    let _ = link.click();
+    link.click();
 
     Ok(())
 }

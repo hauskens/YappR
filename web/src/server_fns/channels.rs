@@ -353,7 +353,7 @@ pub async fn get_channel_videos_page_data(
                     let url = if let Some(p) = platform {
                         p.timestamp_url(&source_platform_ref, &0)
                     } else {
-                        format!("#unknown-platform")
+                        "#unknown-platform".to_string()
                     };
 
                     Some(VideoBasicData {

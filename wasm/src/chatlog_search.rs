@@ -183,14 +183,11 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                     &data.background_color,
                     data.font_size,
                     data.max_width,
-                ) {
-                    if let Some(document) = web_sys::window().and_then(|w| w.document()) {
-                        if let Some(preview_container) = document.get_element_by_id("image-preview")
-                        {
-                            preview_container.set_inner_html("");
-                            let _ = preview_container.append_child(&canvas);
-                        }
-                    }
+                ) && let Some(document) = web_sys::window().and_then(|w| w.document())
+                    && let Some(preview_container) = document.get_element_by_id("image-preview")
+                {
+                    preview_container.set_inner_html("");
+                    let _ = preview_container.append_child(&canvas);
                 }
             }
             || ()
@@ -890,7 +887,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                     data.max_width,
                 ) {
                     wasm_bindgen_futures::spawn_local(async move {
-                        if let Err(_) = copy_canvas_to_clipboard(&canvas).await {
+                        if (copy_canvas_to_clipboard(&canvas).await).is_err() {
                             web_sys::window()
                                 .unwrap()
                                 .alert_with_message("Failed to copy to clipboard")
@@ -973,7 +970,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                                     let image_generator = image_generator.clone();
                                                     Callback::from(move |_| {
                                                         let mut data = (*image_generator).clone();
-                                                        let colors = vec!["#0EDD00", "#1976D2", "#00F4EB", "#D2691E", "#8A2BE2", "#00FF7F", "#FFCCFF", "#B22222", "#FF7F50"];
+                                                        let colors = ["#0EDD00", "#1976D2", "#00F4EB", "#D2691E", "#8A2BE2", "#00FF7F", "#FFCCFF", "#B22222", "#FF7F50"];
                                                         let mut rng = rand::rngs::StdRng::from_entropy();
                                                         let color = colors.choose(&mut rng).unwrap();
                                                         data.user_color = color.to_string();
@@ -989,7 +986,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                                     let image_generator = image_generator.clone();
                                                     Callback::from(move |_| {
                                                         let mut data = (*image_generator).clone();
-                                                        let colors = vec!["#0EDD00", "#1976D2", "#00F4EB", "#D2691E", "#8A2BE2", "#00FF7F", "#FFCCFF", "#B22222", "#FF7F50"];
+                                                        let colors = ["#0EDD00", "#1976D2", "#00F4EB", "#D2691E", "#8A2BE2", "#00FF7F", "#FFCCFF", "#B22222", "#FF7F50"];
                                                         let mut rng = rand::rngs::StdRng::from_entropy();
                                                         let color = colors.choose(&mut rng).unwrap();
                                                         data.user_color = color.to_string();
@@ -1005,7 +1002,7 @@ pub fn chatlog_search(props: &ChatLogSearchProps) -> Html {
                                                     let image_generator = image_generator.clone();
                                                     Callback::from(move |_| {
                                                         let mut data = (*image_generator).clone();
-                                                        let colors = vec!["#0EDD00", "#1976D2", "#00F4EB", "#D2691E", "#8A2BE2", "#00FF7F", "#FFCCFF", "#B22222", "#FF7F50"];
+                                                        let colors = ["#0EDD00", "#1976D2", "#00F4EB", "#D2691E", "#8A2BE2", "#00FF7F", "#FFCCFF", "#B22222", "#FF7F50"];
                                                         let mut rng = rand::rngs::StdRng::from_entropy();
                                                         let color = colors.choose(&mut rng).unwrap();
                                                         data.user_color = color.to_string();
@@ -1205,7 +1202,7 @@ fn highlight_search_terms(message: &str, query: &str) -> String {
                 })
                 .to_string();
         }
-        return escaped_message;
+        escaped_message
     } else {
         // Normal mode: search for individual terms (case insensitive)
         let terms: Vec<&str> = query.split_whitespace().filter(|t| !t.is_empty()).collect();
@@ -1245,7 +1242,7 @@ fn format_timestamp(timestamp: &str) -> String {
             let local_dt = Local
                 .from_local_datetime(&naive_dt)
                 .single()
-                .unwrap_or_else(|| Local::now());
+                .unwrap_or_else(Local::now);
             local_dt.format("%Y-%m-%d %H:%M:%S").to_string()
         } else {
             // Last resort: just truncate the microseconds and show date/time
@@ -1258,7 +1255,7 @@ fn format_timestamp(timestamp: &str) -> String {
                     let local_dt = Local
                         .from_local_datetime(&naive_dt)
                         .single()
-                        .unwrap_or_else(|| Local::now());
+                        .unwrap_or_else(Local::now);
                     local_dt.format("%Y-%m-%d %H:%M:%S").to_string()
                 } else {
                     timestamp.to_string()

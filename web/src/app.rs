@@ -7,7 +7,6 @@ use crate::components::search::search_page::SearchPage;
 use crate::components::video::VideoPage;
 use leptos::prelude::*;
 use leptos::server_fn::ServerFnError;
-use leptos::task::spawn_local;
 use leptos_meta::{MetaTags, Script, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
     ParamSegment, StaticSegment,

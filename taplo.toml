@@ -2,6 +2,18 @@
 #
 # https://taplo.tamasfe.dev/configuration/file.html#configuration-file
 
+
+include = [
+  "*.toml",
+  "src/**/*.toml",
+  ".cargo/**/*.toml",
+  "web/**/*.toml",
+  "cli/**/*.toml",
+  "shared/**/*.toml",
+  "app/**/*.toml",
+  "wasm/**/*.toml",
+]
+
 [formatting]
 reorder_keys = false
 

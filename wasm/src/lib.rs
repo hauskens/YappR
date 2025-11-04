@@ -50,10 +50,10 @@ enum SortOrder {
 #[function_component(ChatLogsTable)]
 pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
     let video_id = props.video_id;
-    let chat_logs = use_state(|| Vec::<ChatLog>::new());
+    let chat_logs = use_state(Vec::<ChatLog>::new);
     let platform_info = use_state(|| None::<(platforms::PlatformType, String)>);
-    let search_term = use_state(|| String::new());
-    let username_filter = use_state(|| String::new());
+    let search_term = use_state(String::new);
+    let username_filter = use_state(String::new);
     let loading = use_state(|| true);
     let current_page = use_state(|| 1usize);
     let page_size = use_state(|| 50usize);
@@ -66,28 +66,23 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
         let loading = loading.clone();
         use_effect_with(video_id, move |&video_id| {
             wasm_bindgen_futures::spawn_local(async move {
-                match Request::get(&format!("/video/{}/chatlogs", video_id))
+                if let Ok(response) = Request::get(&format!("/video/{}/chatlogs", video_id))
                     .send()
                     .await
+                    && let Ok(mut data) = response.json::<ChatLogsResponse>().await
                 {
-                    Ok(response) => {
-                        if let Ok(mut data) = response.json::<ChatLogsResponse>().await {
-                            // Convert timestamps to local time
-                            for log in &mut data.chat_logs {
-                                log.timestamp = utils::to_local_time(&log.timestamp);
-                            }
-                            chat_logs.set(data.chat_logs);
-
-                            // Store platform information
-                            if let Some(platform_type) =
-                                platforms::PlatformType::from_string(&data.video_platform_type)
-                            {
-                                platform_info
-                                    .set(Some((platform_type, data.video_platform_ref.clone())));
-                            }
-                        }
+                    // Convert timestamps to local time
+                    for log in &mut data.chat_logs {
+                        log.timestamp = utils::to_local_time(&log.timestamp);
                     }
-                    Err(_) => {}
+                    chat_logs.set(data.chat_logs);
+
+                    // Store platform information
+                    if let Some(platform_type) =
+                        platforms::PlatformType::from_string(&data.video_platform_type)
+                    {
+                        platform_info.set(Some((platform_type, data.video_platform_ref.clone())));
+                    }
                 }
                 loading.set(false);
             });
@@ -152,7 +147,7 @@ pub fn chat_logs_table(props: &ChatLogsProps) -> Html {
     };
 
     let total_filtered = filtered_and_sorted_logs.len();
-    let total_pages = (total_filtered + *page_size - 1) / *page_size;
+    let total_pages = total_filtered.div_ceil(*page_size);
     let start_idx = (*current_page - 1) * *page_size;
     let end_idx = std::cmp::min(start_idx + *page_size, total_filtered);
 

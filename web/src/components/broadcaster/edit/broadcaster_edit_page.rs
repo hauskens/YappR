@@ -190,7 +190,7 @@ fn BroadcasterEditContent(
                             .into_any()
                     }
                     Tab::Settings => {
-                        view! { <SettingsTab data=data.clone() broadcaster_id=broadcaster_id /> }
+                        view! { <SettingsTab data=data.clone() _broadcaster_id=broadcaster_id /> }
                             .into_any()
                     }
                     Tab::Events => {
@@ -376,8 +376,9 @@ fn ChannelsTab(data: BroadcasterEditData) -> impl IntoView {
                                                             }
                                                                 .into_any()
                                                         } else {
-                                                            view! { <></> }
-                                                                .into_any()
+                                                            let _: () = view! { <></> };
+                                                            ()
+                                                            .into_any()
                                                         }
                                                     }}
 
@@ -435,7 +436,7 @@ fn ChannelsTab(data: BroadcasterEditData) -> impl IntoView {
 }
 
 #[component]
-fn SettingsTab(data: BroadcasterEditData, broadcaster_id: i32) -> impl IntoView {
+fn SettingsTab(data: BroadcasterEditData, _broadcaster_id: i32) -> impl IntoView {
     let profile_image_url = data
         .broadcaster
         .profile_image_url

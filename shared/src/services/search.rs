@@ -149,7 +149,7 @@ impl SearchService {
                 .into_iter()
                 .fold(HashMap::new(), |mut acc, mapping| {
                     acc.entry(mapping.source_video_id)
-                        .or_insert_with(Vec::new)
+                        .or_default()
                         .push(mapping);
                     acc
                 });

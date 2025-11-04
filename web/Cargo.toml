@@ -1,7 +1,7 @@
 [package]
 name = "yappr-web"
-version = "0.1.0"
-edition = "2024"
+version.workspace = true
+edition.workspace = true
 
 [lib]
 crate-type = ["cdylib", "rlib"]
@@ -60,14 +60,12 @@ yappr-shared = { path = "../shared", default-features = false }
 
 [features]
 default = ["ssr"]
-http = []
 hydrate = [
   "leptos/hydrate",
   "dep:console_error_panic_hook",
   "dep:wasm-bindgen",
   "dep:web-sys",
   "dep:serde_json",
-  "yappr-shared/http-wasm",
 ]
 ssr = [
   "dep:axum",
@@ -86,7 +84,6 @@ ssr = [
   "leptos_router/ssr",
   "yappr-shared/database",
   "yappr-shared/twitch",
-  "yappr-shared/http-server",
   "yappr-shared/youtube",
   "yappr-shared/discord",
   "yappr-shared/redis-client",

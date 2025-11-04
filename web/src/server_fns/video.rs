@@ -68,6 +68,7 @@ pub async fn get_video_detail(id: i32) -> Result<VideoDetailData, ServerFnError>
                 .await
                 .map_err(|e| ServerFnError::new(format!("Failed to get source video: {}", e)))?;
 
+            #[allow(clippy::collapsible_match)]
             if let Some((source_video_model, source_channel_opt)) = source_video {
                 if let Some(source_channel) = source_channel_opt {
                     // Recursively get source video transcriptions
@@ -316,7 +317,7 @@ pub async fn get_chat_logs(video_id: i32) -> Result<Vec<ChatLogData>, ServerFnEr
 
 /// Server function to fetch video details from platform (admin only)
 #[server(FetchVideoDetails, "/api")]
-pub async fn fetch_video_details(video_id: i32) -> Result<(), ServerFnError> {
+pub async fn fetch_video_details(_video_id: i32) -> Result<(), ServerFnError> {
     use axum::Extension;
     use leptos_axum::extract;
     use sea_orm::DatabaseConnection;
@@ -354,7 +355,7 @@ pub async fn fetch_video_details(video_id: i32) -> Result<(), ServerFnError> {
 
 /// Server function to process full video (admin/mod only)
 #[server(ProcessFullVideo, "/api")]
-pub async fn process_full_video(video_id: i32) -> Result<(), ServerFnError> {
+pub async fn process_full_video(_video_id: i32) -> Result<(), ServerFnError> {
     use axum::Extension;
     use leptos_axum::extract;
     use sea_orm::DatabaseConnection;

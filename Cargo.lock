@@ -6871,26 +6871,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfe53a6657fd280eaa890a3bc59152892ffa3e30101319d168b781ed6529b049"
 
 [[package]]
-name = "yappr"
-version = "0.1.0"
-dependencies = [
- "charming",
- "chrono",
- "gloo 0.11.0",
- "gloo-net 0.6.0",
- "js-sys",
- "rand 0.8.5",
- "regex",
- "serde",
- "serde_json",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "wasm-bindgen-test",
- "web-sys",
- "yew",
-]
-
-[[package]]
 name = "yappr-bot"
 version = "0.1.0"
 dependencies = [
@@ -6957,6 +6937,26 @@ dependencies = [
  "twitch_oauth2",
  "url",
  "uuid",
+]
+
+[[package]]
+name = "yappr-wasm"
+version = "0.1.0"
+dependencies = [
+ "charming",
+ "chrono",
+ "gloo 0.11.0",
+ "gloo-net 0.6.0",
+ "js-sys",
+ "rand 0.8.5",
+ "regex",
+ "serde",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "wasm-bindgen-test",
+ "web-sys",
+ "yew",
 ]
 
 [[package]]

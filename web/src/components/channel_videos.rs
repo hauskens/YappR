@@ -248,10 +248,9 @@ fn ChannelVideosContent(
                                                         <button
                                                             class="btn btn-success"
                                                             on:click=move |_| {
-                                                                if web_sys::window()
-                                                                    .and_then(|w| Some(w.confirm_with_message(
+                                                                if web_sys::window().map(|w| w.confirm_with_message(
                                                                         "This will automatically link all videos where BOTH Duration AND Date matches are found. No manual confirmation required. Continue?"
-                                                                    ).unwrap_or(false)))
+                                                                    ).unwrap_or(false))
                                                                     .unwrap_or(false)
                                                                 {
                                                                     bulk_link_action.dispatch((channel_id, BulkLinkParams {
@@ -290,10 +289,9 @@ fn ChannelVideosContent(
                         <button
                             class="btn btn-primary me-2"
                             on:click=move |_| {
-                                if web_sys::window()
-                                    .and_then(|w| Some(w.confirm_with_message(
+                                if web_sys::window().map(|w| w.confirm_with_message(
                                         "This will look for new videos on this channel. Results are instant. Continue?"
-                                    ).unwrap_or(false)))
+                                    ).unwrap_or(false))
                                     .unwrap_or(false)
                                 {
                                     fetch_videos_action.dispatch(channel_id);
@@ -313,10 +311,9 @@ fn ChannelVideosContent(
                         <button
                             class="btn btn-primary"
                             on:click=move |_| {
-                                if web_sys::window()
-                                    .and_then(|w| Some(w.confirm_with_message(
+                                if web_sys::window().map(|w| w.confirm_with_message(
                                         "This will look for ALL videos on this channel. Results are instant. Continue?"
-                                    ).unwrap_or(false)))
+                                    ).unwrap_or(false))
                                     .unwrap_or(false)
                                 {
                                     fetch_all_videos_action.dispatch(channel_id);

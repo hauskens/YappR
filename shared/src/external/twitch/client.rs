@@ -14,6 +14,9 @@ use twitch_api::{
 #[cfg(feature = "twitch")]
 use twitch_oauth2::AppAccessToken;
 
+#[cfg(feature = "twitch")]
+use reqwest;
+
 /// Twitch API client wrapper with different authentication contexts
 pub struct TwitchApiClient {
     client: HelixClient<'static, reqwest::Client>,

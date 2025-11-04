@@ -69,15 +69,13 @@ impl BroadcasterEditManager {
     fn find_twitch_platform_id(&mut self) {
         if let Some(platform_select) = Self::get_element_by_id::<HtmlSelectElement>("platform_id") {
             for i in 0..platform_select.length() {
-                if let Some(option) = platform_select.item(i) {
-                    if let Ok(option_element) = option.dyn_into::<web_sys::HtmlOptionElement>() {
-                        if let Some(text) = option_element.text_content() {
-                            if text.to_lowercase() == "twitch" {
-                                self.twitch_platform_id = Some(option_element.value());
-                                break;
-                            }
-                        }
-                    }
+                if let Some(option) = platform_select.item(i)
+                    && let Ok(option_element) = option.dyn_into::<web_sys::HtmlOptionElement>()
+                    && let Some(text) = option_element.text_content()
+                    && text.to_lowercase() == "twitch"
+                {
+                    self.twitch_platform_id = Some(option_element.value());
+                    break;
                 }
             }
         }
@@ -212,30 +210,28 @@ impl BroadcasterEditManager {
             )
             .unwrap();
         for i in 0..link_forms.length() {
-            if let Some(form_element) = link_forms.get(i) {
-                if let Ok(form) = form_element.dyn_into::<HtmlFormElement>() {
-                    let manager = self.clone();
-                    let closure = Closure::wrap(Box::new(move |event: Event| {
-                        event.prevent_default();
-                        let manager_clone = manager.clone();
-                        let form_clone = event
-                            .target()
-                            .unwrap()
-                            .dyn_into::<HtmlFormElement>()
-                            .unwrap();
-                        wasm_bindgen_futures::spawn_local(async move {
-                            manager_clone
-                                .handle_channel_linking_submit(form_clone)
-                                .await;
-                        });
-                    }) as Box<dyn FnMut(_)>);
+            if let Some(form_element) = link_forms.get(i)
+                && let Ok(form) = form_element.dyn_into::<HtmlFormElement>()
+            {
+                let manager = self.clone();
+                let closure = Closure::wrap(Box::new(move |event: Event| {
+                    event.prevent_default();
+                    let manager_clone = manager.clone();
+                    let form_clone = event
+                        .target()
+                        .unwrap()
+                        .dyn_into::<HtmlFormElement>()
+                        .unwrap();
+                    wasm_bindgen_futures::spawn_local(async move {
+                        manager_clone
+                            .handle_channel_linking_submit(form_clone)
+                            .await;
+                    });
+                }) as Box<dyn FnMut(_)>);
 
-                    let _ = form.add_event_listener_with_callback(
-                        "submit",
-                        closure.as_ref().unchecked_ref(),
-                    );
-                    closure.forget();
-                }
+                let _ = form
+                    .add_event_listener_with_callback("submit", closure.as_ref().unchecked_ref());
+                closure.forget();
             }
         }
 
@@ -244,28 +240,26 @@ impl BroadcasterEditManager {
             .query_selector_all(r#"form[action*="/link_videos"]"#)
             .unwrap();
         for i in 0..video_forms.length() {
-            if let Some(form_element) = video_forms.get(i) {
-                if let Ok(form) = form_element.dyn_into::<HtmlFormElement>() {
-                    let manager = self.clone();
-                    let closure = Closure::wrap(Box::new(move |event: Event| {
-                        event.prevent_default();
-                        let manager_clone = manager.clone();
-                        let form_clone = event
-                            .target()
-                            .unwrap()
-                            .dyn_into::<HtmlFormElement>()
-                            .unwrap();
-                        wasm_bindgen_futures::spawn_local(async move {
-                            manager_clone.handle_video_linking_submit(form_clone).await;
-                        });
-                    }) as Box<dyn FnMut(_)>);
+            if let Some(form_element) = video_forms.get(i)
+                && let Ok(form) = form_element.dyn_into::<HtmlFormElement>()
+            {
+                let manager = self.clone();
+                let closure = Closure::wrap(Box::new(move |event: Event| {
+                    event.prevent_default();
+                    let manager_clone = manager.clone();
+                    let form_clone = event
+                        .target()
+                        .unwrap()
+                        .dyn_into::<HtmlFormElement>()
+                        .unwrap();
+                    wasm_bindgen_futures::spawn_local(async move {
+                        manager_clone.handle_video_linking_submit(form_clone).await;
+                    });
+                }) as Box<dyn FnMut(_)>);
 
-                    let _ = form.add_event_listener_with_callback(
-                        "submit",
-                        closure.as_ref().unchecked_ref(),
-                    );
-                    closure.forget();
-                }
+                let _ = form
+                    .add_event_listener_with_callback("submit", closure.as_ref().unchecked_ref());
+                closure.forget();
             }
         }
     }
@@ -275,25 +269,21 @@ impl BroadcasterEditManager {
         let inputs = document.query_selector_all(r#"input[name="margin_sec"], input[name="min_duration"], input[name="date_margin_hours"]"#).unwrap();
 
         for i in 0..inputs.length() {
-            if let Some(input_element) = inputs.get(i) {
-                if let Ok(input) = input_element.dyn_into::<HtmlInputElement>() {
-                    let manager = self.clone();
-                    let input_clone = input.clone();
+            if let Some(input_element) = inputs.get(i)
+                && let Ok(input) = input_element.dyn_into::<HtmlInputElement>()
+            {
+                let manager = self.clone();
+                let input_clone = input.clone();
 
-                    let closure = Closure::wrap(Box::new(move |_: Event| {
-                        manager.validate_parameter(&input_clone);
-                    }) as Box<dyn FnMut(_)>);
+                let closure = Closure::wrap(Box::new(move |_: Event| {
+                    manager.validate_parameter(&input_clone);
+                }) as Box<dyn FnMut(_)>);
 
-                    let _ = input.add_event_listener_with_callback(
-                        "input",
-                        closure.as_ref().unchecked_ref(),
-                    );
-                    let _ = input.add_event_listener_with_callback(
-                        "change",
-                        closure.as_ref().unchecked_ref(),
-                    );
-                    closure.forget();
-                }
+                let _ = input
+                    .add_event_listener_with_callback("input", closure.as_ref().unchecked_ref());
+                let _ = input
+                    .add_event_listener_with_callback("change", closure.as_ref().unchecked_ref());
+                closure.forget();
             }
         }
     }
@@ -357,12 +347,10 @@ impl BroadcasterEditManager {
                         // Auto-fill name if empty
                         if let Some(name_input) =
                             Self::get_element_by_id::<HtmlInputElement>("name")
+                            && name_input.value().trim().is_empty()
+                            && let Some(display_name) = response.display_name
                         {
-                            if name_input.value().trim().is_empty() {
-                                if let Some(display_name) = response.display_name {
-                                    name_input.set_value(&display_name);
-                                }
-                            }
+                            name_input.set_value(&display_name);
                         }
                     }
                 }
@@ -395,24 +383,23 @@ impl BroadcasterEditManager {
                 .query_selector_all("#settings-feedback .alert-success")
                 .unwrap();
             for i in 0..alerts.length() {
-                if let Some(alert) = alerts.get(i) {
-                    if let Ok(alert_element) = alert.dyn_into::<HtmlElement>() {
-                        let _ = alert_element.style().set_property("opacity", "0");
+                if let Some(alert) = alerts.get(i)
+                    && let Ok(alert_element) = alert.dyn_into::<HtmlElement>()
+                {
+                    let _ = alert_element.style().set_property("opacity", "0");
 
-                        let alert_clone = alert_element.clone();
-                        let timeout_closure = Closure::wrap(Box::new(move || {
-                            alert_clone.remove();
-                        })
-                            as Box<dyn FnMut()>);
+                    let alert_clone = alert_element.clone();
+                    let timeout_closure = Closure::wrap(Box::new(move || {
+                        alert_clone.remove();
+                    }) as Box<dyn FnMut()>);
 
-                        let _ = web_sys::window()
-                            .unwrap()
-                            .set_timeout_with_callback_and_timeout_and_arguments_0(
-                                timeout_closure.as_ref().unchecked_ref(),
-                                300,
-                            );
-                        timeout_closure.forget();
-                    }
+                    let _ = web_sys::window()
+                        .unwrap()
+                        .set_timeout_with_callback_and_timeout_and_arguments_0(
+                            timeout_closure.as_ref().unchecked_ref(),
+                            300,
+                        );
+                    timeout_closure.forget();
                 }
             }
         }) as Box<dyn FnMut()>);
@@ -438,7 +425,7 @@ impl BroadcasterEditManager {
 
                     for i in 0..files.length() {
                         if let Some(file) = files.get(i) {
-                            let file_size_kb = (file.size() as f64 / 1024.0).round() as i32;
+                            let file_size_kb = (file.size() / 1024.0).round() as i32;
                             let li_html = format!(
                                 r#"<li class="list-group-item d-flex justify-content-between align-items-center">
                                     <span><i class="bi bi-file-text me-2"></i>{}</span>
@@ -478,45 +465,43 @@ impl BroadcasterEditManager {
         if let (Some(file_input), Some(channel_select)) = (
             Self::get_element_by_id::<HtmlInputElement>("chatlog-files"),
             Self::get_element_by_id::<HtmlSelectElement>("channel-select"),
-        ) {
-            if let Some(files) = file_input.files() {
-                let channel_id = channel_select.value();
+        ) && let Some(files) = file_input.files()
+        {
+            let channel_id = channel_select.value();
 
-                self.show_upload_progress();
+            self.show_upload_progress();
 
-                let mut success_count = 0;
-                let mut error_count = 0;
-                let mut results = Vec::new();
+            let mut success_count = 0;
+            let mut error_count = 0;
+            let mut results = Vec::new();
 
-                for i in 0..files.length() {
-                    if let Some(file) = files.get(i) {
-                        let progress =
-                            ((i + 1) as f64 / files.length() as f64 * 100.0).round() as i32;
-                        self.update_upload_progress(progress, &file.name(), i + 1, files.length());
+            for i in 0..files.length() {
+                if let Some(file) = files.get(i) {
+                    let progress = ((i + 1) as f64 / files.length() as f64 * 100.0).round() as i32;
+                    self.update_upload_progress(progress, &file.name(), i + 1, files.length());
 
-                        match self.upload_single_file(&file, &channel_id).await {
-                            Ok(message) => {
-                                success_count += 1;
-                                results.push(format!(
-                                    r#"<div class="alert alert-success">✓ {}: {}</div>"#,
-                                    file.name(),
-                                    message
-                                ));
-                            }
-                            Err(error) => {
-                                error_count += 1;
-                                results.push(format!(
-                                    r#"<div class="alert alert-danger">✗ {}: {}</div>"#,
-                                    file.name(),
-                                    error
-                                ));
-                            }
+                    match self.upload_single_file(&file, &channel_id).await {
+                        Ok(message) => {
+                            success_count += 1;
+                            results.push(format!(
+                                r#"<div class="alert alert-success">✓ {}: {}</div>"#,
+                                file.name(),
+                                message
+                            ));
+                        }
+                        Err(error) => {
+                            error_count += 1;
+                            results.push(format!(
+                                r#"<div class="alert alert-danger">✗ {}: {}</div>"#,
+                                file.name(),
+                                error
+                            ));
                         }
                     }
                 }
-
-                self.finalize_upload(success_count, error_count, results);
             }
+
+            self.finalize_upload(success_count, error_count, results);
         }
     }
 
@@ -556,10 +541,9 @@ impl BroadcasterEditManager {
         // Check if events-only checkbox is checked
         if let Some(events_only_checkbox) =
             Self::get_element_by_id::<HtmlInputElement>("events-only")
+            && events_only_checkbox.checked()
         {
-            if events_only_checkbox.checked() {
-                let _ = form_data.append_with_str("events_only", "on");
-            }
+            let _ = form_data.append_with_str("events_only", "on");
         }
 
         if let Some(csrf_token) = &self.csrf_token {
@@ -610,91 +594,90 @@ impl BroadcasterEditManager {
             results_div.set_inner_html(&results.join(""));
             upload_button.set_disabled(false);
 
-            if success_count > 0 {
-                if let Some(file_input) =
+            if success_count > 0
+                && let Some(file_input) =
                     Self::get_element_by_id::<HtmlInputElement>("chatlog-files")
-                {
-                    file_input.set_value("");
-                    if let Some(file_list) = Self::get_element_by_id::<HtmlElement>("file-list") {
-                        let _ = file_list.style().set_property("display", "none");
-                    }
-                    self.update_upload_button_state();
+            {
+                file_input.set_value("");
+                if let Some(file_list) = Self::get_element_by_id::<HtmlElement>("file-list") {
+                    let _ = file_list.style().set_property("display", "none");
                 }
+                self.update_upload_button_state();
             }
         }
     }
 
     async fn handle_channel_linking_submit(&self, form: HtmlFormElement) {
-        if let Some(submit_button) = form.query_selector("button[type=\"submit\"]").unwrap() {
-            if let Ok(button) = submit_button.dyn_into::<HtmlButtonElement>() {
-                let original_text = button.inner_html();
-                button.set_disabled(true);
-                button.set_inner_html(r#"<div class="spinner-border spinner-border-sm me-2" role="status"></div>Updating..."#);
+        if let Some(submit_button) = form.query_selector("button[type=\"submit\"]").unwrap()
+            && let Ok(button) = submit_button.dyn_into::<HtmlButtonElement>()
+        {
+            let original_text = button.inner_html();
+            button.set_disabled(true);
+            button.set_inner_html(r#"<div class="spinner-border spinner-border-sm me-2" role="status"></div>Updating..."#);
 
-                let result = self.submit_form(&form).await;
+            let result = self.submit_form(&form).await;
 
-                button.set_disabled(false);
-                button.set_inner_html(&original_text);
+            button.set_disabled(false);
+            button.set_inner_html(&original_text);
 
-                match result {
-                    Ok(_) => {
-                        let _ = web_sys::window()
-                            .unwrap()
-                            .alert_with_message("Channel link updated successfully");
-                        web_sys::window().unwrap().location().reload().unwrap();
-                    }
-                    Err(error) => {
-                        let _ = web_sys::window()
-                            .unwrap()
-                            .alert_with_message(&format!("Error updating channel link: {}", error));
-                    }
+            match result {
+                Ok(_) => {
+                    let _ = web_sys::window()
+                        .unwrap()
+                        .alert_with_message("Channel link updated successfully");
+                    web_sys::window().unwrap().location().reload().unwrap();
+                }
+                Err(error) => {
+                    let _ = web_sys::window()
+                        .unwrap()
+                        .alert_with_message(&format!("Error updating channel link: {}", error));
                 }
             }
         }
     }
 
     async fn handle_video_linking_submit(&self, form: HtmlFormElement) {
-        if let Some(submit_button) = form.query_selector("button[type=\"submit\"]").unwrap() {
-            if let Ok(button) = submit_button.dyn_into::<HtmlButtonElement>() {
-                let original_text = button.inner_html();
-                let channel_name = self.get_channel_name_from_form(&form);
+        if let Some(submit_button) = form.query_selector("button[type=\"submit\"]").unwrap()
+            && let Ok(button) = submit_button.dyn_into::<HtmlButtonElement>()
+        {
+            let original_text = button.inner_html();
+            let channel_name = self.get_channel_name_from_form(&form);
 
-                button.set_disabled(true);
-                button.set_inner_html(r#"<div class="spinner-border spinner-border-sm me-2" role="status"></div>Running..."#);
+            button.set_disabled(true);
+            button.set_inner_html(r#"<div class="spinner-border spinner-border-sm me-2" role="status"></div>Running..."#);
 
-                let result = self.submit_form(&form).await;
+            let result = self.submit_form(&form).await;
 
-                button.set_disabled(false);
-                button.set_inner_html(&original_text);
+            button.set_disabled(false);
+            button.set_inner_html(&original_text);
 
-                match result {
-                    Ok(_) => {
-                        self.show_linking_feedback(
-                            "success",
-                            &format!(
-                                "Video linking completed for {}. Check the logs for details.",
-                                channel_name
-                            ),
-                        );
-                    }
-                    Err(error) => {
-                        self.show_linking_feedback(
-                            "danger",
-                            &format!("Error running video linking: {}", error),
-                        );
-                    }
+            match result {
+                Ok(_) => {
+                    self.show_linking_feedback(
+                        "success",
+                        &format!(
+                            "Video linking completed for {}. Check the logs for details.",
+                            channel_name
+                        ),
+                    );
+                }
+                Err(error) => {
+                    self.show_linking_feedback(
+                        "danger",
+                        &format!("Error running video linking: {}", error),
+                    );
                 }
             }
         }
     }
 
     fn get_channel_name_from_form(&self, form: &HtmlFormElement) -> String {
-        if let Ok(Some(channel_card)) = form.closest(".card") {
-            if let Some(title) = channel_card.query_selector(".card-title").unwrap() {
-                return title
-                    .text_content()
-                    .unwrap_or_else(|| "this channel".to_string());
-            }
+        if let Ok(Some(channel_card)) = form.closest(".card")
+            && let Some(title) = channel_card.query_selector(".card-title").unwrap()
+        {
+            return title
+                .text_content()
+                .unwrap_or_else(|| "this channel".to_string());
         }
         "this channel".to_string()
     }
@@ -768,24 +751,23 @@ impl BroadcasterEditManager {
         if feedback_type == "success" {
             let container_clone = feedback_container.clone();
             let closure = Closure::wrap(Box::new(move || {
-                if let Some(alert) = container_clone.query_selector(".alert").unwrap() {
-                    if let Ok(alert_element) = alert.dyn_into::<HtmlElement>() {
-                        alert_element.class_list().remove_1("show").unwrap();
+                if let Some(alert) = container_clone.query_selector(".alert").unwrap()
+                    && let Ok(alert_element) = alert.dyn_into::<HtmlElement>()
+                {
+                    alert_element.class_list().remove_1("show").unwrap();
 
-                        let alert_clone = alert_element.clone();
-                        let remove_closure = Closure::wrap(Box::new(move || {
-                            alert_clone.remove();
-                        })
-                            as Box<dyn FnMut()>);
+                    let alert_clone = alert_element.clone();
+                    let remove_closure = Closure::wrap(Box::new(move || {
+                        alert_clone.remove();
+                    }) as Box<dyn FnMut()>);
 
-                        let _ = web_sys::window()
-                            .unwrap()
-                            .set_timeout_with_callback_and_timeout_and_arguments_0(
-                                remove_closure.as_ref().unchecked_ref(),
-                                150,
-                            );
-                        remove_closure.forget();
-                    }
+                    let _ = web_sys::window()
+                        .unwrap()
+                        .set_timeout_with_callback_and_timeout_and_arguments_0(
+                            remove_closure.as_ref().unchecked_ref(),
+                            150,
+                        );
+                    remove_closure.forget();
                 }
             }) as Box<dyn FnMut()>);
 
@@ -826,7 +808,7 @@ impl BroadcasterEditManager {
 
         let (is_valid, message) = match name.as_str() {
             "margin_sec" => {
-                if value < 0 || value > 20 {
+                if !(0..=20).contains(&value) {
                     (false, "Duration margin should be between 0-20 seconds")
                 } else if value > 5 {
                     (true, "High values may create false matches")
@@ -844,7 +826,7 @@ impl BroadcasterEditManager {
                 }
             }
             "date_margin_hours" => {
-                if value < 1 || value > 168 {
+                if !(1..=168).contains(&value) {
                     (false, "Date margin should be between 1-168 hours (1 week)")
                 } else if value > 72 {
                     (true, "Long time windows may create false matches")
@@ -889,10 +871,8 @@ impl BroadcasterEditManager {
                 if is_valid && !message.is_empty() {
                     feedback.set_class_name("form-text text-warning");
                 }
-            } else {
-                if let Some(html_feedback) = feedback.dyn_ref::<HtmlElement>() {
-                    let _ = html_feedback.style().set_property("display", "none");
-                }
+            } else if let Some(html_feedback) = feedback.dyn_ref::<HtmlElement>() {
+                let _ = html_feedback.style().set_property("display", "none");
             }
         }
     }
@@ -992,43 +972,43 @@ impl ModalManager {
         let channel_cards = document.query_selector_all(".channel-card").unwrap();
 
         for i in 0..channel_cards.length() {
-            if let Some(card) = channel_cards.get(i) {
-                if let Ok(card_element) = card.dyn_into::<Element>() {
-                    // Get channel ID from data attributes or from delete button data
-                    let channel_id_opt = if let Some(delete_btn) =
-                        card_element.query_selector("[data-channel-id]").unwrap()
-                    {
-                        delete_btn
-                            .get_attribute("data-channel-id")
-                            .and_then(|id_str| id_str.parse::<i32>().ok())
-                    } else {
-                        None
-                    };
+            if let Some(card) = channel_cards.get(i)
+                && let Ok(card_element) = card.dyn_into::<Element>()
+            {
+                // Get channel ID from data attributes or from delete button data
+                let channel_id_opt = if let Some(delete_btn) =
+                    card_element.query_selector("[data-channel-id]").unwrap()
+                {
+                    delete_btn
+                        .get_attribute("data-channel-id")
+                        .and_then(|id_str| id_str.parse::<i32>().ok())
+                } else {
+                    None
+                };
 
-                    // Get channel name from card title
-                    let channel_name_opt = card_element
-                        .query_selector(".card-title")
-                        .unwrap()
-                        .and_then(|title| title.text_content());
+                // Get channel name from card title
+                let channel_name_opt = card_element
+                    .query_selector(".card-title")
+                    .unwrap()
+                    .and_then(|title| title.text_content());
 
-                    if let (Some(row_channel_id), Some(row_channel_name)) =
-                        (channel_id_opt, channel_name_opt)
-                    {
-                        let row_channel_name = row_channel_name.trim().to_string();
+                if let (Some(row_channel_id), Some(row_channel_name)) =
+                    (channel_id_opt, channel_name_opt)
+                {
+                    let row_channel_name = row_channel_name.trim().to_string();
 
-                        if row_channel_id != current_channel_id && !row_channel_name.is_empty() {
-                            let option = document.create_element("option").unwrap();
-                            option
-                                .set_attribute("value", &row_channel_id.to_string())
-                                .unwrap();
-                            option.set_text_content(Some(&row_channel_name));
+                    if row_channel_id != current_channel_id && !row_channel_name.is_empty() {
+                        let option = document.create_element("option").unwrap();
+                        option
+                            .set_attribute("value", &row_channel_id.to_string())
+                            .unwrap();
+                        option.set_text_content(Some(&row_channel_name));
 
-                            if current_source_channel_id == Some(row_channel_id) {
-                                option.set_attribute("selected", "selected").unwrap();
-                            }
-
-                            let _ = dropdown.append_child(&option);
+                        if current_source_channel_id == Some(row_channel_id) {
+                            option.set_attribute("selected", "selected").unwrap();
                         }
+
+                        let _ = dropdown.append_child(&option);
                     }
                 }
             }
@@ -1133,13 +1113,13 @@ impl ModalManager {
             form.set_action(&format!("/channel/{}/link_videos", channel_id));
 
             // Update description
-            if let Some(modal_content) = document.get_element_by_id("linking-modal-content") {
-                if let Some(description) = modal_content.query_selector("p").unwrap() {
-                    description.set_text_content(Some(&format!(
+            if let Some(modal_content) = document.get_element_by_id("linking-modal-content")
+                && let Some(description) = modal_content.query_selector("p").unwrap()
+            {
+                description.set_text_content(Some(&format!(
                         r#"Link videos from "{}" to "{}" using duration matching and title date parsing."#,
                         source_channel_name, channel_name
                     )));
-                }
             }
 
             // Setup run button

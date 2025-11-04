@@ -92,10 +92,7 @@ pub fn load_tag_categories_yew() -> Vec<TagCategory> {
     let storage = window.local_storage().unwrap().unwrap();
 
     match storage.get_item("tagCategories") {
-        Ok(Some(stored)) => match serde_json::from_str::<Vec<TagCategory>>(&stored) {
-            Ok(categories) => categories,
-            Err(_) => Vec::new(),
-        },
+        Ok(Some(stored)) => serde_json::from_str::<Vec<TagCategory>>(&stored).unwrap_or_default(),
         _ => Vec::new(),
     }
 }
@@ -134,7 +131,7 @@ impl Default for TagCategoryForm {
 
 #[function_component(TagCategoryManager)]
 pub fn tag_category_manager() -> Html {
-    let categories = use_state(|| Vec::<TagCategory>::new());
+    let categories = use_state(Vec::<TagCategory>::new);
     let show_modal = use_state(|| false);
     let form_data = use_state(TagCategoryForm::default);
     let is_editing = use_state(|| false);

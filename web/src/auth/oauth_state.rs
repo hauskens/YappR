@@ -7,6 +7,7 @@ use tokio::sync::RwLock;
 pub struct OAuthState {
     // In-memory storage for OAuth flow state
     // Format: state_token -> (provider, nonce, pkce_verifier, timestamp)
+    #[allow(clippy::type_complexity)]
     states: Arc<RwLock<HashMap<String, (String, Nonce, PkceCodeVerifier, std::time::Instant)>>>,
 }
 

@@ -3,19 +3,13 @@ use leptos::prelude::*;
 #[cfg(feature = "hydrate")]
 use web_sys;
 
+#[allow(dead_code)]
 enum Theme {
     Dark,
     Light,
 }
 
 impl Theme {
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "dark" => Some(Theme::Dark),
-            "light" => Some(Theme::Light),
-            _ => None,
-        }
-    }
     pub fn is_dark(&self) -> bool {
         matches!(self, Theme::Dark)
     }

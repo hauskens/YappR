@@ -31,6 +31,7 @@
         inherit (pkgs) lib;
 
         craneLib = crane.mkLib pkgs;
+        unfilteredRoot = ./.; # The original, unfiltered source
         src = craneLib.cleanCargoSource ./.;
 
         # Common arguments can be set here to avoid repeating them later
@@ -73,12 +74,24 @@
         fileSetForCrate =
           crate:
           lib.fileset.toSource {
-            root = ./.;
+            root = unfilteredRoot;
             fileset = lib.fileset.unions [
               ./Cargo.toml
               ./Cargo.lock
-              (craneLib.fileset.commonCargoSources ./shared)
+              (craneLib.fileset.commonCargoSources ./crates/shared)
               (craneLib.fileset.commonCargoSources crate)
+              (lib.fileset.fileFilter (
+              file:
+              lib.any file.hasExt [
+                "html"
+                "scss"
+                "js"
+                "ts"
+                "css"
+                "json"
+                "yaml"
+              ]
+            ) unfilteredRoot)
             ];
           };
 
@@ -95,7 +108,7 @@
           // {
             pname = "yappr-cli";
             cargoExtraArgs = "--bin cli";
-            src = fileSetForCrate ./cli;
+            src = fileSetForCrate ./crates/cli;
           }
         );
         # my-server = craneLib.buildPackage (

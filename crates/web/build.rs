@@ -4,10 +4,8 @@ use std::process::Command;
 
 fn main() {
     // Trigger rebuild if package.json changes
-    println!("cargo:rerun-if-changed=package.json");
 
     // Step 1: Run pnpm install to download Bootstrap
-    println!("cargo:warning=Installing Bootstrap via pnpm...");
     let status = Command::new("pnpm")
         .arg("install")
         .status()
@@ -38,7 +36,6 @@ fn main() {
     if bootswatch_pulse_src.exists() {
         fs::copy(&bootswatch_pulse_src, &bootswatch_pulse_dest)
             .unwrap_or_else(|e| panic!("Failed to copy Bootswatch Pulse theme: {}", e));
-        println!("cargo:warning=Copied Bootswatch Pulse theme");
     } else {
         println!(
             "cargo:warning=Bootswatch Pulse theme not found, falling back to default Bootstrap"
@@ -61,7 +58,6 @@ fn main() {
         if src.exists() {
             fs::copy(&src, &dest)
                 .unwrap_or_else(|e| panic!("Failed to copy {:?} to {:?}: {}", src, dest, e));
-            println!("cargo:warning=Copied Bootstrap file: {}", dest_name);
         } else {
             println!(
                 "cargo:warning=Bootstrap file not found (skipping): {:?}",
@@ -80,7 +76,6 @@ fn main() {
         if src.exists() {
             fs::copy(&src, &dest)
                 .unwrap_or_else(|e| panic!("Failed to copy {:?} to {:?}: {}", src, dest, e));
-            println!("cargo:warning=Copied Bootstrap Icons file: {}", dest_name);
         } else {
             println!(
                 "cargo:warning=Bootstrap Icons file not found (skipping): {:?}",
@@ -104,11 +99,10 @@ fn main() {
                     let dest_path = fonts_dest.join(&file_name);
                     fs::copy(&src_path, &dest_path)
                         .unwrap_or_else(|e| panic!("Failed to copy font {:?}: {}", file_name, e));
-                    println!("cargo:warning=Copied Bootstrap Icons font: {:?}", file_name);
                 }
             }
         }
     }
 
-    println!("cargo:warning=Bootstrap and Bootstrap Icons setup complete!");
+    println!("cargo:info=Bootstrap and Bootstrap Icons setup complete!");
 }

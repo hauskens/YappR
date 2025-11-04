@@ -2,6 +2,7 @@
 name = "yappr-cli"
 version.workspace = true
 edition.workspace = true
+publish = false
 
 [[bin]]
 name = "cli"

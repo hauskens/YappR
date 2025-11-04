@@ -67,7 +67,7 @@
           inherit cargoArtifacts;
           inherit (craneLib.crateNameFromCargoToml { inherit src; }) version;
           # NB: we disable tests since we'll run them all via cargo-nextest
-          doCheck = false;
+          # doCheck = false;
         };
 
         fileSetForCrate =
@@ -94,7 +94,7 @@
           individualCrateArgs
           // {
             pname = "yappr-cli";
-            cargoExtraArgs = "-p yappr-cli";
+            cargoExtraArgs = "--bin cli";
             src = fileSetForCrate ./cli;
           }
         );

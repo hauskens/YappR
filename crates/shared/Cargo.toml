@@ -2,6 +2,7 @@
 name = "yappr-shared"
 version.workspace = true
 edition.workspace = true
+publish = false
 
 [lib]
 crate-type = ["cdylib", "rlib"]

@@ -269,7 +269,7 @@ def has_any_moderation_access(user: Users) -> bool:
         return False
         
     # Check global permissions first
-    if UserService.is_admin(user) or UserService.is_moderator(user):
+    if UserService.is_admin(user) or UserService.is_global_moderator(user):
         return True
         
     # Check if user is a broadcaster

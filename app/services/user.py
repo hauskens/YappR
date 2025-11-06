@@ -67,6 +67,7 @@ class UserService:
     @staticmethod
     def is_moderator(user: Users, broadcaster_id: int | None = None) -> bool:
         """Check if user is a moderator (optionally for specific broadcaster)."""
+        
         if broadcaster_id is None:
             return db.session.execute(
                 select(UserChannelRole)
@@ -104,6 +105,11 @@ class UserService:
     def is_admin(user: Users) -> bool:
         """Check if user is an admin."""
         return db.session.query(Permissions).filter_by(user_id=user.id, permission_type=PermissionType.Admin).one_or_none() is not None
+    
+    @staticmethod
+    def is_global_moderator(user: Users) -> bool:
+        """Check if user is a global moderator."""
+        return db.session.query(Permissions).filter_by(user_id=user.id, permission_type=PermissionType.Moderator).one_or_none() is not None
 
     @staticmethod
     def get_broadcaster(user: Users) -> Broadcaster | None:

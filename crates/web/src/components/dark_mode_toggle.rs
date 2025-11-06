@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+use std::str::FromStr;
 
 #[cfg(feature = "hydrate")]
 use web_sys;
@@ -15,6 +16,18 @@ impl Theme {
     }
     pub fn default() -> Self {
         Theme::Light
+    }
+}
+
+impl FromStr for Theme {
+    type Err = ();
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "dark" => Ok(Theme::Dark),
+            "light" => Ok(Theme::Light),
+            _ => Err(()),
+        }
     }
 }
 

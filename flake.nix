@@ -12,6 +12,10 @@
       url = "github:rustsec/advisory-db";
       flake = false;
     };
+    rust-overlay = {
+      url = "github:oxalica/rust-overlay";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   outputs =
@@ -21,77 +25,74 @@
       crane,
       flake-utils,
       advisory-db,
+      rust-overlay,
       ...
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
-        pkgs = nixpkgs.legacyPackages.${system};
+        overlays = [ (import rust-overlay) ];
+        pkgs = import nixpkgs {
+          inherit system overlays;
+        };
 
         inherit (pkgs) lib;
-
+        rustToolchain = pkgs.rust-bin.stable.latest.default.override {
+            extensions = [
+              "rust-src"
+              "rust-analyzer"
+              "clippy"
+              "rustc"
+            ];
+          };
+          buildInputs = with pkgs; [
+            openssl
+        ] ++ lib.optional stdenv.isLinux [
+            strace
+          ]
+          ++ lib.optionals pkgs.stdenv.isDarwin [
+            pkgs.libiconv
+          ];
         craneLib = crane.mkLib pkgs;
-        unfilteredRoot = ./.; # The original, unfiltered source
+        # unfilteredRoot = ./.; # The original, unfiltered source
         src = craneLib.cleanCargoSource ./.;
 
         # Common arguments can be set here to avoid repeating them later
         commonArgs = {
-          inherit src;
+          inherit src buildInputs;
           strictDeps = true;
 
           nativeBuildInputs = with pkgs; [
+            binaryen
+            cargo-leptos
+            dart-sass
+            lld
+            makeWrapper
             pkg-config
-            pnpm
-            nodejs
+            wasm-bindgen-cli
+            wasm-pack
           ];
-
-          buildInputs = with pkgs; [
-            # Add additional build inputs here
-            openssl
-          ]
-          ++ lib.optionals pkgs.stdenv.isDarwin [
-            # Additional darwin specific inputs can be set here
-            pkgs.libiconv
-          ];
-
-          # Additional environment variables can be set directly
-          # MY_CUSTOM_VAR = "some value";
+          # ENV = 123;
         };
 
-        # Build *just* the cargo dependencies (of the entire workspace),
-        # so we can reuse all of that work (e.g. via cachix) when running in CI
-        # It is *highly* recommended to use something like cargo-hakari to avoid
-        # cache misses when building individual top-level-crates
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
         individualCrateArgs = commonArgs // {
           inherit cargoArtifacts;
           inherit (craneLib.crateNameFromCargoToml { inherit src; }) version;
           # NB: we disable tests since we'll run them all via cargo-nextest
-          # doCheck = false;
+          doCheck = false;
         };
 
         fileSetForCrate =
           crate:
           lib.fileset.toSource {
-            root = unfilteredRoot;
+            root = ./.;
             fileset = lib.fileset.unions [
               ./Cargo.toml
               ./Cargo.lock
               (craneLib.fileset.commonCargoSources ./crates/shared)
               (craneLib.fileset.commonCargoSources crate)
-              (lib.fileset.fileFilter (
-              file:
-              lib.any file.hasExt [
-                "html"
-                "scss"
-                "js"
-                "ts"
-                "css"
-                "json"
-                "yaml"
-              ]
-            ) unfilteredRoot)
             ];
           };
 
@@ -107,23 +108,57 @@
           individualCrateArgs
           // {
             pname = "yappr-cli";
-            cargoExtraArgs = "--bin cli";
+            cargoExtraArgs = "--bin yappr-cli";
             src = fileSetForCrate ./crates/cli;
           }
         );
-        # my-server = craneLib.buildPackage (
-        #   individualCrateArgs
-        #   // {
-        #     pname = "my-server";
-        #     cargoExtraArgs = "-p my-server";
-        #     src = fileSetForCrate ./src/;
-        #   }
-        # );
+        web = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "yappr-web";
+            cargoExtraArgs = "-p yappr-web";
+            doNotPostBuildInstallCargoBinaries = true;
+          #   buildPhaseCargoCommand = ''
+          #   mkdir -p $out/pkg
+
+          #   HOME=$(mktemp -d fake-homeXXXX) wasm-pack build -t nodejs --out-dir $out/pkg
+          # '';
+          buildPhaseCargoCommand = "cargo leptos build --release -vvv";
+          installPhaseCommand = ''
+              mkdir -p $out/bin
+              cp target/release/yappr-web $out/bin/
+              cp -r target/site $out/bin/
+              wrapProgram $out/bin/yappr-web \
+                --set LEPTOS_SITE_ROOT $out/bin/site
+            '';
+            src = lib.fileset.toSource {
+            root = ./.;
+            fileset = lib.fileset.unions [
+              ./Cargo.toml
+              ./Cargo.lock
+              (craneLib.fileset.commonCargoSources ./crates/shared)
+              (craneLib.fileset.commonCargoSources ./crates/web)
+              (lib.fileset.fileFilter (
+              file:
+              lib.any file.hasExt [
+                "html"
+                "scss"
+                "js"
+                "ts"
+                "css"
+                "json"
+                "yaml"
+              ]
+            ) ./crates/web)
+            ];
+          };
+          }
+        );
       in
       {
         checks = {
           # Build the crates as part of `nix flake check` for convenience
-          inherit cli;
+          inherit cli web;
 
           # Run clippy (and deny all warnings) on the workspace source,
           # again, reusing the dependency artifacts from above.
@@ -150,15 +185,15 @@
           # );
 
           # Check formatting
-          my-workspace-fmt = craneLib.cargoFmt {
-            inherit src;
-          };
+          # my-workspace-fmt = craneLib.cargoFmt {
+          #   inherit src;
+          # };
 
-          my-workspace-toml-fmt = craneLib.taploFmt {
-            src = pkgs.lib.sources.sourceFilesBySuffices src [ ".toml" ];
-            # taplo arguments can be further customized below as needed
-            # taploExtraArgs = "--config ./taplo.toml";
-          };
+          # my-workspace-toml-fmt = craneLib.taploFmt {
+          #   src = pkgs.lib.sources.sourceFilesBySuffices src [ ".toml" ];
+          #   # taplo arguments can be further customized below as needed
+          #   # taploExtraArgs = "--config ./taplo.toml";
+          # };
 
           # # Audit dependencies
           # my-workspace-audit = craneLib.cargoAudit {
@@ -182,51 +217,45 @@
           #     cargoNextestPartitionsExtraArgs = "--no-tests=pass";
           #   }
           # );
-
-          # # Ensure that cargo-hakari is up to date
-          # my-workspace-hakari = craneLib.mkCargoDerivation {
-          #   inherit src;
-          #   pname = "my-workspace-hakari";
-          #   cargoArtifacts = null;
-          #   doInstallCargoArtifacts = false;
-
-          #   buildPhaseCargoCommand = ''
-          #     cargo hakari generate --diff  # workspace-hack Cargo.toml is up-to-date
-          #     cargo hakari manage-deps --dry-run  # all workspace crates depend on workspace-hack
-          #     cargo hakari verify
-          #   '';
-
-          #   nativeBuildInputs = [
-          #     pkgs.cargo-hakari
-          #   ];
-          # };
         };
 
         packages = {
-          inherit cli;
+          inherit cli web;
         };
 
         apps = {
           cli = flake-utils.lib.mkApp {
             drv = cli;
           };
+          web = flake-utils.lib.mkApp {
+            drv = web;
+          };
         };
 
         devShells.default = craneLib.devShell {
           checks = self.checks.${system};
-          # LD_LIBRARY_PATH = "${lib.makeLibraryPath}";
-          # LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
+          # env = {
+          #   LD_LIBRARY_PATH = "${lib.makeLibraryPath}";
+          # };
+          LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
           # BINDGEN_EXTRA_CLANG_ARGS = with pkgs; ''
           #       -isystem ${llvmPackages.libclang.lib}/lib/clang/${lib.getVersion clang}/include
           #       -isystem ${llvmPackages.libclang.out}/lib/clang/${lib.getVersion clang}/include
           #       -isystem ${glibc.dev}/include
           #     '';
-          
+        #  LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ buildInputs ]; 
+        #  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
           # NIX_CFLAGS_COMPILE = "-isystem ${pkgs.glibc.dev}/include";
+          nativeBuildInputs = [
+            rustToolchain
+          ];
           packages = with pkgs; [
             taplo
-            cargo-hakari
-          ];
+          ] ++ buildInputs;
+          shellHook = ''
+              # For rust-analyzer 'hover' tooltips to work.
+              export RUST_SRC_PATH="${rustToolchain}/lib/rustlib/src/rust/library";
+            '';
         };
       }
     );

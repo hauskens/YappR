@@ -11,6 +11,8 @@ app/static/js
 *.webm
 project.db
 test_db
+archive
+result
 .env
 # Byte-compiled / optimized / DLL files
 __pycache__/

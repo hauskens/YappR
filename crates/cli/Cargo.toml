@@ -5,16 +5,16 @@ edition.workspace = true
 publish = false
 
 [[bin]]
-name = "cli"
+name = "yappr-cli"
 path = "src/main.rs"
 
 [dependencies]
 clap = { workspace = true }
 sea-orm = { workspace = true }
 serde = { workspace = true }
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing = { workspace = true }
 tracing-loki = { workspace = true }
 tracing-subscriber = { workspace = true }
-uuid = { version = "1.18", features = ["v4"] }
+uuid = { workspace = true, features = ["v4"] }
 yappr-shared = { path = "../shared", features = ["job-queue"] }

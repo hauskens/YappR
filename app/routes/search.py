@@ -35,7 +35,7 @@ def search_page():
 
 
 @search_blueprint.route("", methods=["POST"], strict_slashes=False)
-@limiter.shared_limit("100 per day, 5 per minute", exempt_when=rate_limit_exempt, scope="query")
+@limiter.shared_limit("10 per day, 5 per minute", exempt_when=rate_limit_exempt, scope="query")
 @check_banned()
 def search_word():
     logger.info("User searching something..")
@@ -66,7 +66,7 @@ def search_word():
 
 
 @search_blueprint.route("/chatlog", strict_slashes=False)
-@limiter.shared_limit("1000 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
+@limiter.shared_limit("100 per day, 60 per minute", exempt_when=rate_limit_exempt, scope="normal")
 @check_banned()
 def chatlog_search_page():
     # Check authorization using new helper function

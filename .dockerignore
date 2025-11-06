@@ -16,6 +16,7 @@ project.db
 __pycache__/
 *.py[cod]
 *$py.class
+result
 
 # C extensions
 *.so

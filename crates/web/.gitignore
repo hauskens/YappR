@@ -1,0 +1,6 @@
+# NPM dependencies
+node_modules/
+
+# Generated vendor assets (from install-vendor-assets.sh script)
+# Note: For Nix builds, vendor assets come from buildNpmPackage derivation
+public/vendor/

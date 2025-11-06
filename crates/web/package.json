@@ -3,10 +3,9 @@
   "version": "1.0.0",
   "description": "Bootstrap dependencies for YappR Leptos web app",
   "private": true,
-  "packageManager": "pnpm@10.18.2",
   "dependencies": {
     "bootstrap": "^5.3.8",
-    "bootstrap-icons": "^1.13.1",
+    "feather-icons": "^4.29.2",
     "bootswatch": "^5.3.8",
     "github-buttons": "^2.29.1",
     "vanilla-cookieconsent": "^3.1.0"

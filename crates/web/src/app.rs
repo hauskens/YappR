@@ -7,7 +7,7 @@ use crate::components::search::search_page::SearchPage;
 use crate::components::video::VideoPage;
 use leptos::prelude::*;
 use leptos::server_fn::ServerFnError;
-use leptos_meta::{MetaTags, Script, Stylesheet, Title, provide_meta_context};
+use leptos_meta::{Link, MetaTags, Script, Stylesheet, Title, provide_meta_context};
 use leptos_router::{
     ParamSegment, StaticSegment,
     components::{Route, Router, Routes},
@@ -59,16 +59,17 @@ pub fn App() -> impl IntoView {
 
     view! {
         <Stylesheet id="bootstrap" href="/vendor/bootstrap/bootstrap.min.css"/>
-        <Stylesheet id="bootstrap-icons" href="/vendor/bootstrap-icons/bootstrap-icons.min.css"/>
         <Stylesheet id="leptos" href="/pkg/yappr-web.css"/>
+        <Link rel="icon" type_="image/x-icon" href="/public/favicon.ico"/>
         <Script src="/vendor/bootstrap/bootstrap.bundle.min.js"/>
+        <Script src="/vendor/feather-icons/feather.min.js"/>
         <Title text="YappR"/>
         <Router>
             <main class="d-flex flex-column min-vh-100">
                 <nav class="navbar navbar-expand-sm bg-body-tertiary sticky-top py-1">
                     <div class="container-fluid">
                         <a class="navbar-brand" href="/">
-                            <img src="/logo_48.ico" alt="YappR" width="48" height="48" style="margin-right: 5px;"/>
+                            <img src="/public/favicon.ico" alt="YappR" width="48" height="48" style="margin-right: 5px;"/>
                             "YappR"
                         </a>
 

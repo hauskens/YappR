@@ -104,6 +104,24 @@
         # Note that the cargo workspace must define `workspace.members` using wildcards,
         # otherwise, omitting a crate (like we do below) will result in errors since
         # cargo won't be able to find the sources for all members.
+
+        npmDeps = pkgs.buildNpmPackage {
+          pname = "yappr-npm-deps";
+          version = "1.0.0";
+          src = ./crates/web;
+
+          npmDepsHash = "sha256-mJMEfwlfE7V8LmnyMb61hs0oKZbF7I0m6RtqRQdff3U=";
+
+          dontNpmBuild = true;
+          npmFlags = [ "--legacy-peer-deps" ];
+
+          # Just install node_modules, don't build anything
+          installPhase = ''
+            mkdir -p $out
+            cp -r node_modules $out/
+          '';
+        };
+
         cli = craneLib.buildPackage (
           individualCrateArgs
           // {
@@ -118,6 +136,23 @@
             pname = "yappr-web";
             cargoExtraArgs = "-p yappr-web";
             doNotPostBuildInstallCargoBinaries = true;
+
+            # Copy frontend assets from npm package before building
+            preBuild = ''
+              mkdir -p crates/web/public/vendor/bootstrap
+              mkdir -p crates/web/public/vendor/feather-icons
+              mkdir -p crates/web/public/images
+
+              # Copy Bootstrap CSS and JS
+              cp ${npmDeps}/node_modules/bootstrap/dist/css/bootstrap.min.css crates/web/public/vendor/bootstrap/
+              cp ${npmDeps}/node_modules/bootstrap/dist/css/bootstrap.min.css.map crates/web/public/vendor/bootstrap/ 2>/dev/null || true
+              cp ${npmDeps}/node_modules/bootstrap/dist/js/bootstrap.bundle.min.js crates/web/public/vendor/bootstrap/
+              cp ${npmDeps}/node_modules/bootstrap/dist/js/bootstrap.bundle.min.js.map crates/web/public/vendor/bootstrap/ 2>/dev/null || true
+
+              # Copy Feather Icons
+              cp ${npmDeps}/node_modules/feather-icons/dist/feather.min.js crates/web/public/vendor/feather-icons/ 2>/dev/null || true
+            '';
+
           #   buildPhaseCargoCommand = ''
           #   mkdir -p $out/pkg
 
@@ -154,6 +189,28 @@
           };
           }
         );
+
+        # Container image for web application
+        webContainer = pkgs.dockerTools.buildLayeredImage {
+          name = "yappr-web";
+          tag = "latest";
+
+          contents = [
+            web
+            pkgs.cacert
+          ];
+
+          config = {
+            Cmd = [ "${web}/bin/yappr-web" ];
+            Env = [
+              "LEPTOS_SITE_ROOT=${web}/bin/site"
+            ];
+            ExposedPorts = {
+              "3000/tcp" = {};
+            };
+            WorkingDir = "/";
+          };
+        };
       in
       {
         checks = {
@@ -220,7 +277,8 @@
         };
 
         packages = {
-          inherit cli web;
+          inherit cli web webContainer;
+          default = web;
         };
 
         apps = {
@@ -251,6 +309,7 @@
           ];
           packages = with pkgs; [
             taplo
+            nodejs
           ] ++ buildInputs;
           shellHook = ''
               # For rust-analyzer 'hover' tooltips to work.

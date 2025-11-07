@@ -60,7 +60,7 @@ pub fn App() -> impl IntoView {
     view! {
         <Stylesheet id="bootstrap" href="/vendor/bootstrap/bootstrap.min.css"/>
         <Stylesheet id="leptos" href="/pkg/yappr-web.css"/>
-        <Link rel="icon" type_="image/x-icon" href="/public/favicon.ico"/>
+        <Link rel="icon" type_="image/x-icon" href="/favicon.ico"/>
         <Script src="/vendor/bootstrap/bootstrap.bundle.min.js"/>
         <Script src="/vendor/feather-icons/feather.min.js"/>
         <Title text="YappR"/>
@@ -69,7 +69,7 @@ pub fn App() -> impl IntoView {
                 <nav class="navbar navbar-expand-sm bg-body-tertiary sticky-top py-1">
                     <div class="container-fluid">
                         <a class="navbar-brand" href="/">
-                            <img src="/public/favicon.ico" alt="YappR" width="48" height="48" style="margin-right: 5px;"/>
+                            <img src="/favicon.ico" alt="YappR" width="48" height="48" style="margin-right: 5px;"/>
                             "YappR"
                         </a>
 

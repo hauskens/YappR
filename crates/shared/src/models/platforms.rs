@@ -894,7 +894,7 @@ mod tests {
     fn test_platform_variant_id_to_url() {
         let test_cases = [
             (
-                "dQw4w9WgXcQsss",
+                "dQw4w9WgXcQ",
                 PlatformVariant::YouTubeVideo,
                 "https://youtube.com/watch?v=dQw4w9WgXcQ",
             ),

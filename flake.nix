@@ -54,10 +54,9 @@
             pkgs.libiconv
           ];
         craneLib = crane.mkLib pkgs;
-        # unfilteredRoot = ./.; # The original, unfiltered source
         src = craneLib.cleanCargoSource ./.;
 
-        # Common arguments can be set here to avoid repeating them later
+        # Common arguments
         commonArgs = {
           inherit src buildInputs;
           strictDeps = true;
@@ -72,7 +71,6 @@
             wasm-bindgen-cli
             wasm-pack
           ];
-          # ENV = 123;
         };
 
         cargoArtifacts = craneLib.buildDepsOnly commonArgs;
@@ -96,15 +94,6 @@
             ];
           };
 
-        # Build the top-level crates of the workspace as individual derivations.
-        # This allows consumers to only depend on (and build) only what they need.
-        # Though it is possible to build the entire workspace as a single derivation,
-        # so this is left up to you on how to organize things
-        #
-        # Note that the cargo workspace must define `workspace.members` using wildcards,
-        # otherwise, omitting a crate (like we do below) will result in errors since
-        # cargo won't be able to find the sources for all members.
-
         npmDeps = pkgs.buildNpmPackage {
           pname = "yappr-npm-deps";
           version = "1.0.0";
@@ -112,13 +101,9 @@
 
           npmDepsHash = "sha256-mJMEfwlfE7V8LmnyMb61hs0oKZbF7I0m6RtqRQdff3U=";
 
-          dontNpmBuild = true;
-          npmFlags = [ "--legacy-peer-deps" ];
-
-          # Just install node_modules, don't build anything
           installPhase = ''
             mkdir -p $out
-            cp -r node_modules $out/
+            cp -r public/vendor $out/
           '';
         };
 
@@ -139,25 +124,9 @@
 
             # Copy frontend assets from npm package before building
             preBuild = ''
-              mkdir -p crates/web/public/vendor/bootstrap
-              mkdir -p crates/web/public/vendor/feather-icons
-              mkdir -p crates/web/public/images
-
-              # Copy Bootstrap CSS and JS
-              cp ${npmDeps}/node_modules/bootstrap/dist/css/bootstrap.min.css crates/web/public/vendor/bootstrap/
-              cp ${npmDeps}/node_modules/bootstrap/dist/css/bootstrap.min.css.map crates/web/public/vendor/bootstrap/ 2>/dev/null || true
-              cp ${npmDeps}/node_modules/bootstrap/dist/js/bootstrap.bundle.min.js crates/web/public/vendor/bootstrap/
-              cp ${npmDeps}/node_modules/bootstrap/dist/js/bootstrap.bundle.min.js.map crates/web/public/vendor/bootstrap/ 2>/dev/null || true
-
-              # Copy Feather Icons
-              cp ${npmDeps}/node_modules/feather-icons/dist/feather.min.js crates/web/public/vendor/feather-icons/ 2>/dev/null || true
+              mkdir -p crates/web/public/vendor
+              cp -r ${npmDeps}/vendor/* crates/web/public/vendor/
             '';
-
-          #   buildPhaseCargoCommand = ''
-          #   mkdir -p $out/pkg
-
-          #   HOME=$(mktemp -d fake-homeXXXX) wasm-pack build -t nodejs --out-dir $out/pkg
-          # '';
           buildPhaseCargoCommand = "cargo leptos build --release -vvv";
           installPhaseCommand = ''
               mkdir -p $out/bin
@@ -183,6 +152,9 @@
                 "css"
                 "json"
                 "yaml"
+                "ico"
+                "png"
+                "svg"
               ]
             ) ./crates/web)
             ];
@@ -242,15 +214,15 @@
           # );
 
           # Check formatting
-          # my-workspace-fmt = craneLib.cargoFmt {
-          #   inherit src;
-          # };
+          my-workspace-fmt = craneLib.cargoFmt {
+            inherit src;
+          };
 
-          # my-workspace-toml-fmt = craneLib.taploFmt {
-          #   src = pkgs.lib.sources.sourceFilesBySuffices src [ ".toml" ];
-          #   # taplo arguments can be further customized below as needed
-          #   # taploExtraArgs = "--config ./taplo.toml";
-          # };
+          my-workspace-toml-fmt = craneLib.taploFmt {
+            src = pkgs.lib.sources.sourceFilesBySuffices src [ ".toml" ];
+            # taplo arguments can be further customized below as needed
+            # taploExtraArgs = "--config ./taplo.toml";
+          };
 
           # # Audit dependencies
           # my-workspace-audit = craneLib.cargoAudit {
@@ -265,15 +237,15 @@
           # Run tests with cargo-nextest
           # Consider setting `doCheck = false` on other crate derivations
           # if you do not want the tests to run twice
-          # my-workspace-nextest = craneLib.cargoNextest (
-          #   commonArgs
-          #   // {
-          #     inherit cargoArtifacts;
-          #     partitions = 1;
-          #     partitionType = "count";
-          #     cargoNextestPartitionsExtraArgs = "--no-tests=pass";
-          #   }
-          # );
+          my-workspace-nextest = craneLib.cargoNextest (
+            commonArgs
+            // {
+              inherit cargoArtifacts;
+              partitions = 1;
+              partitionType = "count";
+              cargoNextestPartitionsExtraArgs = "--no-tests=pass";
+            }
+          );
         };
 
         packages = {
@@ -306,6 +278,8 @@
           # NIX_CFLAGS_COMPILE = "-isystem ${pkgs.glibc.dev}/include";
           nativeBuildInputs = [
             rustToolchain
+            pkgs.pkg-config
+            pkgs.openssl
           ];
           packages = with pkgs; [
             taplo

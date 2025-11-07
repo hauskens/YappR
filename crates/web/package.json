@@ -9,5 +9,8 @@
     "bootswatch": "^5.3.8",
     "github-buttons": "^2.29.1",
     "vanilla-cookieconsent": "^3.1.0"
+  },
+  "scripts": {
+    "build": "mkdir -p ./public/vendor/bootstrap ./public/vendor/feather-icons ./public/images && cp -r ./node_modules/bootswatch/dist/pulse/* ./public/vendor/bootstrap/ && cp ./node_modules/bootstrap/dist/js/bootstrap.bundle.min.js ./public/vendor/bootstrap/ && cp ./node_modules/feather-icons/dist/feather.min.js ./public/vendor/feather-icons/"
   }
 }

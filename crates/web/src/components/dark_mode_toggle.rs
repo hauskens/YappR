@@ -1,8 +1,14 @@
-use leptos::prelude::*;
+use leptos::{html, prelude::*};
 use std::str::FromStr;
 
 #[cfg(feature = "hydrate")]
 use web_sys;
+
+#[cfg(feature = "hydrate")]
+use wasm_bindgen::prelude::*;
+
+#[cfg(feature = "hydrate")]
+use js_sys;
 
 #[allow(dead_code)]
 enum Theme {
@@ -54,9 +60,51 @@ pub fn DarkModeToggle() -> impl IntoView {
             style="cursor: pointer; user-select: none; margin: 0; padding: 0; border: none; font-size: 1.25rem;"
             aria-label="Toggle dark mode"
         >
-            <span class={move || if is_dark_mode.get() { "bi bi-moon-fill" } else { "bi bi-sun-fill" }}></span>
+            {move || {
+                let icon_name = if is_dark_mode.get() { "moon" } else { "sun" };
+                view! {
+                    <FeatherIcon icon=icon_name />
+                }
+            }}
         </button>
     }
+}
+
+#[component]
+fn FeatherIcon(icon: &'static str) -> impl IntoView {
+    let container_ref = NodeRef::<html::Span>::new();
+
+    // to prevent unused variable warning
+    #[cfg(not(feature = "hydrate"))]
+    let _icon = icon;
+    #[cfg(feature = "hydrate")]
+    Effect::new(move |_| {
+        if let Some(svg) = get_feather_svg(icon) {
+            if let Some(container) = container_ref.get() {
+                container.set_inner_html(&svg);
+            }
+        }
+    });
+
+    view! {
+        <span node_ref=container_ref></span>
+    }
+}
+
+#[cfg(feature = "hydrate")]
+fn get_feather_svg(icon: &str) -> Option<String> {
+    let window = web_sys::window()?;
+    let feather = js_sys::Reflect::get(&window, &JsValue::from_str("feather")).ok()?;
+    let icons = js_sys::Reflect::get(&feather, &JsValue::from_str("icons")).ok()?;
+    let icon_obj = js_sys::Reflect::get(&icons, &JsValue::from_str(icon)).ok()?;
+    let to_svg_fn = js_sys::Reflect::get(&icon_obj, &JsValue::from_str("toSvg")).ok()?;
+    let svg_js = js_sys::Reflect::apply(
+        to_svg_fn.as_ref().unchecked_ref(),
+        &icon_obj,
+        &js_sys::Array::new(),
+    )
+    .ok()?;
+    svg_js.as_string()
 }
 
 #[cfg(feature = "hydrate")]

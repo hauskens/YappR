@@ -6134,6 +6134,7 @@ dependencies = [
  "console_error_panic_hook",
  "eyre",
  "hmac",
+ "js-sys",
  "leptos",
  "leptos_axum",
  "leptos_meta",

@@ -1,33 +1,38 @@
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 with lib;
 
 let
   cfg = config.services.yappr;
 
-  # Build database URI from configuration
-  # Format: postgresql://database?host=/socket/path&user=user&password=pass (Unix socket)
-  # Format: postgresql://user:password@host:port/database (TCP)
-  # Password is loaded at runtime from file
   isUnixSocket = builtins.typeOf cfg.database.host == "path";
   dbUri =
-    if isUnixSocket
-    then "postgresql://${cfg.database.name}?host=${toString cfg.database.host}&user=${cfg.database.user}&password=\${DB_PASSWORD}"
-    else "postgresql://${cfg.database.user}:\${DB_PASSWORD}@${cfg.database.host}:${toString cfg.database.port}/${cfg.database.name}";
+    if isUnixSocket then
+      "postgresql://${cfg.database.name}?host=${toString cfg.database.host}&user=${cfg.database.user}"
+    else
+      "postgresql://${cfg.database.user}:\${DB_PASSWORD}@${cfg.database.host}:${toString cfg.database.port}/${cfg.database.name}";
 
-  # Redis URI
   redisUri = "redis://${cfg.redis.host}:${toString cfg.redis.port}/0";
+  exe = lib.getExe cfg.package;
 
 in
 {
   options.services.yappr = {
-    enable = mkEnableOption "YappR Leptos web application";
+    enable = mkEnableOption "YappR Web Application";
 
     package = mkOption {
       type = types.package;
-      default = pkgs.yappr-web;
-      defaultText = literalExpression "pkgs.yappr-web";
-      description = "The yappr-web package to use.";
+      defaultText = literalExpression "pkgs.yappr-web or self.packages.\${pkgs.system}.web";
+      description = ''
+        The yappr-web package to use.
+        Defaults to the package from this flake when using the nixosModule.
+        If importing the module directly, you must provide this or apply the overlay.
+      '';
     };
 
     host = mkOption {
@@ -73,10 +78,12 @@ in
       };
 
       passwordFile = mkOption {
-        type = types.path;
+        type = types.nullOr types.path;
+        default = null;
         description = ''
           Path to file containing the PostgreSQL database password.
           This file should contain only the password, with no trailing newline.
+          Not required when using Unix socket with peer authentication.
         '';
         example = "/run/secrets/yappr-db-password";
       };
@@ -114,73 +121,96 @@ in
     dataDir = mkOption {
       type = types.path;
       default = "/var/lib/yappr/data";
-      description = "Directory for storing application data (audio files, transcriptions, etc.).";
+      description = "Directory for storing application data (audio files, transcriptions, etc.). Managed by StateDirectory.";
     };
 
     cacheDir = mkOption {
       type = types.path;
-      default = "/var/lib/yappr/cache";
-      description = "Directory for storing cache files.";
+      default = "/var/cache/yappr";
+      description = "Directory for storing cache files. Managed by CacheDirectory.";
     };
 
     auth = {
-      secretFile = mkOption {
-        type = types.path;
+      appSecret = mkOption {
+        type = types.str;
         description = ''
-          Path to file containing the application secret key.
+          Application secret key.
           Used for session encryption and other cryptographic operations.
           Generate with: openssl rand -hex 32
         '';
-        example = "/run/secrets/yappr-app-secret";
+        default = "youshouldchangeme";
+        example = "a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0";
       };
 
       appUrl = mkOption {
         type = types.str;
         example = "https://yappr.example.com";
+        default = "http://localhost:${toString cfg.port}";
         description = "Public URL of the application (used for OAuth redirects).";
       };
 
+      youtube = {
+        apiKey = mkOption {
+          type = types.nullOr types.str;
+          description = "YouTube Data API key.";
+          example = "AIzaSyD...";
+        };
+
+        apiKeyFile = mkOption {
+          type = types.nullOr types.path;
+          description = "Path to file containing YouTube Data API key.";
+          example = "/run/secrets/yappr-youtube-api-key";
+        };
+      };
+
       discord = {
-        clientIdFile = mkOption {
-          type = types.path;
-          description = "Path to file containing Discord OAuth2 client ID.";
-          example = "/run/secrets/yappr-discord-client-id";
+        clientId = mkOption {
+          type = types.str;
+          description = "Discord OAuth2 client ID.";
+          example = "1234567890";
+        };
+        clientSecret = mkOption {
+          type = types.nullOr types.str;
+          description = "Discord OAuth2 client secret.";
+          example = "1234567890";
         };
 
         clientSecretFile = mkOption {
-          type = types.path;
+          type = types.nullOr types.path;
           description = "Path to file containing Discord OAuth2 client secret.";
           example = "/run/secrets/yappr-discord-client-secret";
         };
       };
 
       twitch = {
-        clientIdFile = mkOption {
-          type = types.path;
-          description = "Path to file containing Twitch OAuth2 client ID.";
-          example = "/run/secrets/yappr-twitch-client-id";
+        clientId = mkOption {
+          type = types.str;
+          description = "Twitch OAuth2 client ID.";
+          example = "1234567890";
+        };
+        clientSecret = mkOption {
+          type = types.nullOr types.str;
+          description = "Twitch OAuth2 client secret.";
+          example = "1234567890";
         };
 
         clientSecretFile = mkOption {
-          type = types.path;
+          type = types.nullOr types.path;
           description = "Path to file containing Twitch OAuth2 client secret.";
           example = "/run/secrets/yappr-twitch-client-secret";
         };
       };
     };
 
-    apiKeys = {
-      youtubeFile = mkOption {
-        type = types.nullOr types.path;
-        default = null;
-        description = "Path to file containing YouTube Data API key (optional).";
-        example = "/run/secrets/yappr-youtube-api-key";
-      };
-    };
-
     logging = {
       level = mkOption {
-        type = types.enum [ "DEBUG" "INFO" "WARNING" "ERROR" "CRITICAL" ];
+        type = types.enum [
+          "DEBUG"
+          "INFO"
+          "WARNING"
+          "ERROR"
+          "CRITICAL"
+        ];
         default = "INFO";
         description = "Logging level for the application.";
       };
@@ -225,16 +255,17 @@ in
         assertion = cfg.auth.appUrl != "";
         message = "services.yappr.auth.appUrl must be set";
       }
+      {
+        assertion = (builtins.typeOf cfg.database.host == "string") -> (cfg.database.passwordFile != null);
+        message = "services.yappr.database.passwordFile must be set when using TCP connection (string host)";
+      }
     ];
 
-    # Create PostgreSQL database locally if requested
     services.postgresql = mkIf cfg.database.createLocally {
       enable = true;
 
-      # Enable pgvector extension
-      extraPlugins = with pkgs.postgresql.pkgs; [ pgvector ];
+      extensions = extensions: with extensions; [ pgvector ];
 
-      # Ensure database and user are created
       ensureDatabases = [ cfg.database.name ];
       ensureUsers = [
         {
@@ -242,22 +273,32 @@ in
           ensureDBOwnership = true;
         }
       ];
+    };
 
-      # Enable pgvector extension for the database
-      initialScript = pkgs.writeText "yappr-init.sql" ''
-        \c ${cfg.database.name}
-        CREATE EXTENSION IF NOT EXISTS vector;
+    # Create pgvector extension after database is set up
+    systemd.services.yappr-db-setup = mkIf cfg.database.createLocally {
+      description = "YappR Database Setup";
+      after = [ "postgresql.service" ];
+      wants = [ "postgresql.service" ];
+      wantedBy = [ "multi-user.target" ];
+
+      serviceConfig = {
+        Type = "oneshot";
+        RemainAfterExit = true;
+        User = "postgres";
+      };
+
+      script = ''
+        ${config.services.postgresql.package}/bin/psql -d ${cfg.database.name} -c "CREATE EXTENSION IF NOT EXISTS vector;"
       '';
     };
 
-    # Create Redis service locally if requested
     services.redis.servers.yappr = mkIf cfg.redis.createLocally {
       enable = true;
       port = cfg.redis.port;
       bind = cfg.redis.host;
     };
 
-    # Create user and group
     users.users = mkIf (cfg.user == "yappr") {
       yappr = {
         isSystemUser = true;
@@ -272,106 +313,77 @@ in
       yappr = { };
     };
 
-    # Create systemd service
     systemd.services.yappr-web = {
       description = "YappR Leptos Web Application";
       wantedBy = [ "multi-user.target" ];
-      after = [ "network.target" ]
-        ++ optional cfg.database.createLocally "postgresql.service"
-        ++ optional cfg.redis.createLocally "redis-yappr.service";
-      wants = optional cfg.database.createLocally "postgresql.service"
+      after = [
+        "network.target"
+      ]
+      ++ optional cfg.database.createLocally "yappr-db-setup.service"
+      ++ optional cfg.redis.createLocally "redis-yappr.service";
+      wants =
+        optional cfg.database.createLocally "yappr-db-setup.service"
         ++ optional cfg.redis.createLocally "redis-yappr.service";
 
-      # Set up state directories
+      environment = {
+        DB_URI = dbUri;
+        REDIS_URI = redisUri;
+
+        APP_SECRET = cfg.auth.appSecret;
+        APP_URL = cfg.auth.appUrl;
+        HOST = cfg.host;
+        PORT = toString cfg.port;
+
+        STORAGE_LOCATION = cfg.dataDir;
+        CACHE_LOCATION = cfg.cacheDir;
+
+        LOG_LEVEL = cfg.logging.level;
+
+        SERVICE_NAME = "web";
+        ENVIRONMENT = cfg.environment;
+        TIMEZONE = cfg.timezone;
+        DISCORD_CLIENT_ID = cfg.auth.discord.clientId;
+        DISCORD_CLIENT_SECRET = cfg.auth.discord.clientSecret;
+        TWITCH_CLIENT_ID = cfg.auth.twitch.clientId;
+        TWITCH_CLIENT_SECRET = cfg.auth.twitch.clientSecret;
+        YOUTUBE_API_KEY = cfg.auth.youtube.apiKey;
+
+        LEPTOS_SITE_ROOT = "${cfg.package}/bin/site";
+        LEPTOS_OUTPUT_NAME = "yappr-web";
+        LEPTOS_SITE_ADDR = "${cfg.host}:${toString cfg.port}";
+        LEPTOS_ENV = "PROD";
+      }
+      // optionalAttrs (cfg.logging.lokiUrl != null) {
+        LOKI_URL = cfg.logging.lokiUrl;
+      };
+
       serviceConfig = {
+        ReadWritePaths = optional cfg.database.createLocally [ "/run/postgresql" ];
         Type = "simple";
         User = cfg.user;
         Group = cfg.group;
         Restart = "always";
         RestartSec = "10s";
-        WorkingDirectory = cfg.dataDir;
 
-        # State directories
-        StateDirectory = "yappr";
+        StateDirectory = "yappr yappr/data";
         StateDirectoryMode = "0750";
+        CacheDirectory = "yappr";
+        CacheDirectoryMode = "0750";
 
-        # Load secrets from files
-        LoadCredential = [
-          "db-password:${cfg.database.passwordFile}"
-          "app-secret:${cfg.auth.secretFile}"
-          "discord-client-id:${cfg.auth.discord.clientIdFile}"
-          "discord-client-secret:${cfg.auth.discord.clientSecretFile}"
-          "twitch-client-id:${cfg.auth.twitch.clientIdFile}"
-          "twitch-client-secret:${cfg.auth.twitch.clientSecretFile}"
-        ] ++ optional (cfg.apiKeys.youtubeFile != null) "youtube-api-key:${cfg.apiKeys.youtubeFile}";
-
-        # Security hardening
-        NoNewPrivileges = true;
-        PrivateTmp = true;
-        ProtectSystem = "strict";
-        ProtectHome = true;
-        ReadWritePaths = [ cfg.dataDir cfg.cacheDir ];
+        LoadCredential =
+          # Load DB password if provided
+          (optional (cfg.database.passwordFile != null) "db-password:${cfg.database.passwordFile}");
       };
 
-      # Build environment variables
+      # Minimal script to load secrets from credentials and start the app
       script = ''
-        # Read secrets from credentials
-        export DB_PASSWORD=$(cat $CREDENTIALS_DIRECTORY/db-password)
-        export APP_SECRET=$(cat $CREDENTIALS_DIRECTORY/app-secret)
-        export DISCORD_CLIENT_ID=$(cat $CREDENTIALS_DIRECTORY/discord-client-id)
-        export DISCORD_CLIENT_SECRET=$(cat $CREDENTIALS_DIRECTORY/discord-client-secret)
-        export TWITCH_CLIENT_ID=$(cat $CREDENTIALS_DIRECTORY/twitch-client-id)
-        export TWITCH_CLIENT_SECRET=$(cat $CREDENTIALS_DIRECTORY/twitch-client-secret)
-        ${optionalString (cfg.apiKeys.youtubeFile != null) ''
-          export YOUTUBE_API_KEY=$(cat $CREDENTIALS_DIRECTORY/youtube-api-key)
+        # Load secrets from systemd credentials
+        ${optionalString (cfg.database.passwordFile != null) ''
+          export DB_PASSWORD=$(cat $CREDENTIALS_DIRECTORY/db-password)
         ''}
-
-        # Database configuration
-        export DB_URI="${dbUri}"
-
-        # Redis configuration
-        export REDIS_URI="${redisUri}"
-
-        # Application configuration
-        export APP_URL="${cfg.auth.appUrl}"
-        export HOST="${cfg.host}"
-        export PORT="${toString cfg.port}"
-
-        # OAuth redirect URIs
-        export DISCORD_REDIRECT_URI="${cfg.auth.appUrl}/login/discord/authorized"
-        export TWITCH_REDIRECT_URI="${cfg.auth.appUrl}/login/twitch/authorized"
-
-        # Storage paths
-        export STORAGE_LOCATION="${cfg.dataDir}"
-        export CACHE_LOCATION="${cfg.cacheDir}"
-
-        # Logging configuration
-        export LOG_LEVEL="${cfg.logging.level}"
-        ${optionalString (cfg.logging.lokiUrl != null) ''
-          export LOKI_URL="${cfg.logging.lokiUrl}"
-        ''}
-
-        # Service metadata
-        export SERVICE_NAME="web"
-        export ENVIRONMENT="${cfg.environment}"
-        export TIMEZONE="${cfg.timezone}"
-
-        # Leptos configuration
-        export LEPTOS_SITE_ROOT="${cfg.package}/bin/site"
-        export LEPTOS_OUTPUT_NAME="yappr-web"
-        export LEPTOS_SITE_ADDR="${cfg.host}:${toString cfg.port}"
-        export LEPTOS_ENV="PROD"
 
         # Start the web server
         exec ${cfg.package}/bin/yappr-web
-      '';
-
-      # Pre-start: ensure directories exist
-      preStart = ''
-        mkdir -p ${cfg.dataDir}
-        mkdir -p ${cfg.cacheDir}
-        chown -R ${cfg.user}:${cfg.group} ${cfg.dataDir}
-        chown -R ${cfg.user}:${cfg.group} ${cfg.cacheDir}
       '';
     };
 

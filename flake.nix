@@ -28,7 +28,7 @@
       rust-overlay,
       ...
     }:
-    flake-utils.lib.eachDefaultSystem (
+    (flake-utils.lib.eachDefaultSystem (
       system:
       let
         overlays = [ (import rust-overlay) ];
@@ -38,16 +38,19 @@
 
         inherit (pkgs) lib;
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
-            extensions = [
-              "rust-src"
-              "rust-analyzer"
-              "clippy"
-              "rustc"
-            ];
-          };
-          buildInputs = with pkgs; [
+          extensions = [
+            "rust-src"
+            "rust-analyzer"
+            "clippy"
+            "rustc"
+          ];
+        };
+        buildInputs =
+          with pkgs;
+          [
             openssl
-        ] ++ lib.optional stdenv.isLinux [
+          ]
+          ++ lib.optional stdenv.isLinux [
             strace
           ]
           ++ lib.optionals pkgs.stdenv.isDarwin [
@@ -127,8 +130,8 @@
               mkdir -p crates/web/public/vendor
               cp -r ${npmDeps}/vendor/* crates/web/public/vendor/
             '';
-          buildPhaseCargoCommand = "cargo leptos build --release -vvv";
-          installPhaseCommand = ''
+            buildPhaseCargoCommand = "cargo leptos build --release -vvv";
+            installPhaseCommand = ''
               mkdir -p $out/bin
               cp target/release/yappr-web $out/bin/
               cp -r target/site $out/bin/
@@ -136,29 +139,32 @@
                 --set LEPTOS_SITE_ROOT $out/bin/site
             '';
             src = lib.fileset.toSource {
-            root = ./.;
-            fileset = lib.fileset.unions [
-              ./Cargo.toml
-              ./Cargo.lock
-              (craneLib.fileset.commonCargoSources ./crates/shared)
-              (craneLib.fileset.commonCargoSources ./crates/web)
-              (lib.fileset.fileFilter (
-              file:
-              lib.any file.hasExt [
-                "html"
-                "scss"
-                "js"
-                "ts"
-                "css"
-                "json"
-                "yaml"
-                "ico"
-                "png"
-                "svg"
-              ]
-            ) ./crates/web)
-            ];
-          };
+              root = ./.;
+              fileset = lib.fileset.unions [
+                ./Cargo.toml
+                ./Cargo.lock
+                (craneLib.fileset.commonCargoSources ./crates/shared)
+                (craneLib.fileset.commonCargoSources ./crates/web)
+                (lib.fileset.fileFilter (
+                  file:
+                  lib.any file.hasExt [
+                    "html"
+                    "scss"
+                    "js"
+                    "ts"
+                    "css"
+                    "json"
+                    "yaml"
+                    "ico"
+                    "png"
+                    "svg"
+                  ]
+                ) ./crates/web)
+              ];
+            };
+            meta = {
+              mainProgram = "yappr-web";
+            };
           }
         );
 
@@ -178,7 +184,7 @@
               "LEPTOS_SITE_ROOT=${web}/bin/site"
             ];
             ExposedPorts = {
-              "3000/tcp" = {};
+              "3000/tcp" = { };
             };
             WorkingDir = "/";
           };
@@ -264,32 +270,56 @@
 
         devShells.default = craneLib.devShell {
           checks = self.checks.${system};
-          # env = {
-          #   LD_LIBRARY_PATH = "${lib.makeLibraryPath}";
-          # };
           LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
           # BINDGEN_EXTRA_CLANG_ARGS = with pkgs; ''
           #       -isystem ${llvmPackages.libclang.lib}/lib/clang/${lib.getVersion clang}/include
           #       -isystem ${llvmPackages.libclang.out}/lib/clang/${lib.getVersion clang}/include
           #       -isystem ${glibc.dev}/include
           #     '';
-        #  LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ buildInputs ]; 
-        #  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
+          #  LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ buildInputs ];
+          #  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
           # NIX_CFLAGS_COMPILE = "-isystem ${pkgs.glibc.dev}/include";
           nativeBuildInputs = [
             rustToolchain
             pkgs.pkg-config
             pkgs.openssl
           ];
-          packages = with pkgs; [
-            taplo
-            nodejs
-          ] ++ buildInputs;
+          packages =
+            with pkgs;
+            [
+              taplo
+              nodejs
+            ]
+            ++ buildInputs;
           shellHook = ''
-              # For rust-analyzer 'hover' tooltips to work.
-              export RUST_SRC_PATH="${rustToolchain}/lib/rustlib/src/rust/library";
-            '';
+            # For rust-analyzer 'hover' tooltips to work.
+            export RUST_SRC_PATH="${rustToolchain}/lib/rustlib/src/rust/library";
+          '';
         };
       }
-    );
+    ))
+    // {
+      # System-independent outputs
+      nixosModules.default =
+        {
+          config,
+          lib,
+          pkgs,
+          ...
+        }:
+        {
+          imports = [ ./modules/yappr.nix ];
+
+          # Provide default package from this flake
+          config = lib.mkIf config.services.yappr.enable {
+            services.yappr.package = lib.mkDefault self.packages.${pkgs.system}.web;
+          };
+        };
+
+      # Overlay for other flakes to use
+      overlays.default = final: prev: {
+        yappr-web = self.packages.${prev.system}.web;
+        yappr-cli = self.packages.${prev.system}.cli;
+      };
+    };
 }

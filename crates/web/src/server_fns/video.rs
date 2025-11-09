@@ -94,16 +94,9 @@ pub async fn get_video_detail(id: i32) -> Result<VideoDetailData, ServerFnError>
                             ServerFnError::new(format!("Failed to count source segments: {}", e))
                         })? as i32;
 
-                    let source_platform_url = if let Some(platform) =
-                        VideoPlatform::get_from_str(&source_channel.platform_name)
-                    {
-                        platform.timestamp_url(&source_video_model.platform_ref, &0)
-                    } else {
-                        format!("#unknown-platform-{}", source_channel.platform_name)
-                    };
-
                     Some(Box::new(VideoDetailData {
                         id: source_video_model.id,
+                        platform_ref: source_video_model.platform_ref.clone(),
                         title: source_video_model.title.clone(),
                         uploaded: source_video_model
                             .uploaded
@@ -111,8 +104,8 @@ pub async fn get_video_detail(id: i32) -> Result<VideoDetailData, ServerFnError>
                             .to_string(),
                         duration: source_video_model.duration as i32,
                         active: source_video_model.active,
-                        platform_name: source_channel.platform_name.clone(),
-                        platform_url: source_platform_url,
+                        platform: VideoPlatform::get_from_str(&source_channel.platform_name)
+                            .expect("Video does not have valid platform, something is wrong.."),
                         estimated_upload_time: source_video_model
                             .estimated_upload_time
                             .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string()),
@@ -150,13 +143,6 @@ pub async fn get_video_detail(id: i32) -> Result<VideoDetailData, ServerFnError>
         None
     };
 
-    // Generate platform URL
-    let platform_url = if let Some(platform) = VideoPlatform::get_from_str(&channel.platform_name) {
-        platform.timestamp_url(&video_model.platform_ref, &0)
-    } else {
-        format!("#unknown-platform-{}", channel.platform_name)
-    };
-
     // Convert transcriptions to DTOs
     let transcriptions = transcriptions_models
         .into_iter()
@@ -172,12 +158,13 @@ pub async fn get_video_detail(id: i32) -> Result<VideoDetailData, ServerFnError>
 
     Ok(VideoDetailData {
         id: video_model.id,
+        platform_ref: video_model.platform_ref.clone(),
         title: video_model.title.clone(),
         uploaded: video_model.uploaded.format("%Y-%m-%d %H:%M").to_string(),
         duration: video_model.duration as i32,
         active: video_model.active,
-        platform_name: channel.platform_name.clone(),
-        platform_url,
+        platform: VideoPlatform::get_from_str(&channel.platform_name)
+            .expect("Video does not have valid platform, something is wrong.."),
         estimated_upload_time: video_model
             .estimated_upload_time
             .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string()),
@@ -220,6 +207,9 @@ pub async fn get_transcription_segments(
 
     let (video_model, channel_opt) = video;
     let channel = channel_opt.ok_or_else(|| ServerFnError::new("Channel not found"))?;
+    let platform = VideoPlatform::get_from_str(&channel.platform_name).ok_or_else(|| {
+        ServerFnError::new("Channel does not have valid platform, something is wrong..")
+    })?;
 
     let mut segments_data = Vec::new();
 
@@ -241,11 +231,7 @@ pub async fn get_transcription_segments(
 
         for segment in segments {
             let timestamp_url =
-                if let Some(platform) = VideoPlatform::get_from_str(&channel.platform_name) {
-                    platform.timestamp_url(&video_model.platform_ref, &(segment.start as u64))
-                } else {
-                    format!("#unknown-platform-{}", channel.platform_name)
-                };
+                platform.timestamp_url(&video_model.platform_ref, &(segment.start as f64));
 
             segments_data.push(TranscriptionSegmentData {
                 id: segment.id.to_string(),

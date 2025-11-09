@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use url::Url;
 
-#[cfg(feature = "twitch")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BasePlatform {
     YouTube,
@@ -75,6 +74,19 @@ impl BasePlatform {
             BasePlatform::Discord => HexColor::parse("#FFFFFF").unwrap(),
         }
     }
+    pub fn badge_url(&self) -> &'static str {
+        match self {
+            BasePlatform::YouTube => {
+                "https://img.shields.io/badge/manage-6C757D?style=plastic&logo=youtube&logoColor=white&labelColor=FF0000"
+            }
+            BasePlatform::Twitch => {
+                "https://img.shields.io/badge/manage-6C757D?style=plastic&logo=twitch&logoColor=white&labelColor=9147FF"
+            }
+            BasePlatform::Discord => {
+                "https://img.shields.io/badge/manage-6C757D?style=plastic&logo=discord&logoColor=white&labelColor=7289DA"
+            }
+        }
+    }
 }
 
 impl From<&VideoPlatform> for BasePlatform {
@@ -106,12 +118,25 @@ impl VideoPlatform {
             _ => None,
         }
     }
-    pub fn base_url(&self) -> Url {
-        BasePlatform::from(self).base_url()
+    pub fn get_base_platform(&self) -> BasePlatform {
+        BasePlatform::from(self)
+    }
+    pub fn video_url(&self, video_ref: &str) -> Url {
+        match self {
+            VideoPlatform::YouTube => {
+                let mut url = BasePlatform::YouTube.base_url().join("/watch").unwrap();
+                url.query_pairs_mut().append_pair("v", video_ref);
+                url
+            }
+            VideoPlatform::Twitch => BasePlatform::Twitch
+                .base_url()
+                .join(&format!("/videos/{}", video_ref))
+                .unwrap(),
+        }
     }
 
     pub fn as_str(&self) -> &'static str {
-        BasePlatform::from(self).as_str()
+        self.get_base_platform().as_str()
     }
 
     pub fn extract_timestamp(&self, url: &str) -> Option<u64> {
@@ -144,20 +169,19 @@ impl VideoPlatform {
         }
     }
 
-    pub fn timestamp_url(&self, video_id: &str, seconds_offset: &u64) -> String {
+    pub fn timestamp_url(&self, video_ref: &str, seconds_offset: &f64) -> Url {
         match self {
-            VideoPlatform::YouTube => BasePlatform::from(self)
-                .base_url()
-                .join(&format!("/watch?v={}&t={}", video_id, seconds_offset))
-                .unwrap()
-                .to_string(),
+            VideoPlatform::YouTube => {
+                let mut url = self.video_url(video_ref);
+                url.query_pairs_mut()
+                    .append_pair("t", seconds_offset.to_string().as_str());
+                url
+            }
             VideoPlatform::Twitch => {
-                let timestamp = utils::format_timestamp_hms(seconds_offset);
-                BasePlatform::from(self)
-                    .base_url()
-                    .join(&format!("/videos/{}?t={}", video_id, timestamp))
-                    .unwrap()
-                    .to_string()
+                let timestamp = utils::format_timestamp_hms(&(seconds_offset.floor() as usize));
+                let mut url = self.video_url(video_ref);
+                url.query_pairs_mut().append_pair("t", timestamp.as_str());
+                url
             }
         }
     }
@@ -406,24 +430,24 @@ mod tests {
     #[test]
     fn test_platform_timestamp_url() {
         assert_eq!(
-            VideoPlatform::YouTube.timestamp_url("dQw4w9WgXcQ", &456),
-            "https://youtube.com/watch?v=dQw4w9WgXcQ&t=456"
+            VideoPlatform::YouTube.timestamp_url("dQw4w9WgXcQ", &456.0),
+            Url::parse("https://youtube.com/watch?v=dQw4w9WgXcQ&t=456").unwrap()
         );
         assert_eq!(
-            VideoPlatform::Twitch.timestamp_url("1234567890", &22254),
-            "https://twitch.tv/videos/1234567890?t=06h10m54s"
+            VideoPlatform::Twitch.timestamp_url("1234567890", &22254.0),
+            Url::parse("https://twitch.tv/videos/1234567890?t=06h10m54s").unwrap()
         );
         assert_eq!(
-            VideoPlatform::Twitch.timestamp_url("1234567890", &116671),
-            "https://twitch.tv/videos/1234567890?t=32h24m31s"
+            VideoPlatform::Twitch.timestamp_url("1234567890", &116671.0),
+            Url::parse("https://twitch.tv/videos/1234567890?t=32h24m31s").unwrap()
         );
         assert_eq!(
-            VideoPlatform::Twitch.timestamp_url("1234567890", &654),
-            "https://twitch.tv/videos/1234567890?t=00h10m54s"
+            VideoPlatform::Twitch.timestamp_url("1234567890", &654.0),
+            Url::parse("https://twitch.tv/videos/1234567890?t=00h10m54s").unwrap()
         );
         assert_eq!(
-            VideoPlatform::Twitch.timestamp_url("1234567890", &54),
-            "https://twitch.tv/videos/1234567890?t=00h00m54s"
+            VideoPlatform::Twitch.timestamp_url("1234567890", &54.0),
+            Url::parse("https://twitch.tv/videos/1234567890?t=00h00m54s").unwrap()
         );
     }
     #[test]
@@ -936,14 +960,14 @@ mod tests {
             (
                 "dQw4w9WgXcQ",
                 VideoPlatform::YouTube,
-                12345,
-                "https://youtube.com/watch?v=dQw4w9WgXcQ&t=12345",
+                12345.0,
+                Url::parse("https://youtube.com/watch?v=dQw4w9WgXcQ&t=12345").unwrap(),
             ),
             (
                 "2489169293",
                 VideoPlatform::Twitch,
-                12345,
-                "https://twitch.tv/videos/2489169293?t=03h25m45s",
+                12345.0,
+                Url::parse("https://twitch.tv/videos/2489169293?t=03h25m45s").unwrap(),
             ),
         ];
 

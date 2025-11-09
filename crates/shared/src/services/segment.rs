@@ -2,6 +2,7 @@ use crate::entities::{prelude::*, segments};
 use crate::models::platforms::VideoPlatform;
 use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
 use tracing::{info, instrument};
+use url::Url;
 
 /// Service for segment-related operations
 pub struct SegmentService;
@@ -37,9 +38,9 @@ impl SegmentService {
         platform: VideoPlatform,
         segment_start: i32,
         time_shift: i32,
-    ) -> String {
+    ) -> Url {
         // Shift time backwards, but don't go below 0
-        let shifted_time = (segment_start - time_shift).max(0) as u64;
+        let shifted_time = (segment_start - time_shift).max(0) as f64;
 
         platform.timestamp_url(video_platform_ref, &shifted_time)
     }
@@ -51,7 +52,7 @@ impl SegmentService {
         db: &DatabaseConnection,
         segment: &segments::Model,
         time_shift: i32,
-    ) -> Result<String, DbErr> {
+    ) -> Result<Url, DbErr> {
         info!(
             segment_id = segment.id,
             transcription_id = segment.transcription_id,
@@ -165,18 +166,27 @@ mod tests {
     fn test_get_url_timestamped_youtube() {
         let url =
             SegmentService::get_url_timestamped("dQw4w9WgXcQ", VideoPlatform::YouTube, 100, 5);
-        assert_eq!(url, "https://youtube.com/watch?v=dQw4w9WgXcQ&t=95");
+        assert_eq!(
+            url,
+            Url::parse("https://youtube.com/watch?v=dQw4w9WgXcQ&t=95").unwrap()
+        );
     }
 
     #[test]
     fn test_get_url_timestamped_youtube_no_negative() {
         let url = SegmentService::get_url_timestamped("dQw4w9WgXcQ", VideoPlatform::YouTube, 3, 5);
-        assert_eq!(url, "https://youtube.com/watch?v=dQw4w9WgXcQ&t=0");
+        assert_eq!(
+            url,
+            Url::parse("https://youtube.com/watch?v=dQw4w9WgXcQ&t=0").unwrap()
+        );
     }
 
     #[test]
     fn test_get_url_timestamped_twitch() {
         let url = SegmentService::get_url_timestamped("1234567890", VideoPlatform::Twitch, 100, 5);
-        assert_eq!(url, "https://twitch.tv/videos/1234567890?t=00h01m35s");
+        assert_eq!(
+            url,
+            Url::parse("https://twitch.tv/videos/1234567890?t=00h01m35s").unwrap()
+        );
     }
 }

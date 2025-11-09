@@ -1,10 +1,16 @@
+#[cfg(feature = "database")]
 pub mod channel;
+#[cfg(feature = "database")]
 pub mod content_queue;
 pub mod enums;
 pub mod platforms;
+#[cfg(feature = "database")]
 pub mod search;
+#[cfg(feature = "database")]
 pub mod transcription;
+#[cfg(feature = "database")]
 pub mod user;
+#[cfg(feature = "database")]
 pub mod video;
 
 use crate::config::Config;

@@ -4,10 +4,11 @@ use crate::models::platforms::VideoPlatform;
 use async_trait::async_trait;
 #[cfg(feature = "database")]
 use sea_orm::{ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter};
+use url::Url;
 
 pub trait Channel {
     fn platform(&self) -> VideoPlatform;
-    fn channel_url(&self) -> String;
+    fn channel_url(&self) -> Url;
 }
 
 /// Extension trait for channel database operations
@@ -42,20 +43,20 @@ impl Channel for channels::Model {
             .unwrap_or_else(|| panic!("Channel has invalid platform name: {}", self.platform_name))
     }
 
-    fn channel_url(&self) -> String {
+    fn channel_url(&self) -> Url {
         match self.platform() {
             VideoPlatform::YouTube => self
                 .platform()
+                .get_base_platform()
                 .base_url()
                 .join(&format!("/@{}", self.platform_ref))
-                .unwrap()
-                .to_string(),
+                .unwrap(),
             VideoPlatform::Twitch => self
                 .platform()
+                .get_base_platform()
                 .base_url()
                 .join(&format!("/{}", self.platform_ref))
-                .unwrap()
-                .to_string(),
+                .unwrap(),
         }
     }
 }
@@ -145,7 +146,7 @@ mod tests {
         assert_eq!(channel.platform(), VideoPlatform::YouTube);
         assert_eq!(
             channel.channel_url(),
-            "https://youtube.com/@UCTest123".to_string()
+            Url::parse("https://youtube.com/@UCTest123").unwrap()
         );
     }
 
@@ -156,7 +157,7 @@ mod tests {
         assert_eq!(channel.platform(), VideoPlatform::Twitch);
         assert_eq!(
             channel.channel_url(),
-            "https://twitch.tv/teststreamer".to_string()
+            Url::parse("https://twitch.tv/teststreamer").unwrap()
         );
     }
 

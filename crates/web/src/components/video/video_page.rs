@@ -1,6 +1,5 @@
-use crate::server_fns::{
-    VideoDetailData, get_chat_logs, get_transcription_segments, get_video_detail,
-};
+use crate::components::chat_timeline::ChatTimelineSection;
+use crate::server_fns::{VideoDetailData, get_transcription_segments, get_video_detail};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
@@ -77,7 +76,6 @@ fn VideoDetail(video_id: i32) -> impl IntoView {
 fn VideoContent(video: VideoDetailData, video_id: i32) -> impl IntoView {
     // Signal to track if transcription segments are loaded
     let (segments_loaded, set_segments_loaded) = signal(false);
-    let (chat_loaded, set_chat_loaded) = signal(false);
 
     // Conditionally load transcription segments
     let segments_resource = Resource::new(
@@ -91,24 +89,12 @@ fn VideoContent(video: VideoDetailData, video_id: i32) -> impl IntoView {
         },
     );
 
-    // Conditionally load chat logs
-    let chat_resource = Resource::new(
-        move || (video_id, chat_loaded.get()),
-        |(id, loaded)| async move {
-            if loaded {
-                get_chat_logs(id).await.ok()
-            } else {
-                None
-            }
-        },
-    );
-
     // Inactive video check
     if !video.active {
         return view! {
             <div class="container">
                 <h1>"Video is not active"</h1>
-                <p>"This video is not available, likely disabled on " {video.platform_name.clone()} " or deleted"</p>
+                <p>"This video is not available, likely disabled on " {video.platform.as_str()} " or deleted"</p>
             </div>
         }
         .into_any();
@@ -132,8 +118,8 @@ fn VideoContent(video: VideoDetailData, video_id: i32) -> impl IntoView {
 
                 <div class="col-md-8">
                     // Platform badge
-                    <a href={video.platform_url.clone()} target="_blank" class="btn btn-primary">
-                        "View on " {video.platform_name.clone()}
+                    <a href={video.platform.video_url(&video.platform_ref).to_string()} target="_blank" class="btn btn-primary">
+                        "View on " {video.platform.as_str()}
                     </a>
                     <br/><br/>
 
@@ -164,74 +150,10 @@ fn VideoContent(video: VideoDetailData, video_id: i32) -> impl IntoView {
                 </div>
             </div>
 
-            // Chat Messages Section
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h4 class="mb-0">
-                        <button
-                            class="btn btn-link text-decoration-none w-100 text-start"
-                            type="button"
-                            data-bs-toggle="collapse"
-                            data-bs-target="#chatMessagesCollapse"
-                        >
-                            <i class="bi bi-chat-dots me-2"></i>
-                            "Chat Messages"
-                            <i class="bi bi-chevron-down float-end"></i>
-                        </button>
-                    </h4>
-                </div>
-                <div id="chatMessagesCollapse" class="collapse">
-                    <div class="card-body">
-                        {move || if !chat_loaded.get() {
-                            view! {
-                                <button
-                                    class="btn btn-primary"
-                                    on:click=move |_| set_chat_loaded.set(true)
-                                >
-                                    "Load Chat Logs"
-                                </button>
-                            }.into_any()
-                        } else {
-                            view! {
-                                <Suspense fallback=|| view! { <p>"Loading chat logs..."</p> }>
-                                    {move || Suspend::new(async move {
-                                        chat_resource.await.map(|chat_data| {
-                                            if chat_data.is_empty() {
-                                                view! { <p>"No chat messages found for this video."</p> }.into_any()
-                                            } else {
-                                                    view! {
-                                                        <div class="table-responsive">
-                                                            <table class="table table-sm">
-                                                                <thead>
-                                                                    <tr>
-                                                                        <th>"Time"</th>
-                                                                        <th>"Username"</th>
-                                                                        <th>"Message"</th>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    {chat_data.into_iter().map(|log| {
-                                                                        view! {
-                                                                            <tr>
-                                                                                <td>{format!("{:.0}s", log.offset_seconds)}</td>
-                                                                                <td>{log.username}</td>
-                                                                                <td>{log.message}</td>
-                                                                            </tr>
-                                                                        }
-                                                                    }).collect_view()}
-                                                                </tbody>
-                                                            </table>
-                                                        </div>
-                                                    }.into_any()
-                                                }
-                                        })
-                                    })}
-                                </Suspense>
-                            }.into_any()
-                        }}
-                    </div>
-                </div>
-            </div>
+            // Chat Timeline Section with interactive chart, tags, and filtering
+            <ChatTimelineSection
+                video=video.clone()
+            />
 
             // Transcriptions Section
             <div class="card mb-4">
@@ -327,7 +249,7 @@ fn VideoContent(video: VideoDetailData, video_id: i32) -> impl IntoView {
                                                                                                     <td>{format!("{}s", seg.start)}</td>
                                                                                                     <td>{seg.text}</td>
                                                                                                     <td>
-                                                                                                        <a href={seg.timestamp_url} target="_blank" class="btn btn-sm btn-primary">
+                                                                                                        <a href={seg.timestamp_url.to_string()} target="_blank" class="btn btn-sm btn-primary">
                                                                                                             <i class="bi bi-play"></i>
                                                                                                         </a>
                                                                                                     </td>

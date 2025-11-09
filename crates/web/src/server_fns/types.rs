@@ -1,6 +1,8 @@
 //! Data Transfer Objects (DTOs) and type conversions for server functions
 
 use serde::{Deserialize, Serialize};
+use url::Url;
+use yappr_shared::models::platforms::VideoPlatform;
 
 /// Serializable DTO for channel data
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -52,7 +54,7 @@ pub struct SegmentResultData {
     pub formatted_text: String,
     pub start_time: i32,
     pub end_time: i32,
-    pub url: String, // Pre-generated URL for this segment
+    pub url: Url,
 }
 
 /// Serializable DTO for video search result
@@ -161,12 +163,12 @@ pub struct ChannelBasicData {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct VideoDetailData {
     pub id: i32,
+    pub platform_ref: String,
     pub title: String,
     pub uploaded: String,
     pub duration: i32,
     pub active: bool,
-    pub platform_name: String,
-    pub platform_url: String,
+    pub platform: VideoPlatform,
     pub estimated_upload_time: Option<String>,
     pub channel: ChannelBasicData,
     pub source_video: Option<Box<VideoDetailData>>,
@@ -204,7 +206,7 @@ pub struct TranscriptionSegmentData {
     pub start: i32,
     pub end: i32,
     pub text: String,
-    pub timestamp_url: String,
+    pub timestamp_url: Url,
 }
 
 /// Video linking match result
@@ -256,7 +258,7 @@ pub struct TimestampMappingData {
 pub struct VideoBasicData {
     pub id: i32,
     pub title: String,
-    pub url: String,
+    pub url: Url,
 }
 
 // ============================================================================
@@ -392,13 +394,15 @@ impl SegmentResultData {
         let end_time = result.end_time();
         let formatted_text = result.get_sentences_formatted();
         let video_data = VideoData::from_model_with_channel(result.video.clone(), channel_map)?;
+        let platform = VideoPlatform::get_from_str(&video_data.platform_name).ok_or(
+            sea_orm::DbErr::RecordNotFound(format!(
+                "Platform {} not found in map",
+                video_data.platform_name
+            )),
+        )?;
 
         // Generate URL using platform infrastructure
-        let url = if let Some(platform) = VideoPlatform::get_from_str(&video_data.platform_name) {
-            platform.timestamp_url(&video_data.platform_ref, &(start_time as u64))
-        } else {
-            format!("#unknown-platform-{}", video_data.platform_name)
-        };
+        let url = platform.timestamp_url(&video_data.platform_ref, &(start_time as f64));
 
         Ok(Self {
             segments: result.segments.into_iter().map(SegmentData::from).collect(),

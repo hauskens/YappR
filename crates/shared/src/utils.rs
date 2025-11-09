@@ -37,7 +37,7 @@ pub fn parse_duration(input: &str) -> Result<Duration, Box<dyn std::error::Error
 /// Format a duration in seconds as "XhYmZs"
 /// For example: 3661 -> "1h1m1s"
 #[instrument(level = "debug")]
-pub fn format_timestamp_hms(seconds: &u64) -> String {
+pub fn format_timestamp_hms(seconds: &usize) -> String {
     let hours = seconds / 3600;
     let minutes = (seconds % 3600) / 60;
     let secs = seconds % 60;

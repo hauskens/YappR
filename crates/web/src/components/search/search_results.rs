@@ -1,21 +1,13 @@
 use crate::server_fns::{SegmentResultData, VideoResultData};
 use chrono::DateTime;
 use leptos::prelude::*;
+use yappr_shared::models::platforms::BasePlatform;
 
 fn format_date(timestamp: i64) -> String {
     DateTime::from_timestamp(timestamp, 0)
         .unwrap()
         .format("%b %d, %Y")
         .to_string()
-}
-
-/// Helper function to get platform badge HTML
-fn get_platform_badge(platform_name: &str) -> (String, &'static str) {
-    match platform_name.to_lowercase().as_str() {
-        "youtube" => ("YouTube".to_string(), "danger"), // Bootstrap red
-        "twitch" => ("Twitch".to_string(), "primary"),  // Bootstrap blue/purple
-        _ => (platform_name.to_string(), "secondary"),
-    }
 }
 
 /// Render a single segment result
@@ -30,7 +22,7 @@ fn SegmentItem(segment: SegmentResultData) -> impl IntoView {
             <a
                 class="card-text link-primary"
                 target="_blank"
-                href={url}
+                href={url.to_string()}
             >
                 {format!("{}s", start_time)}
             </a>
@@ -43,8 +35,7 @@ fn SegmentItem(segment: SegmentResultData) -> impl IntoView {
 #[component]
 fn VideoCard(video_result: VideoResultData) -> impl IntoView {
     let video_id = video_result.video.id.to_string();
-    let platform_name = video_result.video.platform_name.clone();
-    let (badge_text, badge_color) = get_platform_badge(&platform_name);
+    let platform = BasePlatform::get_from_str(&video_result.video.platform_name).unwrap(); // Platform name should always be valid
 
     view! {
         <div class="col">
@@ -64,12 +55,22 @@ fn VideoCard(video_result: VideoResultData) -> impl IntoView {
 
                     // Platform badge and date
                     <div class="mb-2">
-                        <span class={format!("badge bg-{} me-2", badge_color)}>
-                            {badge_text}
+                        <span class={format!("badge bg-{} me-2", platform.primary_color().display_rgb())}>
+                            {platform.display_name()}
                         </span>
                         <span class="text-muted">
                             {format!("- {}", format_date(video_result.video.uploaded))}
                         </span>
+                    </div>
+
+                    // Manage button with shield.io badge
+                    <div class="mb-2">
+                        <a href={format!("/videos/{}", video_id)} class="text-decoration-none">
+                            <img
+                                src={platform.badge_url()}
+                                alt="Manage video"
+                            />
+                        </a>
                     </div>
 
                     // Segments list (scrollable)

@@ -349,17 +349,12 @@ pub async fn get_channel_videos_page_data(
                     row.try_get::<String>("", "source_platform_ref"),
                     row.try_get::<String>("", "source_platform_name"),
                 ) {
-                    let platform = VideoPlatform::get_from_str(&source_platform_name);
-                    let url = if let Some(p) = platform {
-                        p.timestamp_url(&source_platform_ref, &0)
-                    } else {
-                        "#unknown-platform".to_string()
-                    };
+                    let platform = VideoPlatform::get_from_str(&source_platform_name).unwrap();
 
                     Some(VideoBasicData {
                         id: source_video_id,
                         title: source_title,
-                        url,
+                        url: platform.video_url(&source_platform_ref),
                     })
                 } else {
                     None

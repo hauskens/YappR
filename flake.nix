@@ -118,7 +118,7 @@
             src = fileSetForCrate ./crates/cli;
           }
         );
-        bot = craneLib.buildPackage (
+        twitch-bot = craneLib.buildPackage (
           individualCrateArgs
           // {
             pname = "yappr-twitch-bot";
@@ -201,7 +201,7 @@
       {
         checks = {
           # Build the crates as part of `nix flake check` for convenience
-          inherit cli web bot;
+          inherit cli web twitch-bot;
 
           clippy = craneLib.cargoClippy (
             commonArgs
@@ -245,7 +245,7 @@
         };
 
         packages = {
-          inherit cli web bot webContainer;
+          inherit cli web twitch-bot webContainer;
           default = web;
         };
 
@@ -253,8 +253,8 @@
           cli = flake-utils.lib.mkApp {
             drv = cli;
           };
-          bot = flake-utils.lib.mkApp {
-            drv = bot;
+          twitch-bot = flake-utils.lib.mkApp {
+            drv = twitch-bot;
           };
           web = flake-utils.lib.mkApp {
             drv = web;
@@ -313,6 +313,7 @@
       overlays.default = final: prev: {
         yappr-web = self.packages.${prev.system}.web;
         yappr-cli = self.packages.${prev.system}.cli;
+        yappr-twitch-bot = self.packages.${prev.system}.twitch-bot;
       };
     };
 }

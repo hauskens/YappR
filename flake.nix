@@ -118,6 +118,14 @@
             src = fileSetForCrate ./crates/cli;
           }
         );
+        bot = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "yappr-twitch-bot";
+            cargoExtraArgs = "--bin twitch-bot";
+            src = fileSetForCrate ./crates/bots;
+          }
+        );
         web = craneLib.buildPackage (
           individualCrateArgs
           // {
@@ -193,15 +201,9 @@
       {
         checks = {
           # Build the crates as part of `nix flake check` for convenience
-          inherit cli web;
+          inherit cli web bot;
 
-          # Run clippy (and deny all warnings) on the workspace source,
-          # again, reusing the dependency artifacts from above.
-          #
-          # Note that this is done as a separate derivation so that
-          # we can block the CI if there are issues here, but not
-          # prevent downstream consumers from building our crate by itself.
-          my-workspace-clippy = craneLib.cargoClippy (
+          clippy = craneLib.cargoClippy (
             commonArgs
             // {
               inherit cargoArtifacts;
@@ -220,30 +222,18 @@
           # );
 
           # Check formatting
-          my-workspace-fmt = craneLib.cargoFmt {
+          fmt = craneLib.cargoFmt {
             inherit src;
           };
 
-          my-workspace-toml-fmt = craneLib.taploFmt {
+          toml-fmt = craneLib.taploFmt {
             src = pkgs.lib.sources.sourceFilesBySuffices src [ ".toml" ];
             # taplo arguments can be further customized below as needed
             # taploExtraArgs = "--config ./taplo.toml";
           };
 
-          # # Audit dependencies
-          # my-workspace-audit = craneLib.cargoAudit {
-          #   inherit src advisory-db;
-          # };
-
-          # Audit licenses
-          # my-workspace-deny = craneLib.cargoDeny {
-          #   inherit src;
-          # };
-
-          # Run tests with cargo-nextest
-          # Consider setting `doCheck = false` on other crate derivations
-          # if you do not want the tests to run twice
-          my-workspace-nextest = craneLib.cargoNextest (
+          # tests
+          nextest = craneLib.cargoNextest (
             commonArgs
             // {
               inherit cargoArtifacts;
@@ -255,13 +245,16 @@
         };
 
         packages = {
-          inherit cli web webContainer;
+          inherit cli web bot webContainer;
           default = web;
         };
 
         apps = {
           cli = flake-utils.lib.mkApp {
             drv = cli;
+          };
+          bot = flake-utils.lib.mkApp {
+            drv = bot;
           };
           web = flake-utils.lib.mkApp {
             drv = web;

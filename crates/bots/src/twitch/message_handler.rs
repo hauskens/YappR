@@ -1,4 +1,4 @@
-use crate::services::{BotUserService, ChatlogService};
+use crate::services::{ChatlogService, user_service::BotUserService};
 use regex::Regex;
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;

@@ -11,26 +11,16 @@ use sea_orm::{
 };
 use std::str::FromStr;
 
-/// Extension trait for user business logic
 pub trait User {
-    /// Check if user is banned (any type of ban)
     fn is_banned(&self) -> bool;
-
-    /// Check if user is globally banned
     fn is_globally_banned(&self) -> bool;
-
-    /// Check if user account is disabled
     fn is_disabled(&self) -> bool;
-
-    /// Check if user is active (not banned, not disabled)
     fn is_active(&self) -> bool;
 }
 
-/// Extension trait for user database operations
 #[cfg(feature = "database")]
 #[async_trait]
 pub trait UserExt {
-    /// Get all global permissions for this user
     async fn get_permissions(
         &self,
         db: &DatabaseConnection,
@@ -96,6 +86,7 @@ pub trait UserExt {
     ) -> Result<(), DbErr>;
 }
 
+#[cfg(feature = "database")]
 impl User for users::Model {
     fn is_banned(&self) -> bool {
         self.banned || self.globally_banned

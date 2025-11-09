@@ -2,15 +2,14 @@ use std::sync::Arc;
 use tracing::{error, info};
 use twitch_api::{HelixClient, client::ClientDefault};
 use twitch_oauth2::UserToken;
-use yappr_bot::{
-    channel_manager::ChannelManager,
-    message_handler::MessageHandler,
-    moderation_handler::ModerationHandler,
-    services::{BotUserService, ChatlogService},
-    twitch_auth, websocket,
+use yappr_bot::services::{BotUserService, ChatlogService};
+use yappr_bot::twitch::{
+    auth, channel_manager::ChannelManager, message_handler::MessageHandler,
+    moderation_handler::ModerationHandler, websocket,
 };
 use yappr_shared::config::Config;
 use yappr_shared::database::get_database_connection;
+use yappr_shared::models::platforms::AccountPlatform;
 
 #[tokio::main]
 async fn main() -> Result<(), eyre::Report> {
@@ -26,7 +25,7 @@ async fn main() -> Result<(), eyre::Report> {
     info!("Database connection established");
 
     // Get bot token
-    let token = twitch_auth::get_user_token().await?;
+    let token = auth::get_user_token().await?;
     info!("Bot authentication successful");
 
     // Create Twitch API client
@@ -54,16 +53,21 @@ pub struct Bot {
 
 impl Bot {
     pub async fn start(self) -> Result<(), eyre::Report> {
-        // Initialize services
         let chatlog_service = Arc::new(ChatlogService::new(self.db.clone()));
-        let user_service = Arc::new(BotUserService::new(self.db.clone()));
+        let user_service = Arc::new(BotUserService::new(
+            self.db.clone(),
+            AccountPlatform::Twitch,
+        ));
         let channel_manager = Arc::new(ChannelManager::new(self.db.clone()));
         let message_handler = Arc::new(MessageHandler::new(
             self.db.clone(),
             chatlog_service.clone(),
             user_service.clone(),
         ));
-        let moderation_handler = Arc::new(ModerationHandler::new(self.db.clone()));
+        let moderation_handler = Arc::new(ModerationHandler::new(
+            self.db.clone(),
+            AccountPlatform::Twitch,
+        ));
 
         info!("Services initialized");
 

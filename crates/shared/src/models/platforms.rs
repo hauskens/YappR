@@ -4,6 +4,9 @@ use serde::{Deserialize, Serialize};
 use std::time::Duration;
 use url::Url;
 
+#[cfg(feature = "database")]
+use crate::entities::sea_orm_active_enums::Accountsource;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum BasePlatform {
     YouTube,
@@ -11,12 +14,14 @@ pub enum BasePlatform {
     Discord,
 }
 
+/// Platforms that can be used to fetch videos
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum VideoPlatform {
     YouTube,
     Twitch,
 }
 
+/// Variants of platforms that can be used to fetch videos
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PlatformVariant {
     YouTubeVideo,
@@ -24,6 +29,13 @@ pub enum PlatformVariant {
     YouTubeClip,
     TwitchVOD,
     TwitchClip,
+}
+
+/// Platforms that can be used to authenticate users
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum AccountPlatform {
+    Twitch,
+    Discord,
 }
 
 impl BasePlatform {
@@ -94,6 +106,16 @@ impl From<&VideoPlatform> for BasePlatform {
         match value {
             VideoPlatform::YouTube => BasePlatform::YouTube,
             VideoPlatform::Twitch => BasePlatform::Twitch,
+        }
+    }
+}
+
+#[cfg(feature = "database")]
+impl From<AccountPlatform> for Accountsource {
+    fn from(value: AccountPlatform) -> Self {
+        match value {
+            AccountPlatform::Twitch => Accountsource::Twitch,
+            AccountPlatform::Discord => Accountsource::Discord,
         }
     }
 }

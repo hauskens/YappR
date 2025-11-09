@@ -4,20 +4,21 @@ use sea_orm::{
 };
 use tracing::{info, instrument};
 use twitch_api::eventsub::channel::chat::ChannelChatClearUserMessagesV1Payload;
-use yappr_shared::entities::sea_orm_active_enums::Accountsource;
 use yappr_shared::entities::{
     content_queue, content_queue_submissions, moderation_actions, prelude::*,
 };
 use yappr_shared::models::content_queue::ContentQueueExt;
-use yappr_shared::services::user::UserService;
+use yappr_shared::models::platforms::AccountPlatform;
+use yappr_shared::user::UserService;
 
 pub struct ModerationHandler {
     db: DatabaseConnection,
+    platform: AccountPlatform,
 }
 
 impl ModerationHandler {
-    pub fn new(db: DatabaseConnection) -> Self {
-        Self { db }
+    pub fn new(db: DatabaseConnection, platform: AccountPlatform) -> Self {
+        Self { db, platform }
     }
 
     /// Handle user timeout/ban event
@@ -87,7 +88,7 @@ impl ModerationHandler {
             &self.db,
             twitch_user_id,
             username,
-            Accountsource::Twitch,
+            self.platform,
             None, // No color in moderation events
             None, // No avatar URL in moderation events
         )

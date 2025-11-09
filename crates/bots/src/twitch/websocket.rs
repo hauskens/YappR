@@ -1,7 +1,7 @@
-use crate::channel_manager::ChannelManager;
-use crate::message_handler::MessageHandler;
-use crate::moderation_handler::ModerationHandler;
-use crate::twitch_auth;
+use crate::twitch::{
+    auth, channel_manager::ChannelManager, message_handler::MessageHandler,
+    moderation_handler::ModerationHandler,
+};
 use eyre::Context;
 use std::sync::Arc;
 use tokio_tungstenite::tungstenite;
@@ -159,7 +159,7 @@ impl WebsocketClient {
         }
         // check if the token is expired, if it is, request a new token. This only works if using a oauth service for getting a token
         if self.token.is_elapsed() {
-            self.token = twitch_auth::get_user_token().await?;
+            self.token = auth::get_user_token().await?;
         }
         let transport = eventsub::Transport::websocket(data.id.clone());
 

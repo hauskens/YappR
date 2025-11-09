@@ -1,9 +1,4 @@
-{
-  config,
-  lib,
-  pkgs,
-  ...
-}:
+{ config, lib, pkgs, ... }:
 
 with lib;
 
@@ -12,17 +7,16 @@ let
 
   isUnixSocket = builtins.typeOf cfg.database.host == "path";
   dbUri =
-    if isUnixSocket then
-      "postgresql://${cfg.database.name}?host=${toString cfg.database.host}&user=${cfg.database.user}"
-    else
-      "postgresql://${cfg.database.user}:\${DB_PASSWORD}@${cfg.database.host}:${toString cfg.database.port}/${cfg.database.name}";
+    if isUnixSocket
+    then "postgresql://${cfg.database.name}?host=${toString cfg.database.host}&user=${cfg.database.user}"
+    else "postgresql://${cfg.database.user}:\${DB_PASSWORD}@${cfg.database.host}:${toString cfg.database.port}/${cfg.database.name}";
 
   redisUri = "redis://${cfg.redis.host}:${toString cfg.redis.port}/0";
   exe = lib.getExe cfg.package;
 
 in
 {
-  options.services.yappr = {
+  options.services.yappr.web = {
     enable = mkEnableOption "YappR Web Application";
 
     package = mkOption {
@@ -204,13 +198,7 @@ in
 
     logging = {
       level = mkOption {
-        type = types.enum [
-          "DEBUG"
-          "INFO"
-          "WARNING"
-          "ERROR"
-          "CRITICAL"
-        ];
+        type = types.enum [ "DEBUG" "INFO" "WARNING" "ERROR" "CRITICAL" ];
         default = "INFO";
         description = "Logging level for the application.";
       };
@@ -251,10 +239,6 @@ in
 
   config = mkIf cfg.enable {
     assertions = [
-      {
-        assertion = cfg.auth.appUrl != "";
-        message = "services.yappr.auth.appUrl must be set";
-      }
       {
         assertion = (builtins.typeOf cfg.database.host == "string") -> (cfg.database.passwordFile != null);
         message = "services.yappr.database.passwordFile must be set when using TCP connection (string host)";
@@ -316,13 +300,10 @@ in
     systemd.services.yappr-web = {
       description = "YappR Leptos Web Application";
       wantedBy = [ "multi-user.target" ];
-      after = [
-        "network.target"
-      ]
-      ++ optional cfg.database.createLocally "yappr-db-setup.service"
-      ++ optional cfg.redis.createLocally "redis-yappr.service";
-      wants =
-        optional cfg.database.createLocally "yappr-db-setup.service"
+      after = [ "network.target" ]
+        ++ optional cfg.database.createLocally "yappr-db-setup.service"
+        ++ optional cfg.redis.createLocally "redis-yappr.service";
+      wants = optional cfg.database.createLocally "yappr-db-setup.service"
         ++ optional cfg.redis.createLocally "redis-yappr.service";
 
       environment = {
@@ -352,8 +333,7 @@ in
         LEPTOS_OUTPUT_NAME = "yappr-web";
         LEPTOS_SITE_ADDR = "${cfg.host}:${toString cfg.port}";
         LEPTOS_ENV = "PROD";
-      }
-      // optionalAttrs (cfg.logging.lokiUrl != null) {
+      } // optionalAttrs (cfg.logging.lokiUrl != null) {
         LOKI_URL = cfg.logging.lokiUrl;
       };
 

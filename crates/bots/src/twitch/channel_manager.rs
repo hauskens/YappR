@@ -1,4 +1,4 @@
-use crate::message_handler::ChannelSettings;
+use crate::twitch::message_handler::ChannelSettings;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
 use std::collections::HashMap;
 use std::sync::Arc;

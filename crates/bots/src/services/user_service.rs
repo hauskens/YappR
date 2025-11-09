@@ -1,27 +1,29 @@
 use moka::future::Cache;
 use sea_orm::{DatabaseConnection, DbErr};
 use std::time::Duration;
-use yappr_shared::entities::sea_orm_active_enums::Accountsource;
 use yappr_shared::entities::users;
 use yappr_shared::models::enums::ChannelRole;
+use yappr_shared::models::platforms::AccountPlatform;
 use yappr_shared::models::user::UserExt;
 use yappr_shared::services::user::UserService;
 
-/// Service for managing user roles based on Twitch badges
+/// Service for managing user roles based on User badges
 /// Uses shared UserService for common operations
 pub struct BotUserService {
     db: DatabaseConnection,
     user_cache: Cache<String, users::Model>,
+    platform: AccountPlatform,
 }
 
 impl BotUserService {
-    pub fn new(db: DatabaseConnection) -> Self {
+    pub fn new(db: DatabaseConnection, platform: AccountPlatform) -> Self {
         Self {
             db,
             user_cache: Cache::builder()
                 .max_capacity(1000)
                 .time_to_live(Duration::from_secs(60 * 5))
                 .build(),
+            platform,
         }
     }
 
@@ -38,7 +40,7 @@ impl BotUserService {
             &self.db,
             external_account_id,
             external_account_name,
-            Accountsource::Twitch,
+            self.platform,
             color,
             None,
         )

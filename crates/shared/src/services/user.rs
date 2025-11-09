@@ -1,5 +1,6 @@
 use crate::entities::sea_orm_active_enums::Accountsource;
 use crate::entities::{prelude::*, users};
+use crate::models::platforms::AccountPlatform;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set,
 };
@@ -32,7 +33,7 @@ impl UserService {
     pub async fn get_user_by_external_id(
         db: &DatabaseConnection,
         external_account_id: &str,
-        account_type: Accountsource,
+        account_type: AccountPlatform,
     ) -> Result<Option<users::Model>, DbErr> {
         let account_type_str = format!("{:?}", account_type);
 
@@ -44,7 +45,7 @@ impl UserService {
 
         let user = Users::find()
             .filter(users::Column::ExternalAccountId.eq(external_account_id))
-            .filter(users::Column::AccountType.eq(account_type))
+            .filter(users::Column::AccountType.eq(Accountsource::from(account_type)))
             .one(db)
             .await?;
 
@@ -68,7 +69,7 @@ impl UserService {
         db: &DatabaseConnection,
         external_account_id: &str,
         username: &str,
-        account_type: Accountsource,
+        account_type: AccountPlatform,
         color: Option<&str>,
         avatar_url: Option<&str>,
     ) -> Result<users::Model, DbErr> {
@@ -84,7 +85,7 @@ impl UserService {
         // Try to find existing user
         // Clone account_type for the call since it will be consumed
         if let Some(user) =
-            Self::get_user_by_external_id(db, external_account_id, account_type.clone()).await?
+            Self::get_user_by_external_id(db, external_account_id, account_type).await?
         {
             // Check if we need to update name, color, or avatar
             let needs_update = user.name != username
@@ -120,7 +121,7 @@ impl UserService {
         let new_user = users::ActiveModel {
             name: Set(username.to_string()),
             external_account_id: Set(external_account_id.to_string()),
-            account_type: Set(account_type),
+            account_type: Set(account_type.into()),
             color: Set(color.map(|s| s.to_string())),
             avatar_url: Set(avatar_url.map(|s| s.to_string())),
             disabled: Set(false),
@@ -141,7 +142,7 @@ impl UserService {
         db: &DatabaseConnection,
         external_account_id: &str,
         username: &str,
-        account_type: Accountsource,
+        account_type: AccountPlatform,
         color: Option<&str>,
         avatar_url: Option<&str>,
     ) -> Result<users::Model, DbErr> {
@@ -155,7 +156,7 @@ impl UserService {
         let new_user = users::ActiveModel {
             name: Set(username.to_string()),
             external_account_id: Set(external_account_id.to_string()),
-            account_type: Set(account_type),
+            account_type: Set(account_type.into()),
             color: Set(color.map(|s| s.to_string())),
             avatar_url: Set(avatar_url.map(|s| s.to_string())),
             disabled: Set(false),

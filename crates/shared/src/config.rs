@@ -122,6 +122,7 @@ pub struct YouTubeConfig {
 pub struct DiscordConfig {
     pub client_id: String,
     pub client_secret: String,
+    pub bot_token: Option<String>,
 }
 
 #[cfg(feature = "database")]
@@ -320,6 +321,7 @@ impl DiscordConfig {
         let config = DiscordConfig {
             client_id: env_required("DISCORD_CLIENT_ID"),
             client_secret: env_required("DISCORD_CLIENT_SECRET"),
+            bot_token: env_or_option("DISCORD_BOT_TOKEN"),
         };
         debug!("Discord API configuration loaded successfully");
         config

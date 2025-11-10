@@ -122,7 +122,15 @@
           individualCrateArgs
           // {
             pname = "twitch-bot";
-            cargoExtraArgs = "--bin twitch-bot";
+            cargoExtraArgs = "--bin twitch-bot --no-default-features --features twitch";
+            src = fileSetForCrate ./crates/bots;
+          }
+        );
+        discord-bot = craneLib.buildPackage (
+          individualCrateArgs
+          // {
+            pname = "discord-bot";
+            cargoExtraArgs = "--bin discord-bot --no-default-features --features discord";
             src = fileSetForCrate ./crates/bots;
           }
         );
@@ -213,11 +221,27 @@
             ];
           };
         };
+        discord-bot-container = pkgs.dockerTools.buildLayeredImage {
+          name = "yappr-discord-bot";
+          tag = "latest";
+
+          contents = [
+            discord-bot
+            pkgs.cacert
+          ];
+
+          config = {
+            Cmd = [ "${discord-bot}/bin/discord-bot" ];
+            Env = [
+              "SERVICE_NAME=discord-bot"
+            ];
+          };
+        };
       in
       {
         checks = {
           # Build the crates as part of `nix flake check` for convenience
-          inherit cli web twitch-bot;
+          inherit cli web twitch-bot discord-bot;
 
           clippy = craneLib.cargoClippy (
             commonArgs
@@ -261,7 +285,7 @@
         };
 
         packages = {
-          inherit cli web twitch-bot twitch-bot-container web-container;
+          inherit cli web twitch-bot twitch-bot-container web-container discord-bot discord-bot-container;
           default = web;
         };
 
@@ -274,6 +298,9 @@
           };
           web = flake-utils.lib.mkApp {
             drv = web;
+          };
+          discord-bot = flake-utils.lib.mkApp {
+            drv = discord-bot;
           };
         };
 
@@ -330,6 +357,7 @@
         yappr-web = self.packages.${prev.system}.web;
         yappr-cli = self.packages.${prev.system}.cli;
         yappr-twitch-bot = self.packages.${prev.system}.twitch-bot;
+        yappr-discord-bot = self.packages.${prev.system}.discord-bot;
       };
     };
 }

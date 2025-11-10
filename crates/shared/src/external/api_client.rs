@@ -10,7 +10,7 @@ pub enum PlatformApiClient {
     YouTube(YouTubeApiClient),
 }
 #[async_trait]
-pub trait ApiClient {
+pub trait ApiClient: Send + Sync {
     async fn get_platform_videos_by_ids(
         &self,
         video_ids: &[String],

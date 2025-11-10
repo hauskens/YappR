@@ -1,4 +1,5 @@
 use crate::services::{ChatlogService, user_service::BotUserService};
+use hex_color::HexColor;
 use regex::Regex;
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
@@ -26,7 +27,7 @@ pub trait PlatformMessage {
     fn username(&self) -> &str;
 
     /// User's color in chat (if available)
-    fn user_color(&self) -> Option<String>;
+    fn user_color(&self) -> Option<HexColor>;
 
     /// The text content of the message
     fn message_text(&self) -> &str;
@@ -42,6 +43,9 @@ pub trait PlatformMessage {
 
     /// The platform this message came from
     fn platform(&self) -> AccountPlatform;
+
+    /// URL to the user's avatar (if available)
+    fn avatar_url(&self) -> Option<&str>;
 }
 
 /// Generic message handler that works with any platform implementing PlatformMessage
@@ -112,7 +116,8 @@ impl MessageHandler {
             .get_or_create_user(
                 message.user_id(),
                 message.username(),
-                message.user_color().as_deref(),
+                message.user_color().as_ref(),
+                message.avatar_url(),
             )
             .await?;
 
@@ -156,7 +161,7 @@ impl MessageHandler {
             message.user_id(),
             message.username(),
             message.platform(),
-            message.user_color().as_deref(),
+            message.user_color().as_ref(),
             None,
         )
         .await?;

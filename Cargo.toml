@@ -34,6 +34,7 @@ twitch_api = { version = "0.7", features = [
   "reqwest",
 ] }
 twitch_oauth2 = "0.15"
+serenity = { version = "0.12", default-features = false }
 url = "2.5"
 sea-orm = { version = "1.1", features = [
   "sqlx-postgres",

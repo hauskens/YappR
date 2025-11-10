@@ -8,6 +8,11 @@ name = "twitch-bot"
 path = "src/twitch_bot.rs"
 required-features = ["twitch"]
 
+[[bin]]
+name = "discord-bot"
+path = "src/discord_bot.rs"
+required-features = ["discord"]
+
 [dependencies]
 chrono.workspace = true
 eyre.workspace = true
@@ -17,6 +22,7 @@ regex.workspace = true
 reqwest.workspace = true
 sea-orm.workspace = true
 serde_json.workspace = true
+hex_color.workspace = true
 tokio = { workspace = true, features = [
   "rt-multi-thread",
   "macros",
@@ -33,9 +39,11 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 twitch_api = { workspace = true, optional = true }
 twitch_oauth2 = { workspace = true, optional = true }
+serenity = { workspace = true, optional = true, features = ["client", "gateway", "model", "cache", "rustls_backend"] }
 url.workspace = true
 yappr-shared = { path = "../shared", features = ["database"] }
 
 [features]
-default = ["twitch"]
+default = ["twitch", "discord"]
 twitch = ["twitch_api", "twitch_oauth2", "yappr-shared/twitch"]
+discord = ["serenity", "yappr-shared/discord"]

@@ -48,7 +48,10 @@ impl ChannelManager {
         // Query all Twitch channels with their settings
         let channels_with_settings = Channels::find()
             .find_also_related(channel_settings::Entity)
-            .filter(channels::Column::PlatformName.eq(AccountPlatform::Twitch.to_string()))
+            .filter(
+                channels::Column::PlatformName
+                    .eq(AccountPlatform::Twitch.to_string().to_lowercase()),
+            )
             .all(&self.db)
             .await?;
 

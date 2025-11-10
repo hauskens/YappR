@@ -86,65 +86,70 @@ impl WebsocketClient {
                     _ => msg.context("when getting message")?,
                 };
                 self.process_message(msg).await?
+            },
+            else => {
+                tracing::info!("stream ended, exiting websocket loop");
+                break;
             })
         }
+        Ok(())
     }
 
     /// Process a message from the websocket
     pub async fn process_message(&mut self, msg: tungstenite::Message) -> Result<(), eyre::Report> {
         match msg {
-            tungstenite::Message::Text(s) => {
-                tracing::info!("{s}");
-                // Parse the message into a [twitch_api::eventsub::EventsubWebsocketData]
-                match Event::parse_websocket(&s)? {
-                    EventsubWebsocketData::Welcome {
-                        payload: WelcomePayload { session },
-                        ..
-                    }
-                    | EventsubWebsocketData::Reconnect {
-                        payload: ReconnectPayload { session },
-                        ..
-                    } => {
-                        self.process_welcome_message(session).await?;
-                        Ok(())
-                    }
-                    EventsubWebsocketData::Revocation {
-                        metadata,
-                        payload: _,
-                    } => eyre::bail!("got revocation event: {metadata:?}"),
-                    EventsubWebsocketData::Notification {
-                        metadata: _,
-                        payload,
-                    } => {
-                        match payload {
-                            Event::ChannelChatMessageV1(ev_payload) => {
-                                // Extract the actual payload from the Message wrapper
-                                if let twitch_api::eventsub::Message::Notification(notif) =
-                                    &ev_payload.message
-                                {
-                                    self.handle_chat_message(notif).await?;
-                                }
-                            }
-                            Event::ChannelChatClearUserMessagesV1(ev_payload) => {
-                                // Extract the actual payload from the Message wrapper
-                                if let twitch_api::eventsub::Message::Notification(notif) =
-                                    &ev_payload.message
-                                {
-                                    self.handle_moderation_event(notif).await?;
-                                }
-                            }
-                            _ => {}
-                        }
-                        Ok(())
-                    }
-                    EventsubWebsocketData::Keepalive {
-                        metadata: _,
-                        payload: _,
-                    } => Ok(()),
-                    _ => Ok(()),
+            tungstenite::Message::Text(s) => match Event::parse_websocket(&s)? {
+                EventsubWebsocketData::Welcome {
+                    payload: WelcomePayload { session },
+                    ..
                 }
+                | EventsubWebsocketData::Reconnect {
+                    payload: ReconnectPayload { session },
+                    ..
+                } => {
+                    self.process_welcome_message(session).await?;
+                    Ok(())
+                }
+                EventsubWebsocketData::Revocation {
+                    metadata,
+                    payload: _,
+                } => {
+                    tracing::warn!("got revocation event: {metadata:?}");
+                    Ok(())
+                }
+                EventsubWebsocketData::Notification {
+                    metadata: _,
+                    payload,
+                } => {
+                    match payload {
+                        Event::ChannelChatMessageV1(ev_payload) => {
+                            if let twitch_api::eventsub::Message::Notification(notif) =
+                                &ev_payload.message
+                            {
+                                self.handle_chat_message(notif).await?;
+                            }
+                        }
+                        Event::ChannelChatClearUserMessagesV1(ev_payload) => {
+                            if let twitch_api::eventsub::Message::Notification(notif) =
+                                &ev_payload.message
+                            {
+                                self.handle_moderation_event(notif).await?;
+                            }
+                        }
+                        _ => {}
+                    }
+                    Ok(())
+                }
+                EventsubWebsocketData::Keepalive {
+                    metadata: _,
+                    payload: _,
+                } => Ok(()),
+                _ => Ok(()),
+            },
+            tungstenite::Message::Close(_) => {
+                tracing::info!("connection closed");
+                Ok(())
             }
-            tungstenite::Message::Close(_) => todo!(),
             _ => Ok(()),
         }
     }

@@ -1,6 +1,7 @@
 use crate::entities::sea_orm_active_enums::Accountsource;
 use crate::entities::{prelude::*, users};
 use crate::models::platforms::AccountPlatform;
+use hex_color::HexColor;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, QueryFilter, Set,
 };
@@ -70,7 +71,7 @@ impl UserService {
         external_account_id: &str,
         username: &str,
         account_type: AccountPlatform,
-        color: Option<&str>,
+        color: Option<&HexColor>,
         avatar_url: Option<&str>,
     ) -> Result<users::Model, DbErr> {
         let account_type_str = format!("{:?}", account_type);
@@ -89,7 +90,7 @@ impl UserService {
         {
             // Check if we need to update name, color, or avatar
             let needs_update = user.name != username
-                || user.color.as_deref() != color
+                || user.color.as_deref() != color.map(|c| c.display_rgb().to_string()).as_deref()
                 || user.avatar_url.as_deref() != avatar_url;
 
             if needs_update {
@@ -102,7 +103,7 @@ impl UserService {
 
                 let mut active: users::ActiveModel = user.into();
                 active.name = Set(username.to_string());
-                active.color = Set(color.map(|s| s.to_string()));
+                active.color = Set(color.map(|s| s.display_rgb().to_string()));
                 active.avatar_url = Set(avatar_url.map(|s| s.to_string()));
                 return active.update(db).await;
             }
@@ -122,7 +123,7 @@ impl UserService {
             name: Set(username.to_string()),
             external_account_id: Set(external_account_id.to_string()),
             account_type: Set(account_type.into()),
-            color: Set(color.map(|s| s.to_string())),
+            color: Set(color.map(|s| s.display_rgb().to_string())),
             avatar_url: Set(avatar_url.map(|s| s.to_string())),
             disabled: Set(false),
             banned: Set(false),
@@ -143,7 +144,7 @@ impl UserService {
         external_account_id: &str,
         username: &str,
         account_type: AccountPlatform,
-        color: Option<&str>,
+        color: Option<&HexColor>,
         avatar_url: Option<&str>,
     ) -> Result<users::Model, DbErr> {
         info!(
@@ -157,7 +158,7 @@ impl UserService {
             name: Set(username.to_string()),
             external_account_id: Set(external_account_id.to_string()),
             account_type: Set(account_type.into()),
-            color: Set(color.map(|s| s.to_string())),
+            color: Set(color.map(|s| s.display_rgb().to_string())),
             avatar_url: Set(avatar_url.map(|s| s.to_string())),
             disabled: Set(false),
             banned: Set(false),
@@ -175,7 +176,7 @@ impl UserService {
         db: &DatabaseConnection,
         user: users::Model,
         name: Option<&str>,
-        color: Option<&str>,
+        color: Option<&HexColor>,
         avatar_url: Option<&str>,
     ) -> Result<users::Model, DbErr> {
         info!(user_id = user.id, "Updating user");
@@ -186,7 +187,7 @@ impl UserService {
             active.name = Set(name.to_string());
         }
         if let Some(color) = color {
-            active.color = Set(Some(color.to_string()));
+            active.color = Set(Some(color.display_rgb().to_string()));
         }
         if let Some(avatar_url) = avatar_url {
             active.avatar_url = Set(Some(avatar_url.to_string()));

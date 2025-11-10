@@ -1,3 +1,4 @@
+use hex_color::HexColor;
 use moka::future::Cache;
 use sea_orm::{DatabaseConnection, DbErr};
 use std::time::Duration;
@@ -21,7 +22,7 @@ impl BotUserService {
             db,
             user_cache: Cache::builder()
                 .max_capacity(1000)
-                .time_to_live(Duration::from_secs(60 * 5))
+                .time_to_idle(Duration::from_secs(60 * 15))
                 .build(),
             platform,
         }
@@ -31,7 +32,8 @@ impl BotUserService {
         &self,
         external_account_id: &str,
         external_account_name: &str,
-        color: Option<&str>,
+        color: Option<&HexColor>,
+        avatar_url: Option<&str>,
     ) -> Result<users::Model, DbErr> {
         if let Some(user) = self.user_cache.get(external_account_id).await {
             return Ok(user);
@@ -42,7 +44,7 @@ impl BotUserService {
             external_account_name,
             self.platform,
             color,
-            None,
+            avatar_url,
         )
         .await?;
         self.user_cache

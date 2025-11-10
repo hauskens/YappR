@@ -121,7 +121,7 @@
         twitch-bot = craneLib.buildPackage (
           individualCrateArgs
           // {
-            pname = "yappr-twitch-bot";
+            pname = "twitch-bot";
             cargoExtraArgs = "--bin twitch-bot";
             src = fileSetForCrate ./crates/bots;
           }
@@ -177,7 +177,7 @@
         );
 
         # Container image for web application
-        webContainer = pkgs.dockerTools.buildLayeredImage {
+        web-container = pkgs.dockerTools.buildLayeredImage {
           name = "yappr-web";
           tag = "latest";
 
@@ -195,6 +195,22 @@
               "3000/tcp" = { };
             };
             WorkingDir = "/";
+          };
+        };
+        twitch-bot-container = pkgs.dockerTools.buildLayeredImage {
+          name = "yappr-twitch-bot";
+          tag = "latest";
+
+          contents = [
+            twitch-bot
+            pkgs.cacert
+          ];
+
+          config = {
+            Cmd = [ "${twitch-bot}/bin/twitch-bot" ];
+            Env = [
+              "SERVICE_NAME=twitch-bot"
+            ];
           };
         };
       in
@@ -245,7 +261,7 @@
         };
 
         packages = {
-          inherit cli web twitch-bot webContainer;
+          inherit cli web twitch-bot twitch-bot-container web-container;
           default = web;
         };
 

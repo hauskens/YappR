@@ -38,4 +38,4 @@ yappr-shared = { path = "../shared", features = ["database"] }
 
 [features]
 default = ["twitch"]
-twitch = ["twitch_api", "twitch_oauth2"]
+twitch = ["twitch_api", "twitch_oauth2", "yappr-shared/twitch"]

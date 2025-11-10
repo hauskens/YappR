@@ -1,17 +1,17 @@
-use crate::twitch::message_handler::ChannelSettings;
+use moka::future::Cache;
 use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter};
-use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 use tokio::time::{Duration, interval};
-use tracing::{info, instrument};
-use yappr_shared::entities::{channels, prelude::*};
+use tracing::instrument;
+use yappr_shared::entities::{channel_settings, channels, prelude::*};
+use yappr_shared::models::channel::ChannelSettings;
+use yappr_shared::models::platforms::AccountPlatform;
 
 /// Manages channel subscriptions and settings cache
 pub struct ChannelManager {
     db: DatabaseConnection,
     /// Cache of channel settings: platform_channel_id -> ChannelSettings
-    settings_cache: Arc<RwLock<HashMap<String, ChannelSettings>>>,
+    settings_cache: Cache<String, ChannelSettings>,
     check_interval: Duration,
 }
 
@@ -19,26 +19,26 @@ impl ChannelManager {
     pub fn new(db: DatabaseConnection) -> Self {
         Self {
             db,
-            settings_cache: Arc::new(RwLock::new(HashMap::new())),
-            check_interval: Duration::from_secs(60),
+            settings_cache: Cache::builder()
+                .time_to_live(Duration::from_secs(60 * 60 + 1))
+                .build(),
+            check_interval: Duration::from_secs(60 * 60),
         }
     }
 
     /// Get settings for a channel by platform_channel_id (broadcaster_user_id from Twitch)
     pub async fn get_settings(&self, platform_channel_id: &str) -> Option<ChannelSettings> {
-        let cache = self.settings_cache.read().await;
-        cache.get(platform_channel_id).cloned()
+        self.settings_cache.get(platform_channel_id).await
     }
 
     /// Get all enabled channel IDs (broadcaster_user_ids) for subscription
     pub async fn get_enabled_channel_ids(&self) -> Vec<String> {
-        let cache = self.settings_cache.read().await;
-        cache
+        self.settings_cache
             .iter()
             .filter(|(_, settings)| {
                 settings.chat_collection_enabled || settings.content_queue_enabled
             })
-            .map(|(channel_id, _)| channel_id.clone())
+            .map(|(channel_id, _)| channel_id.as_ref().clone())
             .collect()
     }
 
@@ -47,37 +47,30 @@ impl ChannelManager {
     pub async fn refresh_settings(&self) -> Result<(), eyre::Report> {
         // Query all Twitch channels with their settings
         let channels_with_settings = Channels::find()
-            .find_also_related(ChannelSettings)
-            .filter(channels::Column::PlatformName.eq("twitch"))
+            .find_also_related(channel_settings::Entity)
+            .filter(channels::Column::PlatformName.eq(AccountPlatform::Twitch.to_string()))
             .all(&self.db)
             .await?;
 
-        let mut new_cache = HashMap::new();
-
+        self.settings_cache.invalidate_all();
         for (channel, settings_opt) in channels_with_settings {
             if let Some(settings) = settings_opt {
                 // Only cache if chat collection or content queue is enabled
                 if settings.chat_collection_enabled || settings.content_queue_enabled {
-                    new_cache.insert(
-                        channel.platform_channel_id.clone(),
-                        ChannelSettings {
-                            channel_id: channel.id,
-                            broadcaster_id: channel.broadcaster_id,
-                            content_queue_enabled: settings.content_queue_enabled,
-                            chat_collection_enabled: settings.chat_collection_enabled,
-                        },
-                    );
+                    self.settings_cache
+                        .insert(
+                            channel.platform_channel_id.clone(),
+                            ChannelSettings {
+                                channel_id: channel.id,
+                                broadcaster_id: channel.broadcaster_id,
+                                content_queue_enabled: settings.content_queue_enabled,
+                                chat_collection_enabled: settings.chat_collection_enabled,
+                            },
+                        )
+                        .await;
                 }
             }
         }
-
-        let count = new_cache.len();
-
-        // Update cache
-        let mut cache = self.settings_cache.write().await;
-        *cache = new_cache;
-
-        info!(enabled_channels = count, "Refreshed channel settings cache");
 
         Ok(())
     }
@@ -103,13 +96,13 @@ impl ChannelManager {
         &self,
         current_subscriptions: &[String],
     ) -> (Vec<String>, Vec<String>) {
-        let cache = self.settings_cache.read().await;
-        let enabled_channels: Vec<String> = cache
+        let enabled_channels: Vec<String> = self
+            .settings_cache
             .iter()
             .filter(|(_, settings)| {
                 settings.chat_collection_enabled || settings.content_queue_enabled
             })
-            .map(|(channel_id, _)| channel_id.clone())
+            .map(|(channel_id, _)| channel_id.as_ref().clone())
             .collect();
 
         let to_subscribe: Vec<String> = enabled_channels

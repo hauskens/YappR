@@ -64,10 +64,7 @@ impl Bot {
             chatlog_service.clone(),
             user_service.clone(),
         ));
-        let moderation_handler = Arc::new(ModerationHandler::new(
-            self.db.clone(),
-            AccountPlatform::Twitch,
-        ));
+        let moderation_handler = Arc::new(ModerationHandler::new(self.db.clone()));
 
         info!("Services initialized");
 

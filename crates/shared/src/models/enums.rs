@@ -1,4 +1,4 @@
-use crate::models::platforms::BasePlatform;
+use crate::models::platforms::AccountPlatform;
 use strum_macros::{Display, EnumString};
 
 /// Note: This is stored as String in the database, not an enum type
@@ -64,9 +64,9 @@ impl ChannelRole {
         }
     }
 
-    pub fn from_platform_badge(platform: &BasePlatform, badge: &str) -> Option<Self> {
+    pub fn from_platform_badge(platform: &AccountPlatform, badge: &str) -> Option<Self> {
         match platform {
-            BasePlatform::YouTube => match badge {
+            AccountPlatform::Discord => match badge {
                 "owner" => Some(Self::Owner),
                 "moderator" => Some(Self::Mod),
                 "vip" => Some(Self::Vip),
@@ -74,7 +74,7 @@ impl ChannelRole {
                 "follower" => Some(Self::Follower),
                 _ => None,
             },
-            BasePlatform::Twitch => match badge {
+            AccountPlatform::Twitch => match badge {
                 "broadcaster" => Some(Self::Owner),
                 "moderator" => Some(Self::Mod),
                 "vip" => Some(Self::Vip),
@@ -82,7 +82,6 @@ impl ChannelRole {
                 "follower" => Some(Self::Follower),
                 _ => None,
             },
-            _ => None,
         }
     }
 

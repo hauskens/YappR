@@ -2,6 +2,7 @@ use crate::utils;
 use hex_color::HexColor;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use strum_macros::Display;
 use url::Url;
 
 #[cfg(feature = "database")]
@@ -32,7 +33,7 @@ pub enum PlatformVariant {
 }
 
 /// Platforms that can be used to authenticate users
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, Display)]
 pub enum AccountPlatform {
     Twitch,
     Discord,

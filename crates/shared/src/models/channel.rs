@@ -114,6 +114,14 @@ impl ChannelExt for channels::Model {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct ChannelSettings {
+    pub channel_id: i32,
+    pub broadcaster_id: i32,
+    pub content_queue_enabled: bool,
+    pub chat_collection_enabled: bool,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

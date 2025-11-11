@@ -12,7 +12,7 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 /// - If `loki_url` is provided: Sets up dual output (console + Loki)
 /// - If `loki_url` is None: Sets up console-only logging
 /// - Respects RUST_LOG environment variable
-/// - Default filter: "info,sqlx::query=warn" (suppresses noisy SQL logs)
+/// - Default filter: See `get_default_env_filter()` for default rules
 pub fn init_logging(
     service_name: &str,
     loki_url: Option<url::Url>,
@@ -26,12 +26,40 @@ pub fn init_logging(
     }
 }
 
+/// Creates the default environment filter with logging rules
+///
+/// Default rules:
+/// - `info` - Default log level for all modules
+/// - `sqlx::query=warn` - Suppress noisy SQL query logs
+///
+/// Example additional rules you can add:
+/// - `serenity::client=warn` - Reduce Discord client logs
+/// - `twitch_api=warn` - Reduce Twitch API logs
+/// - `yappr_bot::discord::message_handler=debug` - Enable debug for specific module
+///
+/// To override at runtime, set the RUST_LOG environment variable:
+/// ```bash
+/// RUST_LOG=debug cargo run
+/// RUST_LOG=warn,yappr_bot::twitch=debug cargo run
+/// ```
+fn get_default_env_filter() -> EnvFilter {
+    EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new(
+            "info,\
+             sqlx::query=warn,\
+             subscriber::handle_message=warn",
+        )
+    })
+}
+
 #[cfg(feature = "loki")]
 fn init_with_loki(service_name: &str, loki_url: url::Url, version: &str, environment: &str) {
     eprintln!("Setting up Loki logging...");
     eprintln!("  URL: {}", loki_url);
     eprintln!("  Service: {}", service_name);
     eprintln!("  Environment: {}", environment);
+
+    let env_filter = get_default_env_filter();
 
     match tracing_loki::builder()
         .label("service", service_name)
@@ -43,10 +71,7 @@ fn init_with_loki(service_name: &str, loki_url: url::Url, version: &str, environ
             // Add both Loki and console output for visibility
             tracing_subscriber::registry()
                 .with(layer)
-                .with(
-                    EnvFilter::try_from_default_env()
-                        .unwrap_or_else(|_| EnvFilter::new("info,sqlx::query=warn")),
-                )
+                .with(env_filter)
                 .with(tracing_subscriber::fmt::layer())
                 .init();
 
@@ -67,12 +92,11 @@ fn init_with_loki(service_name: &str, loki_url: url::Url, version: &str, environ
             eprintln!("✗ Failed to configure Loki: {}", e);
             eprintln!("  Falling back to console-only logging");
 
+            let env_filter = get_default_env_filter();
+
             // Fallback to console logging
             tracing_subscriber::registry()
-                .with(
-                    EnvFilter::try_from_default_env()
-                        .unwrap_or_else(|_| EnvFilter::new("info,sqlx::query=warn")),
-                )
+                .with(env_filter)
                 .with(tracing_subscriber::fmt::layer())
                 .init();
 
@@ -95,11 +119,10 @@ fn init_with_loki(_service_name: &str, _loki_url: url::Url, _version: &str, _env
 fn init_console_only() {
     eprintln!("No LOKI_URL configured, using console-only logging");
 
+    let env_filter = get_default_env_filter();
+
     tracing_subscriber::registry()
-        .with(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info,sqlx::query=warn")),
-        )
+        .with(env_filter)
         .with(tracing_subscriber::fmt::layer())
         .init();
 

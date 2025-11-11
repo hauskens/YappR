@@ -4,7 +4,7 @@ use regex::Regex;
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
-use tracing::{error, info, instrument, warn};
+use tracing::{error, info, instrument, warn, debug};
 use yappr_shared::models::{
     channel::ChannelSettings,
     enums::ChannelRole,
@@ -125,7 +125,7 @@ impl MessageHandler {
         for key in badges.keys() {
             if let Some(role) = ChannelRole::from_platform_badge(&message.platform(), key) {
                 // Update role in database
-                info!(
+                debug!(
                     user_id = user.id,
                     role = role.clone().to_string(),
                     "Updating user role"

@@ -14,6 +14,9 @@ use leptos_router::{
     hooks::use_params_map,
 };
 
+/// Application version from Cargo.toml (embedded at compile time)
+const VERSION: &str = env!("CARGO_PKG_VERSION");
+
 pub fn shell(options: LeptosOptions) -> impl IntoView {
     view! {
         <!DOCTYPE html>
@@ -181,7 +184,7 @@ pub fn App() -> impl IntoView {
                                 </a>
                             </span>
                         </div>
-                        <a href="/about" class="text-muted small">"v0.1.0"</a>
+                        <a href="/about" class="text-muted small">{format!("v{}", VERSION)}</a>
                     </div>
                 </footer>
             </main>

@@ -37,6 +37,10 @@
         };
 
         inherit (pkgs) lib;
+
+        # Extract version from workspace Cargo.toml
+        cargoToml = lib.importTOML ./Cargo.toml;
+        version = cargoToml.workspace.package.version;
         rustToolchain = pkgs.rust-bin.stable.latest.default.override {
           extensions = [
             "rust-src"
@@ -203,6 +207,11 @@
               "3000/tcp" = { };
             };
             WorkingDir = "/";
+            Labels = {
+              "org.opencontainers.image.version" = version;
+              "org.opencontainers.image.title" = "yappr-web";
+              "org.opencontainers.image.description" = "YappR Web Application";
+            };
           };
         };
         twitch-bot-container = pkgs.dockerTools.buildLayeredImage {
@@ -219,6 +228,11 @@
             Env = [
               "SERVICE_NAME=twitch-bot"
             ];
+            Labels = {
+              "org.opencontainers.image.version" = version;
+              "org.opencontainers.image.title" = "yappr-twitch-bot";
+              "org.opencontainers.image.description" = "YappR Twitch Bot";
+            };
           };
         };
         discord-bot-container = pkgs.dockerTools.buildLayeredImage {
@@ -235,6 +249,11 @@
             Env = [
               "SERVICE_NAME=discord-bot"
             ];
+            Labels = {
+              "org.opencontainers.image.version" = version;
+              "org.opencontainers.image.title" = "yappr-discord-bot";
+              "org.opencontainers.image.description" = "YappR Discord Bot";
+            };
           };
         };
 
@@ -245,7 +264,7 @@
         imageNames = map (name: lib.removeSuffix "-container" name) (lib.attrNames containerPackages);
         imagesArrayBash = lib.concatMapStringsSep "\n  " (name: ''"${name}"'') imageNames;
 
-        # Deployment script with auto-populated image names from flake
+        # Deployment script with auto-populated image names and version from Cargo.toml
         yappr-deploy = pkgs.writeShellApplication {
           name = "yappr-deploy";
           runtimeInputs = [ pkgs.docker pkgs.nix ];
@@ -254,6 +273,9 @@
             IMAGES=(
               ${imagesArrayBash}
             )
+
+            # Version from Cargo.toml workspace
+            VERSION="${version}"
 
             usage() {
               echo "Usage: yappr-deploy <image>"
@@ -265,16 +287,16 @@
               echo ""
               echo "Environment variables:"
               echo "  DOCKER_REGISTRY - Docker registry to push to (required)"
-              echo "  VERSION         - Version tag (optional, defaults to 'latest')"
+              echo ""
+              echo "Current version: $VERSION (from Cargo.toml)"
               echo ""
               echo "Example:"
               echo "  export DOCKER_REGISTRY=your-registry.azurecr.io"
-              echo "  export VERSION=v1.0.0"
               echo "  yappr-deploy web"
               echo ""
               echo "This will push:"
               echo "  - your-registry.azurecr.io/yappr-web:latest"
-              echo "  - your-registry.azurecr.io/yappr-web:v1.0.0"
+              echo "  - your-registry.azurecr.io/yappr-web:$VERSION"
               exit 1
             }
 
@@ -291,13 +313,10 @@
               exit 1
             fi
 
-            # Set version, default to latest if not provided
-            VERSION_TAG="''${VERSION:-latest}"
-
             IMAGE_FULL_NAME="yappr-''${IMAGE}"
             CONTAINER_TARGET="''${IMAGE}-container"
 
-            echo "🔨 Building $CONTAINER_TARGET..."
+            echo "🔨 Building $CONTAINER_TARGET (version $VERSION)..."
             nix build ".#$CONTAINER_TARGET" >/dev/null
 
             echo "📦 Loading image into Docker..."
@@ -305,21 +324,13 @@
 
             echo "🏷️  Tagging images..."
             docker tag "''${IMAGE_FULL_NAME}:latest" "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:latest"
-            if [ "$VERSION_TAG" != "latest" ]; then
-              docker tag "''${IMAGE_FULL_NAME}:latest" "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:$VERSION_TAG"
-            fi
+            docker tag "''${IMAGE_FULL_NAME}:latest" "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:$VERSION"
 
             echo "🚀 Pushing to registry..."
             docker push "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:latest" >/dev/null
-            if [ "$VERSION_TAG" != "latest" ]; then
-              docker push "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:$VERSION_TAG" >/dev/null
-            fi
+            docker push "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:$VERSION" >/dev/null
 
-            if [ "$VERSION_TAG" != "latest" ]; then
-              echo "✅ Successfully deployed ''${IMAGE_FULL_NAME}:latest and ''${IMAGE_FULL_NAME}:$VERSION_TAG to ''${DOCKER_REGISTRY}"
-            else
-              echo "✅ Successfully deployed ''${IMAGE_FULL_NAME}:latest to ''${DOCKER_REGISTRY}"
-            fi
+            echo "✅ Successfully deployed ''${IMAGE_FULL_NAME}:latest and ''${IMAGE_FULL_NAME}:$VERSION to ''${DOCKER_REGISTRY}"
           '';
         };
       in

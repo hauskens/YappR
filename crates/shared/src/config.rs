@@ -191,10 +191,6 @@ impl Config {
                 .parse::<Environment>()
                 .expect("Invalid environment name"),
             service_name: env_required("SERVICE_NAME"),
-            version: env_or("VERSION", "0.0.0")
-                .replace(":", "")
-                .parse::<Version>()
-                .expect("Invalid version format"),
             loki_url: env_or_option("LOKI_URL")
                 .map(|url| Url::parse(&url).expect("Invalid loki url format")),
             storage_location: env_or("STORAGE_LOCATION", "/var/lib/yappr/data"),
@@ -202,6 +198,8 @@ impl Config {
                 "SESSION_SECRET",
                 "dev-secret-change-in-production-min-32-chars",
             ),
+            version: semver::Version::parse(env!("CARGO_PKG_VERSION"))
+                .expect("Invalid version format"),
             #[cfg(feature = "twitch")]
             bot_user_id: env_or_option("BOT_USER_ID").map(twitch_api::types::UserId::from),
             #[cfg(feature = "database")]

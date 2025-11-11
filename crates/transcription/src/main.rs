@@ -1,6 +1,6 @@
 use hound::{SampleFormat, WavReader};
-use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 use std::path::PathBuf;
+use whisper_rs::{FullParams, SamplingStrategy, WhisperContext, WhisperContextParameters};
 
 fn parse_wav_file(path: PathBuf) -> Vec<i16> {
     let reader = WavReader::open(path).expect("failed to read file");
@@ -38,10 +38,8 @@ fn main() {
 
     // load a context and model
     // https://huggingface.co/ggerganov/whisper.cpp/tree/main
-    let ctx = WhisperContext::new_with_params(
-        &path_to_model,
-        WhisperContextParameters::default()
-    ).expect("failed to load model");
+    let ctx = WhisperContext::new_with_params(&path_to_model, WhisperContextParameters::default())
+        .expect("failed to load model");
 
     let original_samples = parse_wav_file(audio_path);
 

@@ -237,6 +237,91 @@
             ];
           };
         };
+
+        # Extract container image names (packages ending with -container)
+        containerPackages = {
+          inherit web-container twitch-bot-container discord-bot-container;
+        };
+        imageNames = map (name: lib.removeSuffix "-container" name) (lib.attrNames containerPackages);
+        imagesArrayBash = lib.concatMapStringsSep "\n  " (name: ''"${name}"'') imageNames;
+
+        # Deployment script with auto-populated image names from flake
+        yappr-deploy = pkgs.writeShellApplication {
+          name = "yappr-deploy";
+          runtimeInputs = [ pkgs.docker pkgs.nix ];
+          text = ''
+            # Auto-generated from flake packages
+            IMAGES=(
+              ${imagesArrayBash}
+            )
+
+            usage() {
+              echo "Usage: yappr-deploy <image>"
+              echo ""
+              echo "Available images:"
+              for img in "''${IMAGES[@]}"; do
+                echo "  - $img"
+              done
+              echo ""
+              echo "Environment variables:"
+              echo "  DOCKER_REGISTRY - Docker registry to push to (required)"
+              echo "  VERSION         - Version tag (optional, defaults to 'latest')"
+              echo ""
+              echo "Example:"
+              echo "  export DOCKER_REGISTRY=your-registry.azurecr.io"
+              echo "  export VERSION=v1.0.0"
+              echo "  yappr-deploy web"
+              echo ""
+              echo "This will push:"
+              echo "  - your-registry.azurecr.io/yappr-web:latest"
+              echo "  - your-registry.azurecr.io/yappr-web:v1.0.0"
+              exit 1
+            }
+
+            if [ $# -eq 0 ]; then
+              usage
+            fi
+
+            IMAGE=$1
+
+            # Check for DOCKER_REGISTRY
+            if [ -z "''${DOCKER_REGISTRY:-}" ]; then
+              echo "Error: DOCKER_REGISTRY environment variable is not set"
+              echo "Example: export DOCKER_REGISTRY=your-registry.azurecr.io"
+              exit 1
+            fi
+
+            # Set version, default to latest if not provided
+            VERSION_TAG="''${VERSION:-latest}"
+
+            IMAGE_FULL_NAME="yappr-''${IMAGE}"
+            CONTAINER_TARGET="''${IMAGE}-container"
+
+            echo "🔨 Building $CONTAINER_TARGET..."
+            nix build ".#$CONTAINER_TARGET" >/dev/null
+
+            echo "📦 Loading image into Docker..."
+            docker load < result >/dev/null
+
+            echo "🏷️  Tagging images..."
+            docker tag "''${IMAGE_FULL_NAME}:latest" "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:latest"
+            if [ "$VERSION_TAG" != "latest" ]; then
+              docker tag "''${IMAGE_FULL_NAME}:latest" "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:$VERSION_TAG"
+            fi
+
+            echo "🚀 Pushing to registry..."
+            docker push "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:latest" >/dev/null
+            if [ "$VERSION_TAG" != "latest" ]; then
+              docker push "''${DOCKER_REGISTRY}/''${IMAGE_FULL_NAME}:$VERSION_TAG" >/dev/null
+            fi
+
+            if [ "$VERSION_TAG" != "latest" ]; then
+              echo "✅ Successfully deployed ''${IMAGE_FULL_NAME}:latest and ''${IMAGE_FULL_NAME}:$VERSION_TAG to ''${DOCKER_REGISTRY}"
+            else
+              echo "✅ Successfully deployed ''${IMAGE_FULL_NAME}:latest to ''${DOCKER_REGISTRY}"
+            fi
+          '';
+        };
       in
       {
         checks = {
@@ -285,7 +370,7 @@
         };
 
         packages = {
-          inherit cli web twitch-bot twitch-bot-container web-container discord-bot discord-bot-container;
+          inherit cli web twitch-bot twitch-bot-container web-container discord-bot discord-bot-container yappr-deploy;
           default = web;
         };
 
@@ -325,6 +410,8 @@
             [
               taplo
               nodejs
+              yappr-deploy
+
             ]
             ++ buildInputs;
           shellHook = ''

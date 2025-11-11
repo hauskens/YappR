@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use tracing::{error, info};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use twitch_api::{HelixClient, client::ClientDefault};
 use twitch_oauth2::UserToken;
 use yappr_bot::services::{BotUserService, ChatlogService};
@@ -13,10 +14,47 @@ use yappr_shared::models::platforms::AccountPlatform;
 
 #[tokio::main]
 async fn main() -> Result<(), eyre::Report> {
-    // Set up logging
-    tracing_subscriber::fmt::fmt()
-        .with_writer(std::io::stderr)
-        .init();
+    // Load configuration first to check for Loki URL
+    let config = Config::load();
+
+    // Set up logging with Loki or console based on configuration
+    if let Some(loki_url) = config.loki_url.clone() {
+        // Set up Loki logging
+        let (layer, task) = tracing_loki::builder()
+            .label("service", "twitch-bot")
+            .unwrap()
+            .label("version", config.version.to_string())
+            .unwrap()
+            .label("environment", config.environment.as_string())
+            .unwrap()
+            .build_url(loki_url)
+            .unwrap();
+
+        tracing_subscriber::registry().with(layer).init();
+
+        // Spawn the log flushing task
+        tokio::spawn(task);
+
+        tracing::info!(
+            task = "tracing_setup",
+            result = "success",
+            "Twitch bot logging configured with Loki",
+        );
+    } else {
+        // No Loki URL, use console logging with RUST_LOG filtering
+        use tracing_subscriber::EnvFilter;
+
+        tracing_subscriber::registry()
+            .with(EnvFilter::from_default_env())
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+
+        tracing::info!(
+            task = "tracing_setup",
+            result = "success",
+            "Twitch bot logging configured with console output",
+        );
+    }
 
     info!("Starting Twitch bot...");
 
@@ -37,7 +75,7 @@ async fn main() -> Result<(), eyre::Report> {
         db,
         client,
         token,
-        config: Config::load(),
+        config: config.clone(),
     };
 
     bot.start().await?;
@@ -102,6 +140,8 @@ impl Bot {
             channel_manager,
             message_handler,
             moderation_handler,
+            consecutive_failures: 0,
+            current_backoff: std::time::Duration::from_secs(1),
         };
 
         info!("Starting websocket client...");
@@ -110,8 +150,11 @@ impl Bot {
         tokio::select! {
             result = websocket_client.run() => {
                 match result {
-                    Ok(_) => info!("Websocket client exited normally"),
-                    Err(e) => error!(error = %e, "Websocket client failed"),
+                    Ok(_) => info!("Websocket client exited gracefully"),
+                    Err(e) => {
+                        error!(error = %e, "Websocket client terminated with unrecoverable error");
+                        error!("This typically indicates an authentication or configuration issue");
+                    }
                 }
             }
             _ = chatlog_task => {

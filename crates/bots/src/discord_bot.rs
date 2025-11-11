@@ -8,6 +8,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use yappr_bot::discord::{
     commands::CommandHandler, message_handler::MessageHandler, moderation::DiscordMessageDeletion,
     reactions::ReactionHandler,
@@ -21,19 +22,53 @@ use yappr_shared::models::platforms::AccountPlatform;
 
 #[tokio::main]
 async fn main() -> Result<(), eyre::Report> {
-    // Set up logging
-    tracing_subscriber::fmt::fmt()
-        .with_writer(std::io::stderr)
-        .init();
+    // Load configuration first to check for Loki URL
+    let config = Config::load();
+
+    // Set up logging with Loki or console based on configuration
+    if let Some(loki_url) = config.loki_url.clone() {
+        // Set up Loki logging
+        let (layer, task) = tracing_loki::builder()
+            .label("service", "discord-bot")
+            .unwrap()
+            .label("version", config.version.to_string())
+            .unwrap()
+            .label("environment", config.environment.as_string())
+            .unwrap()
+            .build_url(loki_url)
+            .unwrap();
+
+        tracing_subscriber::registry().with(layer).init();
+
+        // Spawn the log flushing task
+        tokio::spawn(task);
+
+        tracing::info!(
+            task = "tracing_setup",
+            result = "success",
+            "Discord bot logging configured with Loki",
+        );
+    } else {
+        // No Loki URL, use console logging with RUST_LOG filtering
+        use tracing_subscriber::EnvFilter;
+
+        tracing_subscriber::registry()
+            .with(EnvFilter::from_default_env())
+            .with(tracing_subscriber::fmt::layer())
+            .init();
+
+        tracing::info!(
+            task = "tracing_setup",
+            result = "success",
+            "Discord bot logging configured with console output",
+        );
+    }
 
     info!("Starting Discord bot...");
 
     // Get database connection
     let db = get_database_connection().await?;
     info!("Database connection established");
-
-    // Load configuration
-    let config = Config::load();
 
     // Get Discord bot token from environment
     let token =

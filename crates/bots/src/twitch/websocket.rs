@@ -4,6 +4,7 @@ use crate::twitch::{
 };
 use eyre::Context;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio_tungstenite::tungstenite;
 use twitch_api::{
     HelixClient,
@@ -33,6 +34,10 @@ pub struct WebsocketClient {
     pub message_handler: Arc<MessageHandler>,
     /// Moderation handler for processing moderation events
     pub moderation_handler: Arc<ModerationHandler>,
+    /// Number of consecutive connection failures
+    pub consecutive_failures: u32,
+    /// Current backoff duration for reconnection attempts
+    pub current_backoff: Duration,
 }
 
 impl WebsocketClient {
@@ -58,6 +63,36 @@ impl WebsocketClient {
         Ok(socket)
     }
 
+    /// Reset connection state after successful connection
+    fn reset_backoff(&mut self) {
+        self.consecutive_failures = 0;
+        self.current_backoff = Duration::from_secs(1);
+    }
+
+    /// Increase backoff after a connection failure
+    fn increase_backoff(&mut self) {
+        self.consecutive_failures += 1;
+        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 32s, 64s, capped at 5 minutes
+        let max_backoff = Duration::from_secs(300); // 5 minutes
+        self.current_backoff = std::cmp::min(
+            Duration::from_secs(1u64 << std::cmp::min(self.consecutive_failures, 8)),
+            max_backoff,
+        );
+    }
+
+    /// Check if an error is recoverable and should trigger reconnection
+    fn is_recoverable_error(error: &tungstenite::Error) -> bool {
+        matches!(
+            error,
+            tungstenite::Error::ConnectionClosed
+                | tungstenite::Error::AlreadyClosed
+                | tungstenite::Error::Io(_)
+                | tungstenite::Error::Protocol(
+                    tungstenite::error::ProtocolError::ResetWithoutClosingHandshake
+                )
+        )
+    }
+
     /// Run the websocket subscriber
     #[tracing::instrument(name = "subscriber", skip_all, fields())]
     pub async fn run(mut self) -> Result<(), eyre::Error> {
@@ -65,27 +100,62 @@ impl WebsocketClient {
         let mut s = self
             .connect()
             .await
-            .context("when establishing connection")?;
+            .context("when establishing initial connection")?;
+
+        // Reset backoff on successful initial connection
+        self.reset_backoff();
+
         // Loop over the stream, processing messages as they come in.
         loop {
             tokio::select!(
             Some(msg) = futures::StreamExt::next(&mut s) => {
-                let msg = match msg {
-                    Err(tungstenite::Error::Protocol(
-                        tungstenite::error::ProtocolError::ResetWithoutClosingHandshake,
-                    )) => {
-                        tracing::warn!(
-                            "connection was sent an unexpected frame or was reset, reestablishing it"
-                        );
-                        s = self
-                            .connect()
-                            .await
-                            .context("when reestablishing connection")?;
-                        continue
+                match msg {
+                    Ok(message) => {
+                        // Successfully received a message, reset backoff
+                        self.reset_backoff();
+
+                        // Process the message
+                        if let Err(e) = self.process_message(message).await {
+                            tracing::error!(error = %e, "Failed to process message");
+                            // Continue running even if message processing fails
+                        }
                     }
-                    _ => msg.context("when getting message")?,
-                };
-                self.process_message(msg).await?
+                    Err(e) if Self::is_recoverable_error(&e) => {
+                        // Recoverable error, attempt reconnection with backoff
+                        self.increase_backoff();
+
+                        tracing::warn!(
+                            error = %e,
+                            consecutive_failures = self.consecutive_failures,
+                            backoff_secs = self.current_backoff.as_secs(),
+                            "WebSocket error, reconnecting after backoff"
+                        );
+
+                        // Wait for backoff duration
+                        tokio::time::sleep(self.current_backoff).await;
+
+                        // Attempt to reconnect
+                        match self.connect().await {
+                            Ok(new_stream) => {
+                                s = new_stream;
+                                tracing::warn!("Successfully reconnected to WebSocket");
+                                continue;
+                            }
+                            Err(connect_error) => {
+                                tracing::warn!(
+                                    error = %connect_error,
+                                    "Failed to reconnect, will retry"
+                                );
+                                // Continue loop to try again
+                                continue;
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        // Unrecoverable error, propagate up
+                        return Err(e).context("Unrecoverable WebSocket error");
+                    }
+                }
             },
             else => {
                 tracing::info!("stream ended, exiting websocket loop");

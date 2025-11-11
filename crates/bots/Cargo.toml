@@ -36,7 +36,8 @@ tokio-tungstenite = { workspace = true, features = [
 ] }
 
 tracing.workspace = true
-tracing-subscriber.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+tracing-loki.workspace = true
 twitch_api = { workspace = true, optional = true }
 twitch_oauth2 = { workspace = true, optional = true }
 serenity = { workspace = true, optional = true, features = ["client", "gateway", "model", "cache", "rustls_backend"] }

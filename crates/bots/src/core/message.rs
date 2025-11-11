@@ -4,7 +4,7 @@ use regex::Regex;
 use sea_orm::DatabaseConnection;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
-use tracing::{error, info, instrument, warn, debug};
+use tracing::{debug, error, info, instrument, warn};
 use yappr_shared::models::{
     channel::ChannelSettings,
     enums::ChannelRole,

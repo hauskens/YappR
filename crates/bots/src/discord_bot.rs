@@ -8,7 +8,6 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use yappr_bot::discord::{
     commands::CommandHandler, message_handler::MessageHandler, moderation::DiscordMessageDeletion,
     reactions::ReactionHandler,
@@ -17,52 +16,22 @@ use yappr_bot::services::BotUserService;
 use yappr_shared::config::Config;
 use yappr_shared::database::get_database_connection;
 use yappr_shared::entities::{channel_settings, channels, prelude::*};
+use yappr_shared::logging;
 use yappr_shared::models::channel::ChannelSettings;
 use yappr_shared::models::platforms::AccountPlatform;
 
 #[tokio::main]
 async fn main() -> Result<(), eyre::Report> {
-    // Load configuration first to check for Loki URL
+    // Load configuration
     let config = Config::load();
 
-    // Set up logging with Loki or console based on configuration
-    if let Some(loki_url) = config.loki_url.clone() {
-        // Set up Loki logging
-        let (layer, task) = tracing_loki::builder()
-            .label("service", "discord-bot")
-            .unwrap()
-            .label("version", config.version.to_string())
-            .unwrap()
-            .label("environment", config.environment.as_string())
-            .unwrap()
-            .build_url(loki_url)
-            .unwrap();
-
-        tracing_subscriber::registry().with(layer).init();
-
-        // Spawn the log flushing task
-        tokio::spawn(task);
-
-        tracing::info!(
-            task = "tracing_setup",
-            result = "success",
-            "Discord bot logging configured with Loki",
-        );
-    } else {
-        // No Loki URL, use console logging with RUST_LOG filtering
-        use tracing_subscriber::EnvFilter;
-
-        tracing_subscriber::registry()
-            .with(EnvFilter::from_default_env())
-            .with(tracing_subscriber::fmt::layer())
-            .init();
-
-        tracing::info!(
-            task = "tracing_setup",
-            result = "success",
-            "Discord bot logging configured with console output",
-        );
-    }
+    // Initialize logging with shared configuration
+    logging::init_logging(
+        "discord-bot",
+        config.loki_url.clone(),
+        &config.version.to_string(),
+        &config.environment.as_string(),
+    );
 
     info!("Starting Discord bot...");
 

@@ -1,6 +1,5 @@
 use std::sync::Arc;
 use tracing::{error, info};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 use twitch_api::{HelixClient, client::ClientDefault};
 use twitch_oauth2::UserToken;
 use yappr_bot::services::{BotUserService, ChatlogService};
@@ -10,51 +9,21 @@ use yappr_bot::twitch::{
 };
 use yappr_shared::config::Config;
 use yappr_shared::database::get_database_connection;
+use yappr_shared::logging;
 use yappr_shared::models::platforms::AccountPlatform;
 
 #[tokio::main]
 async fn main() -> Result<(), eyre::Report> {
-    // Load configuration first to check for Loki URL
+    // Load configuration
     let config = Config::load();
 
-    // Set up logging with Loki or console based on configuration
-    if let Some(loki_url) = config.loki_url.clone() {
-        // Set up Loki logging
-        let (layer, task) = tracing_loki::builder()
-            .label("service", "twitch-bot")
-            .unwrap()
-            .label("version", config.version.to_string())
-            .unwrap()
-            .label("environment", config.environment.as_string())
-            .unwrap()
-            .build_url(loki_url)
-            .unwrap();
-
-        tracing_subscriber::registry().with(layer).init();
-
-        // Spawn the log flushing task
-        tokio::spawn(task);
-
-        tracing::info!(
-            task = "tracing_setup",
-            result = "success",
-            "Twitch bot logging configured with Loki",
-        );
-    } else {
-        // No Loki URL, use console logging with RUST_LOG filtering
-        use tracing_subscriber::EnvFilter;
-
-        tracing_subscriber::registry()
-            .with(EnvFilter::from_default_env())
-            .with(tracing_subscriber::fmt::layer())
-            .init();
-
-        tracing::info!(
-            task = "tracing_setup",
-            result = "success",
-            "Twitch bot logging configured with console output",
-        );
-    }
+    // Initialize logging with shared configuration
+    logging::init_logging(
+        "twitch-bot",
+        config.loki_url.clone(),
+        &config.version.to_string(),
+        &config.environment.as_string(),
+    );
 
     info!("Starting Twitch bot...");
 

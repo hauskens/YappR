@@ -1,0 +1,8 @@
+[package]
+name = "transcription"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+hound = "3.5.1"
+whisper-rs = { version = "0.15.1", features = ["vulkan"] } # We keep this dependency here to reduce build times on all other crates

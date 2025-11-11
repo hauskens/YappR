@@ -402,23 +402,42 @@
 
         devShells.default = craneLib.devShell {
           checks = self.checks.${system};
-          LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ pkgs.llvmPackages_latest.libclang.lib ];
-          # BINDGEN_EXTRA_CLANG_ARGS = with pkgs; ''
-          #       -isystem ${llvmPackages.libclang.lib}/lib/clang/${lib.getVersion clang}/include
-          #       -isystem ${llvmPackages.libclang.out}/lib/clang/${lib.getVersion clang}/include
-          #       -isystem ${glibc.dev}/include
-          #     '';
-          #  LIBCLANG_PATH = pkgs.lib.makeLibraryPath [ buildInputs ];
-          #  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
-          # NIX_CFLAGS_COMPILE = "-isystem ${pkgs.glibc.dev}/include";
-          nativeBuildInputs = [
+          LIBCLANG_PATH = "${pkgs.llvmPackages_latest.libclang.lib}/lib";
+          BINDGEN_EXTRA_CLANG_ARGS = with pkgs; 
+            "-isystem ${llvmPackages_latest.libclang.lib}/lib/clang/${lib.versions.major (lib.getVersion llvmPackages_latest.clang)}/include " +
+            "-isystem ${glibc.dev}/include";
+
+
+          buildInputs = with pkgs; [
+              vulkan-loader
+            ];
+          nativeBuildInputs = with pkgs; [
             rustToolchain
-            pkgs.pkg-config
-            pkgs.openssl
+            pkg-config
+            openssl
+            cmake
+            gcc
+            glibc.dev
+            
+            # Clang/LLVM for bindgen - use consistent version
+            llvmPackages_latest.clang
+            llvmPackages_latest.libclang.lib
+            
+            # Vulkan for whisper-rs
+            vulkan-headers
+            vulkan-tools
+            shaderc
           ];
           packages =
             with pkgs;
             [
+              rustToolchain
+              cmake
+              gcc
+              pkg-config
+              vulkan-headers
+              vulkan-tools
+              shaderc
               taplo
               nodejs
               yappr-deploy

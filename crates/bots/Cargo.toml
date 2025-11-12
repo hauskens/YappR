@@ -40,9 +40,9 @@ twitch_api = { workspace = true, optional = true }
 twitch_oauth2 = { workspace = true, optional = true }
 serenity = { workspace = true, optional = true, features = ["client", "gateway", "model", "cache", "rustls_backend"] }
 url.workspace = true
-yappr-shared = { path = "../shared", features = ["database", "loki"] }
+yappr-shared = { path = "../shared", features = ["database", "loki", ] }
 
 [features]
 default = ["twitch", "discord"]
-twitch = ["twitch_api", "twitch_oauth2", "yappr-shared/twitch", "yappr-shared/loki"]
+twitch = ["twitch_api", "twitch_oauth2", "yappr-shared/twitch", "yappr-shared/loki", "yappr-shared/youtube"]
 discord = ["serenity", "yappr-shared/discord", "yappr-shared/loki"]

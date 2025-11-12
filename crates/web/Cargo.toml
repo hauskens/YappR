@@ -104,7 +104,6 @@ ssr = [
   "yappr-shared/twitch",
   "yappr-shared/youtube",
   "yappr-shared/discord",
-  "yappr-shared/redis-client",
   "dep:axum-login",
   "dep:tower-sessions",
   "dep:tower-sessions-sqlx-store",

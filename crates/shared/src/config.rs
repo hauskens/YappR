@@ -97,9 +97,6 @@ pub struct Config {
     #[cfg(feature = "discord")]
     pub discord: DiscordConfig,
 
-    #[cfg(feature = "redis-client")]
-    pub redis: RedisConfig,
-
     #[cfg(feature = "job-queue")]
     pub nats: NATSConfig,
 }
@@ -133,43 +130,10 @@ pub struct DatabaseConfig {
     pub min_connections: u32,
 }
 
-#[cfg(feature = "redis-client")]
-#[derive(Debug, Clone)]
-pub enum RedisScheme {
-    Redis,       // redis://
-    RedisTls,    // rediss://
-    RedisSocket, // redis+unix://
-}
-
 #[cfg(feature = "job-queue")]
 #[derive(Debug, Clone)]
 pub struct NATSConfig {
     pub url: String,
-}
-
-#[cfg(feature = "redis-client")]
-impl FromStr for RedisScheme {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s.to_lowercase().as_str() {
-            "redis" => Ok(RedisScheme::Redis),
-            "rediss" => Ok(RedisScheme::RedisTls),
-            "redis+unix" => Ok(RedisScheme::RedisSocket),
-            _ => Err(format!(
-                "Invalid Redis scheme: '{}'. Valid options are: redis, rediss, redis+unix",
-                s
-            )),
-        }
-    }
-}
-
-#[cfg(feature = "redis-client")]
-#[derive(Debug, Clone)]
-pub struct RedisConfig {
-    pub scheme: RedisScheme,
-    pub host: String,
-    pub port: u16,
 }
 
 impl Config {
@@ -210,8 +174,6 @@ impl Config {
             youtube: YouTubeConfig::load(),
             #[cfg(feature = "discord")]
             discord: DiscordConfig::load(),
-            #[cfg(feature = "redis-client")]
-            redis: RedisConfig::load(),
             #[cfg(feature = "job-queue")]
             nats: NATSConfig::load(),
         };
@@ -246,35 +208,6 @@ impl DatabaseConfig {
             max_connections = config.max_connections,
             min_connections = config.min_connections,
             "Database configuration loaded"
-        );
-        config
-    }
-}
-
-#[cfg(feature = "redis-client")]
-impl RedisConfig {
-    #[instrument(level = "debug")]
-    pub fn connection_string(&self) -> String {
-        let scheme = match self.scheme {
-            RedisScheme::Redis => "redis",
-            RedisScheme::RedisTls => "rediss",
-            RedisScheme::RedisSocket => "redis+unix",
-        };
-        format!("{}://{}:{}", scheme, self.host, self.port)
-    }
-    #[instrument(level = "debug")]
-    pub fn load() -> Self {
-        debug!("Loading Redis configuration");
-        let config = RedisConfig {
-            scheme: env_or("REDIS_SCHEME", "redis")
-                .parse::<RedisScheme>()
-                .expect("Invalid Redis scheme"),
-            host: env_or("REDIS_HOST", "localhost"),
-            port: env_or_parse("REDIS_PORT", 6379),
-        };
-        debug!(
-            "Redis configuration loaded: {:?}://{}:{}",
-            config.scheme, config.host, config.port
         );
         config
     }

@@ -21,7 +21,6 @@ moka = { workspace = true, features = ["future"] }
 regex.workspace = true
 reqwest.workspace = true
 sea-orm.workspace = true
-serde_json.workspace = true
 hex_color.workspace = true
 tokio = { workspace = true, features = [
   "rt-multi-thread",

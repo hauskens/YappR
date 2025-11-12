@@ -10,8 +10,6 @@ pub mod logging;
 pub mod models;
 #[cfg(feature = "job-queue")]
 pub mod nats;
-#[cfg(feature = "redis-client")]
-pub mod redis_client;
 #[cfg(feature = "database")]
 pub mod services;
 pub mod types;

@@ -13,15 +13,9 @@ async-trait.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
 dotenv.workspace = true
-eyre = { workspace = true, optional = true }
 futures = { workspace = true, optional = true }
 google-youtube3 = { version = "*", optional = true }
 hex_color.workspace = true
-redis = { workspace = true, features = [
-  "tokio-comp",
-  "connection-manager",
-  "streams",
-], optional = true }
 regex.workspace = true
 reqwest = { workspace = true, optional = true, default-features = false }
 rmp-serde = { workspace = true, optional = true }
@@ -46,13 +40,11 @@ default = [
   "twitch",
   "youtube",
   "discord",
-  "redis-client",
   "job-queue",
 ]
 database = ["dep:sea-orm"]
 discord = []
 twitch = ["dep:twitch_oauth2", "dep:twitch_api", "dep:reqwest"]
 youtube = ["dep:google-youtube3"]
-redis-client = ["dep:redis", "dep:rmp-serde", "dep:uuid", "dep:tokio"]
 job-queue = ["dep:async-nats", "dep:futures", "dep:tokio"]
 loki = ["dep:tracing-loki"]

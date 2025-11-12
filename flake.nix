@@ -441,6 +441,8 @@
               taplo
               nodejs
               yappr-deploy
+              cargo-machete
+              cargo-edit
 
             ]
             ++ buildInputs;

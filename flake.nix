@@ -118,7 +118,7 @@
           individualCrateArgs
           // {
             pname = "yappr-cli";
-            cargoExtraArgs = "--bin yappr-cli";
+            cargoExtraArgs = "--bin cli";
             src = fileSetForCrate ./crates/cli;
           }
         );

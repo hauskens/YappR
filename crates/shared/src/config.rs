@@ -270,6 +270,7 @@ pub struct DatabaseConfig {
 #[derive(Debug, Clone)]
 pub struct NATSConfig {
     pub url: ConfigField<String>,
+    pub worker_queues: ConfigField<String>,
 }
 
 impl Config {
@@ -536,6 +537,12 @@ impl NATSConfig {
                 "NATS server connection URL for job queue",
                 Some("nats://localhost:4222"),
                 "nats://localhost:4222",
+            ),
+            worker_queues: env_or_default(
+                "WORKER_QUEUES",
+                "Comma-separated list of job queues this worker should handle",
+                Some("general"),
+                "general",
             ),
         }
     }

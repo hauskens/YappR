@@ -1,5 +1,49 @@
 use serde::{Deserialize, Serialize};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum JobQueues {
+    General,
+    Transcription,
+    Video,
+}
+
+impl std::fmt::Display for JobQueues {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::General => write!(f, "general"),
+            Self::Transcription => write!(f, "transcription"),
+            Self::Video => write!(f, "video"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum JobState {
+    Pending,
+    InProgress(u8),
+    Completed,
+    Failed,
+}
+
+impl std::fmt::Display for JobState {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Pending => write!(f, "pending"),
+            Self::InProgress(progress) => write!(f, "in_progress ({}/100%)", progress),
+            Self::Completed => write!(f, "completed"),
+            Self::Failed => write!(f, "job failed"),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct JobProgress {
+    pub job_id: String,
+    pub worker_id: String,
+    pub progress: JobState,
+    pub message: String,
+}
+
 /// Errors that can occur when working with NATS jobs
 #[derive(Debug)]
 pub enum JobError {
@@ -8,17 +52,21 @@ pub enum JobError {
     /// Failed to deserialize the job response
     DeserializationError(rmp_serde::decode::Error),
     /// NATS request error
-    #[cfg(feature = "job-queue")]
     RequestError(async_nats::RequestError),
+    /// NATS connection error
+    ConnectError(async_nats::ConnectError),
+    /// NATS subscribe error
+    SubscribeError(async_nats::SubscribeError),
 }
 
 impl std::fmt::Display for JobError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            JobError::SerializationError(e) => write!(f, "Serialization error: {}", e),
-            JobError::DeserializationError(e) => write!(f, "Deserialization error: {}", e),
-            #[cfg(feature = "job-queue")]
-            JobError::RequestError(e) => write!(f, "NATS request error: {}", e),
+            Self::SerializationError(e) => write!(f, "Serialization error: {}", e),
+            Self::DeserializationError(e) => write!(f, "Deserialization error: {}", e),
+            Self::RequestError(e) => write!(f, "NATS request error: {}", e),
+            Self::ConnectError(e) => write!(f, "NATS connection error: {}", e),
+            Self::SubscribeError(e) => write!(f, "NATS subscribe error: {}", e),
         }
     }
 }
@@ -26,51 +74,55 @@ impl std::fmt::Display for JobError {
 impl std::error::Error for JobError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            JobError::SerializationError(e) => Some(e),
-            JobError::DeserializationError(e) => Some(e),
-            #[cfg(feature = "job-queue")]
-            JobError::RequestError(e) => Some(e),
+            Self::SerializationError(e) => Some(e),
+            Self::DeserializationError(e) => Some(e),
+            Self::RequestError(e) => Some(e),
+            Self::ConnectError(e) => Some(e),
+            Self::SubscribeError(e) => Some(e),
         }
     }
 }
 
 impl From<rmp_serde::encode::Error> for JobError {
     fn from(e: rmp_serde::encode::Error) -> Self {
-        JobError::SerializationError(e)
+        Self::SerializationError(e)
     }
 }
 
 impl From<rmp_serde::decode::Error> for JobError {
     fn from(e: rmp_serde::decode::Error) -> Self {
-        JobError::DeserializationError(e)
+        Self::DeserializationError(e)
     }
 }
 
-#[cfg(feature = "job-queue")]
 impl From<async_nats::RequestError> for JobError {
     fn from(e: async_nats::RequestError) -> Self {
-        JobError::RequestError(e)
+        Self::RequestError(e)
     }
 }
 
-/// Core trait for type-safe NATS jobs
-///
-/// Implement this trait to define a job that can be sent over NATS.
-/// The trait encodes the subject name and response type directly in the type system.
-///
-/// # Example
-/// ```rust
-/// use yappr_shared::jobs::{Job, HelloRequest, HelloResponse};
-///
-/// let request = HelloRequest { name: "World".to_string() };
-/// assert_eq!(HelloRequest::SUBJECT, "worker.hello");
-/// ```
+impl From<async_nats::ConnectError> for JobError {
+    fn from(e: async_nats::ConnectError) -> Self {
+        Self::ConnectError(e)
+    }
+}
+
+impl From<async_nats::SubscribeError> for JobError {
+    fn from(e: async_nats::SubscribeError) -> Self {
+        Self::SubscribeError(e)
+    }
+}
+
 pub trait Job: Serialize + Sized {
-    /// The NATS subject this job should be published to
-    const SUBJECT: &'static str;
+    const QUEUE: JobQueues;
 
     /// The response type for this job
     type Response: for<'de> Deserialize<'de>;
+
+    /// Get the full NATS subject for this job type
+    fn subject() -> String {
+        format!("worker.queue.{}", Self::QUEUE)
+    }
 
     /// Serialize this job to MessagePack bytes
     fn to_bytes(&self) -> Result<Vec<u8>, rmp_serde::encode::Error> {
@@ -83,21 +135,6 @@ pub trait Job: Serialize + Sized {
     }
 }
 
-/// Extension trait for async-nats Client to support type-safe job requests
-///
-/// # Example
-/// ```rust,no_run
-/// use yappr_shared::jobs::{NatsClientExt, HelloRequest};
-///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let client = async_nats::connect("nats://localhost:4222").await?;
-/// let request = HelloRequest { name: "World".to_string() };
-/// let response = client.request_job(request).await?;
-/// println!("{}", response.message);
-/// # Ok(())
-/// # }
-/// ```
-#[cfg(feature = "job-queue")]
 #[async_trait::async_trait]
 pub trait NatsClientExt {
     /// Send a type-safe job request and await its response
@@ -107,7 +144,6 @@ pub trait NatsClientExt {
         J::Response: Send;
 }
 
-#[cfg(feature = "job-queue")]
 #[async_trait::async_trait]
 impl NatsClientExt for async_nats::Client {
     async fn request_job<J>(&self, job: J) -> Result<J::Response, JobError>
@@ -116,38 +152,29 @@ impl NatsClientExt for async_nats::Client {
         J::Response: Send,
     {
         let payload = job.to_bytes()?;
-        let reply = self.request(J::SUBJECT.to_string(), payload.into()).await?;
+        let reply = self.request(J::subject(), payload.into()).await?;
         let response = J::response_from_bytes(&reply.payload)?;
         Ok(response)
     }
 }
 
-/// Request payload for the hello worker
-///
-/// Other services can import this type to construct requests:
-/// ```rust
-/// use yappr_shared::jobs::{Job, NatsClientExt, HelloRequest};
-///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let client = async_nats::connect("nats://localhost:4222").await?;
-/// let request = HelloRequest { name: "World".to_string() };
-/// let response = client.request_job(request).await?;
-/// # Ok(())
-/// # }
-/// ```
+/// Request payload for a demo/test job
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HelloRequest {
-    pub name: String,
+pub struct DemoJobRequest {
+    /// Unique job identifier
+    pub job_id: String,
 }
 
-impl Job for HelloRequest {
-    const SUBJECT: &'static str = "worker.hello";
-    type Response = HelloResponse;
+impl Job for DemoJobRequest {
+    const QUEUE: JobQueues = JobQueues::General;
+    type Response = DemoJobResponse;
 }
 
-/// Response payload from the hello worker
+/// Response payload from a demo/test job
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HelloResponse {
-    pub message: String,
-    pub timestamp: i64,
+pub struct DemoJobResponse {
+    /// Job identifier
+    pub job_id: String,
+    /// Unix timestamp when job completed
+    pub completed_at: i64,
 }

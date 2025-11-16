@@ -1,3 +1,5 @@
+use crate::config::Environment;
+use semver::Version;
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 /// Initialize logging with optional Loki integration
@@ -16,8 +18,8 @@ use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitEx
 pub fn init_logging(
     service_name: &str,
     loki_url: Option<url::Url>,
-    version: &str,
-    environment: &str,
+    version: Version,
+    environment: Environment,
 ) {
     if let Some(loki_url) = loki_url {
         init_with_loki(service_name, loki_url, version, environment);
@@ -53,18 +55,18 @@ fn get_default_env_filter() -> EnvFilter {
 }
 
 #[cfg(feature = "loki")]
-fn init_with_loki(service_name: &str, loki_url: url::Url, version: &str, environment: &str) {
-    eprintln!("Setting up Loki logging...");
-    eprintln!("  URL: {}", loki_url);
-    eprintln!("  Service: {}", service_name);
-    eprintln!("  Environment: {}", environment);
-
+fn init_with_loki(
+    service_name: &str,
+    loki_url: url::Url,
+    version: Version,
+    environment: Environment,
+) {
     let env_filter = get_default_env_filter();
 
     match tracing_loki::builder()
         .label("service", service_name)
-        .and_then(|b| b.label("version", version))
-        .and_then(|b| b.label("environment", environment))
+        .and_then(|b| b.label("version", version.to_string()))
+        .and_then(|b| b.label("environment", environment.to_string()))
         .and_then(|b| b.build_url(loki_url.clone()))
     {
         Ok((layer, task)) => {
@@ -111,7 +113,12 @@ fn init_with_loki(service_name: &str, loki_url: url::Url, version: &str, environ
 }
 
 #[cfg(not(feature = "loki"))]
-fn init_with_loki(_service_name: &str, _loki_url: url::Url, _version: &str, _environment: &str) {
+fn init_with_loki(
+    _service_name: &str,
+    _loki_url: url::Url,
+    _version: Version,
+    _environment: Environment,
+) {
     eprintln!("Loki feature not enabled, falling back to console-only logging");
     init_console_only();
 }

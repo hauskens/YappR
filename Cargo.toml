@@ -72,6 +72,7 @@ tower-sessions = "0.14"
 tower-sessions-sqlx-store = "0.15"
 tokio-tungstenite = "0.28"
 moka = "0.12"
+async-nats = "0.45"
 
 
 # Defines a size-optimized profile for the WASM bundle in release mode

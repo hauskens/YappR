@@ -30,25 +30,30 @@ pub async fn handle_oauth_login(
     // Get OAuth credentials from config
     let (client_id, client_secret) = match provider {
         OAuthProvider::Discord => (
-            config.discord.client_id.clone(),
-            config.discord.client_secret.clone(),
+            config.discord.client_id.as_str(),
+            config.discord.client_secret.as_str(),
         ),
         OAuthProvider::Twitch => (
-            config.twitch.client_id.to_string(),
-            config.twitch.client_secret.secret().to_string(),
+            config.twitch.client_id.as_str(),
+            config.twitch.client_secret.as_str(),
         ),
     };
 
     // Construct redirect URI (strip trailing slash from server_url)
-    let base_url = config.server_url.as_str().trim_end_matches('/');
-    let redirect_uri = format!("{}/auth/{}/callback", base_url, provider.as_str());
+    let base_url = config.server_url.as_str();
+    let redirect_uri = format!("{}auth/{}/callback", base_url, provider.as_str());
 
     // Create OAuth client
-    let client =
-        create_oauth_client(provider, client_id, client_secret, redirect_uri).map_err(|_| {
-            tracing::error!("Failed to create OAuth client");
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    let client = create_oauth_client(
+        provider,
+        client_id.to_string(),
+        client_secret.to_string(),
+        redirect_uri,
+    )
+    .map_err(|_| {
+        tracing::error!("Failed to create OAuth client");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Generate PKCE challenge
     let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
@@ -106,12 +111,12 @@ pub async fn handle_oauth_callback(
     // Get OAuth credentials from config
     let (client_id, client_secret) = match provider {
         OAuthProvider::Discord => (
-            config.discord.client_id.clone(),
-            config.discord.client_secret.clone(),
+            config.discord.client_id.as_str(),
+            config.discord.client_secret.as_str(),
         ),
         OAuthProvider::Twitch => (
-            config.twitch.client_id.to_string(),
-            config.twitch.client_secret.secret().to_string(),
+            config.twitch.client_id.as_str(),
+            config.twitch.client_secret.as_str(),
         ),
     };
 
@@ -122,8 +127,8 @@ pub async fn handle_oauth_callback(
     // Create OAuth client
     let client = create_oauth_client(
         provider,
-        client_id.clone(),
-        client_secret.clone(),
+        client_id.to_string(),
+        client_secret.to_string(),
         redirect_uri,
     )
     .map_err(|_| {
@@ -141,8 +146,8 @@ pub async fn handle_oauth_callback(
     // Add client_id and client_secret explicitly for Twitch
     if provider == OAuthProvider::Twitch {
         token_request = token_request
-            .add_extra_param("client_id", &client_id)
-            .add_extra_param("client_secret", &client_secret);
+            .add_extra_param("client_id", client_id)
+            .add_extra_param("client_secret", client_secret);
     }
 
     let token_response = if provider == OAuthProvider::Twitch {
@@ -207,7 +212,7 @@ pub async fn handle_oauth_callback(
     // So we need to fetch user profile separately via their APIs
 
     // Fetch user profile from provider
-    let profile = fetch_user_profile(provider, access_token, &client_id)
+    let profile = fetch_user_profile(provider, access_token, client_id)
         .await
         .map_err(|_| {
             tracing::error!("Failed to fetch user profile");

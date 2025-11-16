@@ -7,14 +7,14 @@ pub async fn get_database_connection() -> Result<DatabaseConnection, sea_orm::Db
     info!("Establishing database connection");
     let config = Config::load();
 
-    let mut opt = ConnectOptions::new(config.database.url);
-    opt.max_connections(config.database.max_connections)
-        .min_connections(config.database.min_connections)
+    let mut opt = ConnectOptions::new(config.database.url.value.clone());
+    opt.max_connections(*config.database.max_connections)
+        .min_connections(*config.database.min_connections)
         .sqlx_logging(true);
 
     debug!(
-        max_connections = config.database.max_connections,
-        min_connections = config.database.min_connections,
+        max_connections = *config.database.max_connections,
+        min_connections = *config.database.min_connections,
         sqlx_logging = true,
         "Database connection options configured"
     );

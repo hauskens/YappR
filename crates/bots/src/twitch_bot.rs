@@ -20,9 +20,9 @@ async fn main() -> Result<(), eyre::Report> {
     // Initialize logging with shared configuration
     logging::init_logging(
         "twitch-bot",
-        config.loki_url.clone(),
-        &config.version.to_string(),
-        &config.environment.as_string(),
+        config.loki_url.value.clone(),
+        config.version.value.clone(),
+        config.environment.value.clone(),
     );
 
     info!("Starting Twitch bot...");
@@ -44,7 +44,7 @@ async fn main() -> Result<(), eyre::Report> {
         db,
         client,
         token,
-        config: config.clone(),
+        config,
     };
 
     bot.start().await?;
@@ -104,6 +104,7 @@ impl Bot {
             bot_user_id: self
                 .config
                 .bot_user_id
+                .value
                 .clone()
                 .expect("Unable to load bot user id from config"),
             channel_manager,

@@ -38,8 +38,8 @@ impl TwitchApiClient {
         info!("Obtaining Twitch app access token");
         let token = match twitch_oauth2::AppAccessToken::get_app_access_token(
             &client,
-            config.twitch.client_id.clone(),
-            config.twitch.client_secret.clone(),
+            config.twitch.client_id.value.clone(),
+            config.twitch.client_secret.value.clone(),
             vec![],
         )
         .await

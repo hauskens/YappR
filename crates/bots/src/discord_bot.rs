@@ -28,9 +28,9 @@ async fn main() -> Result<(), eyre::Report> {
     // Initialize logging with shared configuration
     logging::init_logging(
         "discord-bot",
-        config.loki_url.clone(),
-        &config.version.to_string(),
-        &config.environment.as_string(),
+        config.loki_url.value.clone(),
+        config.version.value.clone(),
+        config.environment.value.clone(),
     );
 
     info!("Starting Discord bot...");
@@ -125,7 +125,7 @@ impl EventHandler for DiscordEventHandler {
         info!("Bot logged in as {}", ready.user.name);
 
         // Register slash commands
-        if self.config.debug {
+        if *self.config.debug {
             // In debug mode, don't register commands
             info!("Debug mode: Not registering slash commands");
         } else {

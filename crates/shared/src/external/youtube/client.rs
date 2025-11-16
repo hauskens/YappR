@@ -106,7 +106,10 @@ impl YouTubeApiClient {
         let config = Config::load();
 
         debug!("Creating HTTP client for YouTube API");
-        let client = match Client::builder().user_agent(&config.service_name).build() {
+        let client = match Client::builder()
+            .user_agent(config.service_name.to_string())
+            .build()
+        {
             Ok(client) => {
                 debug!("YouTube HTTP client created successfully");
                 client
@@ -120,7 +123,7 @@ impl YouTubeApiClient {
         info!("YouTube API client initialized successfully");
         Ok(Self {
             client,
-            api_key: config.youtube.api_key,
+            api_key: config.youtube.api_key.value.clone(),
             base_url: "https://www.googleapis.com/youtube/v3".to_string(),
         })
     }

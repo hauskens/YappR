@@ -159,9 +159,9 @@ dependencies = [
 
 [[package]]
 name = "async-nats"
-version = "0.44.2"
+version = "0.45.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f834a80c3ab6109b9c8f5ca6661a578cf31e088e831b6ce07c6b23cca04f6742"
+checksum = "86dde77d8a733a9dbaf865a9eb65c72e09c88f3d14d3dd0d2aecf511920ee4fe"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -6362,6 +6362,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 
 [[package]]
+name = "worker"
+version = "1.2.0"
+dependencies = [
+ "async-nats",
+ "chrono",
+ "futures",
+ "rmp-serde",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "yappr-shared",
+]
+
+[[package]]
 name = "writeable"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6414,7 +6428,9 @@ dependencies = [
 name = "yappr-cli"
 version = "1.2.0"
 dependencies = [
+ "async-nats",
  "clap",
+ "rmp-serde",
  "sea-orm",
  "tokio",
  "tracing",

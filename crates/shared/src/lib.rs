@@ -6,6 +6,8 @@ pub mod database;
 #[cfg(feature = "database")]
 pub mod entities;
 pub mod external;
+#[cfg(feature = "job-queue")]
+pub mod jobs;
 pub mod logging;
 pub mod models;
 #[cfg(feature = "job-queue")]

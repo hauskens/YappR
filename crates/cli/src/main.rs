@@ -5,57 +5,53 @@ use yappr_shared::config::Config;
 use yappr_shared::database::get_database_connection;
 use yappr_shared::external::ApiClient;
 use yappr_shared::external::{TwitchApiClient, YouTubeApiClient};
+use yappr_shared::jobs::{HelloRequest, HelloResponse, NatsClientExt};
 use yappr_shared::models::channel::ChannelExt;
 use yappr_shared::services::channel::ChannelService;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let config = Config::load();
+    let _config = Config::load();
 
-    if let Some(loki_url) = config.loki_url {
-        println!("Setting up Loki logging with URL: {}", loki_url);
-        let (layer, task) = tracing_loki::builder()
-            .label("service", config.service_name)
-            .unwrap()
-            .label("version", config.version.to_string())
-            .unwrap()
-            .label("environment", config.environment.as_string())
-            .unwrap()
-            .build_url(loki_url)
-            .unwrap();
+    tracing_subscriber::registry()
+        .with(tracing_subscriber::fmt::Layer::new())
+        .init();
 
-        tracing_subscriber::registry()
-            .with(layer)
-            .with(tracing_subscriber::fmt::Layer::new())
-            .init();
-        tokio::spawn(task);
-
-        tracing::info!(
-            task = "tracing_setup",
-            result = "success",
-            "tracing successfully set up with Loki",
-        );
-    } else {
-        println!("No LOKI_URL configured, using console logging only");
-        tracing_subscriber::registry()
-            .with(tracing_subscriber::fmt::Layer::new())
-            .init();
-
-        tracing::info!(
-            task = "tracing_setup",
-            result = "success",
-            "tracing successfully set up without Loki",
-        );
-    }
+    tracing::info!(
+        task = "tracing_setup",
+        result = "success",
+        "tracing successfully set up with Loki",
+    );
 
     // test_twitch().await?;
     // test_redis().await?;
     // test_youtube().await?;
-    test_channel_service().await?;
+    // test_channel_service().await?;
+    let response = test_nats().await?;
+    info!(
+        "Response: {}, Timestamp: {}",
+        response.message, response.timestamp
+    );
 
     // Give tracing_loki time to flush logs
     tokio::time::sleep(tokio::time::Duration::from_millis(1000)).await;
     Ok(())
+}
+
+async fn test_nats() -> Result<HelloResponse, Box<dyn std::error::Error>> {
+    let config = Config::load();
+    let client = async_nats::connect(config.nats.url.value.as_str()).await?;
+
+    // Create a type-safe job request
+    let request = HelloRequest {
+        name: "World".to_string(),
+    };
+
+    // Use the trait extension to send the request
+    // No need to manually specify subject or handle serialization!
+    let response = client.request_job(request).await?;
+
+    Ok(response)
 }
 
 #[allow(dead_code)]
@@ -78,6 +74,7 @@ async fn test_youtube() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+#[allow(dead_code)]
 async fn test_channel_service() -> Result<(), Box<dyn std::error::Error>> {
     info!("Testing ChannelService");
 

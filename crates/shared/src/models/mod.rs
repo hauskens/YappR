@@ -38,7 +38,7 @@ pub trait FileStorageTrait {
 }
 
 pub fn get_file(config: &Config, file_storage: &FileStorage) -> Result<PathBuf, std::io::Error> {
-    let path = PathBuf::from(&config.storage_location).join(&file_storage.files[0]);
+    let path = PathBuf::from(config.storage_location.to_string()).join(&file_storage.files[0]);
     if path.exists() {
         Ok(path)
     } else {

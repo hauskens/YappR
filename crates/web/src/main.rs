@@ -122,7 +122,7 @@ async fn main() {
 
     // Create database connection
     log!("Connecting to database...");
-    let db: DatabaseConnection = Database::connect(&config.database.url)
+    let db: DatabaseConnection = Database::connect(config.database.url.to_string())
         .await
         .expect("Failed to connect to database");
     log!("Database connected successfully!");
@@ -141,22 +141,22 @@ async fn main() {
     // Session layer with 7 day expiry and secure cookie settings
     let session_layer = SessionManagerLayer::new(session_store)
         .with_expiry(Expiry::OnInactivity(time::Duration::days(30)))
-        .with_http_only(config.debug)
+        .with_http_only(*config.debug)
         .with_same_site(tower_sessions::cookie::SameSite::Lax)
-        .with_secure(!config.debug); // Use secure cookies in production only
+        .with_secure(!*config.debug); // Use secure cookies in production only
 
     // Create app state with database connection
     let db = Arc::new(db);
 
     // Auth backend
-    let backend = Backend::new(db.clone(), config.session_secret.clone());
+    let backend = Backend::new(db.clone(), config.session_secret.to_string());
     let auth_layer = AuthManagerLayerBuilder::new(backend, session_layer).build();
 
     // OAuth state manager
     let oauth_state = OAuthState::new();
 
     let mut conf = get_configuration(None).unwrap();
-    let addr = SocketAddr::new(config.server_host, config.server_port);
+    let addr = SocketAddr::new(*config.server_host, *config.server_port);
     conf.leptos_options.site_addr = addr;
     let leptos_options = conf.leptos_options;
 
@@ -209,7 +209,7 @@ async fn main() {
         .layer(auth_layer);
 
     // Add HSTS header in production only
-    if !config.debug {
+    if !*config.debug {
         app = app.layer(SetResponseHeaderLayer::if_not_present(
             header::STRICT_TRANSPORT_SECURITY,
             header::HeaderValue::from_static("max-age=31536000; includeSubDomains"),

@@ -9,7 +9,9 @@ pub struct NATSClient {
 impl NATSClient {
     pub async fn new(stream_name: String) -> Self {
         let config = Config::load();
-        let client = async_nats::connect(config.nats.url).await.unwrap();
+        let client = async_nats::connect(config.nats.url.to_string())
+            .await
+            .unwrap();
         let jetstream = jetstream::new(client);
 
         Self {

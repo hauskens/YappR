@@ -8,7 +8,7 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-async-nats = { version = "0.44", optional = true }
+async-nats = { workspace = true, optional = true }
 async-trait.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
@@ -46,5 +46,5 @@ database = ["dep:sea-orm"]
 discord = []
 twitch = ["dep:twitch_oauth2", "dep:twitch_api", "dep:reqwest"]
 youtube = ["dep:google-youtube3"]
-job-queue = ["dep:async-nats", "dep:futures", "dep:tokio"]
+job-queue = ["dep:async-nats", "dep:futures", "dep:tokio", "dep:rmp-serde"]
 loki = ["dep:tracing-loki"]

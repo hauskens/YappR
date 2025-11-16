@@ -1,11 +1,11 @@
 [package]
-name = "yappr-cli"
+name = "cli"
 version.workspace = true
 edition.workspace = true
 publish = false
 
 [[bin]]
-name = "yappr-cli"
+name = "cli"
 path = "src/main.rs"
 
 [dependencies]
@@ -18,3 +18,5 @@ tracing-subscriber = { workspace = true }
 async-nats = { workspace = true }
 rmp-serde = { workspace = true }
 yappr-shared = { path = "../shared", features = ["job-queue"] }
+uuid = { version = "1.11", features = ["v4"] }
+futures = { workspace = true }

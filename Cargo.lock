@@ -604,6 +604,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a1d728cc89cf3aee9ff92b05e62b19ee65a02b5702cff7d5a377e32c6ae29d8d"
 
 [[package]]
+name = "cli"
+version = "1.2.0"
+dependencies = [
+ "async-nats",
+ "clap",
+ "futures",
+ "rmp-serde",
+ "sea-orm",
+ "tokio",
+ "tracing",
+ "tracing-loki",
+ "tracing-subscriber",
+ "uuid",
+ "yappr-shared",
+]
+
+[[package]]
 name = "codee"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6369,9 +6386,11 @@ dependencies = [
  "chrono",
  "futures",
  "rmp-serde",
+ "serde",
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "uuid",
  "yappr-shared",
 ]
 
@@ -6421,21 +6440,6 @@ dependencies = [
  "twitch_api",
  "twitch_oauth2",
  "url",
- "yappr-shared",
-]
-
-[[package]]
-name = "yappr-cli"
-version = "1.2.0"
-dependencies = [
- "async-nats",
- "clap",
- "rmp-serde",
- "sea-orm",
- "tokio",
- "tracing",
- "tracing-loki",
- "tracing-subscriber",
  "yappr-shared",
 ]
 

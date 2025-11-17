@@ -7,7 +7,7 @@ edition.workspace = true
 crate-type = ["rlib"]
 
 [dependencies]
-dotenv = { workspace = true }
+dotenvy = { workspace = true }
 tracing = { workspace = true }
 serde = { workspace = true, optional = true }
 

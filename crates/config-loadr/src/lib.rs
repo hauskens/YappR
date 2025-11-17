@@ -14,5 +14,5 @@ pub use field::ConfigField;
 /// This is a convenience function that wraps dotenv::dotenv()
 /// and suppresses errors if the .env file is not found.
 pub fn load_dotenv() {
-    let _ = dotenv::dotenv();
+    let _ = dotenvy::dotenv();
 }

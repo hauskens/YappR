@@ -669,7 +669,7 @@ dependencies = [
 name = "config-loadr"
 version = "1.2.0"
 dependencies = [
- "dotenv",
+ "dotenvy",
  "serde",
  "tracing",
 ]
@@ -1092,12 +1092,6 @@ dependencies = [
  "quote",
  "syn 2.0.110",
 ]
-
-[[package]]
-name = "dotenv"
-version = "0.15.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c90badedccf4105eca100756a0b1289e191f6fcbdadd3cee1d2f614f97da8f"
 
 [[package]]
 name = "dotenvy"
@@ -6516,7 +6510,7 @@ dependencies = [
  "chrono",
  "chrono-tz",
  "config-loadr",
- "dotenv",
+ "dotenvy",
  "futures",
  "google-youtube3",
  "hex_color",

@@ -12,6 +12,7 @@ async-nats = { workspace = true, optional = true }
 async-trait.workspace = true
 chrono.workspace = true
 chrono-tz.workspace = true
+config-loadr = { path = "../config-loadr" }
 dotenv.workspace = true
 futures = { workspace = true, optional = true }
 google-youtube3 = { version = "*", optional = true }

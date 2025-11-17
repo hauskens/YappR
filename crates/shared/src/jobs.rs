@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "database")]
+use crate::external::api_client::PlatformVideo;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum JobQueues {
     General,
@@ -57,6 +60,8 @@ pub enum JobError {
     ConnectError(async_nats::ConnectError),
     /// NATS subscribe error
     SubscribeError(async_nats::SubscribeError),
+    /// Generic error for job execution failures
+    ExecutionError(String),
 }
 
 impl std::fmt::Display for JobError {
@@ -67,6 +72,7 @@ impl std::fmt::Display for JobError {
             Self::RequestError(e) => write!(f, "NATS request error: {}", e),
             Self::ConnectError(e) => write!(f, "NATS connection error: {}", e),
             Self::SubscribeError(e) => write!(f, "NATS subscribe error: {}", e),
+            Self::ExecutionError(e) => write!(f, "Job execution error: {}", e),
         }
     }
 }
@@ -79,6 +85,7 @@ impl std::error::Error for JobError {
             Self::RequestError(e) => Some(e),
             Self::ConnectError(e) => Some(e),
             Self::SubscribeError(e) => Some(e),
+            Self::ExecutionError(_) => None,
         }
     }
 }
@@ -177,4 +184,64 @@ pub struct DemoJobResponse {
     pub job_id: String,
     /// Unix timestamp when job completed
     pub completed_at: i64,
+}
+
+/// Request payload for fetching recent videos for a channel
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FetchVideosJob {
+    /// Unique job identifier
+    pub job_id: String,
+    /// Channel ID to fetch videos for
+    pub channel_id: i32,
+    /// Maximum number of videos to fetch
+    pub limit: u32,
+}
+
+impl Job for FetchVideosJob {
+    const QUEUE: JobQueues = JobQueues::Video;
+    type Response = FetchVideosResponse;
+}
+
+/// Response payload from a fetch videos job
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FetchVideosResponse {
+    /// Job identifier
+    pub job_id: String,
+    /// Videos fetched from the platform API
+    #[cfg(feature = "database")]
+    pub videos: Vec<PlatformVideo>,
+    /// Number of videos successfully fetched
+    pub fetched_count: u32,
+}
+
+/// Request payload for updating/validating existing videos
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateVideosJob {
+    /// Unique job identifier
+    pub job_id: String,
+    /// Database video IDs to update
+    pub video_ids: Vec<i32>,
+    /// Platform name (twitch, youtube)
+    pub platform: String,
+}
+
+impl Job for UpdateVideosJob {
+    const QUEUE: JobQueues = JobQueues::Video;
+    type Response = UpdateVideosResponse;
+}
+
+/// Response payload from an update videos job
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateVideosResponse {
+    /// Job identifier
+    pub job_id: String,
+    /// Videos that were found and updated
+    #[cfg(feature = "database")]
+    pub updated_videos: Vec<PlatformVideo>,
+    /// Database video IDs that were not found on platform (should be deactivated)
+    pub missing_video_ids: Vec<i32>,
+    /// Number of videos successfully updated
+    pub updated_count: u32,
+    /// Number of videos not found
+    pub missing_count: u32,
 }

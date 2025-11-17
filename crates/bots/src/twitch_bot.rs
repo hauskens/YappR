@@ -22,7 +22,7 @@ async fn main() -> Result<(), eyre::Report> {
         "twitch-bot",
         config.loki_url.value.clone(),
         config.version.value.clone(),
-        config.environment.value.clone(),
+        config.environment.value,
     );
 
     info!("Starting Twitch bot...");

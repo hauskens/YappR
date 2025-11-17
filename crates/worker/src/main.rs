@@ -3,7 +3,7 @@ mod handlers;
 use futures::StreamExt;
 use tracing::{error, info, instrument, warn};
 use yappr_shared::config::Config;
-use yappr_shared::jobs::DemoJobRequest;
+use yappr_shared::jobs::{DemoJobRequest, FetchVideosJob, UpdateVideosJob};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -102,6 +102,8 @@ fn parse_queues(args: &[String], config: &Config) -> Vec<String> {
 /// Enum representing all possible job types that can be handled
 enum JobType {
     Demo(DemoJobRequest),
+    FetchVideos(FetchVideosJob),
+    UpdateVideos(UpdateVideosJob),
 }
 
 impl JobType {
@@ -109,6 +111,14 @@ impl JobType {
     fn from_payload(payload: &[u8]) -> Option<Self> {
         if let Ok(job) = rmp_serde::from_slice::<DemoJobRequest>(payload) {
             return Some(JobType::Demo(job));
+        }
+
+        if let Ok(job) = rmp_serde::from_slice::<FetchVideosJob>(payload) {
+            return Some(JobType::FetchVideos(job));
+        }
+
+        if let Ok(job) = rmp_serde::from_slice::<UpdateVideosJob>(payload) {
+            return Some(JobType::UpdateVideos(job));
         }
 
         // Add more job type attempts here
@@ -146,6 +156,14 @@ async fn handle_message(
     match job_type {
         JobType::Demo(request) => {
             let response = handlers::handle_demo_job(client, request).await?;
+            send_reply(client, message.reply, response).await?;
+        }
+        JobType::FetchVideos(request) => {
+            let response = handlers::handle_fetch_videos_job(client, request).await?;
+            send_reply(client, message.reply, response).await?;
+        }
+        JobType::UpdateVideos(request) => {
+            let response = handlers::handle_update_videos_job(client, request).await?;
             send_reply(client, message.reply, response).await?;
         }
     }

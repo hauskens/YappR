@@ -19,6 +19,11 @@ pub trait ApiClient: Send + Sync {
         &self,
         user_ids: &[String],
     ) -> Result<Vec<PlatformUser>, Box<dyn Error>>;
+    async fn get_recent_videos_by_channel_id(
+        &self,
+        channel_id: &str,
+        limit: u32,
+    ) -> Result<Vec<PlatformVideo>, Box<dyn Error>>;
 }
 #[async_trait]
 impl ApiClient for PlatformApiClient {
@@ -103,6 +108,61 @@ impl ApiClient for PlatformApiClient {
                     user_count = user_ids.len(),
                     error = %e,
                     "Failed to fetch platform users"
+                );
+            }
+        }
+
+        result
+    }
+
+    #[instrument(level = "info", skip(self, channel_id))]
+    async fn get_recent_videos_by_channel_id(
+        &self,
+        channel_id: &str,
+        limit: u32,
+    ) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
+        let platform = match self {
+            PlatformApiClient::Twitch(_) => "twitch",
+            PlatformApiClient::YouTube(_) => "youtube",
+        };
+
+        info!(
+            platform = platform,
+            channel_id = channel_id,
+            limit = limit,
+            "Fetching recent videos by channel ID"
+        );
+
+        let result = match self {
+            PlatformApiClient::Twitch(client) => {
+                client
+                    .get_recent_videos_by_channel_id(channel_id, limit)
+                    .await
+            }
+            PlatformApiClient::YouTube(client) => {
+                client
+                    .get_recent_videos_by_channel_id(channel_id, limit)
+                    .await
+            }
+        };
+
+        match &result {
+            Ok(videos) => {
+                info!(
+                    platform = platform,
+                    channel_id = channel_id,
+                    limit = limit,
+                    returned_count = videos.len(),
+                    "Successfully fetched recent videos"
+                );
+            }
+            Err(e) => {
+                error!(
+                    platform = platform,
+                    channel_id = channel_id,
+                    limit = limit,
+                    error = %e,
+                    "Failed to fetch recent videos"
                 );
             }
         }

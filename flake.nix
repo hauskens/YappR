@@ -97,6 +97,7 @@
               ./Cargo.toml
               ./Cargo.lock
               (craneLib.fileset.commonCargoSources ./crates/shared)
+              (craneLib.fileset.commonCargoSources ./crates/config-loadr)
               (craneLib.fileset.commonCargoSources crate)
             ];
           };
@@ -164,6 +165,7 @@
                 ./Cargo.toml
                 ./Cargo.lock
                 (craneLib.fileset.commonCargoSources ./crates/shared)
+                (craneLib.fileset.commonCargoSources ./crates/config-loadr)
                 (craneLib.fileset.commonCargoSources ./crates/web)
                 (lib.fileset.fileFilter (
                   file:

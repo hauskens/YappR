@@ -1,0 +1,16 @@
+[package]
+name = "config-loadr"
+version.workspace = true
+edition.workspace = true
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+dotenv = { workspace = true }
+tracing = { workspace = true }
+serde = { workspace = true, optional = true }
+
+[features]
+default = []
+serde = ["dep:serde"]

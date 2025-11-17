@@ -30,7 +30,7 @@ async fn main() -> Result<(), eyre::Report> {
         "discord-bot",
         config.loki_url.value.clone(),
         config.version.value.clone(),
-        config.environment.value.clone(),
+        config.environment.value,
     );
 
     info!("Starting Discord bot...");

@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-yappr-shared = { path = "../shared", features = ["job-queue"] }
+yappr-shared = { path = "../shared", features = ["job-queue", "database", "twitch", "youtube"] }
 async-nats = { workspace = true }
 futures = { workspace = true }
 tokio = { workspace = true, features = ["full"] }

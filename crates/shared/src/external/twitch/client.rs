@@ -138,6 +138,61 @@ impl TwitchApiClient {
 
 #[async_trait]
 impl ApiClient for TwitchApiClient {
+    #[instrument(level = "info", skip(self, channel_id))]
+    async fn get_recent_videos_by_channel_id(
+        &self,
+        channel_id: &str,
+        limit: u32,
+    ) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
+        info!(
+            channel_id = channel_id,
+            limit = limit,
+            "Fetching recent Twitch videos by channel ID"
+        );
+
+        let user_id = UserId::new(channel_id.to_string());
+        let mut request = GetVideosRequest::user_id(user_id);
+        request.first = Some(limit as usize);
+
+        debug!("Making Twitch API request for recent videos");
+        let response = match self.client.req_get(request, &self.token).await {
+            Ok(response) => {
+                debug!(
+                    returned_count = response.data.len(),
+                    "Twitch API recent videos request successful"
+                );
+                response
+            }
+            Err(e) => {
+                error!(error = %e, channel_id = channel_id, limit = limit, "Twitch API recent videos request failed");
+                return Err(e.into());
+            }
+        };
+
+        let videos: Vec<PlatformVideo> = response
+            .data
+            .into_iter()
+            .map(|video| PlatformVideo {
+                id: video.id.to_string(),
+                title: video.title.clone(),
+                duration: None,
+                created_at: video.created_at.to_string().parse().unwrap(),
+                thumbnail_url: Some(video.thumbnail_url.clone()),
+                view_count: Some(video.view_count as u64),
+                video_type: Videotype::Vod,
+            })
+            .collect();
+
+        info!(
+            channel_id = channel_id,
+            limit = limit,
+            returned_count = videos.len(),
+            "Successfully processed recent Twitch videos"
+        );
+
+        Ok(videos)
+    }
+
     #[instrument(level = "info", skip(self, video_ids))]
     async fn get_platform_videos_by_ids(
         &self,

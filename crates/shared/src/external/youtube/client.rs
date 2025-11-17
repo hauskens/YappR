@@ -98,6 +98,25 @@ struct YouTubeChannelSnippet {
 }
 
 #[cfg(feature = "youtube")]
+#[derive(Debug, Deserialize)]
+struct YouTubeSearchListResponse {
+    items: Vec<YouTubeSearchResult>,
+}
+
+#[cfg(feature = "youtube")]
+#[derive(Debug, Deserialize)]
+struct YouTubeSearchResult {
+    id: YouTubeSearchId,
+}
+
+#[cfg(feature = "youtube")]
+#[derive(Debug, Deserialize)]
+struct YouTubeSearchId {
+    #[serde(rename = "videoId")]
+    video_id: Option<String>,
+}
+
+#[cfg(feature = "youtube")]
 impl YouTubeApiClient {
     /// Create a new YouTube API client
     #[instrument(level = "info")]
@@ -174,6 +193,86 @@ impl YouTubeApiClient {
 
 #[async_trait]
 impl ApiClient for YouTubeApiClient {
+    #[instrument(level = "info", skip(self, channel_id))]
+    async fn get_recent_videos_by_channel_id(
+        &self,
+        channel_id: &str,
+        limit: u32,
+    ) -> Result<Vec<PlatformVideo>, Box<dyn Error>> {
+        info!(
+            channel_id = channel_id,
+            limit = limit,
+            "Fetching recent YouTube videos by channel ID"
+        );
+
+        // First, use the search endpoint to get recent video IDs for the channel
+        let mut params = HashMap::new();
+        params.insert("key", self.api_key.as_str());
+        params.insert("part", "id");
+        params.insert("channelId", channel_id);
+        params.insert("type", "video");
+        params.insert("order", "date");
+        let limit_str = limit.to_string();
+        params.insert("maxResults", &limit_str);
+
+        let search_url = format!("{}/search", self.base_url);
+        debug!(url = %search_url, "Making YouTube API search request");
+
+        let search_response = match self.client.get(&search_url).query(&params).send().await {
+            Ok(response) => {
+                debug!(status = %response.status(), "YouTube search API response received");
+                response
+            }
+            Err(e) => {
+                error!(error = %e, channel_id = channel_id, "YouTube search API request failed");
+                return Err(e.into());
+            }
+        };
+
+        if !search_response.status().is_success() {
+            error!(status = %search_response.status(), channel_id = channel_id, "YouTube search API returned error status");
+            return Err(format!("YouTube search API error: {}", search_response.status()).into());
+        }
+
+        let search_result: YouTubeSearchListResponse =
+            match search_response.json::<YouTubeSearchListResponse>().await {
+                Ok(parsed) => {
+                    debug!(
+                        returned_count = parsed.items.len(),
+                        "YouTube search API response parsed successfully"
+                    );
+                    parsed
+                }
+                Err(e) => {
+                    error!(error = %e, "Failed to parse YouTube search API response");
+                    return Err(e.into());
+                }
+            };
+
+        // Extract video IDs from search results
+        let video_ids: Vec<String> = search_result
+            .items
+            .into_iter()
+            .filter_map(|item| item.id.video_id)
+            .collect();
+
+        if video_ids.is_empty() {
+            info!(
+                channel_id = channel_id,
+                "No recent videos found for channel"
+            );
+            return Ok(Vec::new());
+        }
+
+        debug!(
+            video_count = video_ids.len(),
+            "Found video IDs, fetching detailed information"
+        );
+
+        // Now fetch the full video details using the video IDs
+        self.get_platform_videos_by_ids(&video_ids).await
+    }
+
     #[instrument(level = "info", skip(self, video_ids))]
     async fn get_platform_videos_by_ids(
         &self,
